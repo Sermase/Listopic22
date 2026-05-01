@@ -1,4 +1,4 @@
-const CACHE_NAME = 'listopic-shell-v2';
+const CACHE_NAME = 'listopic-shell-v3';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -40,10 +40,34 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(async () => {
+      fetch(request).then((response) => {
+        if (response.ok) return response;
+        return caches.open(CACHE_NAME).then((cache) => cache.match('/index.html')).then((fallback) => fallback || response);
+      }).catch(async () => {
         const cache = await caches.open(CACHE_NAME);
         return cache.match('/index.html');
       }),
+    );
+    return;
+  }
+
+  if (request.destination === 'script' || request.destination === 'style' || request.destination === 'worker') {
+    event.respondWith(
+      fetch(request)
+        .then((networkResponse) => {
+          if (networkResponse.ok) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(async () => {
+          const cachedResponse = await caches.match(request);
+          if (cachedResponse) return cachedResponse;
+          throw new Error('Asset unavailable offline');
+        }),
     );
     return;
   }
@@ -52,10 +76,12 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cachedResponse) => {
       const networkFetch = fetch(request)
         .then((networkResponse) => {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseClone);
-          });
+          if (networkResponse.ok) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone);
+            });
+          }
           return networkResponse;
         })
         .catch(() => cachedResponse);

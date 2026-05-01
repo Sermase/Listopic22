@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocFromServer } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export interface UserProfileEntity {
@@ -11,6 +11,7 @@ export interface UserProfileEntity {
     name?: string;
     surnames?: string;
     photoUrl?: string;
+    photoStoragePath?: string;
     userType: 'user' | 'admin' | 'jefe' | string[];
     bio?: string;
     location?: string;
@@ -45,10 +46,18 @@ export const useUserProfile = (uid: string | undefined) => {
         queryKey: ['userProfile', uid],
         enabled: !!uid,
         queryFn: async () => {
-            const snap = await getDoc(doc(db, 'users', uid!));
+            const userRef = doc(db, 'users', uid!);
+            let snap;
+            try {
+                snap = await getDocFromServer(userRef);
+            } catch {
+                snap = await getDoc(userRef);
+            }
             if (!snap.exists()) throw new Error('Perfil no encontrado');
             return { uid: snap.id, ...snap.data() } as UserProfileEntity;
         },
+        staleTime: 30 * 1000,
+        refetchOnMount: 'always',
     });
 
     return {
