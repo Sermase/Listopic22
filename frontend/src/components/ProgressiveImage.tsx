@@ -1,5 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
 
+const FIREBASE_STORAGE_HOST = 'firebasestorage.googleapis.com';
+
+const getFirebaseStorageRetryUrl = (src: string): string | null => {
+    try {
+        const url = new URL(src);
+        if (!url.hostname.includes(FIREBASE_STORAGE_HOST) || !url.searchParams.has('token')) {
+            return null;
+        }
+        url.searchParams.delete('token');
+        return url.toString();
+    } catch {
+        return null;
+    }
+};
+
 interface ProgressiveImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
     src: string;
     alt?: string;
@@ -19,7 +34,14 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
 }) => {
     const [loaded, setLoaded] = useState(false);
     const [failed, setFailed] = useState(false);
+    const [effectiveSrc, setEffectiveSrc] = useState(src);
     const imgRef = useRef<HTMLImageElement>(null);
+    const retriedFirebaseStorageRef = useRef(false);
+
+    useEffect(() => {
+        setEffectiveSrc(src);
+        retriedFirebaseStorageRef.current = false;
+    }, [src]);
 
     useEffect(() => {
         let cancelled = false;
@@ -33,7 +55,7 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
             }
         });
         return () => { cancelled = true; };
-    }, [src]);
+    }, [effectiveSrc]);
 
     if (failed && fallback) {
         return (
@@ -50,10 +72,19 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
             />
             <img
                 ref={imgRef}
-                src={src}
+                src={effectiveSrc}
                 alt={alt || ''}
                 onLoad={(e) => { setLoaded(true); onLoadProp?.(e); }}
                 onError={(e) => {
+                    const retrySrc = getFirebaseStorageRetryUrl(effectiveSrc);
+                    if (!retriedFirebaseStorageRef.current && retrySrc && retrySrc !== effectiveSrc) {
+                        retriedFirebaseStorageRef.current = true;
+                        setLoaded(false);
+                        setFailed(false);
+                        setEffectiveSrc(retrySrc);
+                        return;
+                    }
+
                     setFailed(true);
                     onErrorProp?.(e);
                 }}

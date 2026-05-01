@@ -11,6 +11,21 @@ import { Capacitor } from '@capacitor/core';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { NotificationModal } from './NotificationModal';
 
+const FIREBASE_STORAGE_HOST = 'firebasestorage.googleapis.com';
+
+const getFirebaseStorageRetryUrl = (src: string): string | null => {
+    try {
+        const url = new URL(src);
+        if (!url.hostname.includes(FIREBASE_STORAGE_HOST) || !url.searchParams.has('token')) {
+            return null;
+        }
+        url.searchParams.delete('token');
+        return url.toString();
+    } catch {
+        return null;
+    }
+};
+
 const NavItem = ({ to, icon: Icon, label, badge, count, isActive }: { to: string; icon: React.ElementType; label: string; badge?: boolean; count?: number; isActive: boolean }) => {
     return (
         <Link
@@ -59,11 +74,18 @@ export const Navbar: React.FC = () => {
     const [unreadChatCount, setUnreadChatCount] = useState(0);
     const [profileUsername, setProfileUsername] = useState('');
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
+    const [profilePhotoRetryUrl, setProfilePhotoRetryUrl] = useState('');
     const [failedProfilePhotoUrl, setFailedProfilePhotoUrl] = useState('');
-    const displayProfilePhotoUrl = profilePhotoUrl && profilePhotoUrl !== failedProfilePhotoUrl
-        ? profilePhotoUrl
+    const profilePhotoCandidateUrl = profilePhotoRetryUrl || profilePhotoUrl;
+    const displayProfilePhotoUrl = profilePhotoCandidateUrl && profilePhotoCandidateUrl !== failedProfilePhotoUrl
+        ? profilePhotoCandidateUrl
         : (user?.photoURL && user.photoURL !== failedProfilePhotoUrl ? user.photoURL : '');
-    const handleProfileImageError = () => {
+    const handleProfileImageError = (event: React.SyntheticEvent<HTMLImageElement>) => {
+        const retryUrl = getFirebaseStorageRetryUrl(event.currentTarget.currentSrc || event.currentTarget.src);
+        if (retryUrl && retryUrl !== displayProfilePhotoUrl) {
+            setProfilePhotoRetryUrl(retryUrl);
+            return;
+        }
         if (displayProfilePhotoUrl) setFailedProfilePhotoUrl(displayProfilePhotoUrl);
     };
 
@@ -111,6 +133,7 @@ export const Navbar: React.FC = () => {
 
             setProfileUsername(username);
             setProfilePhotoUrl(photoUrl);
+            setProfilePhotoRetryUrl('');
             setFailedProfilePhotoUrl('');
         }, (error) => {
             console.warn('Navbar profile snapshot error:', error);
