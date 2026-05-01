@@ -35,9 +35,17 @@ service firebase.storage {
     }
 
     // Aceptamos solo imágenes razonables: <= 10 MB y content-type image/*.
+    // Algunos WebViews Android reportan contentType vacío pese a enviar metadatos.
     function isValidImage() {
       return request.resource.size < 10 * 1024 * 1024 &&
              request.resource.contentType.matches('image/.*');
+    }
+
+    // Fallback estricto para rutas de fotos de lugares: permite jpg/jpeg/png
+    // aunque contentType venga vacío en clientes móviles concretos.
+    function isValidPlaceImageFallback() {
+      return request.resource.size < 10 * 1024 * 1024 &&
+             request.resource.name.matches('.*\.(jpg|jpeg|png|JPG|JPEG|PNG)$');
     }
 
     // --- Reseñas: el dueño del uid del path puede escribir, todos pueden leer. ---
@@ -49,7 +57,7 @@ service firebase.storage {
     // --- Fotos propias de lugares: cualquier usuario puede aportar sus fotos. ---
     match /places/{placeId}/{userId}/{allPaths=**} {
       allow read;
-      allow write: if isSignedIn() && request.auth.uid == userId && isValidImage();
+      allow write: if isSignedIn() && request.auth.uid == userId && (isValidImage() || isValidPlaceImageFallback());
     }
 
     // --- Fotos de perfil (ruta usada por el frontend). ---

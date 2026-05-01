@@ -1,11 +1,45 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { addDoc, collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { FirebaseError } from 'firebase/app';
 import type { User } from 'firebase/auth';
 import { Camera, ImagePlus, Loader2, Trash2, X } from 'lucide-react';
 import { db, storage } from '../firebase';
 import { PhotoEditorModal, type ProcessedPhoto } from './PhotoEditorModal';
+
+
+
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+function getErrorCode(error: unknown): string | null {
+    if (error instanceof FirebaseError && typeof error.code === 'string') return error.code;
+    if (typeof error === 'object' && error !== null && 'code' in error) {
+        const candidate = (error as { code?: unknown }).code;
+        return typeof candidate === 'string' ? candidate : null;
+    }
+    return null;
+}
+
+function getUploadErrorMessage(error: unknown): string {
+    const code = getErrorCode(error);
+
+    if (code === 'storage/unauthorized' || code === 'permission-denied') {
+        return 'No tienes permisos para subir fotos en este momento. Cierra sesión, vuelve a entrar y revisa permisos de Fotos/Archivos en tu móvil.';
+    }
+    if (code === 'storage/retry-limit-exceeded' || code === 'storage/canceled' || code === 'storage/unknown') {
+        return 'La subida se interrumpió por conexión o por un bloqueo temporal. Cambia de red y vuelve a intentarlo.';
+    }
+    if (code === 'storage/quota-exceeded') {
+        return 'No hay espacio disponible para guardar más fotos ahora mismo. Inténtalo más tarde.';
+    }
+
+    if (code) {
+        return `No se pudo subir la foto (error: ${code}). Inténtalo de nuevo.`;
+    }
+
+    return 'No se pudieron subir las fotos. Revisa permisos o inténtalo de nuevo.';
+}
 
 interface PlacePhotoUploadModalProps {
     isOpen: boolean;
@@ -30,6 +64,8 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
     const [captions, setCaptions] = useState<string[]>([]);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const oversizedCount = useMemo(() => processedPhotos.filter(photo => photo.blob.size > MAX_UPLOAD_BYTES).length, [processedPhotos]);
 
     if (!isOpen) return null;
 
@@ -62,6 +98,13 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
         }
         if (processedPhotos.length === 0) {
             setError('Añade al menos una foto.');
+            return;
+        }
+
+        if (oversizedCount > 0) {
+            setError(oversizedCount === 1
+                ? 'Una foto supera el tamaño máximo de 10 MB. Reencuádra la imagen o usa otra más ligera.'
+                : 'Hay fotos que superan el tamaño máximo de 10 MB. Reencuádralas o usa imágenes más ligeras.');
             return;
         }
 
@@ -104,7 +147,7 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
             onClose();
         } catch (err) {
             console.error('Place photo upload failed', err);
-            setError('No se pudieron subir las fotos. Revisa permisos o inténtalo de nuevo.');
+            setError(getUploadErrorMessage(err));
         } finally {
             setUploading(false);
         }
