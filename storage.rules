@@ -38,6 +38,7 @@ service firebase.storage {
     // Algunos WebViews Android reportan contentType vacío pese a enviar metadatos.
     function isValidImage() {
       return request.resource.size < 10 * 1024 * 1024 &&
+             request.resource.contentType is string &&
              request.resource.contentType.matches('image/.*');
     }
 
