@@ -166,6 +166,18 @@ const getProfileUploadErrorMessage = (error: unknown): string => {
     : "No se pudo subir la foto de perfil. Inténtalo de nuevo.";
 };
 
+const getProfileSaveErrorMessage = (error: unknown): string => {
+  const code = getErrorCode(error);
+
+  if (code === "permission-denied") {
+    return "La foto se ha subido, pero no se pudo guardar en tu perfil por permisos de Firestore.";
+  }
+
+  return code
+    ? `La foto se ha subido, pero no se pudo guardar en tu perfil (error: ${code}).`
+    : "La foto se ha subido, pero no se pudo guardar en tu perfil.";
+};
+
 const getImageExtension = (file: File): string => {
   const extensionByType: Record<string, string> = {
     "image/jpeg": "jpg",
@@ -1407,32 +1419,48 @@ export const ProfilePage: React.FC = () => {
     try {
       const extension = getImageExtension(file);
       const storagePath = `profile_images/${user.uid}/${Date.now()}.${extension}`;
-      const storageRef = ref(
-        storage,
-        storagePath,
-      );
-      await uploadBytes(storageRef, file, { contentType: file.type || "image/jpeg" });
-      const downloadURL = await getDownloadURL(storageRef);
+      const storageRef = ref(storage, storagePath);
+      let downloadURL = "";
 
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          photoUrl: downloadURL,
-          photoStoragePath: storagePath,
-          updatedAt: serverTimestamp(),
-        },
-        { merge: true },
-      );
-      await updateProfile(user, { photoURL: downloadURL });
+      try {
+        await uploadBytes(storageRef, file, { contentType: file.type || "image/jpeg" });
+        downloadURL = await getDownloadURL(storageRef);
+      } catch (error) {
+        console.error("Profile photo upload failed:", error);
+        alert(getProfileUploadErrorMessage(error));
+        return;
+      }
 
-      await propagateAuthorFieldsToReviews(user.uid, { authorPhoto: downloadURL });
+      try {
+        await setDoc(
+          doc(db, "users", user.uid),
+          {
+            photoUrl: downloadURL,
+            photoStoragePath: storagePath,
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        );
+      } catch (error) {
+        console.error("Profile photo profile save failed:", error);
+        alert(getProfileSaveErrorMessage(error));
+        return;
+      }
+
+      void updateProfile(user, { photoURL: downloadURL }).catch((error) => {
+        console.warn("ProfilePage: could not update auth profile photo", error);
+      });
+
+      void propagateAuthorFieldsToReviews(user.uid, { authorPhoto: downloadURL }).catch((error) => {
+        console.warn("ProfilePage: could not propagate profile photo to reviews", error);
+      });
       setFailedProfilePhotoUrl(null);
 
       // Reload to show changes (simple approach)
       window.location.reload();
     } catch (error) {
       console.error("Error uploading image:", error);
-      alert(getProfileUploadErrorMessage(error));
+      alert("No se pudo cambiar la foto de perfil. Inténtalo de nuevo.");
     } finally {
       setUploading(false);
       setDragActive(false);
