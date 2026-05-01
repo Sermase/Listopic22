@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface UserAvatarProps {
     photoUrl?: string | null;
@@ -41,10 +41,16 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
     size = 'md',
     className = '',
 }) => {
+    const [failedSrc, setFailedSrc] = useState<string | null>(null);
     const grad = getUserTypeGradient(userType);
     const s = SIZES[size];
     const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName || 'U')}&background=374151&color=fff`;
+    const imageSrc = photoUrl && photoUrl !== failedSrc ? photoUrl : fallback;
     const gradClass = grad.classes ? `bg-gradient-to-tr ${grad.classes}` : '';
+
+    useEffect(() => {
+        setFailedSrc(null);
+    }, [photoUrl]);
 
     return (
         <div className={`relative shrink-0 ${s.wrap} ${className}`}>
@@ -60,8 +66,11 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
             >
                 <div className="w-full h-full rounded-full overflow-hidden bg-[var(--lt-card-strong)]">
                     <img
-                        src={photoUrl || fallback}
+                        src={imageSrc}
                         alt={displayName || 'Usuario'}
+                        onError={() => {
+                            if (photoUrl) setFailedSrc(photoUrl);
+                        }}
                         className="w-full h-full object-cover block"
                     />
                 </div>

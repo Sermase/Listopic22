@@ -59,6 +59,13 @@ export const Navbar: React.FC = () => {
     const [unreadChatCount, setUnreadChatCount] = useState(0);
     const [profileUsername, setProfileUsername] = useState('');
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
+    const [failedProfilePhotoUrl, setFailedProfilePhotoUrl] = useState('');
+    const displayProfilePhotoUrl = profilePhotoUrl && profilePhotoUrl !== failedProfilePhotoUrl
+        ? profilePhotoUrl
+        : (user?.photoURL && user.photoURL !== failedProfilePhotoUrl ? user.photoURL : '');
+    const handleProfileImageError = () => {
+        if (displayProfilePhotoUrl) setFailedProfilePhotoUrl(displayProfilePhotoUrl);
+    };
 
     useEffect(() => {
         const handleScroll = () => {
@@ -104,6 +111,7 @@ export const Navbar: React.FC = () => {
 
             setProfileUsername(username);
             setProfilePhotoUrl(photoUrl);
+            setFailedProfilePhotoUrl('');
         }, (error) => {
             console.warn('Navbar profile snapshot error:', error);
         });
@@ -244,8 +252,8 @@ export const Navbar: React.FC = () => {
                                 <div className="relative">
                                     <div className="w-10 h-10 rounded-full p-[2px] transition-transform group-hover:scale-105 shadow-lg" style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 12px var(--lt-accent-shadow)' }}>
                                         <div className="w-full h-full rounded-full bg-[var(--lt-card-strong)] flex items-center justify-center overflow-hidden">
-                                            {(profilePhotoUrl || user.photoURL) ? (
-                                                <img src={profilePhotoUrl || user.photoURL || ''} alt="Profile" className="w-full h-full object-cover block" />
+                                            {displayProfilePhotoUrl ? (
+                                                <img src={displayProfilePhotoUrl} onError={handleProfileImageError} alt="Profile" className="w-full h-full object-cover block" />
                                             ) : (
                                                 <User className="w-5 h-5 text-[var(--lt-accent)]" />
                                             )}
@@ -265,8 +273,8 @@ export const Navbar: React.FC = () => {
                             <Link to={`/profile/${user.uid}`} className="relative shrink-0 group">
                                 <div className="w-9 h-9 rounded-full p-[2px] transition-transform group-active:scale-95 shadow-md" style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 2px 8px var(--lt-accent-shadow)' }}>
                                     <div className="w-full h-full rounded-full bg-[var(--lt-card-strong)] flex items-center justify-center overflow-hidden">
-                                        {(profilePhotoUrl || user.photoURL) ? (
-                                            <img src={profilePhotoUrl || user.photoURL || ''} alt="Perfil" className="w-full h-full object-cover block" />
+                                        {displayProfilePhotoUrl ? (
+                                            <img src={displayProfilePhotoUrl} onError={handleProfileImageError} alt="Perfil" className="w-full h-full object-cover block" />
                                         ) : (
                                             <User className="w-4 h-4 text-[var(--lt-accent)]" />
                                         )}
@@ -291,8 +299,8 @@ export const Navbar: React.FC = () => {
                         {user ? (
                             <Link to={`/profile/${user.uid}`} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--lt-text)]">
                                 <div className="w-12 h-12 rounded-full overflow-hidden bg-[var(--lt-bg)] border border-white/10 shrink-0">
-                                    {(profilePhotoUrl || user.photoURL) ? (
-                                        <img src={profilePhotoUrl || user.photoURL || ''} alt="Perfil" className="w-full h-full object-cover" />
+                                    {displayProfilePhotoUrl ? (
+                                        <img src={displayProfilePhotoUrl} onError={handleProfileImageError} alt="Perfil" className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center">
                                             <User className="w-5 h-5 text-[var(--lt-accent)]" />

@@ -140,6 +140,49 @@ const EMPTY_ADVANCED_STATS: AdvancedProfileStats = {
   statsByList: {},
 };
 
+const getErrorCode = (error: unknown): string | null => {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const candidate = (error as { code?: unknown }).code;
+    return typeof candidate === "string" ? candidate : null;
+  }
+  return null;
+};
+
+const getProfileUploadErrorMessage = (error: unknown): string => {
+  const code = getErrorCode(error);
+
+  if (code === "storage/unauthorized" || code === "permission-denied") {
+    return "No tienes permisos para cambiar la foto de perfil. Cierra sesión, vuelve a entrar e inténtalo de nuevo.";
+  }
+  if (code === "storage/retry-limit-exceeded" || code === "storage/canceled" || code === "storage/unknown") {
+    return "La subida se interrumpió por conexión o por un bloqueo temporal. Cambia de red y vuelve a intentarlo.";
+  }
+  if (code === "storage/quota-exceeded") {
+    return "No hay espacio disponible para guardar la foto de perfil ahora mismo. Inténtalo más tarde.";
+  }
+
+  return code
+    ? `No se pudo subir la foto de perfil (error: ${code}). Inténtalo de nuevo.`
+    : "No se pudo subir la foto de perfil. Inténtalo de nuevo.";
+};
+
+const getImageExtension = (file: File): string => {
+  const extensionByType: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "image/heic": "heic",
+    "image/heif": "heif",
+  };
+
+  if (extensionByType[file.type]) return extensionByType[file.type];
+
+  const nameExtension = file.name.split(".").pop()?.toLowerCase();
+  return nameExtension && /^[a-z0-9]+$/.test(nameExtension) ? nameExtension : "jpg";
+};
+
 export const ProfilePage: React.FC = () => {
   const { user } = useAuth();
   const { theme: activeTheme, setTheme: applyTheme, themes: availableThemes } = useTheme();
@@ -246,6 +289,7 @@ export const ProfilePage: React.FC = () => {
 
   const [dominantColor, setDominantColor] = useState<string | null>(null);
   const [heroProfileReady, setHeroProfileReady] = useState(false);
+  const [failedProfilePhotoUrl, setFailedProfilePhotoUrl] = useState<string | null>(null);
 
   // Hooks need to be before effects
   const {
@@ -268,6 +312,7 @@ export const ProfilePage: React.FC = () => {
     setDetailsModalTab("stats");
     setIsAvatarModalOpen(false);
     setDominantColor(null);
+    setFailedProfilePhotoUrl(null);
   }, [targetUserId]);
 
   const {
@@ -512,24 +557,46 @@ export const ProfilePage: React.FC = () => {
   }, [isOwnProfile, rawProfile, targetUserId, user]);
 
   useEffect(() => {
-    if (profile?.photoUrl) {
-      const fac = new FastAverageColor();
-      // Use crossOrigin anonymous to avoid canvas tainting for Firebase Storage images
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.src = profile.photoUrl;
-
-      img.onload = () => {
-        fac.getColorAsync(img)
-          .then((color) => {
-            setDominantColor(color.rgba);
-          })
-          .catch((e) => {
-            console.log("FAC Error:", e);
-          });
-      };
+    const photoUrl = profile?.photoUrl?.trim();
+    if (!photoUrl || photoUrl === failedProfilePhotoUrl) {
+      setDominantColor(null);
+      return;
     }
-  }, [profile?.photoUrl]);
+
+    // Google account avatars can rate-limit repeated anonymous image probes.
+    // We still render them as avatars, but we do not use them for color sampling.
+    if (photoUrl.includes('googleusercontent.com')) {
+      setDominantColor(null);
+      return;
+    }
+
+    let cancelled = false;
+    const fac = new FastAverageColor();
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      fac.getColorAsync(img)
+        .then((color) => {
+          if (!cancelled) setDominantColor(color.rgba);
+        })
+        .catch((e) => {
+          console.log("FAC Error:", e);
+        });
+    };
+    img.onerror = () => {
+      if (!cancelled) {
+        setFailedProfilePhotoUrl(photoUrl);
+        setDominantColor(null);
+      }
+    };
+    img.src = photoUrl;
+
+    return () => {
+      cancelled = true;
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [failedProfilePhotoUrl, profile?.photoUrl]);
 
   useEffect(() => {
     if (!targetUserId) return;
@@ -1276,28 +1343,34 @@ export const ProfilePage: React.FC = () => {
 
     setUploading(true);
     try {
+      const extension = getImageExtension(file);
+      const storagePath = `profile_images/${user.uid}/${Date.now()}.${extension}`;
       const storageRef = ref(
         storage,
-        `profile_images/${user.uid}/${Date.now()}_${file.name}`,
+        storagePath,
       );
-      await uploadBytes(storageRef, file);
+      await uploadBytes(storageRef, file, { contentType: file.type || "image/jpeg" });
       const downloadURL = await getDownloadURL(storageRef);
 
       await setDoc(
         doc(db, "users", user.uid),
         {
           photoUrl: downloadURL,
+          photoStoragePath: storagePath,
+          updatedAt: serverTimestamp(),
         },
         { merge: true },
       );
+      await updateProfile(user, { photoURL: downloadURL });
 
-      propagateAuthorFieldsToReviews(user.uid, { authorPhoto: downloadURL });
+      await propagateAuthorFieldsToReviews(user.uid, { authorPhoto: downloadURL });
+      setFailedProfilePhotoUrl(null);
 
       // Reload to show changes (simple approach)
       window.location.reload();
     } catch (error) {
       console.error("Error uploading image:", error);
-      alert("Error al subir la imagen");
+      alert(getProfileUploadErrorMessage(error));
     } finally {
       setUploading(false);
       setDragActive(false);
@@ -1556,19 +1629,23 @@ export const ProfilePage: React.FC = () => {
   const profileShareSubtitle = profile.username ? `@${profile.username}` : "";
   const profileShareText = `Mira este perfil en Listopic: ${profileShareTitle}`;
   const hasLockedUsername = isUsernameValid((profile.username || "").trim());
+  const profileFallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.displayName || profile.username || "User")}&background=374151&color=fff`;
+  const usableProfilePhotoUrl = profile.photoUrl && profile.photoUrl !== failedProfilePhotoUrl ? profile.photoUrl : "";
+  const profileAvatarSrc = usableProfilePhotoUrl || profileFallbackAvatar;
 
   return (
     <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
       {/* Header / Banner */}
-      <div className={`h-[40vh] min-h-[300px] relative overflow-hidden group ${heroProfileReady || !profile.photoUrl ? 'animate-hero-from-right' : ''}`}>
+      <div className={`h-[40vh] min-h-[300px] relative overflow-hidden group ${heroProfileReady || !usableProfilePhotoUrl ? 'animate-hero-from-right' : ''}`}>
         <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
-        {profile.photoUrl ? (
+        {usableProfilePhotoUrl ? (
           <ProgressiveImage
-            src={profile.photoUrl}
+            src={usableProfilePhotoUrl}
             alt={profile.displayName || profile.username || ''}
             containerClassName="absolute inset-0"
             className="w-full h-full object-cover object-center opacity-80 transition-transform duration-700 group-hover:scale-105"
             onLoad={() => setHeroProfileReady(true)}
+            onError={() => setFailedProfilePhotoUrl(usableProfilePhotoUrl)}
           />
         ) : (
           <div className="absolute inset-0"
@@ -1623,10 +1700,14 @@ export const ProfilePage: React.FC = () => {
             <div className="relative w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[var(--lt-bg)] p-1.5 md:p-2">
               <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-[3px] border-[var(--lt-bg)] shadow-2xl relative">
                 <ProgressiveImage
-                  src={profile.photoUrl || `https://ui-avatars.com/api/?name=${profile.displayName || profile.username || "User"}`}
+                  src={profileAvatarSrc}
                   alt={profile.username}
                   containerClassName="w-full h-full"
                   className="w-full h-full object-cover"
+                  fallback={<img src={profileFallbackAvatar} alt={profile.username} className="w-full h-full object-cover" />}
+                  onError={() => {
+                    if (usableProfilePhotoUrl) setFailedProfilePhotoUrl(usableProfilePhotoUrl);
+                  }}
                 />
               </div>
             </div>
@@ -1989,10 +2070,14 @@ export const ProfilePage: React.FC = () => {
               <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-full bg-[var(--lt-bg)] p-2 shadow-[0_0_50px_rgba(99,102,241,0.2)]">
                 <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-4 border-[var(--lt-bg)]">
                   <ProgressiveImage
-                    src={profile.photoUrl || `https://ui-avatars.com/api/?name=${profile.displayName || profile.username || "User"}`}
+                    src={profileAvatarSrc}
                     alt={profile.username}
                     containerClassName="w-full h-full"
                     className="w-full h-full object-cover"
+                    fallback={<img src={profileFallbackAvatar} alt={profile.username} className="w-full h-full object-cover" />}
+                    onError={() => {
+                      if (usableProfilePhotoUrl) setFailedProfilePhotoUrl(usableProfilePhotoUrl);
+                    }}
                   />
                 </div>
               </div>
@@ -2291,10 +2376,11 @@ export const ProfilePage: React.FC = () => {
 
                             <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 grayscale group-hover:grayscale-0 transition-all">
                               <ProgressiveImage
-                                src={profile.photoUrl || `https://ui-avatars.com/api/?name=${profile.displayName}`}
+                                src={profileAvatarSrc}
                                 alt="Custom"
                                 containerClassName="w-full h-full"
                                 className="w-full h-full object-cover"
+                                fallback={<img src={profileFallbackAvatar} alt="Custom" className="w-full h-full object-cover" />}
                               />
                             </div>
                             <span className="text-xs font-bold text-gray-300">

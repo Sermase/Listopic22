@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Users, UserPlus, MessageCircle } from 'lucide-react';
 import { type UserProfileEntity } from '../hooks/useUserProfile';
-import { getUserTypeGradient } from './UserAvatar';
+import { UserAvatar } from './UserAvatar';
 
 interface UserCardProps {
     user: UserProfileEntity;
@@ -12,15 +12,13 @@ export const UserCard: React.FC<UserCardProps> = ({ user }) => {
     return (
         <Link to={`/profile/${user.uid}`} className="group relative bg-[var(--lt-card-strong)] rounded-xl p-6 flex flex-col items-center border border-white/5 hover:border-[var(--lt-accent-border)] transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-[var(--lt-accent-shadow)]">
             {/* Avatar */}
-            <div className={`w-20 h-20 rounded-full bg-gradient-to-br ${getUserTypeGradient(user.userType)} p-1 mb-4 group-hover:scale-110 transition-transform`}>
-                <div className="w-full h-full rounded-full bg-[var(--lt-card-strong)] overflow-hidden flex items-center justify-center border-2 border-[var(--lt-card-strong)]">
-                    {user.photoUrl ? (
-                        <img src={user.photoUrl} alt={user.displayName} className="w-full h-full object-cover" />
-                    ) : (
-                        <span className="text-2xl font-bold text-white">{user.displayName?.[0]?.toUpperCase() || 'U'}</span>
-                    )}
-                </div>
-            </div>
+            <UserAvatar
+                photoUrl={user.photoUrl}
+                displayName={user.displayName || user.username}
+                userType={user.userType}
+                size="lg"
+                className="mb-4 group-hover:scale-110 transition-transform"
+            />
 
             {/* Info */}
             <div className="text-center w-full mb-4">
