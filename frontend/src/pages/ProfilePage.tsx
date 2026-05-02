@@ -659,7 +659,6 @@ export const ProfilePage: React.FC = () => {
     };
     img.onerror = () => {
       if (!cancelled) {
-        setFailedProfilePhotoUrl(photoUrl);
         setDominantColor(null);
       }
     };
