@@ -758,6 +758,33 @@ html.theme-light .text-red-300 { color: #b91c1c !important; }
 html.theme-light .text-red-400 { color: #dc2626 !important; }
 html.theme-light .text-emerald-300 { color: #047857 !important; }
 html.theme-light .text-emerald-400 { color: #059669 !important; }
+html.theme-light .text-pink-100 { color: #9d174d !important; }
+html.theme-light .text-pink-200,
+html.theme-light .text-pink-300 { color: #be185d !important; }
+html.theme-light .text-pink-200\/70 { color: rgba(190, 24, 93, 0.78) !important; }
+html.theme-light .text-pink-400 { color: #db2777 !important; }
+html.theme-light .text-fuchsia-100 { color: #86198f !important; }
+html.theme-light .text-fuchsia-200,
+html.theme-light .text-fuchsia-300 { color: #a21caf !important; }
+html.theme-light .text-rose-100 { color: #9f1239 !important; }
+html.theme-light .text-rose-200,
+html.theme-light .text-rose-300 { color: #be123c !important; }
+html.theme-light .text-blue-300 { color: #2563eb !important; }
+html.theme-light .text-cyan-300 { color: #0e7490 !important; }
+
+html.theme-light .lt-affinity-card {
+    background: linear-gradient(90deg, rgba(236, 72, 153, 0.10), rgba(217, 70, 239, 0.08), rgba(99, 102, 241, 0.08)) !important;
+    border-color: rgba(190, 24, 93, 0.22) !important;
+}
+html.theme-light .lt-affinity-title { color: #831843 !important; }
+html.theme-light .lt-affinity-reason,
+html.theme-light .lt-affinity-meta { color: #4b5563 !important; }
+html.theme-light .lt-affinity-score { color: #be185d !important; }
+html.theme-light .lt-affinity-match { color: rgba(190, 24, 93, 0.78) !important; }
+html.theme-light .lt-affinity-chip {
+    background: rgba(190, 24, 93, 0.08) !important;
+    color: #831843 !important;
+}
 
 /* Common translucent white surfaces (bg-white/X) and borders flip so
    semi-transparent panels keep the glass effect over a light canvas. */

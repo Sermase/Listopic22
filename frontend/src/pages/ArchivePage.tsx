@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useArchives, type SavedItemEntity } from '../hooks/useArchives';
 import { Folder, MapPin, MessageSquare, List as ListIcon, Trash2, Map as MapIcon, X, Filter, Edit2, Search, Check, MoreVertical, Image as ImageIcon } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { collection, collectionGroup, deleteDoc, deleteField, getDocs, limit, orderBy, query, doc, getDoc, updateDoc, where } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
@@ -9,6 +9,7 @@ import { db, storage } from '../firebase';
 import { MapView } from '../components/MapView';
 import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import { AddReviewForm } from '../components/AddReviewForm';
+import { ProgressiveImage } from '../components/ProgressiveImage';
 import type { MapItem } from '../components/MapView';
 
 const COLOR_OPTIONS = [
@@ -88,6 +89,8 @@ interface UploadedReviewPhoto {
     createdAt?: unknown;
 }
 
+type ArchiveSavedItem = SavedItemEntity & { photoFallbackUrls?: string[] };
+
 function toMillis(value: any): number {
     if (!value) return 0;
     if (typeof value?.toMillis === 'function') return value.toMillis();
@@ -95,6 +98,68 @@ function toMillis(value: any): number {
     if (value instanceof Date) return value.getTime();
     return 0;
 }
+
+const firstString = (...values: unknown[]): string | undefined => {
+    for (const value of values) {
+        if (typeof value === 'string' && value.trim()) return value.trim();
+        if (Array.isArray(value)) {
+            const nested = firstString(...value);
+            if (nested) return nested;
+        }
+    }
+    return undefined;
+};
+
+const addUniquePhoto = (photos: string[], value: unknown) => {
+    const photo = firstString(value);
+    if (photo && !photos.includes(photo)) photos.push(photo);
+};
+
+const getReviewPhotosFromData = (data: Record<string, any>): string[] => {
+    const photos: string[] = [];
+    if (Array.isArray(data.photoUrls)) data.photoUrls.forEach((url) => addUniquePhoto(photos, url));
+    addUniquePhoto(photos, data.photoUrl);
+    return photos;
+};
+
+const normalizeLabel = (value: string | undefined) => (value || '').trim().toLowerCase();
+
+const ArchiveItemFallback: React.FC<{ type: SavedItemEntity['type'] }> = ({ type }) => {
+    if (type === 'group') return <PlacePhotoPlaceholder compact variant="group" />;
+    if (type === 'review') return <PlacePhotoPlaceholder compact variant="review" />;
+    return <PlacePhotoPlaceholder compact />;
+};
+
+const ArchiveItemImage: React.FC<{ item: ArchiveSavedItem }> = ({ item }) => {
+    const candidates = useMemo(
+        () => [item.photoUrl, ...(item.photoFallbackUrls || [])].filter((url): url is string => typeof url === 'string' && url.trim().length > 0),
+        [item.photoFallbackUrls, item.photoUrl],
+    );
+    const [index, setIndex] = useState(0);
+
+    useEffect(() => {
+        setIndex(0);
+    }, [item.itemId, candidates.join('|')]);
+
+    const src = candidates[index];
+    if (!src) return <ArchiveItemFallback type={item.type} />;
+
+    return (
+        <ProgressiveImage
+            src={src}
+            alt={item.name}
+            containerClassName="w-full h-full"
+            className="w-full h-full object-cover"
+            fallback={<ArchiveItemFallback type={item.type} />}
+            onError={() => {
+                setIndex((current) => {
+                    const next = current + 1;
+                    return next < candidates.length ? next : current;
+                });
+            }}
+        />
+    );
+};
 
 function getStoragePathFromUrl(url: string): string | undefined {
     try {
@@ -108,6 +173,7 @@ function getStoragePathFromUrl(url: string): string | undefined {
 
 export const ArchivePage: React.FC = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const { archives, fetchArchives, toggleItemInArchive, createArchive, updateArchive, deleteArchive } = useArchives();
 
     const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
@@ -116,7 +182,7 @@ export const ArchivePage: React.FC = () => {
     const [filterType, setFilterType] = useState<'all' | 'place' | 'list' | 'review' | 'group'>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedIds, setExpandedIds] = useState<string[]>([]);
-    const [archiveItems, setArchiveItems] = useState<Record<string, SavedItemEntity[]>>({});
+    const [archiveItems, setArchiveItems] = useState<Record<string, ArchiveSavedItem[]>>({});
     const [loadingItems, setLoadingItems] = useState<Record<string, boolean>>({});
     const [uploadedPlacePhotos, setUploadedPlacePhotos] = useState<UploadedPlacePhoto[]>([]);
     const [uploadedReviewPhotos, setUploadedReviewPhotos] = useState<UploadedReviewPhoto[]>([]);
@@ -286,11 +352,106 @@ export const ArchivePage: React.FC = () => {
         });
     }, [expandedIds]);
 
-    const loadRawItems = async (archiveId: string): Promise<SavedItemEntity[]> => {
+    const getReviewPhotoCandidatesForPlace = async (placeId?: string, itemName?: string): Promise<string[]> => {
+        if (!placeId) return [];
+        try {
+            const snap = await getDocs(query(
+                collectionGroup(db, 'reviews'),
+                where('placeId', '==', placeId),
+                limit(40),
+            ));
+            const wantedItemName = normalizeLabel(itemName);
+            const photos: string[] = [];
+            snap.docs.forEach((reviewDoc) => {
+                const data = reviewDoc.data() as Record<string, any>;
+                if (wantedItemName) {
+                    const reviewItemName = normalizeLabel(
+                        typeof data.itemName === 'string' ? data.itemName : typeof data.placeName === 'string' ? data.placeName : undefined,
+                    );
+                    if (reviewItemName !== wantedItemName) return;
+                }
+                getReviewPhotosFromData(data).forEach((photo) => addUniquePhoto(photos, photo));
+            });
+            return photos;
+        } catch (error) {
+            console.warn('ArchivePage: could not load review photo fallback', error);
+            return [];
+        }
+    };
+
+    const getPlacePhotoCandidates = async (placeId?: string): Promise<string[]> => {
+        if (!placeId) return [];
+        const photos: string[] = [];
+
+        try {
+            const placePhotosSnap = await getDocs(query(
+                collection(db, 'places', placeId, 'photos'),
+                orderBy('createdAt', 'desc'),
+                limit(6),
+            ));
+            placePhotosSnap.docs.forEach((photoDoc) => {
+                const data = photoDoc.data() as Record<string, any>;
+                addUniquePhoto(photos, data.url || data.photoUrl);
+            });
+        } catch (error) {
+            console.warn('ArchivePage: could not load place photos fallback', error);
+        }
+
+        try {
+            const placeSnap = await getDoc(doc(db, 'places', placeId));
+            if (placeSnap.exists()) {
+                const data = placeSnap.data() as Record<string, any>;
+                addUniquePhoto(photos, data.userPhotoUrl);
+                addUniquePhoto(photos, data.mainImageUrl);
+                addUniquePhoto(photos, data.photoUrl);
+                addUniquePhoto(photos, data.thumbnailUrl);
+                addUniquePhoto(photos, data.coverUrl);
+                addUniquePhoto(photos, data.imageUrl);
+                addUniquePhoto(photos, data.photos);
+            }
+        } catch (error) {
+            console.warn('ArchivePage: could not load place doc photo fallback', error);
+        }
+
+        const reviewPhotos = await getReviewPhotoCandidatesForPlace(placeId);
+        reviewPhotos.forEach((photo) => addUniquePhoto(photos, photo));
+        return photos;
+    };
+
+    const getArchiveItemPhotoCandidates = async (item: SavedItemEntity): Promise<string[]> => {
+        const photos: string[] = [];
+
+        if (item.type === 'place') {
+            const placePhotos = await getPlacePhotoCandidates(item.placeId || item.itemId);
+            placePhotos.forEach((photo) => addUniquePhoto(photos, photo));
+            addUniquePhoto(photos, item.photoUrl);
+            return photos;
+        }
+
+        addUniquePhoto(photos, item.photoUrl);
+
+        if (item.type === 'review') {
+            const reviewPhotos = await getReviewPhotoCandidatesForPlace(item.placeId, item.name);
+            reviewPhotos.forEach((photo) => addUniquePhoto(photos, photo));
+            return photos;
+        }
+
+        if (item.type === 'group') {
+            const groupPhotos = await getReviewPhotoCandidatesForPlace(item.placeId, item.name);
+            groupPhotos.forEach((photo) => addUniquePhoto(photos, photo));
+            const placePhotos = await getPlacePhotoCandidates(item.placeId);
+            placePhotos.forEach((photo) => addUniquePhoto(photos, photo));
+            return photos;
+        }
+
+        return photos;
+    };
+
+    const loadRawItems = async (archiveId: string): Promise<ArchiveSavedItem[]> => {
         if (!user) return [];
         const q = query(collection(db, 'users', user.uid, 'archives', archiveId, 'items'), orderBy('savedAt', 'desc'));
         const snap = await getDocs(q);
-        return snap.docs.map(iDoc => {
+        const rawItems = snap.docs.map(iDoc => {
             const data = iDoc.data();
             let route = data.route;
             if (!route) {
@@ -315,6 +476,15 @@ export const ArchivePage: React.FC = () => {
                 savedAt: data.savedAt || data.createdAt,
             } as SavedItemEntity;
         });
+
+        return Promise.all(rawItems.map(async (item): Promise<ArchiveSavedItem> => {
+            const photoCandidates = await getArchiveItemPhotoCandidates(item);
+            return {
+                ...item,
+                photoUrl: photoCandidates[0],
+                photoFallbackUrls: photoCandidates.slice(1),
+            };
+        }));
     };
 
     const fetchItemsForArchive = async (archiveId: string) => {
@@ -859,15 +1029,20 @@ export const ArchivePage: React.FC = () => {
                                                                 key={item.itemId}
                                                                 draggable
                                                                 onDragStart={e => handleDragStart(e, item, arch.id)}
-                                                                className="group relative rounded-xl overflow-hidden border border-white/5 hover:border-white/20 transition-all cursor-grab active:cursor-grabbing bg-[var(--lt-card)] flex flex-col"
+                                                                onClick={() => item.route && item.route !== '#' && navigate(item.route)}
+                                                                onKeyDown={(event) => {
+                                                                    if ((event.key === 'Enter' || event.key === ' ') && item.route && item.route !== '#') {
+                                                                        event.preventDefault();
+                                                                        navigate(item.route);
+                                                                    }
+                                                                }}
+                                                                role="link"
+                                                                tabIndex={0}
+                                                                className="group relative rounded-xl overflow-hidden border border-white/5 hover:border-white/20 transition-all cursor-pointer bg-[var(--lt-card)] flex flex-col focus:outline-none focus:border-[var(--lt-accent-border)]"
                                                             >
                                                                 {/* Imagen cuadrada */}
                                                                 <div className="aspect-square bg-gray-800/60 relative">
-                                                                    {item.photoUrl ? (
-                                                                        <img src={item.photoUrl} alt={item.name} className="w-full h-full object-cover" />
-                                                                    ) : (
-                                                                        <PlacePhotoPlaceholder compact />
-                                                                    )}
+                                                                    <ArchiveItemImage item={item} />
                                                                     {/* Badge de tipo */}
                                                                     <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide ${tc.bg} ${tc.color}`}>
                                                                         {tc.icon}{tc.label}
@@ -876,6 +1051,7 @@ export const ArchivePage: React.FC = () => {
                                                                     <button
                                                                         onClick={async e => {
                                                                             e.preventDefault();
+                                                                            e.stopPropagation();
                                                                             if (confirm('¿Quitar de la colección?')) {
                                                                                 await toggleItemInArchive(arch.id, item, false);
                                                                                 fetchItemsForArchive(arch.id);
@@ -888,14 +1064,10 @@ export const ArchivePage: React.FC = () => {
                                                                 </div>
 
                                                                 {/* Nombre */}
-                                                                <Link
-                                                                    to={item.route}
-                                                                    onClick={e => e.stopPropagation()}
-                                                                    className="p-2 flex-1 hover:bg-white/5 transition-colors"
-                                                                >
+                                                                <div className="p-2 flex-1 group-hover:bg-white/5 transition-colors">
                                                                     <p className="text-white text-xs font-semibold leading-tight line-clamp-2">{item.name}</p>
                                                                     {item.subtitle && <p className="text-[var(--lt-accent)] text-[10px] truncate mt-0.5">{item.subtitle}</p>}
-                                                                </Link>
+                                                                </div>
                                                             </div>
                                                         );
                                                     })}

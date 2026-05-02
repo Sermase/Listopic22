@@ -3017,14 +3017,14 @@ export const ProfilePage: React.FC = () => {
       {
         isDetailsModalOpen && (
           <div
-            className="fixed inset-0 z-[9999] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
+            className="fixed inset-0 z-[2147483000] flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
             onClick={() => setIsDetailsModalOpen(false)}
           >
             <div
               className="w-full h-full md:h-[88vh] md:max-h-[88vh] md:max-w-2xl rounded-none md:rounded-3xl border-0 md:border border-white/10 bg-[var(--lt-card-strong)] shadow-none md:shadow-2xl overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 z-20 px-4 md:px-5 py-3 md:py-4 border-b border-white/10 bg-[var(--lt-card-strong)] flex items-center justify-between" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
+              <div className="sticky top-0 z-50 px-4 md:px-5 py-3 md:py-4 border-b border-white/10 bg-[var(--lt-card-strong)] flex items-center justify-between shadow-lg" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
                 <h3 className="text-white font-bold text-lg">Detalle del perfil</h3>
                 <button
                   onClick={() => setIsDetailsModalOpen(false)}
@@ -3035,7 +3035,10 @@ export const ProfilePage: React.FC = () => {
               </div>
 
               {/* Modal Tabs */}
-              <div className="flex overflow-x-auto hide-scrollbar border-b border-white/10 bg-[var(--lt-card-strong)]">
+              <div
+                className="sticky z-40 flex overflow-x-auto hide-scrollbar border-b border-white/10 bg-[var(--lt-card-strong)] shadow-lg"
+                style={{ top: 'calc(max(0.75rem, env(safe-area-inset-top)) + 3.25rem)' }}
+              >
                 <button
                   onClick={() => setDetailsModalTab("stats")}
                   className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "stats" ? "border-[var(--lt-accent-border)] text-[var(--lt-accent)]" : "border-transparent text-gray-400 hover:text-white"}`}
@@ -3073,25 +3076,25 @@ export const ProfilePage: React.FC = () => {
                 {detailsModalTab === "stats" && (
                   <>
                     {appConfig.showProfileAffinity && !isOwnProfile && affinitySummary && (
-                      <div className="mb-4 rounded-2xl border border-pink-300/20 bg-gradient-to-r from-pink-500/10 via-fuchsia-500/10 to-indigo-500/10 p-4">
+                      <div className="lt-affinity-card mb-4 rounded-2xl border border-pink-300/20 bg-gradient-to-r from-pink-500/10 via-fuchsia-500/10 to-indigo-500/10 p-4">
                         <div className="flex items-center justify-between gap-4">
                           <div>
-                            <div className="flex items-center gap-2 text-sm font-black text-white">
+                            <div className="lt-affinity-title flex items-center gap-2 text-sm font-black text-white">
                               <HeartHandshake className="w-4 h-4 text-pink-200" />
                               Afinidad contigo
                             </div>
-                            <p className="mt-1 text-xs font-semibold text-gray-300">{affinitySummary.reason}</p>
+                            <p className="lt-affinity-reason mt-1 text-xs font-semibold text-gray-300">{affinitySummary.reason}</p>
                           </div>
                           <div className="text-right">
-                            <div className="text-3xl font-black text-pink-100">{affinitySummary.score}%</div>
-                            <div className="text-[10px] font-bold uppercase tracking-wide text-pink-200/70">match</div>
+                            <div className="lt-affinity-score text-3xl font-black text-pink-100">{affinitySummary.score}%</div>
+                            <div className="lt-affinity-match text-[10px] font-bold uppercase tracking-wide text-pink-200/70">match</div>
                           </div>
                         </div>
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-semibold text-gray-300 sm:grid-cols-4">
-                          <div className="rounded-xl bg-black/20 px-3 py-2">{affinitySummary.sharedListsCount} listas</div>
-                          <div className="rounded-xl bg-black/20 px-3 py-2">{affinitySummary.sharedCategoriesCount} categorias</div>
-                          <div className="rounded-xl bg-black/20 px-3 py-2">{affinitySummary.sharedPlacesCount} sitios</div>
-                          <div className="rounded-xl bg-black/20 px-3 py-2">{affinitySummary.similarRatings} notas</div>
+                        <div className="lt-affinity-meta mt-3 grid grid-cols-2 gap-2 text-[11px] font-semibold text-gray-300 sm:grid-cols-4">
+                          <div className="lt-affinity-chip rounded-xl bg-black/20 px-3 py-2">{affinitySummary.sharedListsCount} listas</div>
+                          <div className="lt-affinity-chip rounded-xl bg-black/20 px-3 py-2">{affinitySummary.sharedCategoriesCount} categorias</div>
+                          <div className="lt-affinity-chip rounded-xl bg-black/20 px-3 py-2">{affinitySummary.sharedPlacesCount} sitios</div>
+                          <div className="lt-affinity-chip rounded-xl bg-black/20 px-3 py-2">{affinitySummary.similarRatings} notas</div>
                         </div>
                       </div>
                     )}

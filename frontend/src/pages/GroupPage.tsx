@@ -3,7 +3,7 @@ import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, MoreVertical, Flag, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp } from 'lucide-react';
+import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, Flag, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp } from 'lucide-react';
 import { Lightbox } from '../components/Lightbox';
 import { ProgressiveImage } from '../components/ProgressiveImage';
 import { NonPonderableGauge } from '../components/NonPonderableGauge';
@@ -65,7 +65,6 @@ export const GroupPage: React.FC = () => {
     const [isFlowOpen, setIsFlowOpen] = useState(false);
     const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
     const [selectedListId, setSelectedListId] = useState<string | null>(null);
     const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
@@ -592,7 +591,7 @@ export const GroupPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
             {/* Hero */}
-            <div className={`relative h-[40vh] min-h-[300px] w-full overflow-hidden group ${heroReady || !stats?.mainPhoto ? 'animate-hero-from-right' : ''}`}>
+            <div className={`relative h-[42vh] min-h-[360px] w-full overflow-hidden group ${heroReady || !stats?.mainPhoto ? 'animate-hero-from-right' : ''}`}>
                 <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
                 {stats?.mainPhoto ? (
                     <ProgressiveImage
@@ -607,54 +606,12 @@ export const GroupPage: React.FC = () => {
                     <PlacePhotoPlaceholder variant="group" />
                 )}
 
-                {/* Back to list button */}
-                {fromListId && (
-                    <div className="absolute top-4 left-4 z-30">
-                        <Link
-                            to={`/list/${fromListId}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 text-white/90 hover:bg-black/60 backdrop-blur-sm transition-colors text-sm font-medium"
-                        >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                            Volver a la lista
-                        </Link>
-                    </div>
-                )}
-
-                {/* Top Actions Menu */}
-                <div className="absolute top-4 right-4 z-30">
-                    <div className="relative">
-                        <button
-                            onClick={() => setIsMenuOpen(!isMenuOpen)}
-                            className="p-2 rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-sm transition-colors"
-                        >
-                            <MoreVertical className="w-5 h-5" />
-                        </button>
-
-                        {isMenuOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-[var(--lt-card-strong)] border border-white/10 rounded-xl shadow-2xl py-1 overflow-hidden animate-fade-in origin-top-right">
-                                <button
-                                    onClick={() => { setIsMenuOpen(false); setIsShareModalOpen(true); }}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                >
-                                    <Share2 className="w-4 h-4" /> Compartir
-                                </button>
-                                <button
-                                    onClick={() => { setIsMenuOpen(false); setShowReportModal(true); }}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
-                                >
-                                    <Flag className="w-4 h-4" /> Reportar
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 z-20 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-transparent pt-20">
+                <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 pb-12 sm:pb-14 z-20 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-transparent pt-24">
                     <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end md:justify-between gap-6">
 
                         {/* Title & Place Info */}
-                        <div className="flex-1">
-                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 shadow-sm text-shadow-lg leading-tight line-clamp-2">{decodedName}</h1>
+                        <div className="flex-1 bg-transparent border-0 ring-0 outline-none shadow-none">
+                            <h1 className="bg-transparent border-0 ring-0 outline-none shadow-none text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 leading-tight line-clamp-2">{decodedName}</h1>
                             {placeClosedStatus && (
                                 <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold mb-2 border ${placeClosedStatus === 'permanently_closed'
                                     ? 'bg-red-500/20 border-red-500/40 text-red-300'
@@ -740,7 +697,7 @@ export const GroupPage: React.FC = () => {
 
                         <button
                             onClick={() => setShowReportModal(true)}
-                            className="bg-[#1e2538] hover:bg-red-500/10 text-gray-200 hover:text-red-400 rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 hover:border-red-500/20 group"
+                            className="bg-[var(--lt-card)] hover:bg-red-500/10 text-[var(--lt-text)] hover:text-red-500 rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 hover:border-red-500/25 group"
                         >
                             <Flag className="w-6 h-6 group-hover:scale-110 transition-transform" />
                             <span className="text-xs font-bold tracking-wide">REPORTAR</span>
