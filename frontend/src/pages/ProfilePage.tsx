@@ -46,7 +46,7 @@ import {
   updateDoc,
   increment,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { deleteObject, getDownloadURL, listAll, ref, uploadBytes } from "firebase/storage";
 import { db, auth, storage } from "../firebase";
 import { signOut, updateProfile, deleteUser } from "firebase/auth";
 import { ReviewCard } from "../components/ReviewCard";
@@ -214,6 +214,32 @@ const normalizeStoragePath = (value: unknown): string => {
   }
 
   return trimmed;
+};
+
+const cleanupPreviousProfileImages = async (userId: string, currentStoragePath: string) => {
+  const profileFolders = ["profile_images", "profile-photos"];
+
+  const folderCleanups = profileFolders.map(async (folder) => {
+    const folderRef = ref(storage, `${folder}/${userId}`);
+    const result = await listAll(folderRef);
+    const staleItems = result.items.filter((item) => item.fullPath !== currentStoragePath);
+
+    if (staleItems.length === 0) return;
+
+    const deletions = await Promise.allSettled(staleItems.map((item) => deleteObject(item)));
+    deletions.forEach((deletion, index) => {
+      if (deletion.status === "rejected") {
+        console.warn("ProfilePage: could not delete stale profile image", staleItems[index].fullPath, deletion.reason);
+      }
+    });
+  });
+
+  const results = await Promise.allSettled(folderCleanups);
+  results.forEach((result, index) => {
+    if (result.status === "rejected") {
+      console.warn("ProfilePage: could not list profile image folder", profileFolders[index], result.reason);
+    }
+  });
 };
 
 export const ProfilePage: React.FC = () => {
@@ -1453,6 +1479,7 @@ export const ProfilePage: React.FC = () => {
       void propagateAuthorFieldsToReviews(user.uid, { authorPhoto: downloadURL }).catch((error) => {
         console.warn("ProfilePage: could not propagate profile photo to reviews", error);
       });
+      await cleanupPreviousProfileImages(user.uid, storagePath);
       setFailedProfilePhotoUrl(null);
 
       // Reload to show changes (simple approach)
@@ -1725,7 +1752,7 @@ export const ProfilePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
       {/* Header / Banner */}
-      <div className={`h-[40vh] min-h-[300px] relative overflow-hidden group ${heroProfileReady || !usableProfilePhotoUrl ? 'animate-hero-from-right' : ''}`}>
+      <div className={`h-[40vh] min-h-[300px] relative overflow-hidden group after:absolute after:inset-x-0 after:-bottom-px after:z-20 after:h-2 after:bg-[var(--lt-bg)] ${heroProfileReady || !usableProfilePhotoUrl ? 'animate-hero-from-right' : ''}`}>
         <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
         {usableProfilePhotoUrl ? (
           <ProgressiveImage

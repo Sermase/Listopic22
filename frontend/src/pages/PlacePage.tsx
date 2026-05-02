@@ -426,19 +426,6 @@ export const PlacePage: React.FC = () => {
                                     <span>{place.avgScore.toFixed(1)}</span>
                                 </div>
 
-                                {/* Google Rating */}
-                                {place.googleRating && (
-                                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold bg-white/10 border border-white/10 text-white backdrop-blur-md">
-                                        <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current text-white" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.853 3.187-1.787 4.133-1.147 1.147-2.933 2.4-6.053 2.4-4.827 0-8.6-3.893-8.6-8.72s3.773-8.72 8.6-8.72c2.6 0 4.507 1.027 5.907 2.347l2.307-2.307C18.747 1.44 16.133 0 12.48 0 5.867 0 .533 5.333.533 12S5.867 24 12.48 24c3.44 0 6.053-1.147 8.16-3.293 2.133-2.133 2.827-5.28 2.827-7.893 0-.693-.053-1.52-.16-2.16h-10.827z" />
-                                        </svg>
-                                        <span>{place.googleRating.toFixed(1)}</span>
-                                        {place.googleUserRatingCount && (
-                                            <span className="text-xs text-gray-400 font-normal ml-0.5 opacity-70">({place.googleUserRatingCount})</span>
-                                        )}
-                                    </div>
-                                )}
-
                                 {
                                     /* Awards removed */
                                 }
@@ -464,7 +451,7 @@ export const PlacePage: React.FC = () => {
                                     className="px-4 py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
                                 >
                                     <ImageIcon className="w-4 h-4 text-[var(--lt-accent)]" />
-                                    <span>{place.photoUrl ? 'Añadir fotos' : 'Sube la primera foto'}</span>
+                                    <span>Añadir fotos</span>
                                 </button>
                             </div>
                         </div>
