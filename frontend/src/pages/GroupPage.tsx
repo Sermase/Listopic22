@@ -331,7 +331,7 @@ export const GroupPage: React.FC = () => {
         const avg = totalRating / reviews.length;
 
         // Process Criteria using PRIMARY LIST ORDER if available
-        let orderedCriteria: { key: string, label: string, avg: number, count: number, isPonderable: boolean, step: number }[] = [];
+        const orderedCriteria: { key: string, label: string, avg: number, count: number, isPonderable: boolean, step: number }[] = [];
         const processedKeys = new Set();
         const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
 

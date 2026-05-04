@@ -457,7 +457,7 @@ export const ProfilePage: React.FC = () => {
             chunks.push(followedIds.slice(i, i + 10));
           }
 
-          let allFollowedDetails: any[] = [];
+          const allFollowedDetails: any[] = [];
           for (const chunk of chunks) {
             try {
               // Only fetch PUBLIC lists to avoid permission errors.

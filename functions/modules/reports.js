@@ -13,9 +13,100 @@ const {
 
 const db = getFirestore();
 
+const REPORT_TARGET_TYPES = new Set(['place', 'review', 'list', 'group', 'user', 'other']);
+const REPORT_ISSUE_TYPES = new Set([
+    'inappropriate',
+    'spam',
+    'fake',
+    'place_closed',
+    'item_missing',
+    'duplicate',
+    'item_not_available',
+    'incorrect_info',
+    'wrong_place',
+    'harassment',
+    'impersonation',
+    'other',
+]);
+
+function cleanReportString(value, maxLength) {
+    if (typeof value !== 'string') return '';
+    return value.trim().slice(0, maxLength);
+}
+
 // --- Umbral anti-flood en la creación de reportes ---
 const REPORT_FLOOD_WINDOW_SECONDS = 60 * 60; // 1 hora
 const REPORT_FLOOD_LIMIT = 15;               // máx. 15 reportes por hora y usuario
+
+/**
+ * Callable: crea reportes desde servidor para validar payload, evitar
+ * suplantaciones y centralizar anti-flood/duplicados.
+ */
+const submitReport = onCall({ region: 'europe-west1' }, async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'Debes iniciar sesion para reportar.');
+    }
+
+    const uid = request.auth.uid;
+    const rl = await rateLimit('reportsCreate', `uid_${uid}`, REPORT_FLOOD_LIMIT, REPORT_FLOOD_WINDOW_SECONDS);
+    if (!rl.allowed) {
+        throw new HttpsError('resource-exhausted', 'Has enviado demasiados reportes en poco tiempo.');
+    }
+
+    const payload = request.data || {};
+    const targetId = cleanReportString(payload.targetId, 240);
+    const targetName = cleanReportString(payload.targetName, 180);
+    const targetType = cleanReportString(payload.targetType, 40);
+    const targetOwnerId = cleanReportString(payload.targetOwnerId, 128);
+    const itemName = cleanReportString(payload.itemName, 180);
+    const issueType = cleanReportString(payload.issueType, 60) || 'other';
+    const description = cleanReportString(payload.description, 1200);
+
+    if (!targetId || !targetType || !REPORT_TARGET_TYPES.has(targetType)) {
+        throw new HttpsError('invalid-argument', 'El contenido reportado no es valido.');
+    }
+    if (!REPORT_ISSUE_TYPES.has(issueType)) {
+        throw new HttpsError('invalid-argument', 'El motivo del reporte no es valido.');
+    }
+    if (targetOwnerId && targetOwnerId === uid) {
+        throw new HttpsError('failed-precondition', 'No puedes reportar tu propio contenido.');
+    }
+
+    const duplicateSnap = await db.collection('reports')
+        .where('userId', '==', uid)
+        .where('targetId', '==', targetId)
+        .where('status', '==', 'pending')
+        .limit(1)
+        .get();
+
+    if (!duplicateSnap.empty) {
+        throw new HttpsError('already-exists', 'Ya has reportado este contenido. Estamos revisandolo.');
+    }
+
+    const userName = request.auth.token.name || request.auth.token.email || 'Anonimo';
+    const userEmail = request.auth.token.email || null;
+
+    const reportRef = await db.collection('reports').add({
+        userId: uid,
+        reportedByUserId: uid,
+        reporterUid: uid,
+        userName,
+        reportedByName: userName,
+        userEmail,
+        targetId,
+        targetName,
+        targetType,
+        targetOwnerId: targetOwnerId || null,
+        itemName: itemName || null,
+        issueType,
+        description,
+        status: 'pending',
+        source: 'callable',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { ok: true, reportId: reportRef.id };
+});
 
 /**
  * Trigger: When a report document is created or updated.
@@ -52,8 +143,8 @@ const onReportWritten = onDocumentWritten("reports/{reportId}", async (event) =>
         });
 
         // Anti-flood: si el usuario supera el límite, borramos el reporte.
-        const reporterUid = afterData.reportedByUserId || afterData.reporterUid;
-        if (reporterUid) {
+        const reporterUid = afterData.userId || afterData.reportedByUserId || afterData.reporterUid;
+        if (reporterUid && afterData.source !== 'callable') {
             const rl = await rateLimit(
                 'reportsCreate',
                 `uid_${reporterUid}`,
@@ -92,7 +183,7 @@ const onReportWritten = onDocumentWritten("reports/{reportId}", async (event) =>
     // --- ON STATUS CHANGE ---
     if (isStatusChange) {
         const newStatus = afterData.status;
-        const reporterId = afterData.reportedByUserId;
+        const reporterId = afterData.userId || afterData.reportedByUserId || afterData.reporterUid;
 
         logger.info(`Report ${reportId} status changed: ${beforeData.status} -> ${newStatus}`);
 
@@ -173,7 +264,7 @@ async function notifyAdmins(reportId, reportData) {
 
     const promises = adminsSnap.docs.map(adminDoc => {
         // Don't notify the reporter if they happen to be an admin
-        if (adminDoc.id === reportData.reportedByUserId) return Promise.resolve();
+        if (adminDoc.id === (reportData.userId || reportData.reportedByUserId || reportData.reporterUid)) return Promise.resolve();
 
         return sendNotification(adminDoc.id, "new_report", {
             message: `Nuevo reporte: "${issueLabel}" en ${targetLabel}`,
@@ -263,5 +354,6 @@ const syncPlaceStatusFromGoogle = onCall(
 
 module.exports = {
     onReportWritten,
+    submitReport,
     syncPlaceStatusFromGoogle,
 };

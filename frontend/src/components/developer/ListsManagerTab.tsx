@@ -37,7 +37,7 @@ export const ListsManagerTab: React.FC = () => {
     const fetchLists = async () => {
         setLoading(true);
         try {
-            let q = query(
+            const q = query(
                 collection(db, 'lists'),
                 firestoreLimit(200)
             );

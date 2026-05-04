@@ -182,6 +182,14 @@ service cloud.firestore {
       }
     }
 
+    // Espejo publico de perfil. Lo escribe Cloud Functions desde users/{uid}
+    // para poder migrar el frontend sin exponer datos privados del documento users.
+    match /publicProfiles/{userId} {
+      allow read: if true;
+      allow list: if true;
+      allow write: if false;
+    }
+
     // Reserva de usernames (docId = username en minúsculas)
     match /usernameClaims/{usernameKey} {
       allow read: if request.auth != null;
@@ -375,8 +383,7 @@ service cloud.firestore {
     match /reports/{reportId} {
         // Cualquier usuario autenticado puede reportar, pero el reporte
         // tiene que ir firmado por él mismo (no se puede suplantar).
-        allow create: if request.auth != null
-                       && request.resource.data.userId == request.auth.uid;
+        allow create: if false;
         allow read, list, update, delete: if request.auth != null && isJefe(request.auth.uid);
     }
 

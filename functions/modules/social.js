@@ -5,6 +5,58 @@ const logger = require("firebase-functions/logger");
 const { sendNotification } = require("./notifications");
 const db = getFirestore();
 
+const PUBLIC_PROFILE_FIELDS = [
+    "username",
+    "usernameLower",
+    "displayName",
+    "name",
+    "surnames",
+    "bio",
+    "location",
+    "residence",
+    "photoUrl",
+    "photoStoragePath",
+    "userType",
+    "reviewsCount",
+    "followersCount",
+    "followingCount",
+    "followingListsCount",
+    "followingPlacesCount",
+    "level",
+    "xp",
+    "badges",
+    "createdAt",
+    "updatedAt",
+];
+
+function buildPublicProfile(uid, data = {}) {
+    const publicProfile = { uid };
+    for (const field of PUBLIC_PROFILE_FIELDS) {
+        if (data[field] !== undefined) publicProfile[field] = data[field];
+    }
+    return publicProfile;
+}
+
+/**
+ * Trigger: mantiene un espejo publico de perfiles para poder migrar lecturas
+ * fuera de users/{uid}, que tambien contiene preferencias y datos privados.
+ */
+exports.onUserPublicProfileWrite = onDocumentWritten("users/{uid}", async (event) => {
+    const uid = event.params.uid;
+    const publicRef = db.collection("publicProfiles").doc(uid);
+
+    try {
+        if (!event.data.after.exists) {
+            await publicRef.delete();
+            return;
+        }
+
+        await publicRef.set(buildPublicProfile(uid, event.data.after.data()), { merge: false });
+    } catch (error) {
+        logger.error(`Error syncing public profile for ${uid}:`, error);
+    }
+});
+
 /**
  * Trigger: Maintain consistency for USER followers.
  * Listens to: users/{uid}/following/{targetUserId}

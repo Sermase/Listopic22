@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { collection, addDoc, serverTimestamp, query, where, getDocs, limit } from 'firebase/firestore';
-import { db } from '../firebase';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../firebase';
 import { AlertTriangle, X, Send, MapPin, AlertCircle, FileText, List, Users, ShieldCheck, Loader2 } from 'lucide-react';
 
 export type ReportTargetType = 'place' | 'review' | 'list' | 'group' | 'user' | 'other';
@@ -24,35 +24,6 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
     const [description, setDescription] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [alreadyReported, setAlreadyReported] = useState(false);
-    const [checkingDuplicate, setCheckingDuplicate] = useState(false);
-
-    // Check for duplicate report when modal opens
-    useEffect(() => {
-        if (!isOpen || !user?.uid || !targetId) return;
-
-        let cancelled = false;
-        const checkDuplicate = async () => {
-            setCheckingDuplicate(true);
-            try {
-                const q = query(
-                    collection(db, 'reports'),
-                    where('userId', '==', user.uid),
-                    where('targetId', '==', targetId),
-                    where('status', '==', 'pending'),
-                    limit(1),
-                );
-                const snap = await getDocs(q);
-                if (!cancelled) setAlreadyReported(!snap.empty);
-            } catch {
-                // If query fails (e.g. missing index), allow submission
-                if (!cancelled) setAlreadyReported(false);
-            } finally {
-                if (!cancelled) setCheckingDuplicate(false);
-            }
-        };
-        checkDuplicate();
-        return () => { cancelled = true; };
-    }, [isOpen, user?.uid, targetId]);
 
     if (!isOpen) return null;
 
@@ -62,6 +33,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
+        if (!user?.uid) {
+            showToast({ message: 'Inicia sesión para reportar contenido.', variant: 'error' });
+            return;
+        }
         if (isSelfReport) {
             showToast({ message: 'No puedes reportar tu propio contenido.', variant: 'error' });
             return;
@@ -73,10 +48,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
 
         setSubmitting(true);
         try {
-            await addDoc(collection(db, 'reports'), {
-                userId: user?.uid || 'anonymous',
-                userName: user?.displayName || 'Anónimo',
-                userEmail: user?.email || null,
+            const submitReport = httpsCallable(functions, 'submitReport');
+            await submitReport({
                 targetId,
                 targetName,
                 targetType,
@@ -84,8 +57,6 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
                 itemName: itemName || null,
                 issueType,
                 description,
-                status: 'pending',
-                createdAt: serverTimestamp(),
             });
             showToast({
                 title: '✓ Reporte enviado',
@@ -98,6 +69,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
             onClose();
         } catch (error) {
             console.error('Report submission error:', error);
+            if (error && typeof error === 'object' && 'code' in error && (error as { code?: unknown }).code === 'functions/already-exists') {
+                setAlreadyReported(true);
+                showToast({ message: 'Ya has reportado este contenido. Estamos revisándolo.', variant: 'info' });
+                return;
+            }
             showToast({ message: 'Error al enviar el reporte. Inténtalo de nuevo.', variant: 'error' });
         } finally {
             setSubmitting(false);
@@ -127,7 +103,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
         }
     };
 
-    const isDisabled = submitting || alreadyReported || isSelfReport || checkingDuplicate;
+    const isDisabled = submitting || alreadyReported || isSelfReport;
 
     return (
         <div
@@ -230,8 +206,6 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
                         >
                             {submitting ? (
                                 <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
-                            ) : checkingDuplicate ? (
-                                <><Loader2 className="w-4 h-4 animate-spin" /> Verificando...</>
                             ) : (
                                 <><Send className="w-4 h-4" /> Enviar Reporte</>
                             )}

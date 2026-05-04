@@ -185,6 +185,7 @@ Los negocios pagan por visibilidad extra dentro de la app.
 - Lista "quiero ir" con recordatorio
 - Check-in: marcar visita desde el móvil con geolocalización
 - Compartir reseña individual como imagen (para Instagram/WhatsApp)
+- Galeria de imagenes de perfil: permitir guardar hasta 3 fotos por usuario, elegir una como principal, decidir si se muestran publicamente solo la principal o las 3, sustituir una foto al superar el limite, y ver/deslizar las fotos publicas desde el modal del avatar del perfil.
 
 **Gamificación (ampliación):**
 - Retos semanales ("Reseña 3 sitios nuevos esta semana")

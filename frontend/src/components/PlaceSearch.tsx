@@ -49,7 +49,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
 
                 if (lat && lng) {
                     setStatusMessage("Buscando lugares cercanos...");
-                    let data = await PlaceService.searchNearby(lat, lng);
+                    const data = await PlaceService.searchNearby(lat, lng);
 
                     // Sort by distance
                     data.sort((a, b) => {
@@ -65,7 +65,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                 } else {
                     // Force refresh if hook didn't catch it yet
                     navigator.geolocation.getCurrentPosition(async (pos) => {
-                        let data = await PlaceService.searchNearby(pos.coords.latitude, pos.coords.longitude);
+                        const data = await PlaceService.searchNearby(pos.coords.latitude, pos.coords.longitude);
 
                         // Sort by distance
                         data.sort((a, b) => {
@@ -97,7 +97,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                 }
 
                 setStatusMessage(location ? "Buscando..." : "Buscando globalmente...");
-                let data = await PlaceService.searchPlaces(query, location?.latitude, location?.longitude);
+                const data = await PlaceService.searchPlaces(query, location?.latitude, location?.longitude);
 
                 // Smart Sort: Prioritize Relevance (Name Match) THEN Distance
                 // 1. Exact/Partial Name Match

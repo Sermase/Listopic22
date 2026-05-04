@@ -612,7 +612,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             let finalPlaceLng = selectedPlace?.lng || 0;
             let finalPhotoUrl = ''; // Declared here
             let finalPhotoUrls: string[] = [];
-            let finalPhotoStoragePaths: string[] = [];
+            const finalPhotoStoragePaths: string[] = [];
 
             if (selectedPlace) {
                 // Transform Place Data
