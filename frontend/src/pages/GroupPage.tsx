@@ -591,7 +591,7 @@ export const GroupPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
             {/* Hero */}
-            <div className={`relative h-[42vh] min-h-[360px] w-full overflow-hidden group ${heroReady || !stats?.mainPhoto ? 'animate-hero-from-right' : ''}`}>
+            <div className={`lt-entity-hero relative h-[42vh] w-full overflow-hidden group ${heroReady || !stats?.mainPhoto ? 'animate-hero-from-right' : ''}`}>
                 <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
                 {stats?.mainPhoto ? (
                     <ProgressiveImage
@@ -610,8 +610,8 @@ export const GroupPage: React.FC = () => {
                     <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end md:justify-between gap-6">
 
                         {/* Title & Place Info */}
-                        <div className="flex-1 bg-transparent border-0 ring-0 outline-none shadow-none">
-                            <h1 className="bg-transparent border-0 ring-0 outline-none shadow-none text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 leading-tight line-clamp-2">{decodedName}</h1>
+                        <div className="lt-entity-hero-title flex-1">
+                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 leading-tight line-clamp-2">{decodedName}</h1>
                             {placeClosedStatus && (
                                 <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold mb-2 border ${placeClosedStatus === 'permanently_closed'
                                     ? 'bg-red-500/20 border-red-500/40 text-red-300'

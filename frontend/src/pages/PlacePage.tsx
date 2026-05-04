@@ -373,7 +373,7 @@ export const PlacePage: React.FC = () => {
     return (
         <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
             {/* Hero */}
-            <div className={`relative h-[42vh] min-h-[360px] w-full overflow-hidden group ${heroReady || !place.photoUrl ? 'animate-hero-from-right' : ''}`}>
+            <div className={`lt-entity-hero relative h-[42vh] w-full overflow-hidden group ${heroReady || !place.photoUrl ? 'animate-hero-from-right' : ''}`}>
                 <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
 
                 {place.photoUrl ? (
@@ -393,8 +393,8 @@ export const PlacePage: React.FC = () => {
                     <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end md:justify-between gap-6 relative z-30">
 
                         {/* Title & Info */}
-                        <div className="flex-1 bg-transparent border-0 ring-0 outline-none shadow-none">
-                            <h1 className="bg-transparent border-0 ring-0 outline-none shadow-none text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 leading-tight line-clamp-2">
+                        <div className="lt-entity-hero-title flex-1">
+                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 leading-tight line-clamp-2">
                                 {place.name}
                             </h1>
                             {place.closedStatus && (
@@ -499,7 +499,7 @@ export const PlacePage: React.FC = () => {
                         </button>
                         <button
                             onClick={() => setShowReportModal(true)}
-                            className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-red-500/10 hover:text-red-400 transition-all group/report"
+                            className="flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-[var(--lt-text-muted)] hover:bg-red-500/10 hover:text-red-500 transition-all group/report"
                         >
                             <AlertTriangle className="w-5 h-5 mb-1 text-red-500/50 group-hover/report:text-red-500 transition-colors" />
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Reportar</span>

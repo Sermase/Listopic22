@@ -81,6 +81,38 @@ function extractAccessibilityKeys(...values: unknown[]) {
     return Array.from(keys).sort();
 }
 
+function toFiniteNumber(value: unknown): number {
+    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+}
+
+function getReviewReactionScore(review: any): number {
+    const counts = review?.reactionCounts;
+    if (counts && typeof counts === 'object') {
+        return Object.values(counts).reduce<number>((total, value) => total + toFiniteNumber(value), 0);
+    }
+
+    const reactions = review?.reactions;
+    if (reactions && typeof reactions === 'object') {
+        const values = Object.values(reactions);
+        const numericTotal = values.reduce<number>((total, value) => total + toFiniteNumber(value), 0);
+        return numericTotal > 0 ? numericTotal : values.length;
+    }
+
+    return toFiniteNumber(review?.likes);
+}
+
+function getPrimaryReviewPhoto(review: any): string | null {
+    const candidates: unknown[] = [];
+    if (Array.isArray(review?.photoUrls)) candidates.push(...review.photoUrls);
+    if (Array.isArray(review?.photos)) candidates.push(...review.photos);
+    candidates.push(review?.photoUrl);
+
+    for (const candidate of candidates) {
+        if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+    }
+    return null;
+}
+
 export const ListPage: React.FC = () => {
     const { listId } = useParams<{ listId: string }>();
     const routerLocation = useRouterLocation();
@@ -280,7 +312,8 @@ export const ListPage: React.FC = () => {
             latestReviewAt: number; // Timestamp for sorting
             userHasReviewed: boolean;
             items: { name: string; score: number }[];
-            photoMaxLikes: number;
+            photoMaxReactions: number;
+            photoBestReviewAt: number;
             maxScore: number; // Track max score for the pin
             allTags: string[]; // For consensus calculation
             tags: string[]; // Final consensus tags
@@ -305,14 +338,15 @@ export const ListPage: React.FC = () => {
                     placeName: review.placeName,
                     placeCity: review.placeCity,
                     placeAddress: review.placeAddress,
-                    photoUrl: review.photoUrl,
+                    photoUrl: undefined,
                     totalRating: 0,
                     count: 0,
                     criteriaSums: {},
                     latestReviewAt: 0,
                     userHasReviewed: false,
                     items: [],
-                    photoMaxLikes: -1,
+                    photoMaxReactions: -1,
+                    photoBestReviewAt: 0,
                     maxScore: 0,
                     allTags: [],
                     tags: [],
@@ -357,15 +391,17 @@ export const ListPage: React.FC = () => {
                 g.latestReviewAt = reviewTime;
             }
 
-            // Handle Photo
-            const currentLikes = review.reactionCounts?.like || 0;
-            if (review.photoUrl || review.placeMainImage) {
-                if (currentLikes > g.photoMaxLikes) {
-                    g.photoMaxLikes = currentLikes;
-                    g.photoUrl = review.photoUrl || review.placeMainImage;
-                    if (review.photoUrl) g.reviewPhotoUrl = review.photoUrl;
-                    if (review.placeMainImage && !g.placeMainImage) g.placeMainImage = review.placeMainImage;
-                }
+            // Handle Photo: review photos always win over place photos.
+            const reviewPhoto = getPrimaryReviewPhoto(review);
+            const reactionScore = getReviewReactionScore(review);
+            if (reviewPhoto && (
+                reactionScore > g.photoMaxReactions ||
+                (reactionScore === g.photoMaxReactions && reviewTime > g.photoBestReviewAt)
+            )) {
+                g.photoMaxReactions = reactionScore;
+                g.photoBestReviewAt = reviewTime;
+                g.reviewPhotoUrl = reviewPhoto;
+                g.photoUrl = reviewPhoto;
             }
             if (review.placeMainImage && !g.placeMainImage) g.placeMainImage = review.placeMainImage;
 
@@ -423,6 +459,7 @@ export const ListPage: React.FC = () => {
 
             return {
                 ...g,
+                photoUrl: g.photoUrl || g.placeMainImage,
                 avgRating: g.totalRating / g.count,
                 reviewCount: g.count,
                 items: g.items.sort((a, b) => b.score - a.score),

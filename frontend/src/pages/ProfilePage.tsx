@@ -1704,7 +1704,7 @@ export const ProfilePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
       {/* Header / Banner */}
-      <div className={`h-[40vh] min-h-[300px] relative overflow-hidden group after:absolute after:inset-x-0 after:-bottom-px after:z-20 after:h-2 after:bg-[var(--lt-bg)] ${heroProfileReady || !usableProfilePhotoUrl ? 'animate-hero-from-right' : ''}`}>
+      <div className={`h-[40vh] min-h-[300px] relative overflow-hidden group after:absolute after:inset-x-0 after:-bottom-1 after:z-20 after:h-4 after:bg-[var(--lt-bg)] ${heroProfileReady || !usableProfilePhotoUrl ? 'animate-hero-from-right' : ''}`}>
         <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
         {usableProfilePhotoUrl ? (
           <ProgressiveImage

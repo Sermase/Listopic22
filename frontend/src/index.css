@@ -225,6 +225,28 @@
         padding-top: calc(env(safe-area-inset-top) + 10rem);
     }
 
+    .pb-safe-6 {
+        padding-bottom: calc(env(safe-area-inset-bottom) + 1.5rem);
+    }
+
+    .lt-entity-hero {
+        min-height: clamp(360px, 42vh, 520px);
+    }
+
+    .lt-entity-hero-title,
+    .lt-entity-hero-title > h1 {
+        background: transparent !important;
+        border-color: transparent !important;
+        box-shadow: none !important;
+        outline: none !important;
+        filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    .lt-entity-hero-title {
+        text-shadow: 0 2px 18px rgba(0, 0, 0, 0.34);
+    }
+
     @keyframes blob {
         0% {
             border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;

@@ -391,11 +391,9 @@
         body.app-fullscreen-mode header,
         body.app-fullscreen-mode #controls-panel,
         body.app-fullscreen-mode #history-panel,
-        body.app-fullscreen-mode #diag-panel {
-            display: none !important;
-        }
+        body.app-fullscreen-mode #diag-panel,
         body.app-fullscreen-mode .mobile-action-dock {
-            display: flex !important;
+            display: none !important;
         }
         body.app-fullscreen-mode #canvas-container {
             border-radius: 0 !important;
@@ -404,9 +402,6 @@
             border: 0 !important;
             height: 100dvh !important;
             width: 100vw !important;
-        }
-        body.app-fullscreen-mode .legend {
-            bottom: calc(170px + env(safe-area-inset-bottom, 0px));
         }
         /* Overlays y modales siempre por encima del fullscreen canvas */
         #expl-overlay { z-index: 50; }
@@ -986,11 +981,6 @@
         const baseLogicDelay = 1500;
         let audioCtx = null;
         let activeMobilePanel = null;
-        let simulatorBackGuardDisabled = false;
-
-        function isSimulatorFullscreenActive() {
-            return !!document.fullscreenElement || document.body.classList.contains('app-fullscreen-mode');
-        }
 
         function showFullscreenHint(text) {
             const hint = document.getElementById('fullscreen-hint');
@@ -1001,116 +991,33 @@
             showFullscreenHint._timer = setTimeout(() => hint.classList.remove('show'), 1800);
         }
 
-        function refreshFullscreenButton() {
-            const btn = document.getElementById('m-btn-fullscreen');
-            if (!btn) return;
-            const active = isSimulatorFullscreenActive();
-            btn.innerHTML = active
-                ? '<span class="util-ico">⤡</span><span class="util-lbl">Salir</span>'
-                : '<span class="util-ico">⤢</span><span class="util-lbl">Pantalla</span>';
-        }
-
-        async function setFullscreenMode(active) {
+        async function toggleFullscreenMode() {
             const root = document.documentElement;
             const isRealFullscreen = !!document.fullscreenElement;
             try {
-                if (active) {
-                    if (!isRealFullscreen && root.requestFullscreen) {
-                        await root.requestFullscreen({ navigationUI: 'hide' });
-                    }
+                if (!isRealFullscreen && root.requestFullscreen) {
+                    await root.requestFullscreen({ navigationUI: 'hide' });
                     document.body.classList.add('app-fullscreen-mode');
                     showFullscreenHint('Pantalla completa activada');
-                } else {
-                    if (isRealFullscreen && document.exitFullscreen) {
-                        await document.exitFullscreen();
-                    }
+                } else if (isRealFullscreen && document.exitFullscreen) {
+                    await document.exitFullscreen();
                     document.body.classList.remove('app-fullscreen-mode');
                     showFullscreenHint('Pantalla completa desactivada');
+                } else {
+                    document.body.classList.toggle('app-fullscreen-mode');
+                    showFullscreenHint(document.body.classList.contains('app-fullscreen-mode') ? 'Modo pantalla ampliada' : 'Modo normal');
                 }
             } catch (err) {
-                document.body.classList.toggle('app-fullscreen-mode', active);
-                showFullscreenHint(active ? 'Modo pantalla ampliada' : 'Modo normal');
+                document.body.classList.toggle('app-fullscreen-mode');
+                showFullscreenHint(document.body.classList.contains('app-fullscreen-mode') ? 'Modo pantalla ampliada' : 'Modo normal');
             }
-            refreshFullscreenButton();
             setTimeout(() => { resizeCanvas(); if (!state.running) resetSim(); }, 120);
-        }
-
-        function exitFullscreenMode() {
-            return setFullscreenMode(false);
-        }
-
-        async function toggleFullscreenMode() {
-            await setFullscreenMode(!isSimulatorFullscreenActive());
         }
 
         document.addEventListener('fullscreenchange', () => {
             if (!document.fullscreenElement) document.body.classList.remove('app-fullscreen-mode');
-            refreshFullscreenButton();
             setTimeout(() => { resizeCanvas(); }, 120);
         });
-
-        function isMobileModalOpen() {
-            const modal = document.getElementById('mobile-modal');
-            return !!modal && modal.classList.contains('is-open');
-        }
-
-        function handleSimulatorBackIntent() {
-            if (isSimulatorFullscreenActive()) {
-                exitFullscreenMode();
-                return true;
-            }
-            if (isMobileModalOpen()) {
-                closeMobileModal();
-                return true;
-            }
-
-            const shouldExit = window.confirm('¿Seguro que deseas salir del simulador? Se perderá la simulación actual.');
-            return !shouldExit;
-        }
-
-        function installSimulatorBackGuard() {
-            if (!window.history || !window.history.pushState) return;
-
-            window.history.replaceState(
-                { ...(window.history.state || {}), simulatorBase: true },
-                document.title,
-                window.location.href
-            );
-            window.history.pushState({ simulatorGuard: true }, document.title, window.location.href);
-
-            window.addEventListener('popstate', () => {
-                if (simulatorBackGuardDisabled) return;
-
-                const consumed = handleSimulatorBackIntent();
-                if (consumed) {
-                    window.history.pushState({ simulatorGuard: true }, document.title, window.location.href);
-                    return;
-                }
-
-                simulatorBackGuardDisabled = true;
-                window.setTimeout(() => {
-                    if (window.history.length > 1) {
-                        window.history.back();
-                    } else {
-                        window.location.href = '/';
-                    }
-                }, 0);
-            });
-
-            const capApp = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
-            if (capApp && typeof capApp.addListener === 'function') {
-                capApp.addListener('backButton', () => {
-                    if (simulatorBackGuardDisabled) return;
-                    const consumed = handleSimulatorBackIntent();
-                    if (consumed) {
-                        window.history.pushState({ simulatorGuard: true }, document.title, window.location.href);
-                        return;
-                    }
-                    simulatorBackGuardDisabled = true;
-                    window.history.back();
-                });
-            }
-        }
 
 
         function currentLogicDelay() {
@@ -2224,10 +2131,7 @@
             }
         }
 
-        window.onload = () => {
-            installSimulatorBackGuard();
-            setTimeout(() => { loadSettings(); resetSim(); syncMobileControls(); refreshFullscreenButton(); }, 100);
-        };
+        window.onload = () => { setTimeout(() => { loadSettings(); resetSim(); syncMobileControls(); }, 100); };
     </script>
 </body>
 </html>
