@@ -11,6 +11,10 @@ vi.mock('../firebase', () => ({
     default: {},
 }));
 
+vi.mock('firebase/functions', () => ({
+    httpsCallable: () => async () => ({}),
+}));
+
 import {
     isUserProfileServiceError,
     getUsernameGateStatus,

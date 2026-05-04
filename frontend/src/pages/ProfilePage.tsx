@@ -47,8 +47,9 @@ import {
   increment,
 } from "firebase/firestore";
 import { deleteObject, getDownloadURL, listAll, ref, uploadBytes } from "firebase/storage";
-import { db, auth, storage } from "../firebase";
-import { signOut, updateProfile, deleteUser } from "firebase/auth";
+import { httpsCallable } from "firebase/functions";
+import { db, auth, storage, functions } from "../firebase";
+import { signOut, updateProfile } from "firebase/auth";
 import { ReviewCard } from "../components/ReviewCard";
 import { AddReviewForm } from "../components/AddReviewForm";
 import { ShareModal } from "../components/ShareModal";
@@ -69,7 +70,6 @@ import {
   orderBy,
   limit,
   startAfter,
-  writeBatch,
   serverTimestamp,
 } from "firebase/firestore";
 import { isUsernameValid } from "../utils/username";
@@ -1572,67 +1572,19 @@ export const ProfilePage: React.FC = () => {
     setDeletingAccount(true);
     setDeleteError(null);
     try {
-      const uid = user.uid;
-      const batch = writeBatch(db);
-
-      // 1. Handle reviews
-      const reviewsSnap = await getDocs(
-        query(collectionGroup(db, "reviews"), where("authorId", "==", uid))
-      );
-      if (deleteKeepReviews) {
-        reviewsSnap.docs.forEach((d) => {
-          batch.update(d.ref, {
-            authorId: null,
-            authorName: "Usuario eliminado",
-            authorPhotoUrl: null,
-            authorUsername: null,
-          });
-        });
-      } else {
-        reviewsSnap.docs.forEach((d) => batch.delete(d.ref));
-      }
-
-      // 2. Handle sublists (lists where authorId == uid and parentId exists)
-      const sublistsSnap = await getDocs(
-        query(collection(db, "lists"), where("authorId", "==", uid), where("parentId", "!=", null))
-      );
-      if (deleteKeepSublists) {
-        sublistsSnap.docs.forEach((d) => {
-          batch.update(d.ref, {
-            authorId: null,
-            authorName: "Usuario eliminado",
-            authorPhotoUrl: null,
-            authorUsername: null,
-          });
-        });
-      } else {
-        sublistsSnap.docs.forEach((d) => batch.delete(d.ref));
-      }
-
-      // 3. Delete user doc, following, followers, notifications subcollections
-      const followingSnap = await getDocs(collection(db, "users", uid, "following"));
-      followingSnap.docs.forEach((d) => batch.delete(d.ref));
-
-      const followersSnap = await getDocs(collection(db, "users", uid, "followers"));
-      followersSnap.docs.forEach((d) => batch.delete(d.ref));
-
-      const notificationsSnap = await getDocs(collection(db, "users", uid, "notifications"));
-      notificationsSnap.docs.forEach((d) => batch.delete(d.ref));
-
-      const followingListsSnap = await getDocs(collection(db, "users", uid, "followingLists"));
-      followingListsSnap.docs.forEach((d) => batch.delete(d.ref));
-
-      batch.delete(doc(db, "users", uid));
-
-      await batch.commit();
-
-      // 4. Delete Firebase Auth user
-      await deleteUser(user);
+      const deleteOwnAccount = httpsCallable(functions, "deleteOwnAccount");
+      await deleteOwnAccount({
+        keepReviews: deleteKeepReviews === true,
+        keepSublists: deleteKeepSublists === true,
+      });
+      await signOut(auth).catch(() => undefined);
 
       navigate("/");
     } catch (err: any) {
       console.error("Error deleting account:", err);
-      if (err?.code === "auth/requires-recent-login") {
+      if (err?.code === "functions/unauthenticated") {
+        setDeleteError("Por seguridad, necesitas volver a iniciar sesion antes de eliminar tu cuenta.");
+      } else if (err?.code === "auth/requires-recent-login") {
         setDeleteError("Por seguridad, necesitas volver a iniciar sesión antes de eliminar tu cuenta. Cierra sesión, vuelve a entrar y repite el proceso.");
       } else {
         setDeleteError("Error al eliminar la cuenta. Inténtalo de nuevo o contáctanos en istaricore@gmail.com");
