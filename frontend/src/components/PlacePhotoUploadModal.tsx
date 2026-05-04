@@ -7,6 +7,7 @@ import type { User } from 'firebase/auth';
 import { Camera, ImagePlus, Loader2, Trash2, X } from 'lucide-react';
 import { db, storage } from '../firebase';
 import { PhotoEditorModal, type ProcessedPhoto } from './PhotoEditorModal';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 
 
@@ -64,6 +65,7 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
     const [captions, setCaptions] = useState<string[]>([]);
     const [uploading, setUploading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    useBodyScrollLock(isOpen);
 
     const oversizedCount = useMemo(() => processedPhotos.filter(photo => photo.blob.size >= MAX_UPLOAD_BYTES).length, [processedPhotos]);
 
@@ -155,8 +157,8 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
 
     return createPortal(
         <>
-            <div className="fixed inset-0 z-[9998] bg-black/75 backdrop-blur-md flex items-end sm:items-center justify-center sm:p-6">
-                <div className="w-full sm:max-w-xl max-h-[92dvh] bg-[var(--lt-bg)] border border-white/10 sm:rounded-2xl rounded-t-3xl shadow-2xl overflow-hidden flex flex-col">
+            <div className="fixed inset-0 z-[10000] lt-mobile-overlay bg-black/75 backdrop-blur-md flex items-end sm:items-center justify-center sm:p-6">
+                <div className="w-full sm:max-w-xl lt-mobile-modal-panel sm:max-h-[92dvh] bg-[var(--lt-bg)] border border-white/10 sm:rounded-2xl rounded-t-3xl shadow-2xl overflow-hidden flex flex-col">
                     <div className="p-5 border-b border-white/10 flex items-start justify-between gap-4 bg-[var(--lt-card-strong)]">
                         <div className="flex items-center gap-3 min-w-0">
                             <div className="w-11 h-11 rounded-2xl bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] flex items-center justify-center shrink-0">

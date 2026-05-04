@@ -4,6 +4,7 @@ import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, writeBat
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 interface NotificationModalProps {
     onClose: () => void;
@@ -19,6 +20,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
     const { user } = useAuth();
     const [notifications, setNotifications] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    useBodyScrollLock(mobile);
     // showHistory removed, controlled by parent
 
     useEffect(() => {
@@ -275,9 +277,9 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
     if (mobile) {
         return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4 pointer-events-auto" onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
+            <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4 pointer-events-auto" onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
                 <div
-                    className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh] mx-4"
+                    className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[80vh] mx-4"
                     onClick={(event) => event.stopPropagation()}
                 >
                     <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[var(--lt-bg)]/50">

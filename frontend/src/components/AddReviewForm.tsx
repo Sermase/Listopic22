@@ -13,6 +13,7 @@ import { PlaceService, type PlaceResult } from '../services/PlaceService';
 import { ListSearch } from './ListSearch';
 import { useQueryClient } from '@tanstack/react-query';
 import { isGooglePlacePhotoUrl } from '../utils/placeImages';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 interface AddReviewFormProps {
     listId: string | null;
@@ -114,6 +115,7 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
 };
 
 export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId, lockList = false, onClose, onSuccess, suggestedListIds }) => {
+    useBodyScrollLock(true);
     const { user } = useAuth();
     const { showToast } = useToast();
     const { theme } = useTheme();
@@ -910,7 +912,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
     if (initLoading && isNew) {
         return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+            <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm">
                 <Loader2 className="w-10 h-10 text-[var(--lt-accent)] animate-spin" />
             </div>
         );
@@ -945,7 +947,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
     return createPortal(
         <>
-            <div className="fixed top-0 left-0 w-full h-[100dvh] z-[8000] bg-black/70 backdrop-blur-md animate-fade-in flex items-center justify-center sm:p-6">
+            <div className="fixed top-0 left-0 w-full h-[100dvh] z-[10000] lt-mobile-overlay bg-black/70 backdrop-blur-md animate-fade-in flex items-center justify-center sm:p-6">
                 <div
                     className="flex flex-col w-full h-full max-w-2xl bg-[var(--lt-bg)] sm:rounded-2xl overflow-hidden shadow-2xl"
                     style={{ boxShadow: '0 0 0 1px rgba(255,255,255,0.06)' }}

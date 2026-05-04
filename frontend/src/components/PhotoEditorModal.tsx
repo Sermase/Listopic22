@@ -6,6 +6,7 @@ import { Plus, X, Loader2, Star } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 const SortablePhoto = ({ p, i, activeIdx, setActiveIdx, removePhoto }: any) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: p.id });
@@ -87,6 +88,7 @@ interface PhotoEditorModalProps {
 }
 
 export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles, onConfirm, onClose }) => {
+    useBodyScrollLock(true);
     const [photos, setPhotos] = useState<PhotoEntry[]>(() =>
         initialFiles.slice(0, 3).map((f, i) => ({ id: `p${i}-${Date.now()}`, src: URL.createObjectURL(f) }))
     );
@@ -159,7 +161,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
     };
 
     return createPortal(
-        <div className="fixed top-0 left-0 w-full h-[100dvh] z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center sm:p-6 animate-slide-up-modal sm:animate-fade-in origin-bottom sm:origin-center">
+        <div className="fixed top-0 left-0 w-full h-[100dvh] z-[10010] lt-mobile-overlay bg-black/80 backdrop-blur-md flex items-center justify-center sm:p-6 animate-slide-up-modal sm:animate-fade-in origin-bottom sm:origin-center">
             <div className="w-full h-full max-w-2xl bg-[var(--lt-bg)] sm:rounded-2xl shadow-2xl overflow-hidden" style={{ display: 'grid', gridTemplateRows: 'auto 1fr auto', boxShadow: '0 0 0 1px rgba(255,255,255,0.06)' }}>
                 {/* Fila 1: Header */}
                 <div style={{ background: 'linear-gradient(135deg, var(--lt-card-strong) 0%, var(--lt-bg) 100%)', position: 'relative', overflow: 'hidden' }}

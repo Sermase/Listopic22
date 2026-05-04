@@ -11,6 +11,7 @@ import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import { AddReviewForm } from '../components/AddReviewForm';
 import { ProgressiveImage } from '../components/ProgressiveImage';
 import type { MapItem } from '../components/MapView';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 const COLOR_OPTIONS = [
     '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
@@ -207,6 +208,7 @@ export const ArchivePage: React.FC = () => {
     const [editName, setEditName] = useState('');
     const [editEmoji, setEditEmoji] = useState('📍');
     const [editColor, setEditColor] = useState(COLOR_OPTIONS[0]);
+    useBodyScrollLock(viewMode === 'map' || showEditModal || editingPlacePhoto !== null || editingReviewPhoto !== null);
 
     useEffect(() => { fetchArchives(); }, [fetchArchives]);
 
@@ -712,7 +714,7 @@ export const ArchivePage: React.FC = () => {
     // ── VISTA MAPA ────────────────────────────────────────────────────────────
     if (viewMode === 'map') {
         return (
-            <div className="fixed inset-0 z-50 bg-[var(--lt-bg)] flex flex-col">
+            <div className="fixed inset-0 z-[10000] bg-[var(--lt-bg)] flex flex-col">
                 {/* Header flotante */}
                 <div className="absolute top-0 left-0 right-0 z-[1001] pt-safe-top">
                     <div className="flex items-center justify-between px-4 pb-3 pt-3 bg-gradient-to-b from-[var(--lt-bg)] to-transparent">
@@ -746,7 +748,7 @@ export const ArchivePage: React.FC = () => {
 
                 {/* Panel de filtro de colecciones */}
                 {showMapFilters && (
-                    <div className="absolute bottom-6 left-4 right-4 z-[1001] bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[50vh] flex flex-col">
+                    <div className="absolute left-4 right-4 z-[1001] bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[50vh] flex flex-col" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
                         <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
                             <span className="text-white font-bold text-sm">Filtrar colecciones</span>
                             <button onClick={() => setShowMapFilters(false)} className="text-gray-400 hover:text-white">
@@ -1095,8 +1097,8 @@ export const ArchivePage: React.FC = () => {
 
             {/* Modal crear/editar colección */}
             {showEditModal && (
-                <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowEditModal(false)}>
-                    <div className="bg-[var(--lt-card-strong)] w-full max-w-sm rounded-2xl border border-white/10 shadow-2xl p-5 relative" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 z-[10000] lt-mobile-overlay bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowEditModal(false)}>
+                    <div className="bg-[var(--lt-card-strong)] w-full max-w-sm rounded-2xl border border-white/10 shadow-2xl p-5 relative lt-mobile-modal-panel overflow-y-auto" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-5">
                             <h2 className="text-lg font-bold text-white">
                                 {editMode === 'create' ? 'Nueva colección' : 'Editar colección'}
@@ -1166,8 +1168,8 @@ export const ArchivePage: React.FC = () => {
             )}
 
             {editingPlacePhoto && (
-                <div className="fixed inset-0 z-[101] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setEditingPlacePhoto(null)}>
-                    <div className="bg-[var(--lt-card-strong)] w-full max-w-sm rounded-2xl border border-white/10 shadow-2xl p-5" onClick={e => e.stopPropagation()}>
+                <div className="fixed inset-0 z-[10000] lt-mobile-overlay bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setEditingPlacePhoto(null)}>
+                    <div className="bg-[var(--lt-card-strong)] w-full max-w-sm rounded-2xl border border-white/10 shadow-2xl p-5 lt-mobile-modal-panel overflow-y-auto" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-lg font-bold text-white">Editar foto</h2>
                             <button onClick={() => setEditingPlacePhoto(null)} className="text-gray-500 hover:text-white">

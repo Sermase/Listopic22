@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import { AlertTriangle, X, Send, MapPin, AlertCircle, FileText, List, Users, ShieldCheck, Loader2 } from 'lucide-react';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 export type ReportTargetType = 'place' | 'review' | 'list' | 'group' | 'user' | 'other';
 
@@ -24,6 +25,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
     const [description, setDescription] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [alreadyReported, setAlreadyReported] = useState(false);
+    useBodyScrollLock(isOpen);
 
     if (!isOpen) return null;
 
@@ -107,10 +109,10 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
-            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6 relative animate-in zoom-in-95 fade-in duration-200">
+            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl p-6 relative animate-in zoom-in-95 fade-in duration-200 lt-mobile-modal-panel overflow-y-auto">
                 <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors">
                     <X className="w-5 h-5" />
                 </button>

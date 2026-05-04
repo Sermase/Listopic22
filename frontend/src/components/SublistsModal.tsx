@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import { Link } from 'react-router-dom';
 import { CreateListForm } from './CreateListForm';
 import { type ListEntity } from '../hooks/useLists';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 interface SublistsModalProps {
     listId: string;
@@ -20,6 +21,7 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
     const [view, setView] = useState<'list' | 'create'>('list');
     const [sublists, setSublists] = useState<ListEntity[]>([]);
     const [loading, setLoading] = useState(true);
+    useBodyScrollLock(isOpen);
 
     // Fetch Sublists
     const fetchSublists = async () => {
@@ -61,8 +63,8 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="bg-[var(--lt-card-strong)] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="bg-[var(--lt-card-strong)] w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[90vh]" onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
                 <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[var(--lt-bg)]">

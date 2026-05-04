@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useArchives, type SavedItemEntity } from '../hooks/useArchives';
 import { Folder, Check, Plus, X } from 'lucide-react';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 interface SaveToArchiveModalProps {
     isOpen: boolean;
@@ -16,6 +17,7 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
     const [saving, setSaving] = useState(false);
     const [newArchiveName, setNewArchiveName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
+    useBodyScrollLock(isOpen);
 
     useEffect(() => {
         if (isOpen) {
@@ -92,9 +94,9 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+        <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
             <div
-                className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
+                className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[80vh]"
                 onClick={e => e.stopPropagation()}
             >
 

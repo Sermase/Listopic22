@@ -3,6 +3,7 @@ import { X, Search, UserPlus, Check, Shield, Trash2, Users, Edit3, Eye } from 'l
 import { collection, query, where, getDocs, doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 interface ShareListModalProps {
     isOpen: boolean;
@@ -38,6 +39,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
     const [writers, setWriters] = useState<string[]>(currentEditors);
     // Resolved display names: uid → username/displayName
     const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
+    useBodyScrollLock(isOpen);
 
     // Sync props to state when modal opens and resolve UIDs to display names
     useEffect(() => {
@@ -185,8 +187,8 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
     const allGuests = [...new Set([...writers, ...readers])]; // Unique identifiers
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="bg-[var(--lt-card-strong)] w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="bg-[var(--lt-card-strong)] w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[90vh]" onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
                 <div className="p-4 border-b border-white/5 flex items-center justify-between bg-[var(--lt-bg)]/50">

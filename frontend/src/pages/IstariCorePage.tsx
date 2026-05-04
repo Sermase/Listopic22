@@ -26,7 +26,7 @@ export const IstariCorePage: React.FC = () => {
                     <img
                         src="/images/istari-core-logo.png"
                         alt="Istari Core"
-                        className="w-28 sm:w-36 h-auto object-contain mb-4 drop-shadow-[0_0_30px_rgba(139,92,246,0.4)]"
+                        className="w-56 sm:w-72 h-auto object-contain mb-4 drop-shadow-[0_0_30px_rgba(139,92,246,0.4)]"
                     />
                     <p className="text-gray-400 text-sm max-w-xs">Un proyecto, una persona, muchas ganas.</p>
                 </div>
@@ -111,8 +111,8 @@ export const IstariCorePage: React.FC = () => {
                             className="flex items-center justify-between group hover:opacity-80 transition-opacity"
                         >
                             <div className="flex items-center gap-4">
-                                <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shrink-0">
-                                    <div className="w-4 h-4 bg-white rounded-full" />
+                                <div className="relative w-12 h-12 rounded-2xl overflow-hidden shadow-lg shrink-0 bg-[var(--lt-bg-deep)]">
+                                    <img src="/icon-192.png" alt="" className="w-full h-full object-cover" />
                                 </div>
                                 <div>
                                     <p className="text-sm font-bold text-white">Listopic</p>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Sliders, Star, Trash2, Check, ArrowUpDown, EyeOff } from 'lucide-react';
 import type { FilterState } from '../pages/ListPage';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 const ACCESSIBILITY_FILTER_LABELS: Record<string, string> = {
     wheelchairAccessibleEntrance: 'Entrada accesible',
@@ -42,6 +43,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     setShowUnavailable,
 }) => {
     const [activeTab, setActiveTab] = React.useState<'filters' | 'sort'>('filters');
+    useBodyScrollLock(isOpen);
 
     if (!isOpen) return null;
 
@@ -76,8 +78,8 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="bg-[var(--lt-card-strong)] w-full sm:max-w-md sm:rounded-2xl shadow-2xl border-0 sm:border border-white/10 overflow-hidden flex flex-col max-h-[calc(100dvh-4rem)] sm:max-h-[90vh] rounded-t-2xl transition-all" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="bg-[var(--lt-card-strong)] w-full sm:max-w-md sm:rounded-2xl shadow-2xl border-0 sm:border border-white/10 overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[90vh] rounded-t-2xl transition-all" onClick={e => e.stopPropagation()}>
 
                 {/* Header with Tabs */}
                 <div className="border-b border-white/10 bg-white/5 flex-shrink-0">

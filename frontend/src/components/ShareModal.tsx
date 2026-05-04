@@ -13,6 +13,7 @@ import type { ShareEntityPayload } from '../types/share';
 import { db } from '../firebase';
 import { buildCriteriaStats } from '../utils/shareCriteria';
 import { buildPublicUrl, getLocalRouteFromUrl } from '../utils/publicUrl';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 interface ShareModalProps {
     isOpen: boolean;
@@ -45,6 +46,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     shareEntity,
 }) => {
     const { user } = useAuth();
+    useBodyScrollLock(isOpen);
     const shareCardTriggerRef = React.useRef<() => void>(() => { });
     const fallbackUrl = buildPublicUrl(url || (typeof window !== 'undefined' ? window.location.href : '/'));
 
@@ -484,7 +486,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const totalSelections = selectedChatIds.length + selectedUserIds.length;
 
     const modalContent = (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={handleRequestClose}>
+        <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={handleRequestClose}>
             <ShareCard
                 place={place}
                 review={review}
@@ -494,7 +496,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 onRequestClose={handleRequestClose}
             />
 
-            <div className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-xl border border-white/10 shadow-2xl p-6 max-h-[90vh] overflow-y-auto" onClick={event => event.stopPropagation()}>
+            <div className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-xl border border-white/10 shadow-2xl p-6 lt-mobile-modal-panel sm:max-h-[90vh] overflow-y-auto" onClick={event => event.stopPropagation()}>
                 <div className="flex justify-between items-center mb-2">
                     <div>
                         <h3 className="text-xl font-bold text-white">{title}</h3>

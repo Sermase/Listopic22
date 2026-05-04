@@ -229,6 +229,31 @@
         padding-bottom: calc(env(safe-area-inset-bottom) + 1.5rem);
     }
 
+    .pt-safe-top {
+        padding-top: env(safe-area-inset-top);
+    }
+
+    .pb-safe-bottom {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .safe-area-top {
+        padding-top: calc(env(safe-area-inset-top) + 1rem);
+    }
+
+    .safe-area-bottom {
+        padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+    }
+
+    .lt-mobile-overlay {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .lt-mobile-modal-panel {
+        max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 0.75rem);
+    }
+
     .lt-entity-hero {
         min-height: clamp(360px, 42vh, 520px);
     }
