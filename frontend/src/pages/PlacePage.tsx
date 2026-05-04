@@ -20,6 +20,7 @@ import { Lightbox } from '../components/Lightbox';
 import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import { PlacePhotoUploadModal } from '../components/PlacePhotoUploadModal';
 import type { ReviewEntity } from '../hooks/useListDetails';
+import { EntityHero } from '../components/EntityHero';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
@@ -371,24 +372,13 @@ export const PlacePage: React.FC = () => {
     return (
         <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
             {/* Hero */}
-            <div className={`lt-entity-hero relative h-[42vh] w-full overflow-hidden group ${heroReady || !place.photoUrl ? 'animate-hero-from-right' : ''}`}>
-                <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
-
-                {place.photoUrl ? (
-                    <ProgressiveImage
-                        src={place.photoUrl}
-                        alt={place.name}
-                        containerClassName="absolute inset-0"
-                        className="w-full h-full object-cover object-center opacity-80 group-hover:scale-105 transition-transform duration-700"
-                        onLoad={() => setHeroReady(true)}
-                        fallback={<PlacePhotoPlaceholder />}
-                    />
-                ) : (
-                    <PlacePhotoPlaceholder />
-                )}
-
-                <div className="absolute bottom-0 left-0 w-full p-4 sm:p-8 pb-12 sm:pb-14 z-20 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-transparent pt-24">
-                    <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-end md:justify-between gap-6 relative z-30">
+            <EntityHero
+                imageUrl={place.photoUrl}
+                alt={place.name}
+                ready={heroReady}
+                onImageLoad={() => setHeroReady(true)}
+                fallback={<PlacePhotoPlaceholder />}
+            >
 
                         {/* Title & Info */}
                         <div className="lt-entity-hero-title flex-1">
@@ -453,9 +443,7 @@ export const PlacePage: React.FC = () => {
                                 </button>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
+            </EntityHero>
 
             {/* Main Content: Flex Col on Mobile (Order control), Grid on Desktop */}
             <main className="max-w-7xl mx-auto px-4 sm:px-6 relative -mt-8 sm:-mt-12 z-20 flex flex-col lg:grid lg:grid-cols-12 gap-8">

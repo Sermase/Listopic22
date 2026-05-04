@@ -22,6 +22,7 @@ import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { buildCriteriaStats } from '../utils/shareCriteria';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
+import { EntityHero } from '../components/EntityHero';
 
 export interface FilterState {
     minRating: number;
@@ -826,37 +827,26 @@ export const ListPage: React.FC = () => {
     return (
         <div className="min-h-screen bg-[var(--lt-bg)] pb-20 transition-colors duration-300">
             {/* Hero Section */}
-            {/* Hero Section */}
-            <div className="relative w-full h-[40vh] min-h-[300px] transition-all duration-700 group">
-                <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
-
-                {/* Background Image & Overlay — overflow-hidden only on image wrapper */}
-                {(list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl) ? (
-                    <div className="absolute inset-0 overflow-hidden">
-                        <img
-                            src={list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl}
-                            alt={list.name}
-                            className="w-full h-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-105"
-                        />
-                    </div>
-                ) : (
+            <EntityHero
+                imageUrl={listShareImage}
+                alt={list.name}
+                className="h-[40vh] min-h-[300px] transition-all duration-700"
+                fallback={(
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 via-[var(--lt-bg)] to-[var(--lt-bg)]">
                         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
                     </div>
                 )}
-
-                {/* Back link for sublists — pinned top-left, below navbar */}
-                {list.parentListId && (
+                topSlot={list.parentListId ? (
                     <Link
                         to={`/list/${list.parentListId}`}
-                        className="absolute top-16 sm:top-20 left-4 sm:left-6 z-30 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-sm border border-white/10 text-white/80 hover:text-white hover:bg-black/60 text-xs font-bold uppercase tracking-wider transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/40 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white/80 backdrop-blur-sm transition-colors hover:bg-black/60 hover:text-white"
                     >
                         <ArrowLeft className="w-3.5 h-3.5" />
                         {parentListName || 'Lista principal'}
                     </Link>
-                )}
-
-                <div className="absolute inset-0 flex flex-col justify-end p-4 sm:p-6 pb-10 sm:pb-14 z-30 max-w-7xl mx-auto w-full">
+                ) : null}
+            >
+                <div className="lt-entity-hero-title w-full">
 
                     {/* Title & description */}
                     <h1 className="text-2xl sm:text-4xl md:text-5xl font-display font-bold text-white leading-tight mb-1 drop-shadow-lg">
@@ -1036,7 +1026,7 @@ export const ListPage: React.FC = () => {
                         </div>
                     </div>
                 </div>
-            </div>
+            </EntityHero>
 
             {/* Map Collapsible */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 relative -mt-8 sm:-mt-12 z-40">
