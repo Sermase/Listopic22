@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { MessageCircle, Share2, MapPin, ThumbsUp, ThumbsDown, Bookmark, User, Heart, MessageSquare } from 'lucide-react';
 import { ReviewComments } from './ReviewComments';
 import { UserAvatar } from './UserAvatar';
@@ -19,6 +19,7 @@ import { db } from '../firebase';
 import { NonPonderableGauge } from './NonPonderableGauge';
 import { buildCriteriaStats } from '../utils/shareCriteria';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
+import { CategoryService } from '../services/CategoryService';
 
 interface ReviewCardProps {
     review: ReviewEntity;
@@ -39,6 +40,8 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(review.reactionCounts?.like || 0); // Placeholder count
     const [showComments, setShowComments] = useState(false);
+    const [reactionAnimationText, setReactionAnimationText] = useState('');
+    const [reactionAnimationTone, setReactionAnimationTone] = useState<'like' | 'dislike'>('like');
     const [showAnimation, setShowAnimation] = useState(false); // For "ñam!" animation
 
     const [isShareOpen, setIsShareOpen] = useState(false);
@@ -57,8 +60,34 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     // Derived States
     const isOwner = user?.uid && (user.uid === review.userId || user.uid === review.authorId);
 
+    const reviewCategoryId = typeof review.categoryId === 'string' && review.categoryId.trim()
+        ? review.categoryId.trim()
+        : (typeof (review as any).category === 'string' ? (review as any).category.trim() : '');
+
+    const { data: loadedReactionConfig } = useQuery({
+        queryKey: ['reviewReactionConfig', reactionConfig ? 'provided' : reviewCategoryId || review.listId || 'none'],
+        enabled: !reactionConfig && Boolean(reviewCategoryId || review.listId),
+        staleTime: 30 * 60 * 1000,
+        gcTime: 60 * 60 * 1000,
+        queryFn: async () => {
+            let categoryId = reviewCategoryId;
+            if (!categoryId && review.listId) {
+                const listSnap = await getDoc(doc(db, 'lists', review.listId));
+                const listData = listSnap.exists() ? listSnap.data() : null;
+                categoryId = typeof listData?.categoryId === 'string'
+                    ? listData.categoryId
+                    : (typeof listData?.category === 'string' ? listData.category : '');
+            }
+            if (!categoryId) return null;
+            const category = await CategoryService.getCategory(categoryId);
+            return CategoryService.getReactionConfig(category);
+        },
+    });
+
     // Config Defaults
-    const likeText = reactionConfig?.like || "¡Me gusta!";
+    const resolvedReactionConfig = reactionConfig || loadedReactionConfig || undefined;
+    const likeText = resolvedReactionConfig?.like || "¡Me gusta!";
+    const dislikeText = resolvedReactionConfig?.dislike || "No me gusta";
 
     // ... (Score Logic Omitted for Brevity - keeping existing) ...
     const getScoreColor = (score: number) => {
@@ -164,19 +193,19 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
         // Optimistic UI
         setLiked(newLiked);
-        setLikeCount(prev => newLiked ? prev + 1 : prev - 1);
-
-        if (newLiked) {
-            setShowAnimation(true);
-            setTimeout(() => setShowAnimation(false), 2000);
-        }
+        setLikeCount(prev => Math.max(0, newLiked ? prev + 1 : prev - 1));
+        setReactionAnimationText(newLiked ? likeText : dislikeText);
+        setReactionAnimationTone(newLiked ? 'like' : 'dislike');
+        setShowAnimation(false);
+        window.setTimeout(() => setShowAnimation(true), 0);
+        window.setTimeout(() => setShowAnimation(false), 1200);
 
         try {
             await ReviewService.toggleReaction(review.listId, review.id, user.uid);
         } catch (error) {
             console.error("Failed to toggle reaction", error);
             setLiked(!newLiked); // Revert
-            setLikeCount(prev => !newLiked ? prev + 1 : prev - 1);
+            setLikeCount(prev => Math.max(0, !newLiked ? prev + 1 : prev - 1));
         }
     };
 
@@ -425,8 +454,8 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                 )}
                             </span>
                             {showAnimation && (
-                                <span className="absolute -top-7 left-1/2 -translate-x-1/2 text-pink-500 font-extrabold text-xs whitespace-nowrap pointer-events-none drop-shadow-md animate-[float-up_0.8s_cubic-bezier(0.2,0.8,0.2,1)_forwards]">
-                                    {likeText}
+                                <span className={`absolute -top-7 left-1/2 -translate-x-1/2 font-extrabold text-xs whitespace-nowrap pointer-events-none drop-shadow-md animate-[float-up_0.8s_cubic-bezier(0.2,0.8,0.2,1)_forwards] ${reactionAnimationTone === 'like' ? 'text-pink-500' : 'text-gray-400'}`}>
+                                    {reactionAnimationText}
                                 </span>
                             )}
                         </button>

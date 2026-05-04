@@ -142,9 +142,7 @@ export const PlacePage: React.FC = () => {
         if (!place?.category) return;
         import('../services/CategoryService').then(({ CategoryService }) => {
             CategoryService.getCategory(place.category!).then(cat => {
-                if (cat?.defaultCriteria?.rangos) {
-                    setReactionConfig(cat.defaultCriteria.rangos);
-                }
+                setReactionConfig(CategoryService.getReactionConfig(cat));
             });
         });
     }, [place?.category]);

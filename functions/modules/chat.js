@@ -1,6 +1,7 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require("firebase-admin");
 const { getFirestore } = require("firebase-admin/firestore");
+const logger = require("firebase-functions/logger");
 const { sendNotification } = require("./notifications");
 
 const db = getFirestore();
@@ -71,7 +72,11 @@ const onMessageCreate = onDocumentCreated("chats/{chatId}/messages/{messageId}",
         }
 
     } catch (error) {
-        console.error(`Error processing message ${event.params.messageId} in chat ${chatId}:`, error);
+        logger.error("Error processing chat message notification", {
+            chatId,
+            messageId: event.params.messageId,
+            error,
+        });
     }
 });
 

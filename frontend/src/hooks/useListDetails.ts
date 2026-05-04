@@ -29,6 +29,7 @@ export interface ReviewEntity {
         dislike?: number;
     };
     commentCount?: number;
+    categoryId?: string;
     listName?: string;
     placeName?: string;
     placeAddress?: string;
@@ -165,6 +166,7 @@ async function fetchListDetails(listId: string): Promise<{ list: ListEntity; rev
         return {
             ...review,
             listName: (listSnap.data() as ListEntity).name,
+            categoryId: legacyReview.categoryId || (listSnap.data() as ListEntity).categoryId,
             criteriaDefinition: (listSnap.data() as ListEntity).criteriaDefinition,
             placeName: place?.name || legacyReview.establishmentName || review.placeName,
             placeAddress: place?.address || place?.formattedAddress || place?.vicinity,

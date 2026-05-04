@@ -16,6 +16,8 @@ export interface ListEntity {
     createdAt: Timestamp;
     updatedAt?: Timestamp;
     parentListId?: string;
+    categoryId?: string;
+    category?: string;
 
     isPublic: boolean;
     visibility?: 'public' | 'private';

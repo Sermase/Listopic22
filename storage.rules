@@ -16,16 +16,8 @@ service firebase.storage {
       return request.auth != null;
     }
 
-    function jefeByFirestore() {
-      let userDoc = firestore.get(/databases/(default)/documents/users/$(request.auth.uid));
-      return userDoc.data.userType == 'jefe' ||
-             (userDoc.data.userType is list && userDoc.data.userType.hasAny(['jefe']));
-    }
-
     function isJefe() {
-      return isSignedIn() && (
-        request.auth.token.admin == true || jefeByFirestore()
-      );
+      return isSignedIn() && request.auth.token.admin == true;
     }
 
     function isListOwner(listId) {
@@ -96,10 +88,18 @@ service firebase.storage {
 
     // --- Documentos de reclamación de negocio (roadmap): dueño del claim o jefe. ---
     // Estructura: business-claims/{userId}/{claimId}/docs/{fileName}
+    function isValidBusinessClaimFile() {
+      return request.resource.size < 25 * 1024 * 1024 &&
+             (
+               request.resource.contentType.matches('image/.*') ||
+               request.resource.contentType == 'application/pdf'
+             );
+    }
+
     match /business-claims/{userId}/{allPaths=**} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isJefe());
       allow write: if isSignedIn() && request.auth.uid == userId &&
-                      request.resource.size < 25 * 1024 * 1024;
+                      isValidBusinessClaimFile();
     }
 
     // --- Por defecto, denegar todo lo que no matchee arriba. ---

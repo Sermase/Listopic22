@@ -103,7 +103,7 @@ exports.onUserFollowingWrite = onDocumentWritten("users/{uid}/following/{targetU
             await targetUserRef.update({ followersCount: admin.firestore.FieldValue.increment(-1) });
         }
     } catch (error) {
-        console.error(`Error in onUserFollowingWrite for ${uid} -> ${targetUserId}:`, error);
+        logger.error("Error in onUserFollowingWrite", { uid, targetUserId, error });
     }
 });
 
@@ -139,7 +139,7 @@ exports.onPlaceFollowingWrite = onDocumentWritten("users/{uid}/followingPlaces/{
             await placeFollowerRef.delete();
         }
     } catch (error) {
-        console.error(`Error in onPlaceFollowingWrite for ${uid} -> ${placeId}:`, error);
+        logger.error("Error in onPlaceFollowingWrite", { uid, placeId, error });
     }
 });
 
@@ -206,6 +206,6 @@ exports.onListFollowingWrite = onDocumentWritten("users/{uid}/followingLists/{li
             await listFollowerRef.delete();
         }
     } catch (error) {
-        console.error(`Error in onListFollowingWrite for ${uid} -> ${listId}:`, error);
+        logger.error("Error in onListFollowingWrite", { uid, listId, error });
     }
 });

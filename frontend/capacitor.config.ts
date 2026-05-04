@@ -20,7 +20,7 @@ const config: CapacitorConfig = {
       overlaysWebView: true,
     },
     Keyboard: {
-      resize: 'none',
+      resize: 'body',
       style: 'DARK',
     },
     PushNotifications: {

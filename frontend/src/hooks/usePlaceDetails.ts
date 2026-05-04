@@ -179,6 +179,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
             authorName: user?.username || user?.displayName || user?.name || r.authorName || 'Anónimo',
             authorPhoto: user?.photoUrl || user?.photoURL || r.authorPhoto,
             listName: listData?.name || r.listName,
+            categoryId: r.categoryId || listData?.categoryId,
             criteriaDefinition: listData?.criteriaDefinition || r.criteriaDefinition,
             placeMainImage: firstUsablePlaceImage(placeData?.userPhotoUrl, placePhotos[0]?.url, placeData?.mainImageUrl, placeData?.photos),
             placeName: placeData?.name || r.placeName,

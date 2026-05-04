@@ -919,7 +919,7 @@ const groupedReviews = onRequest(
           groupedReviews: groupedReviews || []
         });
       } catch (error) {
-        console.error("Error definitivo en groupedReviews:", error);
+        logger.error("groupedReviews: error building grouped reviews", error);
         res.status(500).send({ error: "El servidor se ha liado. Error interno.", details: error.message });
       }
     });

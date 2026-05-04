@@ -1,23 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
-import { BrandingManager } from '../components/developer/BrandingManager';
-import { ListsManagerTab } from '../components/developer/ListsManagerTab';
-import { PlacesManagerTab } from '../components/developer/PlacesManagerTab';
-import { ReviewsManagerTab } from '../components/developer/ReviewsManagerTab';
-import { TagsManagerTab } from '../components/developer/TagsManagerTab';
-import { UsersManagerTab } from '../components/developer/UsersManagerTab';
 import { PlaceService } from '../services/PlaceService';
 import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion, onSnapshot, orderBy } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown, ClipboardList, Activity } from 'lucide-react';
-import { DeveloperItemModal } from '../components/developer/DeveloperItemModal';
-import { UserDataExportTab } from '../components/developer/UserDataExportTab';
-import { ApiUsageTab } from '../components/developer/ApiUsageTab';
 
 const FUNCTIONS_REGION = 'europe-west1';
+
+const BrandingManager = React.lazy(() => import('../components/developer/BrandingManager').then(module => ({ default: module.BrandingManager })));
+const ListsManagerTab = React.lazy(() => import('../components/developer/ListsManagerTab').then(module => ({ default: module.ListsManagerTab })));
+const PlacesManagerTab = React.lazy(() => import('../components/developer/PlacesManagerTab').then(module => ({ default: module.PlacesManagerTab })));
+const ReviewsManagerTab = React.lazy(() => import('../components/developer/ReviewsManagerTab').then(module => ({ default: module.ReviewsManagerTab })));
+const TagsManagerTab = React.lazy(() => import('../components/developer/TagsManagerTab').then(module => ({ default: module.TagsManagerTab })));
+const UsersManagerTab = React.lazy(() => import('../components/developer/UsersManagerTab').then(module => ({ default: module.UsersManagerTab })));
+const DeveloperItemModal = React.lazy(() => import('../components/developer/DeveloperItemModal').then(module => ({ default: module.DeveloperItemModal })));
+const UserDataExportTab = React.lazy(() => import('../components/developer/UserDataExportTab').then(module => ({ default: module.UserDataExportTab })));
+const ApiUsageTab = React.lazy(() => import('../components/developer/ApiUsageTab').then(module => ({ default: module.ApiUsageTab })));
+
+const DeveloperTabFallback: React.FC = () => (
+    <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/60 p-8 text-center text-sm text-gray-400">
+        Cargando herramienta...
+    </div>
+);
+
+const DeveloperLazyPanel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <React.Suspense fallback={<DeveloperTabFallback />}>
+        {children}
+    </React.Suspense>
+);
 
 interface ConsoleSearchParams {
     collection: string;
@@ -924,14 +937,18 @@ export const DeveloperPage: React.FC = () => {
                                     </div>
                                 </div>
 
-                                <DeveloperItemModal
-                                    isOpen={isModalOpen}
-                                    onClose={() => setIsModalOpen(false)}
-                                    collectionName={consoleParams.collection}
-                                    item={selectedItem}
-                                    onSaved={handleConsoleSearch}
-                                    onUpdateFromGoogle={consoleParams.collection === 'places' ? handleUpdatePlaceFromGoogle : undefined}
-                                />
+                                {isModalOpen && (
+                                    <DeveloperLazyPanel>
+                                        <DeveloperItemModal
+                                            isOpen={isModalOpen}
+                                            onClose={() => setIsModalOpen(false)}
+                                            collectionName={consoleParams.collection}
+                                            item={selectedItem}
+                                            onSaved={handleConsoleSearch}
+                                            onUpdateFromGoogle={consoleParams.collection === 'places' ? handleUpdatePlaceFromGoogle : undefined}
+                                        />
+                                    </DeveloperLazyPanel>
+                                )}
                             </div >
                         )}
 
@@ -1135,7 +1152,11 @@ export const DeveloperPage: React.FC = () => {
                             )
                         }
 
-                        {activeTab === 'branding' && <BrandingManager />}
+                        {activeTab === 'branding' && (
+                            <DeveloperLazyPanel>
+                                <BrandingManager />
+                            </DeveloperLazyPanel>
+                        )}
 
                         {activeTab === 'proyectos' && (
                             <div className="max-w-4xl mx-auto space-y-6">
@@ -2102,24 +2123,36 @@ export const DeveloperPage: React.FC = () => {
                         }
 
                         {activeTab === 'lists' && (
-                            <ListsManagerTab />
+                            <DeveloperLazyPanel>
+                                <ListsManagerTab />
+                            </DeveloperLazyPanel>
                         )}
 
                         {activeTab === 'places' && (
-                            <PlacesManagerTab />
+                            <DeveloperLazyPanel>
+                                <PlacesManagerTab />
+                            </DeveloperLazyPanel>
                         )}
 
                         {activeTab === 'reviews' && (
-                            <ReviewsManagerTab />
+                            <DeveloperLazyPanel>
+                                <ReviewsManagerTab />
+                            </DeveloperLazyPanel>
                         )}
                         {activeTab === 'tags' && (
-                            <TagsManagerTab />
+                            <DeveloperLazyPanel>
+                                <TagsManagerTab />
+                            </DeveloperLazyPanel>
                         )}
                         {activeTab === 'usuarios' && (
-                            <UsersManagerTab />
+                            <DeveloperLazyPanel>
+                                <UsersManagerTab />
+                            </DeveloperLazyPanel>
                         )}
                         {activeTab === 'rgpd' && (
-                            <UserDataExportTab />
+                            <DeveloperLazyPanel>
+                                <UserDataExportTab />
+                            </DeveloperLazyPanel>
                         )}
 
                         {activeTab === 'audit' && (
@@ -2177,7 +2210,9 @@ export const DeveloperPage: React.FC = () => {
                         )}
                         {activeTab === 'apiusage' && (
                             <div className="max-w-5xl mx-auto">
-                                <ApiUsageTab />
+                                <DeveloperLazyPanel>
+                                    <ApiUsageTab />
+                                </DeveloperLazyPanel>
                             </div>
                         )}
                     </main >

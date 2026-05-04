@@ -28,13 +28,17 @@ async function cleanInvalidTokens(userId, invalidTokens) {
 
 // ─── Enviar push FCM ────────────────────────────────────────────────────────
 async function sendPush(userId, title, body, data = {}) {
-    console.log(`[sendPush] START userId=${userId}, title=${title}`);
+    logger.info("sendPush started", {
+        type: data.type || "unknown",
+        hasLink: Boolean(data.link),
+    });
     const tokens = await getFcmTokens(userId);
     if (!tokens.length) {
-        console.log(`[sendPush] ABORT: No FCM tokens found for user ${userId}`);
+        logger.info("sendPush skipped: no FCM tokens", {
+            type: data.type || "unknown",
+        });
         return;
     }
-    console.log(`[sendPush] Found ${tokens.length} tokens for user ${userId}`);
 
     try {
         const payload = {
@@ -46,10 +50,14 @@ async function sendPush(userId, title, body, data = {}) {
                 notification: { channelId: "listopic_default", sound: "default" }
             }
         };
-        console.log(`[sendPush] Sending payload:`, JSON.stringify(payload));
         const response = await admin.messaging().sendEachForMulticast(payload);
-        
-        console.log(`[sendPush] FCM Response: SuccessCount=${response.successCount}, FailureCount=${response.failureCount}`);
+
+        logger.info("sendPush completed", {
+            type: data.type || "unknown",
+            tokenCount: tokens.length,
+            successCount: response.successCount,
+            failureCount: response.failureCount,
+        });
 
         const invalidTokens = [];
         response.responses.forEach((r, i) => {

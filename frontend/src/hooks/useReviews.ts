@@ -45,6 +45,7 @@ const enrichRawReviews = async (rawReviews: ReviewEntity[]): Promise<ReviewEntit
         return {
             ...review,
             listName: list?.name,
+            categoryId: reviewAny.categoryId || list?.categoryId,
             criteriaDefinition: list?.criteriaDefinition,
             placeName: place?.name || reviewAny.establishmentName,
             placeMainImage: firstUsablePlaceImage(place?.userPhotoUrl, place?.mainImageUrl, place?.photos),
