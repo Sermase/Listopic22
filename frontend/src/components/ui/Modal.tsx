@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { IconButton } from './IconButton';
@@ -33,7 +34,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-md p-0 sm:p-4" role="dialog" aria-modal="true">
       <button className="absolute inset-0 cursor-default" aria-label={closeLabel} onClick={onClose} />
       <section className={cn(
@@ -48,6 +49,7 @@ export const Modal: React.FC<ModalProps> = ({
           {children}
         </div>
       </section>
-    </div>
+    </div>,
+    document.body,
   );
 };

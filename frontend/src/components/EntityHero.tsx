@@ -6,9 +6,10 @@ interface EntityHeroProps {
   imageUrl?: string | null;
   alt: string;
   fallback?: React.ReactNode;
-  children: React.ReactNode;
+  children?: React.ReactNode;
   topSlot?: React.ReactNode;
   onImageLoad?: () => void;
+  onImageError?: () => void;
   ready?: boolean;
   className?: string;
   contentClassName?: string;
@@ -22,6 +23,7 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
   children,
   topSlot,
   onImageLoad,
+  onImageError,
   ready = true,
   className,
   contentClassName,
@@ -44,6 +46,7 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
           imageClassName,
         )}
         onLoad={onImageLoad}
+        onError={onImageError}
         fallback={fallback}
       />
     ) : (
@@ -58,13 +61,15 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
       </div>
     )}
 
-    <div className={cn(
-      'absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-transparent px-4 pb-12 pt-24 sm:px-8 sm:pb-14',
-      contentClassName,
-    )}>
-      <div className="relative z-30 mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-end md:justify-between">
-        {children}
+    {children && (
+      <div className={cn(
+        'absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-transparent px-4 pb-12 pt-24 sm:px-8 sm:pb-14',
+        contentClassName,
+      )}>
+        <div className="relative z-30 mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          {children}
+        </div>
       </div>
-    </div>
+    )}
   </section>
 );

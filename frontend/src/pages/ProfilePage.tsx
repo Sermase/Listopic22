@@ -89,6 +89,7 @@ import {
   normalizeEarnedBadgeIds,
 } from "../utils/gamification";
 import { buildPublicRouteUrl } from "../utils/publicUrl";
+import { EntityHero } from "../components/EntityHero";
 
 interface ListRatingStats {
   listId: string;
@@ -1706,22 +1707,18 @@ export const ProfilePage: React.FC = () => {
   return (
     <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
       {/* Header / Banner */}
-      <div className={`h-[40vh] min-h-[300px] relative overflow-hidden group after:absolute after:inset-x-0 after:-bottom-1 after:z-20 after:h-4 after:bg-[var(--lt-bg)] ${heroProfileReady || !usableProfilePhotoUrl ? 'animate-hero-from-right' : ''}`}>
-        <div className="absolute inset-0 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40 z-10" />
-        {usableProfilePhotoUrl ? (
-          <ProgressiveImage
-            src={usableProfilePhotoUrl}
-            alt={profile.displayName || profile.username || ''}
-            containerClassName="absolute inset-0"
-            className="w-full h-full object-cover object-center opacity-80 transition-transform duration-700 group-hover:scale-105"
-            onLoad={() => setHeroProfileReady(true)}
-            onError={() => setFailedProfilePhotoUrl(usableProfilePhotoUrl)}
-          />
-        ) : (
+      <EntityHero
+        imageUrl={usableProfilePhotoUrl}
+        alt={profile.displayName || profile.username || ''}
+        ready={heroProfileReady}
+        onImageLoad={() => setHeroProfileReady(true)}
+        onImageError={() => setFailedProfilePhotoUrl(usableProfilePhotoUrl)}
+        className="h-[40vh] min-h-[300px] after:absolute after:inset-x-0 after:-bottom-1 after:z-20 after:h-4 after:bg-[var(--lt-bg)]"
+        fallback={(
           <div className="absolute inset-0"
             style={{ background: dominantColor ? `linear-gradient(to bottom, ${dominantColor}, var(--lt-bg))` : 'linear-gradient(to bottom, rgba(49,46,129,0.4), var(--lt-bg))' }} />
         )}
-      </div>
+      />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 relative -mt-[7.5rem] sm:-mt-32 z-10">
         {/* TOP SECTION: Avatar + Identity + Desktop Actions */}
@@ -2996,7 +2993,7 @@ export const ProfilePage: React.FC = () => {
 
       {/* Profile Details Modal */}
       {
-        isDetailsModalOpen && (
+        isDetailsModalOpen && createPortal(
           <div
             className="fixed inset-0 z-[2147483000] lt-mobile-overlay flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
             onClick={() => setIsDetailsModalOpen(false)}
@@ -3302,7 +3299,8 @@ export const ProfilePage: React.FC = () => {
                 )}
               </div>
             </div>
-          </div>
+          </div>,
+          document.body,
         )
       }
       <ShareModal

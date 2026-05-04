@@ -1,5 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
-import { doc, getDoc, getDocFromServer } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { doc, getDoc, getDocFromServer, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export interface UserProfileEntity {
@@ -41,28 +41,78 @@ export interface UserProfileEntity {
     notificationPreferences?: Record<string, boolean>;
 }
 
-export const useUserProfile = (uid: string | undefined) => {
-    const q = useQuery({
-        queryKey: ['userProfile', uid],
-        enabled: !!uid,
-        queryFn: async () => {
-            const userRef = doc(db, 'users', uid!);
-            let snap;
-            try {
-                snap = await getDocFromServer(userRef);
-            } catch {
-                snap = await getDoc(userRef);
-            }
-            if (!snap.exists()) throw new Error('Perfil no encontrado');
-            return { uid: snap.id, ...snap.data() } as UserProfileEntity;
-        },
-        staleTime: 30 * 1000,
-        refetchOnMount: 'always',
-    });
+const toProfileEntity = (id: string, data: Record<string, unknown>): UserProfileEntity => ({
+    uid: id,
+    ...(data as Omit<UserProfileEntity, 'uid'>),
+});
 
-    return {
-        profile: q.data ?? null,
-        loading: q.isLoading,
-        error: q.error ? (q.error as Error).message : null,
-    };
+export const useUserProfile = (uid: string | undefined) => {
+    const [profile, setProfile] = useState<UserProfileEntity | null>(null);
+    const [loading, setLoading] = useState(Boolean(uid));
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!uid) {
+            setProfile(null);
+            setLoading(false);
+            setError(null);
+            return;
+        }
+
+        const userRef = doc(db, 'users', uid);
+        let cancelled = false;
+        let unsubscribe: (() => void) | null = null;
+
+        setLoading(true);
+        setError(null);
+
+        // First try a server read so a direct PWA refresh does not stay stuck on
+        // stale cached counters/photos. The live subscription below keeps it fresh.
+        getDocFromServer(userRef)
+            .catch(() => getDoc(userRef))
+            .then((snap) => {
+                if (cancelled) return;
+                if (!snap.exists()) {
+                    setProfile(null);
+                    setError('Perfil no encontrado');
+                    setLoading(false);
+                    return;
+                }
+                setProfile(toProfileEntity(snap.id, snap.data()));
+                setLoading(false);
+            })
+            .catch((readError) => {
+                if (cancelled) return;
+                setError((readError as Error).message || 'Perfil no encontrado');
+                setLoading(false);
+            });
+
+        unsubscribe = onSnapshot(
+            userRef,
+            (snap) => {
+                if (cancelled) return;
+                if (!snap.exists()) {
+                    setProfile(null);
+                    setError('Perfil no encontrado');
+                    setLoading(false);
+                    return;
+                }
+                setProfile(toProfileEntity(snap.id, snap.data()));
+                setError(null);
+                setLoading(false);
+            },
+            (snapshotError) => {
+                if (cancelled) return;
+                setError(snapshotError.message || 'Perfil no encontrado');
+                setLoading(false);
+            },
+        );
+
+        return () => {
+            cancelled = true;
+            unsubscribe?.();
+        };
+    }, [uid]);
+
+    return { profile, loading, error };
 };
