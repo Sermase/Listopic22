@@ -291,7 +291,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         const loadPrivateUserProfiles = async () => {
             const rows = await Promise.all(privateTargetIds.map(async (uid) => {
                 try {
-                    const snap = await getDoc(doc(db, 'users', uid));
+                    const snap = await getDoc(doc(db, 'publicProfiles', uid));
                     if (!snap.exists()) return [uid, {}] as const;
                     return [uid, snap.data() as Record<string, unknown>] as const;
                 } catch {

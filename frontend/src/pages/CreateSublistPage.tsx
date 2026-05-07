@@ -160,13 +160,13 @@ export const CreateSublistPage: React.FC = () => {
         if (!trimmed) return null;
         try {
             // Try by username field
-            const snap = await getDocs(query(collection(db, 'users'), where('username', '==', trimmed), limit(1)));
+            const snap = await getDocs(query(collection(db, 'publicProfiles'), where('username', '==', trimmed), limit(1)));
             if (!snap.empty) {
                 const d = snap.docs[0];
                 return { uid: d.id, username: (d.data().username as string) || trimmed };
             }
             // Try case-insensitive via usernameLower
-            const snap2 = await getDocs(query(collection(db, 'users'), where('usernameLower', '==', trimmed.toLowerCase()), limit(1)));
+            const snap2 = await getDocs(query(collection(db, 'publicProfiles'), where('usernameLower', '==', trimmed.toLowerCase()), limit(1)));
             if (!snap2.empty) {
                 const d = snap2.docs[0];
                 return { uid: d.id, username: (d.data().username as string) || trimmed };

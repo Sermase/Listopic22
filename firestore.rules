@@ -232,11 +232,8 @@ service cloud.firestore {
     // REGLAS PARA USUARIOS (`users`) (ACTUALIZADAS)
     // ===============================================
     match /users/{userId} {
-      allow read: if true;
-      // Allow small authenticated lookups by username/usernameLower for collaborator lookup.
-      // Admins can list without the public limit from the developer tools.
-      allow list: if request.auth != null &&
-                  (isJefe(request.auth.uid) || (request.query.limit != null && request.query.limit <= 50));
+      allow get: if request.auth != null && (request.auth.uid == userId || isJefe(request.auth.uid));
+      allow list: if request.auth != null && isJefe(request.auth.uid);
       // Un usuario puede crear/editarse a sí mismo.
       allow create: if request.auth != null &&
                     request.auth.uid == userId &&
@@ -306,14 +303,15 @@ service cloud.firestore {
     // Espejo publico de perfil. Lo escribe Cloud Functions desde users/{uid}
     // para poder migrar el frontend sin exponer datos privados del documento users.
     match /publicProfiles/{userId} {
-      allow read: if true;
-      allow list: if false;
+      allow get: if true;
+      allow list: if request.query.limit != null && request.query.limit <= 50;
       allow write: if false;
     }
 
     // Reserva de usernames (docId = username en minúsculas)
     match /usernameClaims/{usernameKey} {
-      allow read: if request.auth != null;
+      allow get: if request.auth != null;
+      allow list: if false;
       allow create: if request.auth != null
                     && request.resource.data.uid == request.auth.uid
                     && request.resource.data.usernameLower == usernameKey

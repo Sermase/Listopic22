@@ -74,7 +74,7 @@ export const ChatsPage: React.FC = () => {
 
         if (privateTargets.length === 0) return;
 
-        const unsubs = privateTargets.map((uid) => onSnapshot(doc(db, 'users', uid), (snap) => {
+        const unsubs = privateTargets.map((uid) => onSnapshot(doc(db, 'publicProfiles', uid), (snap) => {
             setUsersMap(prev => ({
                 ...prev,
                 [uid]: snap.exists()

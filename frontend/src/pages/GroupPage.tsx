@@ -234,7 +234,7 @@ export const GroupPage: React.FC = () => {
             if (userIds.length > 0) {
                 await Promise.all(userIds.slice(0, 20).map(async (uid) => {
                     try {
-                        const userSnap = await getDoc(doc(db, 'users', uid));
+                        const userSnap = await getDoc(doc(db, 'publicProfiles', uid));
                         if (userSnap.exists()) {
                             usersMap[uid] = userSnap.data();
                         }

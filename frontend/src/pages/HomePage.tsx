@@ -381,7 +381,7 @@ export const HomePage: React.FC = () => {
     useEffect(() => {
         const fetchBots = async () => {
             try {
-                const snap = await getDocs(query(collection(db, 'users'), where('userType', 'array-contains', 'bot'), limit(50)));
+                const snap = await getDocs(query(collection(db, 'publicProfiles'), where('userType', 'array-contains', 'bot'), limit(50)));
                 setBotUserIds(new Set(snap.docs.map(d => d.id)));
             } catch {
                 // non-blocking

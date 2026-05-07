@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc, getDocFromServer, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useAuth } from '../context/AuthContext';
 
 export interface UserProfileEntity {
     uid: string;
@@ -47,6 +48,7 @@ const toProfileEntity = (id: string, data: Record<string, unknown>): UserProfile
 });
 
 export const useUserProfile = (uid: string | undefined) => {
+    const { user } = useAuth();
     const [profile, setProfile] = useState<UserProfileEntity | null>(null);
     const [loading, setLoading] = useState(Boolean(uid));
     const [error, setError] = useState<string | null>(null);
@@ -59,7 +61,8 @@ export const useUserProfile = (uid: string | undefined) => {
             return;
         }
 
-        const userRef = doc(db, 'users', uid);
+        const isOwnProfile = user?.uid === uid;
+        const userRef = doc(db, isOwnProfile ? 'users' : 'publicProfiles', uid);
         let cancelled = false;
         let unsubscribe: (() => void) | null = null;
 
@@ -112,7 +115,7 @@ export const useUserProfile = (uid: string | undefined) => {
             cancelled = true;
             unsubscribe?.();
         };
-    }, [uid]);
+    }, [uid, user?.uid]);
 
     return { profile, loading, error };
 };

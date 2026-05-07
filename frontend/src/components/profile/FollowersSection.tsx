@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, getDocs, where, documentId } from 'firebase/firestore';
+import { collection, query, getDocs, where, documentId, limit } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { Link } from 'react-router-dom';
 import { getUserTypeGradient } from '../UserAvatar';
@@ -41,8 +41,9 @@ export const FollowersSection: React.FC<FollowersSectionProps> = ({
                 for (const chunk of chunks) {
                     try {
                         const qDetails = query(
-                            collection(db, 'users'),
-                            where(documentId(), 'in', chunk)
+                            collection(db, 'publicProfiles'),
+                            where(documentId(), 'in', chunk),
+                            limit(10)
                         );
                         const snapDetails = await getDocs(qDetails);
                         fetchedItems.push(...snapDetails.docs.map(d => ({ id: d.id, ...d.data() })));

@@ -87,7 +87,7 @@ export const useFollowingFeed = () => {
                 const [userSnaps, listSnaps, placeSnaps] = await Promise.all([
                     Promise.all(userIds.map(async (uid) => {
                         try {
-                            return await getDoc(doc(db, 'users', uid));
+                            return await getDoc(doc(db, 'publicProfiles', uid));
                         } catch {
                             return null;
                         }

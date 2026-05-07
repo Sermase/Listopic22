@@ -55,7 +55,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                 const map: Record<string, string> = {};
                 await Promise.all(allUids.map(async (uid) => {
                     try {
-                        const snap = await getDoc(doc(db, 'users', uid));
+                        const snap = await getDoc(doc(db, 'publicProfiles', uid));
                         if (snap.exists()) {
                             const d = snap.data();
                             map[uid] = d.username || d.displayName || uid;
@@ -88,19 +88,11 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
             termsToTry.add(rawTerm.charAt(0).toUpperCase() + rawTerm.slice(1).toLowerCase());
 
             if (rawTerm.includes('@')) {
-                // It's likely an email, simple matching
-                const usersRef = collection(db, 'users');
-                const qEmail = query(usersRef, where('email', '==', rawTerm), limit(10));
-                const snapEmail = await getDocs(qEmail);
-                const results = snapEmail.docs.map(d => ({ id: d.id, ...d.data() }));
-
-                // Filter
-                const filtered = results.filter((u: any) => u.id !== user?.uid && u.id !== ownerId);
-                setSearchResults(filtered);
+                setSearchResults([]);
                 return;
             }
 
-            const usersRef = collection(db, 'users');
+            const usersRef = collection(db, 'publicProfiles');
             const promises = Array.from(termsToTry).map(async (t) => {
                 const q = query(usersRef, where('username', '>=', t), where('username', '<=', t + '\uf8ff'), limit(10));
                 return getDocs(q);

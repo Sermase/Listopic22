@@ -140,7 +140,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     if (userIds.length > 0) {
         await Promise.all(userIds.slice(0, 20).map(async (uid) => {
             try {
-                const snap = await getDoc(doc(db, 'users', uid));
+                const snap = await getDoc(doc(db, 'publicProfiles', uid));
                 if (snap.exists()) usersMap[uid] = snap.data();
             } catch { /* no-op */ }
         }));

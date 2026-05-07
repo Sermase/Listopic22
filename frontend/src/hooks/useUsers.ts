@@ -25,7 +25,7 @@ export const useUsers = () => {
             try {
                 // Try to order by followersCount if index exists
                 // If not, we might need a fallback or create index
-                let q = query(collection(db, 'users'), orderBy('followersCount', 'desc'), limit(15));
+                let q = query(collection(db, 'publicProfiles'), orderBy('followersCount', 'desc'), limit(15));
 
                 try {
                     const snap = await getDocs(q);
@@ -33,7 +33,7 @@ export const useUsers = () => {
                 } catch {
                     console.warn("Index missing for followersCount, falling back to simple fetch");
                     // Fallback: fetch recent users or just default order
-                    q = query(collection(db, 'users'), limit(15));
+                    q = query(collection(db, 'publicProfiles'), limit(15));
                     const snap = await getDocs(q);
                     setUsers(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserEntity)));
                 }

@@ -1,15 +1,10 @@
 import {
-    collection,
     doc,
     getDoc,
     getDocFromServer,
-    getDocs,
-    limit,
-    query,
     runTransaction,
     serverTimestamp,
     setDoc,
-    where,
 } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../firebase';
@@ -90,15 +85,9 @@ const readSeedBase = (seed: UserIdentitySeed): string => {
 const isUsernameTakenInUsersCollection = async (uid: string, username: string): Promise<boolean> => {
     const trimmedUsername = username.trim();
     const normalized = normalizeUsername(trimmedUsername);
-    const usersRef = collection(db, USERS_COLLECTION);
-
-    const byLower = await getDocs(query(usersRef, where('usernameLower', '==', normalized), limit(3)));
-    if (byLower.docs.some((snap) => snap.id !== uid)) {
-        return true;
-    }
-
-    const exact = await getDocs(query(usersRef, where('username', '==', trimmedUsername), limit(3)));
-    return exact.docs.some((snap) => snap.id !== uid);
+    const claimSnap = await getDoc(doc(db, USERNAME_CLAIMS_COLLECTION, normalized));
+    if (!claimSnap.exists()) return false;
+    return asString(claimSnap.data().uid) !== uid;
 };
 
 const claimUsernameForUser = async (uid: string, username: string): Promise<boolean> => {

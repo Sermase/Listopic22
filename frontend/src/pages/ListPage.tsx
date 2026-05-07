@@ -242,7 +242,7 @@ export const ListPage: React.FC = () => {
                 try {
                     // Fetch each user doc individually (simple, no composite index needed)
                     await Promise.all(chunk.map(async uid => {
-                        const snap = await getDoc(doc(db, 'users', uid));
+                        const snap = await getDoc(doc(db, 'publicProfiles', uid));
                         if (snap.exists()) {
                             const ut = snap.data().userType ?? [];
                         const roles = Array.isArray(ut) ? ut : [ut];
