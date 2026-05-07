@@ -39,7 +39,34 @@
 const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
-const cors = require("cors")({ origin: true });
+const DEFAULT_CORS_ORIGINS = [
+  "https://listopic.es",
+  "https://www.listopic.es",
+  "https://listopic.web.app",
+  "https://listopic.firebaseapp.com",
+  "capacitor://localhost",
+  "ionic://localhost",
+  "http://localhost",
+  "http://localhost:5173",
+  "http://localhost:5000",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:5000",
+];
+const configuredCorsOrigins = (process.env.CORS_ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+const allowedCorsOrigins = new Set([...DEFAULT_CORS_ORIGINS, ...configuredCorsOrigins]);
+const cors = require("cors")({
+  origin(origin, callback) {
+    if (!origin || allowedCorsOrigins.has(origin)) {
+      callback(null, true);
+      return;
+    }
+    logger.warn("Blocked CORS origin", { origin });
+    callback(new Error("Origin not allowed by CORS"));
+  },
+});
 const fetch = require("node-fetch");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");

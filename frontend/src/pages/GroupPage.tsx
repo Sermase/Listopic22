@@ -432,7 +432,9 @@ export const GroupPage: React.FC = () => {
                             photoUrl: d.photoUrl || d.mainImageUrl || d.thumbnailUrl || d.coverUrl || d.imageUrl || undefined
                         });
                     }
-                } catch (e) { }
+                } catch (e) {
+                    console.warn("Failed to load related list details", { listId: lid, error: e });
+                }
             }
             setListsDetails(details);
         };

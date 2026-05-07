@@ -74,8 +74,12 @@ async function fetchLists(
         const listIds = likesSnap.docs.map(d => d.data().listId);
         const listSnaps = await Promise.all(
             listIds.map(async (id) => {
-                try { return await getDoc(doc(db, 'lists', id)); }
-                catch { return null; }
+                try {
+                    return await getDoc(doc(db, 'lists', id));
+                } catch (error) {
+                    console.warn('useLists: failed to load liked list', { listId: id, error });
+                    return null;
+                }
             })
         );
         return listSnaps

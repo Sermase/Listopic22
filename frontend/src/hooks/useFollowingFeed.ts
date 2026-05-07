@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, limit, doc, getDoc, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where, limit, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import type { ReviewEntity } from './useListDetails';
+import { getCachedDocs } from '../lib/queryCache';
 
 export const useFollowingFeed = () => {
     const { user } = useAuth();
@@ -80,42 +81,27 @@ export const useFollowingFeed = () => {
                 const allReviews = Array.from(dedupMap.values());
 
                 // 4. Enrich Data (Fetch Users, Lists, and Places)
-                const userIds = Array.from(new Set(allReviews.map(r => r.userId).filter(Boolean))) as string[];
+                const userIds = Array.from(new Set(allReviews.map(r => r.userId || (r as any).authorId).filter(Boolean))) as string[];
                 const listIds = Array.from(new Set(allReviews.map(r => r.listId).filter(Boolean))) as string[];
                 const placeIds = Array.from(new Set(allReviews.map(r => r.placeId).filter(Boolean))) as string[];
 
-                const [userSnaps, listSnaps, placeSnaps] = await Promise.all([
-                    Promise.all(userIds.map(async (uid) => {
-                        try {
-                            return await getDoc(doc(db, 'publicProfiles', uid));
-                        } catch {
-                            return null;
-                        }
-                    })),
-                    Promise.all(listIds.map(async (lid) => {
-                        try {
-                            return await getDoc(doc(db, 'lists', lid));
-                        } catch {
-                            return null;
-                        }
-                    })),
-                    Promise.all(placeIds.map(async (pid) => {
-                        try {
-                            return await getDoc(doc(db, 'places', pid));
-                        } catch {
-                            return null;
-                        }
-                    }))
+                const [usersMap, listsMap, placesMap] = await Promise.all([
+                    getCachedDocs('publicProfiles', userIds, {
+                        warnLabel: 'useFollowingFeed: failed loading user profiles batch',
+                    }),
+                    getCachedDocs('lists', listIds, {
+                        warnLabel: 'useFollowingFeed: failed loading lists batch',
+                    }),
+                    getCachedDocs('places', placeIds, {
+                        warnLabel: 'useFollowingFeed: failed loading places batch',
+                    }),
                 ]);
 
-                const userMap = new Map(userSnaps.filter((s): s is NonNullable<typeof s> => !!s).map(s => [s.id, s.data() as any]));
-                const listMap = new Map(listSnaps.filter((s): s is NonNullable<typeof s> => !!s).map(s => [s.id, s.data() as any]));
-                const placeMap = new Map(placeSnaps.filter((s): s is NonNullable<typeof s> => !!s).map(s => [s.id, s.data() as any]));
-
                 const enrichedReviews = allReviews.map(r => {
-                    const u = r.userId ? userMap.get(r.userId) : null;
-                    const l = r.listId ? listMap.get(r.listId) : null;
-                    const p = r.placeId ? placeMap.get(r.placeId) : null;
+                    const authorId = r.userId || (r as any).authorId;
+                    const u = authorId ? usersMap[authorId] as any : null;
+                    const l = r.listId ? listsMap[r.listId] as any : null;
+                    const p = r.placeId ? placesMap[r.placeId] as any : null;
                     return {
                         ...r,
                         authorName: u?.username || u?.displayName || r.authorName || 'Usuario',

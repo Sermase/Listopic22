@@ -154,37 +154,61 @@ export const ChatService = {
     },
 
     // Listen to user's chats
-    subscribeToChats: (userId: string, callback: (chats: Chat[]) => void) => {
+    subscribeToChats: (
+        userId: string,
+        callback: (chats: Chat[]) => void,
+        onError?: (error: unknown) => void
+    ) => {
         const q = query(
             collection(db, 'chats'),
             where('participants', 'array-contains', userId),
             orderBy('updatedAt', 'desc')
         );
 
-        return onSnapshot(q, (snapshot) => {
-            const chats = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as Chat[];
-            callback(chats);
-        });
+        return onSnapshot(
+            q,
+            (snapshot) => {
+                const chats = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                })) as Chat[];
+                callback(chats);
+            },
+            (error) => {
+                console.error('ChatService: failed to subscribe to chats', error);
+                callback([]);
+                onError?.(error);
+            }
+        );
     },
 
     // Listen to messages in a chat
-    subscribeToMessages: (chatId: string, callback: (messages: Message[]) => void) => {
+    subscribeToMessages: (
+        chatId: string,
+        callback: (messages: Message[]) => void,
+        onError?: (error: unknown) => void
+    ) => {
         const q = query(
             collection(db, 'chats', chatId, 'messages'),
             orderBy('createdAt', 'asc'),
             limit(100)
         );
 
-        return onSnapshot(q, (snapshot) => {
-            const messages = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            })) as Message[];
-            callback(messages);
-        });
+        return onSnapshot(
+            q,
+            (snapshot) => {
+                const messages = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                })) as Message[];
+                callback(messages);
+            },
+            (error) => {
+                console.error('ChatService: failed to subscribe to messages', error);
+                callback([]);
+                onError?.(error);
+            }
+        );
     },
 
     addParticipant: async (chatId: string, newUserId: string) => {

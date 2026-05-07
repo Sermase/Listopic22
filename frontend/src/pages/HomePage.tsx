@@ -270,15 +270,21 @@ export const HomePage: React.FC = () => {
     useEffect(() => {
         if (!user || !showProfileGate) return;
 
-        const unsubscribe = onSnapshot(doc(db, 'users', user.uid), (snap) => {
-            if (!snap.exists()) return;
-            const data = snap.data() as Record<string, unknown>;
-            const candidateUsername = typeof data.username === 'string' ? data.username.trim() : '';
-            if (isUsernameValid(candidateUsername)) {
-                setShowProfileGate(false);
-                setGateError(null);
+        const unsubscribe = onSnapshot(
+            doc(db, 'users', user.uid),
+            (snap) => {
+                if (!snap.exists()) return;
+                const data = snap.data() as Record<string, unknown>;
+                const candidateUsername = typeof data.username === 'string' ? data.username.trim() : '';
+                if (isUsernameValid(candidateUsername)) {
+                    setShowProfileGate(false);
+                    setGateError(null);
+                }
+            },
+            (error) => {
+                console.error('[HomePage] Error watching username gate:', error);
             }
-        });
+        );
 
         return () => unsubscribe();
     }, [user?.uid, showProfileGate]);
@@ -383,8 +389,8 @@ export const HomePage: React.FC = () => {
             try {
                 const snap = await getDocs(query(collection(db, 'publicProfiles'), where('userType', 'array-contains', 'bot'), limit(50)));
                 setBotUserIds(new Set(snap.docs.map(d => d.id)));
-            } catch {
-                // non-blocking
+            } catch (error) {
+                console.warn('[HomePage] Error loading bot profiles:', error);
             }
         };
         fetchBots();

@@ -5,7 +5,7 @@ import { collection, collectionGroup, query, orderBy, limit, getDocs, where, sta
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
-import { getCachedDoc } from '../lib/queryCache';
+import { getCachedDocs } from '../lib/queryCache';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -15,12 +15,9 @@ const uniqueIds = (ids: (string | undefined)[]) => [...new Set(ids.filter((id): 
 
 const fetchDocsBatch = async (collectionName: string, ids: string[]) => {
     if (!ids.length) return {};
-    const docsMap: Record<string, any> = {};
-    await Promise.all(ids.map(async (id) => {
-        const data = await getCachedDoc(collectionName, id);
-        if (data) docsMap[id] = data;
-    }));
-    return docsMap;
+    return getCachedDocs(collectionName, ids, {
+        warnLabel: `useReviews: failed loading ${collectionName} batch`,
+    }) as Promise<Record<string, any>>;
 };
 
 const enrichRawReviews = async (rawReviews: ReviewEntity[]): Promise<ReviewEntity[]> => {
@@ -32,7 +29,7 @@ const enrichRawReviews = async (rawReviews: ReviewEntity[]): Promise<ReviewEntit
     const [listsMap, placesMap, usersMap] = await Promise.all([
         fetchDocsBatch('lists', listIds),
         fetchDocsBatch('places', placeIds),
-        fetchDocsBatch('users', userIds),
+        fetchDocsBatch('publicProfiles', userIds),
     ]);
 
     return rawReviews.map(review => {

@@ -68,12 +68,14 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
     return (
         <div className={`relative overflow-hidden ${containerClassName || ''}`}>
             <div
-                className={`absolute inset-0 bg-[#1c2438] transition-opacity duration-700 ${loaded ? 'opacity-0 pointer-events-none' : 'animate-pulse opacity-100'}`}
+                className={`absolute inset-0 bg-gray-200 dark:bg-[#1c2438] transition-opacity duration-700 ${loaded ? 'opacity-0 pointer-events-none' : 'animate-pulse opacity-100'}`}
             />
             <img
                 ref={imgRef}
                 src={effectiveSrc}
                 alt={alt || ''}
+                loading={props.loading ?? 'lazy'}
+                decoding={props.decoding ?? 'async'}
                 onLoad={(e) => { setLoaded(true); onLoadProp?.(e); }}
                 onError={(e) => {
                     const retrySrc = getFirebaseStorageRetryUrl(effectiveSrc);

@@ -4,6 +4,7 @@ import { collection, query, where, getDocs, doc, getDoc, limit, orderBy } from '
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
+import { getCachedDocs } from '../lib/queryCache';
 
 export interface PlacePhoto {
     id: string;
@@ -136,38 +137,26 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     }
 
     const userIds = [...new Set(reviews.map(r => r.userId || r.authorId).filter(Boolean))] as string[];
-    const usersMap: Record<string, any> = {};
-    if (userIds.length > 0) {
-        await Promise.all(userIds.slice(0, 20).map(async (uid) => {
-            try {
-                const snap = await getDoc(doc(db, 'publicProfiles', uid));
-                if (snap.exists()) usersMap[uid] = snap.data();
-            } catch { /* no-op */ }
-        }));
-    }
+    const usersMap = await getCachedDocs('publicProfiles', userIds.slice(0, 20), {
+        warnLabel: 'usePlaceDetails: failed loading user profiles batch',
+    }) as Record<string, any>;
 
     const listIds = [...new Set(reviews.map(r => r.listId).filter(Boolean))] as string[];
-    const listsMap: Record<string, any> = {};
+    const listsMap = await getCachedDocs('lists', listIds.slice(0, 20), {
+        warnLabel: 'usePlaceDetails: failed loading lists batch',
+    }) as Record<string, any>;
     const relatedLists: PlaceDetails['relatedLists'] = [];
-    if (listIds.length > 0) {
-        await Promise.all(listIds.slice(0, 20).map(async (lid) => {
-            try {
-                const snap = await getDoc(doc(db, 'lists', lid));
-                if (snap.exists()) {
-                    const d = snap.data();
-                    listsMap[lid] = d;
-                    if (relatedLists.length < 10) {
-                        relatedLists.push({
-                            id: lid,
-                            name: d.name,
-                            authorName: d.authorName,
-                            parentListId: d.parentListId,
-                            photoUrl: d.photoUrl || d.mainImageUrl || d.thumbnailUrl || d.coverUrl || d.imageUrl || undefined,
-                        });
-                    }
-                }
-            } catch { /* no-op */ }
-        }));
+    for (const lid of listIds.slice(0, 20)) {
+        const d = listsMap[lid];
+        if (d && relatedLists.length < 10) {
+            relatedLists.push({
+                id: lid,
+                name: d.name,
+                authorName: d.authorName,
+                parentListId: d.parentListId,
+                photoUrl: d.photoUrl || d.mainImageUrl || d.thumbnailUrl || d.coverUrl || d.imageUrl || undefined,
+            });
+        }
     }
 
     const enrichedReviews = reviews.map(r => {

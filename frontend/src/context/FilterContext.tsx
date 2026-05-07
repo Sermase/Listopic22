@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -149,7 +149,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         };
     }, [user?.uid]);
 
-    const setRange = (newRange: number | null) => {
+    const setRange = useCallback((newRange: number | null) => {
         setRangeState(newRange);
         if (newRange !== null) {
             sessionStorage.setItem(SESSION_RANGE_KEY, String(newRange));
@@ -160,20 +160,25 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             sessionStorage.removeItem(SESSION_RANGE_KEY);
             sessionStorage.removeItem(SESSION_RANGE_UID_KEY);
         }
-    };
+    }, [user?.uid]);
 
-    const toggleRange = () => {
+    const toggleRange = useCallback(() => {
         setRange(getNextRangeValue(range));
-    };
+    }, [range, setRange]);
 
-    const getRangeLabel = () => {
+    const getRangeLabel = useCallback(() => {
         if (range === null) return "Sin rango";
         if (range === 0.5) return "< 500 m";
         return `< ${range} km`;
-    };
+    }, [range]);
+
+    const value = useMemo(
+        () => ({ range, setRange, toggleRange, getRangeLabel }),
+        [range, setRange, toggleRange, getRangeLabel]
+    );
 
     return (
-        <FilterContext.Provider value={{ range, setRange, toggleRange, getRangeLabel }}>
+        <FilterContext.Provider value={value}>
             {children}
         </FilterContext.Provider>
     );

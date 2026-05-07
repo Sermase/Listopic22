@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
     dedupe: ['react', 'react-dom'],
   },
   optimizeDeps: {
-    include: ['jspdf'],
+    include: ['jspdf', 'html2canvas', 'leaflet', 'react-leaflet', 'fast-average-color', 'lucide-react'],
   },
   esbuild: {
     // Strip console.* and debugger statements in production builds. Keep
@@ -26,7 +26,12 @@ export default defineConfig(({ mode }) => ({
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'firebase-vendor': ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage', 'firebase/analytics'],
-          'ui-vendor': ['lucide-react']
+          'ui-vendor': ['lucide-react'],
+          'map-vendor': ['leaflet', 'react-leaflet'],
+          'html2canvas-vendor': ['html2canvas'],
+          'pdf-vendor': ['jspdf'],
+          'algolia-vendor': ['algoliasearch'],
+          'image-vendor': ['fast-average-color'],
         }
       }
     }

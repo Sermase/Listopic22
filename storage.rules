@@ -32,37 +32,42 @@ service firebase.storage {
              request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)');
     }
 
-    // --- Reseñas: el dueño del uid del path puede escribir, todos pueden leer. ---
+    // --- Reseñas: el dueño del uid del path puede escribir; no se listan publicamente. ---
     match /reviews/{userId}/{allPaths=**} {
-      allow read;
+      allow get: if true;
+      allow list: if isSignedIn() && (request.auth.uid == userId || isJefe());
       allow create, update: if isSignedIn() && request.auth.uid == userId && isValidImage();
       allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
     // --- Fotos propias de lugares: cualquier usuario puede aportar sus fotos. ---
     match /places/{placeId}/{userId}/{allPaths=**} {
-      allow read;
+      allow get: if true;
+      allow list: if isSignedIn() && (request.auth.uid == userId || isJefe());
       allow create, update: if isSignedIn() && request.auth.uid == userId && isValidImage();
       allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
     // --- Fotos de perfil (ruta historica usada por el frontend). ---
     match /profile-photos/{userId}/{allPaths=**} {
-      allow read;
+      allow get: if true;
+      allow list: if isSignedIn() && (request.auth.uid == userId || isJefe());
       allow create, update: if isSignedIn() && request.auth.uid == userId && isValidImage();
       allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
     // --- Ruta alternativa que se mantiene por compatibilidad. ---
     match /profile_images/{userId}/{allPaths=**} {
-      allow read;
+      allow get: if true;
+      allow list: if isSignedIn() && (request.auth.uid == userId || isJefe());
       allow create, update: if isSignedIn() && request.auth.uid == userId && isValidImage();
       allow delete: if isSignedIn() && request.auth.uid == userId;
     }
 
     // --- Ruta heredada (se mantiene por si hay URLs antiguas). ---
     match /user-profiles/{userId}/{imageName} {
-      allow read;
+      allow get: if true;
+      allow list: if isSignedIn() && (request.auth.uid == userId || isJefe());
       allow create, update: if isSignedIn() && request.auth.uid == userId && isValidImage();
       allow delete: if isSignedIn() && request.auth.uid == userId;
     }
@@ -70,19 +75,22 @@ service firebase.storage {
     // --- Imágenes de listas: solo propietario de la lista o jefe. ---
     // Antes: cualquier autenticado podía sobreescribir cualquier imagen (IDOR).
     match /list-images/{listId}/{imageName} {
-      allow read;
+      allow get: if true;
+      allow list: if false;
       allow write: if isValidImage() && (isListOwner(listId) || isJefe());
     }
 
     // --- Branding (logo/favicon del sitio): solo jefe. ---
     match /branding/{allPaths=**} {
-      allow read;
+      allow get: if true;
+      allow list: if false;
       allow write: if isJefe() && isValidImage();
     }
 
     // --- Medallas: solo jefe. ---
     match /badges/{badgeId}/{imageName} {
-      allow read;
+      allow get: if true;
+      allow list: if false;
       allow write: if isJefe() && isValidImage();
     }
 
@@ -97,7 +105,7 @@ service firebase.storage {
     }
 
     match /business-claims/{userId}/{allPaths=**} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isJefe());
+      allow get, list: if isSignedIn() && (request.auth.uid == userId || isJefe());
       allow write: if isSignedIn() && request.auth.uid == userId &&
                       isValidBusinessClaimFile();
     }
