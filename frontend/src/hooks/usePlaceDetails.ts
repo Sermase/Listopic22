@@ -104,7 +104,10 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
 
     const globalReviewsSnap = await getDocs(
         query(collection(db, 'reviews'), where('placeId', '==', placeId), limit(50))
-    ).catch(e => { console.warn('Failed to fetch global reviews for place', e); return { docs: [] }; });
+    ).catch(e => {
+        if (e?.code !== 'permission-denied') console.warn('Failed to fetch global reviews for place', e);
+        return { docs: [] };
+    });
     const placePhotosSnap = await placePhotosSnapPromise;
 
     reviewsByList.push(
