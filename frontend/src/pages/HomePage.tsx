@@ -13,7 +13,7 @@ import { UserAvatar } from '../components/UserAvatar';
 import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, Flame, TrendingUp, Gem, HeartHandshake } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
-import { collection, collectionGroup, query, getDocs, limit, doc, getDoc, onSnapshot, where } from 'firebase/firestore';
+import { collection, collectionGroup, query, getDocs, limit, doc, getDoc, getDocFromServer, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { updateProfile } from 'firebase/auth';
 import { useToast } from '../context/ToastContext';
@@ -147,6 +147,7 @@ export const HomePage: React.FC = () => {
     const [isMapOpen, setIsMapOpen] = useState(false);
     const [gateLoading, setGateLoading] = useState(true);
     const [showProfileGate, setShowProfileGate] = useState(false);
+    const [profileGateReason, setProfileGateReason] = useState<'missing_or_invalid' | 'claim_conflict' | null>(null);
     const [gateChecked, setGateChecked] = useState(false);
     const [gateResolvedForUserId, setGateResolvedForUserId] = useState<string | null>(null);
     const [gateSubmitting, setGateSubmitting] = useState(false);
@@ -200,6 +201,7 @@ export const HomePage: React.FC = () => {
                     setGateChecked(true);
                     setGateResolvedForUserId(null);
                     setShowProfileGate(false);
+                    setProfileGateReason(null);
                     setGateError(null);
                 }
                 return;
@@ -208,6 +210,7 @@ export const HomePage: React.FC = () => {
             setGateResolvedForUserId(null);
             setGateChecked(false);
             setShowProfileGate(false);
+            setProfileGateReason(null);
             setGateLoading(true);
 
             // Fast cache-first check: if local Firestore cache already has a valid username,
@@ -241,6 +244,7 @@ export const HomePage: React.FC = () => {
 
                 setGateForm(status.prefill);
                 setShowProfileGate(status.requiresCompletion);
+                setProfileGateReason(status.requiresCompletion ? status.reason ?? 'missing_or_invalid' : null);
                 if (status.requiresCompletion && status.reason === 'claim_conflict') {
                     setGateError('Ese nombre de usuario ya está ocupado. Elige otro para continuar.');
                 } else {
@@ -250,6 +254,7 @@ export const HomePage: React.FC = () => {
                 if (cancelled) return;
                 console.error('[HomePage] Error validating username gate:', error);
                 setShowProfileGate(false);
+                setProfileGateReason(null);
                 setGateError(null);
             } finally {
                 if (!cancelled) {
@@ -278,6 +283,7 @@ export const HomePage: React.FC = () => {
                 const candidateUsername = typeof data.username === 'string' ? data.username.trim() : '';
                 if (isUsernameValid(candidateUsername)) {
                     setShowProfileGate(false);
+                    setProfileGateReason(null);
                     setGateError(null);
                 }
             },
@@ -290,19 +296,44 @@ export const HomePage: React.FC = () => {
     }, [user?.uid, showProfileGate]);
 
     useEffect(() => {
-        if (!user || !showProfileGate || gateLoading) {
+        if (!user || !showProfileGate || gateLoading || !gateChecked || gateResolvedForUserId !== user.uid) {
             setProfileGateVisible(false);
             return;
         }
 
-        const timer = window.setTimeout(() => {
+        let cancelled = false;
+        const timer = window.setTimeout(async () => {
+            if (profileGateReason === 'missing_or_invalid') {
+                try {
+                    const snap = await getDocFromServer(doc(db, 'users', user.uid));
+                    if (cancelled) return;
+                    const data = snap.exists() ? snap.data() as Record<string, unknown> : null;
+                    const username = typeof data?.username === 'string' ? data.username.trim() : '';
+                    if (isUsernameValid(username)) {
+                        setShowProfileGate(false);
+                        setProfileGateReason(null);
+                        setGateError(null);
+                        setProfileGateVisible(false);
+                        return;
+                    }
+                } catch (error) {
+                    if (cancelled) return;
+                    console.warn('[HomePage] Skipping username gate after failed pre-open check:', error);
+                    setShowProfileGate(false);
+                    setProfileGateReason(null);
+                    setProfileGateVisible(false);
+                    return;
+                }
+            }
+            if (cancelled) return;
             setProfileGateVisible(true);
-        }, 220);
+        }, 350);
 
         return () => {
+            cancelled = true;
             window.clearTimeout(timer);
         };
-    }, [user?.uid, showProfileGate, gateLoading]);
+    }, [user?.uid, showProfileGate, gateLoading, gateChecked, gateResolvedForUserId, profileGateReason]);
 
     const handleGateFieldChange = (field: keyof UserProfileFormData, value: string) => {
         setGateForm(prev => ({ ...prev, [field]: value }));
@@ -327,6 +358,8 @@ export const HomePage: React.FC = () => {
             }
 
             setShowProfileGate(false);
+            setProfileGateReason(null);
+            setProfileGateVisible(false);
             setGateError(null);
         } catch (error) {
             if (isUserProfileServiceError(error)) {
@@ -1517,7 +1550,7 @@ export const HomePage: React.FC = () => {
                 </div>
 
                 {/* Profile gate — overlay modal, solo aparece si el username es realmente inválido */}
-                {user && showProfileGate && profileGateVisible && (
+                {user && showProfileGate && profileGateVisible && gateChecked && gateResolvedForUserId === user.uid && (
                     <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 py-12">
                         <div className="w-full max-w-2xl bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl">
                             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Completa tu perfil</h2>
