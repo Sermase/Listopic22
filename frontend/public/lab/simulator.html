@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -74,9 +74,11 @@
         .mobile-modal.is-open { display: flex; }
         .mobile-modal-body #controls-panel { display: grid !important; }
         .mobile-modal-body #history-panel, .mobile-modal-body #diag-panel { display: flex !important; height: auto !important; max-height: none; margin-bottom: 0 !important; }
+        button, [role="button"] { touch-action: manipulation; }
 
         @media (max-width: 900px) {
             body { padding: 0 !important; overflow-x: hidden; }
+            input, select, textarea { font-size: 16px !important; }
             .max-w-6xl { max-width: 100% !important; width: 100% !important; }
             header { display: none; }
             #canvas-container { height: 100dvh; min-height: 420px; max-height: none; border-radius: 0; margin-bottom: 0 !important; border-left: 0; border-right: 0; }
@@ -1067,6 +1069,16 @@
             const shouldExit = window.confirm('¿Seguro que deseas salir del simulador? Se perderá la simulación actual.');
             return !shouldExit;
         }
+
+        window.addEventListener('message', (event) => {
+            if (event.origin !== window.location.origin) return;
+            if (!event.data || event.data.type !== 'listopic-simulator-back') return;
+
+            const consumed = handleSimulatorBackIntent();
+            if (!consumed && window.parent) {
+                window.parent.postMessage({ type: 'listopic-simulator-exit' }, window.location.origin);
+            }
+        });
 
         function installSimulatorBackGuard() {
             if (!window.history || !window.history.pushState) return;

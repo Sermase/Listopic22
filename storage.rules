@@ -29,7 +29,7 @@ service firebase.storage {
     // Aceptamos solo imágenes razonables: <= 10 MB y content-type image/*.
     function isValidImage() {
       return request.resource.size < 10 * 1024 * 1024 &&
-             request.resource.contentType.matches('image/.*');
+             request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)');
     }
 
     // --- Reseñas: el dueño del uid del path puede escribir, todos pueden leer. ---
@@ -91,7 +91,7 @@ service firebase.storage {
     function isValidBusinessClaimFile() {
       return request.resource.size < 25 * 1024 * 1024 &&
              (
-               request.resource.contentType.matches('image/.*') ||
+               request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)') ||
                request.resource.contentType == 'application/pdf'
              );
     }

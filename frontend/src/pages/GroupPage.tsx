@@ -670,7 +670,7 @@ export const GroupPage: React.FC = () => {
                     <div className="bg-[var(--lt-card-strong)] p-3 rounded-xl border border-white/10 grid grid-cols-3 gap-3">
                         <button
                             onClick={() => setIsSaveModalOpen(true)}
-                            className="bg-[var(--lt-card)] hover:bg-[var(--lt-card-strong)] text-gray-200 hover:text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 group"
+                            className="lt-secondary-action bg-[var(--lt-card)] hover:bg-[var(--lt-card-strong)] text-gray-200 hover:text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 group"
                         >
                             <Bookmark className="w-6 h-6 group-hover:scale-110 transition-transform text-[var(--lt-accent)]" />
                             <span className="text-xs font-bold tracking-wide">GUARDAR</span>
@@ -678,7 +678,7 @@ export const GroupPage: React.FC = () => {
 
                         <button
                             onClick={() => setIsShareModalOpen(true)}
-                            className="bg-[var(--lt-card)] hover:bg-[var(--lt-card-strong)] text-gray-200 hover:text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 group"
+                            className="lt-secondary-action bg-[var(--lt-card)] hover:bg-[var(--lt-card-strong)] text-gray-200 hover:text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 group"
                         >
                             <Share2 className="w-6 h-6 group-hover:scale-110 transition-transform text-[var(--lt-accent)]" />
                             <span className="text-xs font-bold tracking-wide">COMPARTIR</span>
@@ -686,7 +686,7 @@ export const GroupPage: React.FC = () => {
 
                         <button
                             onClick={() => setShowReportModal(true)}
-                            className="bg-[var(--lt-card)] hover:bg-red-500/10 text-[var(--lt-text)] hover:text-red-500 rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 hover:border-red-500/25 group"
+                            className="lt-report-action bg-[var(--lt-card)] hover:bg-red-500/10 text-[var(--lt-text)] hover:text-red-500 rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 hover:border-red-500/25 group"
                         >
                             <Flag className="w-6 h-6 group-hover:scale-110 transition-transform" />
                             <span className="text-xs font-bold tracking-wide">REPORTAR</span>

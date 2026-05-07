@@ -111,6 +111,22 @@
     body {
         background-attachment: fixed;
         background-image: var(--lt-body-mesh);
+        min-height: 100dvh;
+        overscroll-behavior-y: none;
+    }
+
+    button,
+    a,
+    [role="button"] {
+        touch-action: manipulation;
+    }
+
+    @media (max-width: 768px) {
+        input,
+        select,
+        textarea {
+            font-size: 16px;
+        }
     }
 
     h1,
@@ -776,6 +792,9 @@ html.theme-light .text-gray-300 { color: #374151 !important; }
 html.theme-light .text-gray-400 { color: #4b5563 !important; }
 html.theme-light .text-gray-500 { color: #6b7280 !important; }
 html.theme-light .text-gray-600 { color: #6b6374 !important; }
+html.theme-light .text-gray-700 { color: #4b5563 !important; }
+html.theme-light .text-gray-800,
+html.theme-light .text-gray-900 { color: #1f2937 !important; }
 
 /* Slate shares the same neutral family, Tailwind's slate-* values are
    very similar to gray-*; remap them consistently. */
@@ -803,6 +822,7 @@ html.theme-light .text-amber-300 { color: #b45309 !important; }
 html.theme-light .text-amber-400 { color: #d97706 !important; }
 html.theme-light .text-red-300 { color: #b91c1c !important; }
 html.theme-light .text-red-400 { color: #dc2626 !important; }
+html.theme-light .text-red-500 { color: #dc2626 !important; }
 html.theme-light .text-emerald-300 { color: #047857 !important; }
 html.theme-light .text-emerald-400 { color: #059669 !important; }
 html.theme-light .text-pink-100 { color: #9d174d !important; }
@@ -851,6 +871,17 @@ html.theme-light [class*="hover:bg-white/"]:hover {
     background-color: rgba(26, 22, 37, 0.06);
 }
 
+html.theme-light .bg-gray-700,
+html.theme-light .bg-gray-800,
+html.theme-light .bg-gray-900 {
+    background-color: #e7e2da !important;
+}
+
+html.theme-light .bg-black\/10,
+html.theme-light .bg-black\/15 {
+    background-color: rgba(26, 22, 37, 0.04) !important;
+}
+
 /* Black translucent overlays (used for modals) stay darker but we
    soften them a hair so they feel less heavy in the light theme. */
 html.theme-light .bg-black\/80 { background-color: rgba(26, 22, 37, 0.55) !important; }
@@ -860,6 +891,30 @@ html.theme-light .bg-black\/50 { background-color: rgba(26, 22, 37, 0.30) !impor
 html.theme-light .bg-black\/40 { background-color: rgba(26, 22, 37, 0.25) !important; }
 html.theme-light .bg-black\/30 { background-color: rgba(26, 22, 37, 0.20) !important; }
 html.theme-light .bg-black\/20 { background-color: rgba(26, 22, 37, 0.05) !important; }
+
+html.theme-light .lt-secondary-action {
+    color: var(--lt-text) !important;
+}
+
+html.theme-light .lt-secondary-action:hover {
+    color: var(--lt-text) !important;
+}
+
+html.theme-light .lt-report-action {
+    color: #991b1b !important;
+    background: rgba(220, 38, 38, 0.08) !important;
+    border-color: rgba(220, 38, 38, 0.18) !important;
+}
+
+html.theme-light .lt-report-action:hover {
+    color: #7f1d1d !important;
+    background: rgba(220, 38, 38, 0.13) !important;
+    border-color: rgba(220, 38, 38, 0.30) !important;
+}
+
+html.theme-light .lt-report-action svg {
+    color: #dc2626 !important;
+}
 
 /* Shadows too heavy on cream, lift them. */
 html.theme-light .shadow-2xl { box-shadow: 0 20px 50px -20px rgba(26, 22, 37, 0.25) !important; }

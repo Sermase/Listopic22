@@ -202,7 +202,8 @@ service cloud.firestore {
     // Las reseñas son contenido social público; la privacidad se gestiona en el nivel de la lista.
 
     match /{path=**}/reviews/{reviewId} {
-      allow read: if request.auth != null;
+      allow get: if request.auth != null;
+      allow list: if false;
       allow create: if request.auth != null
                     && request.resource.data.userId == request.auth.uid
                     && request.resource.data.listId is string
@@ -232,8 +233,10 @@ service cloud.firestore {
     // ===============================================
     match /users/{userId} {
       allow read: if true;
-      // Allow authenticated users to query by username/usernameLower for collaborator lookup
-      allow list: if request.auth != null;
+      // Allow small authenticated lookups by username/usernameLower for collaborator lookup.
+      // Admins can list without the public limit from the developer tools.
+      allow list: if request.auth != null &&
+                  (isJefe(request.auth.uid) || (request.query.limit != null && request.query.limit <= 50));
       // Un usuario puede crear/editarse a sí mismo.
       allow create: if request.auth != null &&
                     request.auth.uid == userId &&
@@ -304,7 +307,7 @@ service cloud.firestore {
     // para poder migrar el frontend sin exponer datos privados del documento users.
     match /publicProfiles/{userId} {
       allow read: if true;
-      allow list: if true;
+      allow list: if false;
       allow write: if false;
     }
 

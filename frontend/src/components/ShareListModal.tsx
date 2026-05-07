@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Search, UserPlus, Check, Shield, Trash2, Users, Edit3, Eye } from 'lucide-react';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, updateDoc, arrayUnion, arrayRemove, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
@@ -90,7 +90,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
             if (rawTerm.includes('@')) {
                 // It's likely an email, simple matching
                 const usersRef = collection(db, 'users');
-                const qEmail = query(usersRef, where('email', '==', rawTerm));
+                const qEmail = query(usersRef, where('email', '==', rawTerm), limit(10));
                 const snapEmail = await getDocs(qEmail);
                 const results = snapEmail.docs.map(d => ({ id: d.id, ...d.data() }));
 
@@ -102,7 +102,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
 
             const usersRef = collection(db, 'users');
             const promises = Array.from(termsToTry).map(async (t) => {
-                const q = query(usersRef, where('username', '>=', t), where('username', '<=', t + '\uf8ff'));
+                const q = query(usersRef, where('username', '>=', t), where('username', '<=', t + '\uf8ff'), limit(10));
                 return getDocs(q);
             });
 

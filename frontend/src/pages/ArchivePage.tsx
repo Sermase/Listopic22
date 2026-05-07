@@ -12,6 +12,7 @@ import { AddReviewForm } from '../components/AddReviewForm';
 import { ProgressiveImage } from '../components/ProgressiveImage';
 import type { MapItem } from '../components/MapView';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { Button, Card, IconButton, Modal, Tabs } from '../components/ui';
 
 const COLOR_OPTIONS = [
     '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
@@ -91,6 +92,28 @@ interface UploadedReviewPhoto {
 }
 
 type ArchiveSavedItem = SavedItemEntity & { photoFallbackUrls?: string[] };
+type ArchiveSection = 'collections' | 'photos';
+type PhotoFilter = 'all' | 'place' | 'review';
+type CollectionFilter = 'all' | 'place' | 'list' | 'group' | 'review';
+
+const SECTION_TABS = [
+    { value: 'collections' as const, label: 'Colecciones', icon: <Folder className="w-4 h-4" /> },
+    { value: 'photos' as const, label: 'Fotos', icon: <ImageIcon className="w-4 h-4" /> },
+];
+
+const PHOTO_FILTER_TABS = [
+    { value: 'all' as const, label: 'Todas' },
+    { value: 'place' as const, label: 'Lugares' },
+    { value: 'review' as const, label: 'Reseñas' },
+];
+
+const COLLECTION_FILTER_TABS = [
+    { value: 'all' as const, label: 'Todo' },
+    { value: 'place' as const, label: 'Lugares' },
+    { value: 'list' as const, label: 'Listas' },
+    { value: 'group' as const, label: 'Platos' },
+    { value: 'review' as const, label: 'Reseñas' },
+];
 
 function toMillis(value: any): number {
     if (!value) return 0;
@@ -162,6 +185,20 @@ const ArchiveItemImage: React.FC<{ item: ArchiveSavedItem }> = ({ item }) => {
     );
 };
 
+const UploadedPhotoFallback: React.FC<{ kind: 'place' | 'review' }> = ({ kind }) => (
+    <PlacePhotoPlaceholder compact variant={kind === 'review' ? 'review' : undefined} />
+);
+
+const UploadedPhotoImage: React.FC<{ photo: UploadedPlacePhoto | UploadedReviewPhoto; kind: 'place' | 'review'; alt: string }> = ({ photo, kind, alt }) => (
+    <ProgressiveImage
+        src={photo.url}
+        alt={alt}
+        containerClassName="w-full h-full"
+        className="w-full h-full object-cover"
+        fallback={<UploadedPhotoFallback kind={kind} />}
+    />
+);
+
 function getStoragePathFromUrl(url: string): string | undefined {
     try {
         const parsed = new URL(url);
@@ -178,9 +215,9 @@ export const ArchivePage: React.FC = () => {
     const { archives, fetchArchives, toggleItemInArchive, createArchive, updateArchive, deleteArchive } = useArchives();
 
     const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
-    const [activeSection, setActiveSection] = useState<'collections' | 'photos'>('collections');
-    const [photoFilter, setPhotoFilter] = useState<'all' | 'place' | 'review'>('all');
-    const [filterType, setFilterType] = useState<'all' | 'place' | 'list' | 'review' | 'group'>('all');
+    const [activeSection, setActiveSection] = useState<ArchiveSection>('collections');
+    const [photoFilter, setPhotoFilter] = useState<PhotoFilter>('all');
+    const [filterType, setFilterType] = useState<CollectionFilter>('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [expandedIds, setExpandedIds] = useState<string[]>([]);
     const [archiveItems, setArchiveItems] = useState<Record<string, ArchiveSavedItem[]>>({});
@@ -211,6 +248,10 @@ export const ArchivePage: React.FC = () => {
     useBodyScrollLock(viewMode === 'map' || showEditModal || editingPlacePhoto !== null || editingReviewPhoto !== null);
 
     useEffect(() => { fetchArchives(); }, [fetchArchives]);
+
+    useEffect(() => {
+        setOpenPhotoMenu(null);
+    }, [activeSection, photoFilter, searchTerm]);
 
     useEffect(() => {
         if (!user) return;
@@ -628,6 +669,11 @@ export const ArchivePage: React.FC = () => {
         setEditingCaption(photo.caption || '');
     };
 
+    const openReviewPhotoEdit = (photo: UploadedReviewPhoto) => {
+        setOpenPhotoMenu(null);
+        setEditingReviewPhoto(photo);
+    };
+
     const savePlacePhotoCaption = async () => {
         if (!editingPlacePhoto) return;
         try {
@@ -647,6 +693,7 @@ export const ArchivePage: React.FC = () => {
     };
 
     const deleteUploadedPlacePhoto = async (photo: UploadedPlacePhoto) => {
+        setOpenPhotoMenu(null);
         if (!confirm('¿Borrar esta foto del lugar?')) return;
         try {
             if (photo.storagePath) {
@@ -664,6 +711,7 @@ export const ArchivePage: React.FC = () => {
     };
 
     const deleteUploadedReviewPhoto = async (photo: UploadedReviewPhoto) => {
+        setOpenPhotoMenu(null);
         if (!confirm('¿Borrar esta foto de la reseña?')) return;
         try {
             if (photo.storagePath) {
@@ -718,21 +766,25 @@ export const ArchivePage: React.FC = () => {
                 {/* Header flotante */}
                 <div className="absolute top-0 left-0 right-0 z-[1001] pt-safe-top">
                     <div className="flex items-center justify-between px-4 pb-3 pt-3 bg-gradient-to-b from-[var(--lt-bg)] to-transparent">
-                        <button
+                        <IconButton
+                            label="Cerrar mapa"
+                            icon={<X className="w-5 h-5" />}
+                            variant="secondary"
                             onClick={() => setViewMode('grid')}
-                            className="p-3 bg-black/60 backdrop-blur-md rounded-full text-white border border-white/10"
-                        >
-                            <X className="w-5 h-5" />
-                        </button>
-                        <span className="text-white font-bold text-sm bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
+                            className="rounded-full bg-black/60 text-white backdrop-blur-md"
+                        />
+                        <span className="rounded-full border border-white/10 bg-black/60 px-4 py-2 text-sm font-bold text-white backdrop-blur-md">
                             {mapItems.length} lugares
                         </span>
-                        <button
+                        <Button
                             onClick={() => setShowMapFilters(v => !v)}
-                            className={`flex items-center gap-2 px-4 py-2.5 rounded-full font-bold backdrop-blur-md border transition-colors ${showMapFilters ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white' : 'bg-black/60 border-white/10 text-white'}`}
+                            variant={showMapFilters ? 'primary' : 'secondary'}
+                            size="sm"
+                            leftIcon={<Filter className="w-4 h-4" />}
+                            className={showMapFilters ? 'rounded-full backdrop-blur-md' : 'rounded-full bg-black/60 text-white backdrop-blur-md'}
                         >
-                            <Filter className="w-4 h-4" /> Colecciones
-                        </button>
+                            Colecciones
+                        </Button>
                     </div>
                 </div>
 
@@ -748,12 +800,10 @@ export const ArchivePage: React.FC = () => {
 
                 {/* Panel de filtro de colecciones */}
                 {showMapFilters && (
-                    <div className="absolute left-4 right-4 z-[1001] bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[50vh] flex flex-col" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
+                    <Card className="absolute left-4 right-4 z-[1001] flex max-h-[50vh] flex-col overflow-hidden shadow-2xl" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
                         <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
                             <span className="text-white font-bold text-sm">Filtrar colecciones</span>
-                            <button onClick={() => setShowMapFilters(false)} className="text-gray-400 hover:text-white">
-                                <X className="w-4 h-4" />
-                            </button>
+                            <IconButton label="Cerrar filtros" icon={<X className="w-4 h-4" />} size="sm" variant="ghost" onClick={() => setShowMapFilters(false)} />
                         </div>
                         <div className="overflow-y-auto p-2">
                             {archives.map(arch => {
@@ -777,7 +827,7 @@ export const ArchivePage: React.FC = () => {
                                 );
                             })}
                         </div>
-                    </div>
+                    </Card>
                 )}
             </div>
         );
@@ -793,31 +843,18 @@ export const ArchivePage: React.FC = () => {
                     <div className="flex justify-between items-center mb-4">
                         <h1 className="text-3xl font-bold text-white">Mi Archivo</h1>
                         {activeSection === 'collections' && (
-                            <button
-                                onClick={() => setViewMode('map')}
-                                className="flex items-center gap-2 px-4 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white text-sm font-bold rounded-xl shadow-lg transition-colors"
-                            >
-                                <MapIcon className="w-4 h-4" /> Mapa
-                            </button>
+                            <Button size="sm" leftIcon={<MapIcon className="w-4 h-4" />} onClick={() => setViewMode('map')}>
+                                Mapa
+                            </Button>
                         )}
                     </div>
 
-                    <div className="mb-4 inline-flex rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-1">
-                        <button
-                            type="button"
-                            onClick={() => setActiveSection('collections')}
-                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${activeSection === 'collections' ? 'bg-[var(--lt-accent)] text-white' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            Colecciones
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setActiveSection('photos')}
-                            className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors ${activeSection === 'photos' ? 'bg-[var(--lt-accent)] text-white' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            Fotos
-                        </button>
-                    </div>
+                    <Tabs
+                        value={activeSection}
+                        options={SECTION_TABS}
+                        onChange={setActiveSection}
+                        className="mb-4 bg-[var(--lt-card-strong)]"
+                    />
 
                     <div className="flex flex-col sm:flex-row gap-3">
                         <div className="relative flex-1">
@@ -857,7 +894,7 @@ export const ArchivePage: React.FC = () => {
                 </header>
 
                 {activeSection === 'photos' && (
-                    <section className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] overflow-hidden">
+                    <Card className="overflow-hidden">
                         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-3">
                             <div className="min-w-0">
                                 <h2 className="text-sm font-bold text-white">Fotos</h2>
@@ -887,15 +924,19 @@ export const ArchivePage: React.FC = () => {
                                     const subtitle = item.kind === 'place' ? item.photo.caption : item.photo.placeName;
                                     const route = item.kind === 'place'
                                         ? `/place/${item.photo.placeId}`
-                                        : (item.photo.placeId ? `/place/${item.photo.placeId}` : '#');
+                                        : item.photo.placeId
+                                            ? `/place/${item.photo.placeId}`
+                                            : item.photo.listId
+                                                ? `/list/${item.photo.listId}`
+                                                : null;
 
                                     return (
                                         <div
                                             key={menuId}
                                             className="group relative rounded-xl overflow-visible border border-white/5 hover:border-white/20 transition-all bg-[var(--lt-card)] flex flex-col"
                                         >
-                                            <Link to={route} className="aspect-square bg-gray-800/60 relative block rounded-t-xl overflow-hidden">
-                                                <img src={item.photo.url} alt={title} className="w-full h-full object-cover" />
+                                            <Link to={route || ''} onClick={(event) => { if (!route) event.preventDefault(); }} className="aspect-square bg-gray-800/60 relative block rounded-t-xl overflow-hidden">
+                                                <UploadedPhotoImage photo={item.photo} kind={item.kind} alt={title} />
                                                 <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide ${item.kind === 'place' ? 'bg-blue-500/20 text-blue-300' : 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)]'}`}>
                                                     {item.kind === 'place' ? <MapPin className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
                                                     {item.kind === 'place' ? 'Lugar' : 'Reseña'}
@@ -906,6 +947,7 @@ export const ArchivePage: React.FC = () => {
                                                     type="button"
                                                     onClick={(event) => {
                                                         event.preventDefault();
+                                                        event.stopPropagation();
                                                         setOpenPhotoMenu(prev => prev === menuId ? null : menuId);
                                                     }}
                                                     className="p-1 rounded-md bg-black/65 text-gray-200 hover:text-white transition-colors"
@@ -919,7 +961,7 @@ export const ArchivePage: React.FC = () => {
                                                             type="button"
                                                             onClick={() => item.kind === 'place'
                                                                 ? openPlacePhotoEdit(item.photo)
-                                                                : (setOpenPhotoMenu(null), setEditingReviewPhoto(item.photo))}
+                                                                : openReviewPhotoEdit(item.photo)}
                                                             className="w-full px-3 py-2 text-left text-xs font-bold text-gray-200 hover:bg-white/10 flex items-center gap-2"
                                                         >
                                                             <Edit2 className="w-3.5 h-3.5" /> Editar
@@ -936,7 +978,7 @@ export const ArchivePage: React.FC = () => {
                                                     </div>
                                                 )}
                                             </div>
-                                            <Link to={route} className="p-2 flex-1 hover:bg-white/5 transition-colors rounded-b-xl">
+                                            <Link to={route || ''} onClick={(event) => { if (!route) event.preventDefault(); }} className="p-2 flex-1 hover:bg-white/5 transition-colors rounded-b-xl">
                                                 <p className="text-white text-xs font-semibold leading-tight line-clamp-2">{title}</p>
                                                 {subtitle && <p className="text-[var(--lt-accent)] text-[10px] truncate mt-0.5">{subtitle}</p>}
                                             </Link>
@@ -945,7 +987,7 @@ export const ArchivePage: React.FC = () => {
                                 })}
                             </div>
                         )}
-                    </section>
+                    </Card>
                 )}
 
                 {/* Colecciones */}
@@ -1097,9 +1139,13 @@ export const ArchivePage: React.FC = () => {
 
             {/* Modal crear/editar colección */}
             {showEditModal && (
-                <div className="fixed inset-0 z-[10000] lt-mobile-overlay bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowEditModal(false)}>
-                    <div className="bg-[var(--lt-card-strong)] w-full max-w-sm rounded-2xl border border-white/10 shadow-2xl p-5 relative lt-mobile-modal-panel overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-5">
+                <Modal
+                    isOpen={showEditModal}
+                    onClose={() => setShowEditModal(false)}
+                    title={editMode === 'create' ? 'Nueva colección' : 'Editar colección'}
+                    className="sm:max-w-sm"
+                >
+                        <div className="hidden">
                             <h2 className="text-lg font-bold text-white">
                                 {editMode === 'create' ? 'Nueva colección' : 'Editar colección'}
                             </h2>
@@ -1163,20 +1209,25 @@ export const ArchivePage: React.FC = () => {
                                 Guardar
                             </button>
                         </div>
-                    </div>
-                </div>
+                </Modal>
             )}
 
             {editingPlacePhoto && (
-                <div className="fixed inset-0 z-[10000] lt-mobile-overlay bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setEditingPlacePhoto(null)}>
-                    <div className="bg-[var(--lt-card-strong)] w-full max-w-sm rounded-2xl border border-white/10 shadow-2xl p-5 lt-mobile-modal-panel overflow-y-auto" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-4">
+                <Modal
+                    isOpen={editingPlacePhoto !== null}
+                    onClose={() => setEditingPlacePhoto(null)}
+                    title="Editar foto"
+                    className="sm:max-w-sm"
+                >
+                        <div className="hidden">
                             <h2 className="text-lg font-bold text-white">Editar foto</h2>
                             <button onClick={() => setEditingPlacePhoto(null)} className="text-gray-500 hover:text-white">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
-                        <img src={editingPlacePhoto.url} alt="" className="w-full aspect-video object-cover rounded-xl bg-gray-900 mb-4" />
+                        <div className="w-full aspect-video rounded-xl bg-gray-900 mb-4 overflow-hidden">
+                            <UploadedPhotoImage photo={editingPlacePhoto} kind="place" alt={editingPlacePhoto.placeName} />
+                        </div>
                         <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Pie de foto</label>
                         <input
                             value={editingCaption}
@@ -1192,8 +1243,7 @@ export const ArchivePage: React.FC = () => {
                         >
                             Guardar
                         </button>
-                    </div>
-                </div>
+                </Modal>
             )}
 
             {editingReviewPhoto && (

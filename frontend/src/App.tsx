@@ -183,6 +183,11 @@ const AppRoutes = () => {
     });
 
     const backListener = CapApp.addListener('backButton', () => {
+      if (location.pathname.startsWith('/lab')) {
+        window.dispatchEvent(new CustomEvent('listopic:lab-back'));
+        return;
+      }
+
       if (location.pathname === '/' || location.pathname === '/login') {
         CapApp.exitApp();
       } else {
@@ -259,6 +264,7 @@ function App() {
             style={{
               background: 'var(--lt-bg)',
               color: 'var(--lt-text)',
+              minHeight: '100dvh',
               paddingBottom: 'env(safe-area-inset-bottom)',
             }}>
             <NavbarWrapper />
