@@ -122,6 +122,32 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(reviewAllowedUpdateKeys());
     }
 
+    function businessClaimAllowedCreateKeys() {
+      return [
+        'userId', 'userEmail', 'userName', 'placeId', 'placeName', 'placeAddress',
+        'role', 'contactEmail', 'contactPhone', 'website', 'message', 'status',
+        'proofs', 'createdAt', 'updatedAt'
+      ];
+    }
+
+    function businessClaimCreateIsValid() {
+      return request.resource.data.keys().hasOnly(businessClaimAllowedCreateKeys())
+             && request.resource.data.userId == request.auth.uid
+             && request.resource.data.status == 'pending'
+             && request.resource.data.placeId is string
+             && !placeHasVerifiedBusiness(request.resource.data.placeId)
+             && request.resource.data.placeName is string
+             && request.resource.data.role is string
+             && request.resource.data.contactEmail is string
+             && request.resource.data.message is string
+             && request.resource.data.proofs is list;
+    }
+
+    function placeHasVerifiedBusiness(placeId) {
+      return exists(/databases/$(database)/documents/places/$(placeId))
+             && get(/databases/$(database)/documents/places/$(placeId)).data.businessVerified == true;
+    }
+
     function isFollowingUser(targetUserId) {
       return request.auth != null &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)/following/$(targetUserId)).data != null;
@@ -612,9 +638,7 @@ service cloud.firestore {
       allow read: if request.auth != null && (
         resource.data.userId == request.auth.uid || isJefe(request.auth.uid)
       );
-      allow create: if request.auth != null
-                    && request.resource.data.userId == request.auth.uid
-                    && request.resource.data.status == 'pending';
+      allow create: if request.auth != null && businessClaimCreateIsValid();
       allow update: if request.auth != null && isJefe(request.auth.uid);
       allow delete: if false;
     }

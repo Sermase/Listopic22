@@ -1,4 +1,4 @@
-import { collection, doc, documentId, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, documentId, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 
 const DOC_TTL = 10 * 60 * 1000;
@@ -50,7 +50,11 @@ export async function getCachedDocs(
   for (let i = 0; i < missingIds.length; i += chunkSize) {
     const chunk = missingIds.slice(i, i + chunkSize);
     try {
-      const snap = await getDocs(query(collection(db, collectionPath), where(documentId(), 'in', chunk)));
+      const snap = await getDocs(query(
+        collection(db, collectionPath),
+        where(documentId(), 'in', chunk),
+        limit(chunk.length),
+      ));
       const returnedIds = new Set<string>();
       snap.docs.forEach((docSnap) => {
         const data = docSnap.data() as Record<string, unknown>;

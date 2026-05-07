@@ -53,6 +53,10 @@ export interface PlaceDetails {
     category?: string;
     closedStatus?: string;
     googleBusinessStatus?: string;
+    businessVerified?: boolean;
+    businessClaimId?: string;
+    businessOwnerUserId?: string;
+    businessManagerIds?: string[];
     placePhotos?: PlacePhoto[];
 }
 
@@ -100,7 +104,10 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
 
     const globalReviewsSnap = await getDocs(
         query(collection(db, 'reviews'), where('placeId', '==', placeId), limit(50))
-    ).catch(e => { console.warn('Failed to fetch global reviews for place', e); return { docs: [] }; });
+    ).catch(e => {
+        if (e?.code !== 'permission-denied') console.warn('Failed to fetch global reviews for place', e);
+        return { docs: [] };
+    });
     const placePhotosSnap = await placePhotosSnapPromise;
 
     reviewsByList.push(
@@ -233,6 +240,10 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         category: placeData?.category || placeData?.types?.[0],
         closedStatus: placeData?.closedStatus || undefined,
         googleBusinessStatus: placeData?.googleBusinessStatus || undefined,
+        businessVerified: placeData?.businessVerified === true,
+        businessClaimId: typeof placeData?.businessClaimId === 'string' ? placeData.businessClaimId : undefined,
+        businessOwnerUserId: typeof placeData?.businessOwnerUserId === 'string' ? placeData.businessOwnerUserId : undefined,
+        businessManagerIds: Array.isArray(placeData?.businessManagerIds) ? placeData.businessManagerIds.filter((id: unknown) => typeof id === 'string') : undefined,
         placePhotos,
     };
 }
