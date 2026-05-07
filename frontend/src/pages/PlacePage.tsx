@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp, BriefcaseBusiness
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -12,7 +12,7 @@ import { PlaceService } from '../services/PlaceService';
 import { ReviewCard } from '../components/ReviewCard';
 import { MapView } from '../components/MapView';
 import { useAuth } from '../context/AuthContext';
-import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, setDoc, deleteDoc, serverTimestamp, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { AddReviewForm } from '../components/AddReviewForm';
 import { ReportModal } from '../components/ReportModal';
@@ -21,6 +21,8 @@ import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import { PlacePhotoUploadModal } from '../components/PlacePhotoUploadModal';
 import type { ReviewEntity } from '../hooks/useListDetails';
 import { EntityHero } from '../components/EntityHero';
+import { BusinessClaimModal } from '../components/BusinessClaimModal';
+import type { BusinessClaim } from '../services/BusinessClaimService';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
@@ -94,6 +96,9 @@ export const PlacePage: React.FC = () => {
     const [followLoading, setFollowLoading] = useState(false);
     const [showReportModal, setShowReportModal] = useState(false);
     const [isPlacePhotoUploadOpen, setIsPlacePhotoUploadOpen] = useState(false);
+    const [isBusinessClaimOpen, setIsBusinessClaimOpen] = useState(false);
+    const [businessClaims, setBusinessClaims] = useState<BusinessClaim[]>([]);
+    const [loadingBusinessClaims, setLoadingBusinessClaims] = useState(false);
 
     // Review Creation State
     const [isFlowOpen, setIsFlowOpen] = useState(false);
@@ -124,6 +129,48 @@ export const PlacePage: React.FC = () => {
                 ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     }, [expandedReviewId]);
+
+    useEffect(() => {
+        if (!user || !placeId) {
+            setBusinessClaims([]);
+            return;
+        }
+
+        let cancelled = false;
+        const loadClaims = async () => {
+            setLoadingBusinessClaims(true);
+            try {
+                const snap = await getDocs(query(
+                    collection(db, 'businessClaims'),
+                    where('userId', '==', user.uid),
+                    where('placeId', '==', placeId),
+                ));
+                if (cancelled) return;
+                const claims = snap.docs
+                    .map((claimDoc) => ({ id: claimDoc.id, ...(claimDoc.data() as Omit<BusinessClaim, 'id'>) }))
+                    .sort((a, b) => {
+                        const aSeconds = typeof (a.createdAt as { seconds?: unknown })?.seconds === 'number'
+                            ? (a.createdAt as { seconds: number }).seconds
+                            : 0;
+                        const bSeconds = typeof (b.createdAt as { seconds?: unknown })?.seconds === 'number'
+                            ? (b.createdAt as { seconds: number }).seconds
+                            : 0;
+                        return bSeconds - aSeconds;
+                    });
+                setBusinessClaims(claims);
+            } catch (error) {
+                console.warn('Failed to load business claims for place', error);
+                if (!cancelled) setBusinessClaims([]);
+            } finally {
+                if (!cancelled) setLoadingBusinessClaims(false);
+            }
+        };
+
+        void loadClaims();
+        return () => {
+            cancelled = true;
+        };
+    }, [placeId, user]);
 
     // Compute suggested list IDs where this place is already present
     const suggestedListIds = useMemo(() => {
@@ -274,6 +321,18 @@ export const PlacePage: React.FC = () => {
         return Array.from(items.values());
     }, [place]);
     const galleryPhotos = useMemo(() => galleryItems.map(item => item.url), [galleryItems]);
+    const latestBusinessClaim = businessClaims[0] || null;
+    const isBusinessClaimed = Boolean(place?.businessVerified || place?.businessClaimId);
+    const businessClaimStatusLabel: Record<BusinessClaim['status'], string> = {
+        pending: 'Pendiente',
+        approved: 'Aprobada',
+        rejected: 'Rechazada',
+    };
+    const businessClaimStatusClass: Record<BusinessClaim['status'], string> = {
+        pending: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
+        approved: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
+        rejected: 'bg-red-500/15 text-red-300 border-red-500/25',
+    };
 
 
 
@@ -628,6 +687,48 @@ export const PlacePage: React.FC = () => {
                             )}
                         </div>
                     </div>
+
+                    {!isBusinessClaimed && (
+                        <div className="glass-card p-4 rounded-2xl shadow-lg border border-white/10 opacity-85">
+                            <div className="flex items-start gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] grid place-items-center shrink-0">
+                                    <BriefcaseBusiness className="w-4 h-4" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <h3 className="text-sm font-bold text-white">¿Gestionas este negocio?</h3>
+                                    <p className="mt-1 text-xs text-gray-400">
+                                        Solicita acceso para actualizar datos oficiales del lugar cuando se apruebe.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {loadingBusinessClaims ? (
+                                <p className="mt-4 text-xs text-gray-500">Comprobando solicitudes...</p>
+                            ) : latestBusinessClaim ? (
+                                <div className="mt-4 rounded-xl border border-white/10 bg-black/15 p-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span className="text-xs font-bold text-white">Tu solicitud</span>
+                                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${businessClaimStatusClass[latestBusinessClaim.status]}`}>
+                                            {businessClaimStatusLabel[latestBusinessClaim.status]}
+                                        </span>
+                                    </div>
+                                    <p className="mt-2 text-xs text-gray-400 line-clamp-3">{latestBusinessClaim.message}</p>
+                                    {latestBusinessClaim.status === 'rejected' && latestBusinessClaim.adminNotes && (
+                                        <p className="mt-2 text-xs text-red-300">{latestBusinessClaim.adminNotes}</p>
+                                    )}
+                                </div>
+                            ) : (
+                                <button
+                                    type="button"
+                                    onClick={() => user ? setIsBusinessClaimOpen(true) : undefined}
+                                    disabled={!user}
+                                    className="mt-4 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/10 hover:text-white disabled:opacity-50"
+                                >
+                                    {user ? 'Reclamar negocio' : 'Inicia sesión para reclamar'}
+                                </button>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Left: Content (Tabs) */}
@@ -1067,6 +1168,18 @@ export const PlacePage: React.FC = () => {
                 onUploaded={() => {
                     refresh();
                     setActiveTab('photos');
+                }}
+            />
+
+            <BusinessClaimModal
+                isOpen={isBusinessClaimOpen}
+                user={user}
+                placeId={place.placeId}
+                placeName={place.name}
+                placeAddress={place.address}
+                onClose={() => setIsBusinessClaimOpen(false)}
+                onCreated={(claim) => {
+                    setBusinessClaims((prev) => [{ ...claim, userId: user?.uid || '', proofs: claim.proofs || [] } as BusinessClaim, ...prev]);
                 }}
             />
 

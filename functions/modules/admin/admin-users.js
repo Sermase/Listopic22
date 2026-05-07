@@ -9,6 +9,37 @@ const { assertJefeAccess, writeAuditLog } = require('../lib/auth');
 
 const db = getFirestore();
 const BATCH_LIMIT = 450;
+const PUBLIC_PROFILE_FIELDS = [
+  'username',
+  'usernameLower',
+  'displayName',
+  'name',
+  'surnames',
+  'bio',
+  'location',
+  'residence',
+  'photoUrl',
+  'photoStoragePath',
+  'userType',
+  'reviewsCount',
+  'followersCount',
+  'followingCount',
+  'followingListsCount',
+  'followingPlacesCount',
+  'level',
+  'xp',
+  'badges',
+  'createdAt',
+  'updatedAt',
+];
+
+function buildPublicProfile(uid, data = {}) {
+  const publicProfile = { uid };
+  for (const field of PUBLIC_PROFILE_FIELDS) {
+    if (data[field] !== undefined) publicProfile[field] = data[field];
+  }
+  return publicProfile;
+}
 
 function normalizeAuthorPatch(fields = {}) {
   const patch = {};
@@ -233,6 +264,32 @@ const adminProvisionJefeClaim = onCall(async (request) => {
   return { success: true };
 });
 
+const adminBackfillPublicProfiles = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
+  const contextAuth = request.auth;
+  if (!contextAuth) throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+
+  await assertJefeAccess(contextAuth.uid, 'Solo los jefes pueden regenerar perfiles publicos.');
+  await writeAuditLog(contextAuth.uid, 'adminBackfillPublicProfiles', {});
+
+  const usersSnap = await db.collection('users').get();
+  const state = { batch: db.batch(), count: 0 };
+  let written = 0;
+
+  for (const docSnap of usersSnap.docs) {
+    state.batch.set(
+      db.collection('publicProfiles').doc(docSnap.id),
+      buildPublicProfile(docSnap.id, docSnap.data()),
+      { merge: false },
+    );
+    state.count++;
+    written++;
+    await commitBatchIfNeeded(state);
+  }
+
+  await commitBatchIfNeeded(state, true);
+  return { success: true, total: usersSnap.size, written };
+});
+
 const propagateAuthorFieldsToReviews = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
 
@@ -311,6 +368,7 @@ const deleteOwnAccount = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (
 module.exports = {
   adminRecalculateAllUsers,
   adminProvisionJefeClaim,
+  adminBackfillPublicProfiles,
   propagateAuthorFieldsToReviews,
   deleteOwnAccount,
 };

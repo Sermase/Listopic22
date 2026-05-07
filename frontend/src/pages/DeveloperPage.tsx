@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { PlaceService } from '../services/PlaceService';
@@ -19,6 +20,7 @@ const UsersManagerTab = React.lazy(() => import('../components/developer/UsersMa
 const DeveloperItemModal = React.lazy(() => import('../components/developer/DeveloperItemModal').then(module => ({ default: module.DeveloperItemModal })));
 const UserDataExportTab = React.lazy(() => import('../components/developer/UserDataExportTab').then(module => ({ default: module.UserDataExportTab })));
 const ApiUsageTab = React.lazy(() => import('../components/developer/ApiUsageTab').then(module => ({ default: module.ApiUsageTab })));
+const BusinessClaimsManagerTab = React.lazy(() => import('../components/developer/BusinessClaimsManagerTab').then(module => ({ default: module.BusinessClaimsManagerTab })));
 
 const DeveloperTabFallback: React.FC = () => (
     <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/60 p-8 text-center text-sm text-gray-400">
@@ -44,7 +46,10 @@ interface ConsoleSearchParams {
 export const DeveloperPage: React.FC = () => {
     const { user, isJefe, loading: loadingAuth } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
-    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'branding' | 'others' | 'proyectos' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit' | 'apiusage'>('console');
+    const [searchParams] = useSearchParams();
+    const initialTab = searchParams.get('tab') === 'businessClaims' ? 'businessClaims' : 'console';
+    const highlightClaimId = searchParams.get('claimId');
+    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'businessClaims' | 'branding' | 'others' | 'proyectos' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit' | 'apiusage'>(initialTab);
     // Reactive: un usuario al que se le acaba de quitar el rol 'jefe' pierde
     // acceso inmediatamente sin recargar la página.
     const isAuthorized: boolean | null = loadingAuth ? null : isJefe;
@@ -287,6 +292,24 @@ export const DeveloperPage: React.FC = () => {
         } catch (error: any) {
             console.error(`Error filtering ${type}:`, error);
             setMaintenanceLog(prev => [`❌ Error Global: ${error.message}`, ...prev]);
+        } finally {
+            setProcessingMaintenance(false);
+        }
+    };
+
+    const handleBackfillPublicProfiles = async () => {
+        if (!confirm('¿Regenerar publicProfiles desde users para que vuelvan a cargar las páginas de usuarios?')) return;
+        setProcessingMaintenance(true);
+        setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando backfill de publicProfiles...`, ...prev]);
+
+        try {
+            const fns = getFunctions(undefined, FUNCTIONS_REGION);
+            const backfillFn = httpsCallable(fns, 'adminBackfillPublicProfiles');
+            const res: any = await backfillFn();
+            setMaintenanceLog(prev => [`✅ publicProfiles regenerados: ${JSON.stringify(res.data)}`, ...prev]);
+        } catch (error: any) {
+            console.error('Error backfilling public profiles:', error);
+            setMaintenanceLog(prev => [`❌ Error publicProfiles: ${error.message}`, ...prev]);
         } finally {
             setProcessingMaintenance(false);
         }
@@ -717,6 +740,12 @@ export const DeveloperPage: React.FC = () => {
                             <Flag className="w-5 h-5" /> Reportes
                         </button>
                         <button
+                            onClick={() => { setActiveTab('businessClaims'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'businessClaims' ? 'border-emerald-500 bg-emerald-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <ClipboardList className="w-5 h-5" /> Negocios
+                        </button>
+                        <button
                             onClick={() => { setActiveTab('branding'); setIsSidebarOpen(false); }}
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'branding' ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
@@ -1058,6 +1087,14 @@ export const DeveloperPage: React.FC = () => {
                                                 >
                                                     {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
                                                     Recalcular TODOS los Usuarios
+                                                </button>
+                                                <button
+                                                    onClick={handleBackfillPublicProfiles}
+                                                    disabled={processingMaintenance}
+                                                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
+                                                >
+                                                    {processingMaintenance ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
+                                                    Regenerar perfiles públicos
                                                 </button>
                                             </div>
                                             <p className="text-xs text-gray-500 mt-2">
@@ -2121,6 +2158,12 @@ export const DeveloperPage: React.FC = () => {
                                 </div>
                             )
                         }
+
+                        {activeTab === 'businessClaims' && (
+                            <DeveloperLazyPanel>
+                                <BusinessClaimsManagerTab highlightClaimId={highlightClaimId} />
+                            </DeveloperLazyPanel>
+                        )}
 
                         {activeTab === 'lists' && (
                             <DeveloperLazyPanel>

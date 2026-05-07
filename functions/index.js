@@ -21,6 +21,7 @@ module.exports = {
     ...require('./modules/chat'),
     ...require('./modules/social'),
     ...require('./modules/reports'),
+    ...require('./modules/business-claims'),
     ...require('./modules/admin/admin-tags'),
     ...require('./modules/admin/admin-users'),
     ...require('./modules/admin/admin-misc'),
