@@ -59,12 +59,14 @@ const enrichRawReviews = async (rawReviews: ReviewEntity[]): Promise<ReviewEntit
 
 const fetchPublicReviewsFromListSubcollections = async (
     type: 'recent' | 'trending' | 'following',
-    options: { pageLimit: number; followingIds?: string[] }
+    options: { pageLimit: number; followingIds?: string[]; userId?: string; listId?: string }
 ) => {
-    const { pageLimit, followingIds } = options;
+    const { pageLimit, followingIds, userId, listId } = options;
     let publicListIds: string[] = [];
 
-    if (type === 'following' && Array.isArray(followingIds) && followingIds.length > 0) {
+    if (listId) {
+        publicListIds = [listId];
+    } else if (type === 'following' && Array.isArray(followingIds) && followingIds.length > 0) {
         const [publicListsSnap, recentListsSnap] = await Promise.all([
             getDocs(query(collection(db, 'lists'), where('isPublic', '==', true), limit(100))),
             getDocs(query(collection(db, 'lists'), orderBy('createdAt', 'desc'), limit(150))),
@@ -79,6 +81,14 @@ const fetchPublicReviewsFromListSubcollections = async (
                 return (isOwned || isEdited) && data.isPublic !== false;
             })
             .map(d => d.id);
+    } else if (userId) {
+        const [ownedPublicSnap, broadPublicSnap] = await Promise.all([
+            getDocs(query(collection(db, 'lists'), where('userId', '==', userId), where('isPublic', '==', true), limit(120))),
+            getDocs(query(collection(db, 'lists'), where('isPublic', '==', true), limit(220))),
+        ]);
+        const uniqueDocs = new Map<string, unknown>();
+        [...ownedPublicSnap.docs, ...broadPublicSnap.docs].forEach(d => uniqueDocs.set(d.id, d));
+        publicListIds = Array.from(uniqueDocs.keys());
     } else {
         const snap = await getDocs(query(collection(db, 'lists'), where('isPublic', '==', true), limit(40)));
         publicListIds = snap.docs.map(d => d.id);
@@ -86,7 +96,7 @@ const fetchPublicReviewsFromListSubcollections = async (
 
     if (publicListIds.length === 0) return [] as ReviewEntity[];
 
-    const perListLimit = type === 'following' ? 10 : 4;
+    const perListLimit = userId ? 30 : type === 'following' ? 10 : 4;
     const listReviewSnaps = await Promise.all(
         publicListIds.map(listId =>
             getDocs(query(collection(db, 'lists', listId, 'reviews'), orderBy('createdAt', 'desc'), limit(perListLimit)))
@@ -97,6 +107,10 @@ const fetchPublicReviewsFromListSubcollections = async (
     let rawReviews = listReviewSnaps.flatMap(({ listId, snapshot }) =>
         snapshot.docs.map(d => ({ id: d.id, ...(d.data() as any), listId } as ReviewEntity))
     );
+
+    if (userId) {
+        rawReviews = rawReviews.filter((r: any) => r.userId === userId || r.authorId === userId);
+    }
 
     if (type === 'following' && Array.isArray(followingIds) && followingIds.length > 0) {
         const followingSet = new Set(followingIds);
@@ -200,9 +214,12 @@ async function fetchReviewsPage(
         }
     } catch (err: any) {
         if (err?.code === 'permission-denied') {
-            let fallback = await fetchPublicReviewsFromListSubcollections(type, { pageLimit: customLimit || 20, followingIds });
-            if (userId) fallback = fallback.filter((r: any) => r.userId === userId || r.authorId === userId);
-            if (listId) fallback = fallback.filter(r => r.listId === listId);
+            const fallback = await fetchPublicReviewsFromListSubcollections(type, {
+                pageLimit: customLimit || 20,
+                followingIds,
+                userId,
+                listId,
+            });
             rawReviews = fallback;
             hasMore = false;
         } else {

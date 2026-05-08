@@ -284,7 +284,7 @@ service cloud.firestore {
       }
 
       match /followers/{followerId} {
-        allow read, list: if request.auth != null && request.auth.uid == userId;
+        allow read, list: if request.auth != null;
         allow write: if false;
       }
 
