@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Archive, Bell, Dice5, Home, Info, Menu, MessageSquare, Plus, Search, User, X } from 'lucide-react';
+import { Archive, Bell, Building2, Dice5, Home, Info, Menu, MessageSquare, Plus, Search, User, X } from 'lucide-react';
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig, useAppConfigLoading } from '../context/AppConfigContext';
@@ -72,6 +72,7 @@ export const Navbar: React.FC = () => {
     const [showHistory, setShowHistory] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [unreadChatCount, setUnreadChatCount] = useState(0);
+    const [managedBusinessCount, setManagedBusinessCount] = useState(0);
     const [profileUsername, setProfileUsername] = useState('');
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
     const [profilePhotoRetryUrl, setProfilePhotoRetryUrl] = useState('');
@@ -115,6 +116,52 @@ export const Navbar: React.FC = () => {
         });
 
         return () => unsubscribe();
+    }, [user]);
+
+    useEffect(() => {
+        if (!user) {
+            setManagedBusinessCount(0);
+            return;
+        }
+
+        let managerPlaceIds = new Set<string>();
+        let ownerPlaceIds = new Set<string>();
+        const publishBusinessCount = () => {
+            setManagedBusinessCount(new Set([...managerPlaceIds, ...ownerPlaceIds]).size);
+        };
+
+        const managedBusinessesQuery = query(
+            collection(db, 'places'),
+            where('businessManagerIds', 'array-contains', user.uid),
+            limit(20),
+        );
+        const ownedBusinessesQuery = query(
+            collection(db, 'places'),
+            where('businessOwnerUserId', '==', user.uid),
+            limit(20),
+        );
+
+        const unsubscribeManaged = onSnapshot(managedBusinessesQuery, (snapshot) => {
+            managerPlaceIds = new Set(snapshot.docs.map((snap) => snap.id));
+            publishBusinessCount();
+        }, (error) => {
+            console.warn('Navbar managed businesses snapshot error:', error);
+            managerPlaceIds = new Set();
+            publishBusinessCount();
+        });
+        const unsubscribeOwned = onSnapshot(ownedBusinessesQuery, (snapshot) => {
+            ownerPlaceIds = new Set(snapshot.docs.map((snap) => snap.id));
+            publishBusinessCount();
+        }, (error) => {
+            console.warn('Navbar owned businesses snapshot error:', error);
+            ownerPlaceIds = new Set();
+            publishBusinessCount();
+        });
+
+        return () => {
+            unsubscribeManaged();
+            unsubscribeOwned();
+        };
     }, [user]);
 
     useEffect(() => {
@@ -227,6 +274,9 @@ export const Navbar: React.FC = () => {
                         <NavItem to="/search" icon={Search} label="Buscar" isActive={location.pathname === '/search'} />
                         <div className="w-px h-4 bg-white/10 mx-1" />
                         <NavItem to="/archive" icon={Archive} label="Archivo" isActive={location.pathname === '/archive'} />
+                        {user && managedBusinessCount > 0 && (
+                            <NavItem to="/businesses" icon={Building2} label="Negocios" isActive={location.pathname === '/businesses'} />
+                        )}
                         <NavItem to="/chats" icon={MessageSquare} label="Chats" count={unreadChatCount} isActive={location.pathname === '/chats'} />
                     </nav>
 
@@ -391,6 +441,16 @@ export const Navbar: React.FC = () => {
                             <Link to="/archive" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
                                 <Archive className="w-5 h-5 text-[var(--lt-accent)]" /> Archivo
                             </Link>
+                            {user && managedBusinessCount > 0 && (
+                                <Link to="/businesses" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)] justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <Building2 className="w-5 h-5 text-[var(--lt-accent)]" /> Mis negocios
+                                    </div>
+                                    <span className="bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] text-xs font-bold px-2 py-0.5 rounded-full">
+                                        {managedBusinessCount}
+                                    </span>
+                                </Link>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => {

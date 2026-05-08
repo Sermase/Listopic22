@@ -6,7 +6,7 @@ Estado:
 - "Pendiente" = queda por hacer en próximas iteraciones.
 - "Manual" = el usuario debe hacerlo fuera del repo (Google Cloud Console, Secret Manager, Firebase Console…). Ver `docs/SECURITY-SETUP.md`.
 
-Última actualización: 2026-04-18 (tercera pasada — sistema de temas).
+Ultima actualizacion: 2026-05-08 (negocios, premium y monetizacion).
 
 ## Top 10 (análisis inicial)
 
@@ -75,6 +75,130 @@ Ordenadas por temática y fase de implementación.
 ---
 
 ## CUENTAS DE NEGOCIO
+
+### Estado actual del flujo de negocios
+
+Lo que ya existe end-to-end:
+
+| Pieza | Donde | Que hace |
+|---|---|---|
+| Modal de reclamacion | `frontend/src/components/business/BusinessClaimModal.tsx` | Permite enviar solicitud con rol, contacto, mensaje y hasta 5 pruebas PDF/imagen de max. 25 MB |
+| Servicio cliente | `frontend/src/services/BusinessClaimService.ts` | Sube pruebas a `business-claims/{userId}/{claimId}/docs/` y crea el documento en Firestore |
+| Trigger backend | `functions/modules/business-claims.js` | Envia email a `CLAIM_REVIEW_EMAIL` mediante Resend cuando entra una solicitud |
+| Panel admin de solicitudes | `frontend/src/components/developer/BusinessClaimsManagerTab.tsx` | Filtra por estado, guarda notas y aprueba/rechaza escribiendo en `places` |
+| Gestor admin de negocios | `frontend/src/components/developer/BusinessManagersTab.tsx` | Permite asignar/quitar gestores y propietario a negocios verificados |
+| Dashboard usuario | `frontend/src/pages/BusinessDashboardPage.tsx` | Lista lugares donde `businessManagerIds` contiene el uid actual |
+| Reglas | `firestore.rules`, `storage.rules` | El usuario crea claims propios; solo jefe/admin revisa; pruebas en Storage con ownership |
+
+Modelo de datos actual:
+
+```txt
+users/{uid}
+  userType[] = ['user' | 'jefe']
+
+businessClaims/{claimId}
+  userId
+  placeId
+  status
+  proofs[]
+  reviewedBy
+  reviewedAt
+  adminNotes
+
+places/{placeId}
+  businessVerified
+  businessOwnerUserId
+  businessManagerIds[]
+  businessClaimId
+```
+
+### Huecos del flujo actual antes de pagos
+
+Prioridad alta:
+- Notificar al usuario cuando su reclamacion se aprueba o rechaza. Ahora tiene que entrar al dashboard para verlo.
+- Escribir `adminAuditLog` cuando se aprueba, rechaza o reasigna un negocio.
+- Hacer obligatorio el feedback de rechazo (`adminNotes`) para que el usuario sepa que corregir.
+- Evitar spam de reclamaciones: rate limit por usuario y bloqueo de duplicados `pending` para el mismo `userId + placeId`.
+- Activar el boton de gestionar en `BusinessDashboardPage`: ahora el usuario ve negocios asignados pero aun no puede editar nada.
+
+Prioridad media:
+- Permitir que el propietario invite empleados/equipo desde el dashboard, con roles limitados.
+- Evitar que `CLAIM_REVIEW_EMAIL` sea un unico correo hardcodeado si se delega moderacion.
+- Mostrar historial de solicitudes del usuario con pruebas enviadas y estado.
+- Exponer en Developer el lugar asociado, usuario solicitante, pruebas y enlace directo a cada solicitud.
+
+### Business Free: valor antes de cobrar
+
+Objetivo: que reclamar un lugar ya aporte valor aunque no haya suscripcion.
+
+- Respuestas verificadas a resenas, con badge de negocio.
+- Insignia "Negocio verificado" en `PlacePage` y cuando el negocio responda en una resena.
+- Edicion basica del perfil del lugar: descripcion propia, horarios, fotos destacadas y enlace de reservas.
+- Notificacion push/in-app cuando entra una resena nueva en su lugar.
+- No permitir que un propietario o gestor resene su propio negocio.
+
+### Business Pro: pago por local
+
+Rango orientativo: 8-15 EUR/mes por local.
+
+- Estadisticas del lugar: visitas al perfil, notas en el tiempo, terminos mas mencionados y comparativa anonima de zona/categoria.
+- Equipo con roles: propietario, manager, responder. Un empleado puede responder resenas sin tocar configuracion.
+- Plantillas de respuesta rapida y tono.
+- Promociones en `places/{placeId}/offers/{offerId}` con fecha de caducidad y limpieza automatica.
+- Exportar resenas del local a CSV/PDF.
+- Tarjetas compartibles con branding del negocio usando el sistema de `ShareCard`.
+
+### Business Plus / cadenas
+
+- Multi-local con una capa tipo `businessTeams/{businessId}`:
+
+```txt
+businessTeams/{businessId}
+  name
+  ownerUid
+  placeIds[]
+  members: {
+    uid: string
+    role: 'owner' | 'manager' | 'responder'
+  }[]
+  plan
+  subscriptionStatus
+```
+
+- Lugar destacado en busquedas por categoria y radio, siempre marcado como "Promocionado".
+- Listas patrocinadas con badge visible, sin alterar valoraciones ni ranking organico.
+- Webhooks/API para CRM: nueva resena, nueva respuesta, cambios de estado.
+
+### Premium consumidor
+
+Precio orientativo: 3-5 EUR/mes para usuarios que quieran apoyar el proyecto.
+
+- Listas privadas ilimitadas, si free tiene un limite razonable.
+- Galeria de avatar de hasta 3 fotos, con principal y visibilidad configurable.
+- Mapa/heatmap personal de lugares.
+- Pasaporte gamificado por barrio/categoria.
+- Feed sin lugares patrocinados.
+- Acceso temprano a funciones experimentales.
+- Tema/skin exclusivo y badge pequeno de supporter.
+- Modo viaje/offline para guardar ciudad/listas antes de salir.
+
+### Pasos tecnicos minimos antes de cobrar
+
+1. Custom claim `tier` (`free`, `premium`, `business`, `business_pro`) escrito solo por Cloud Functions tras webhook de Stripe.
+2. Coleccion `subscriptions/{uid}` como cache de Stripe: `stripeCustomerId`, `subscriptionId`, `status`, `currentPeriodEnd`, `cancelAtPeriodEnd`.
+3. Callable `createCheckoutSession`.
+4. Endpoint `stripeWebhook` `onRequest`, sin auth de usuario, validando firma de Stripe e idempotencia.
+5. Customer Portal para cancelar, cambiar plan y ver facturas sin construir ese frontend a mano.
+6. Pagina `/pricing` con Free, Premium y Business.
+7. Hook `usePlan()` basado en custom claims y componente `<RequirePlan tier="premium">`.
+8. Grace period de 3-7 dias tras `payment_failed` antes de degradar tier.
+9. Stripe Tax/IVA activado antes de cobrar a empresas.
+
+Orden recomendado:
+1. Cerrar Business Free: notificaciones de veredicto, audit log, feedback obligatorio, rate limit y respuestas verificadas.
+2. Montar Stripe en modo interno/test sin lanzar planes pagos.
+3. Lanzar Premium consumidor.
+4. Abrir Business Pro con analytics y multi-local.
 
 ### Fase 1 — Perfil de negocio y verificación (sin pagos)
 
@@ -213,4 +337,4 @@ Ver brainstorming activo. Objetivo: mejorar notificaciones in-app y añadir push
 
 ---
 
-*Última actualización: 2026-04-13*
+*Ultima actualizacion: 2026-05-08*
