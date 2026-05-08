@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { createPortal } from 'react-dom';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc, Timestamp } from 'firebase/firestore';
-import { db, storage } from '../firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage, functions } from '../firebase';
+import { ref, uploadBytes, getDownloadURL, deleteObject, getBlob } from 'firebase/storage';
+import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Loader2, X, MapPin as MapPinIcon, CheckCircle2, Lock, Trash2, Star } from 'lucide-react';
@@ -114,6 +115,47 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
     return fallback;
 };
 
+const isFetchableImageUrl = (url: string): boolean => {
+    if (url.startsWith(window.location.origin)) return true;
+    return url.includes('firebasestorage.googleapis.com') || url.includes('storage.googleapis.com');
+};
+
+interface ImportedReviewPhotoResult {
+    url: string;
+    storagePath: string;
+    contentType?: string;
+    size?: number;
+}
+
+const importExternalReviewPhoto = async (url: string): Promise<ImportedReviewPhotoResult> => {
+    const callable = httpsCallable<{ url: string }, ImportedReviewPhotoResult>(functions, 'importExternalReviewPhoto');
+    const result = await callable({ url });
+    if (!result.data?.url || !result.data?.storagePath) {
+        throw new Error('No se pudo importar la foto externa.');
+    }
+    return result.data;
+};
+
+const fileFromExistingPhoto = async (url: string, index: number, storagePath?: string): Promise<File> => {
+    let blob: Blob;
+
+    if (storagePath) {
+        blob = await getBlob(ref(storage, storagePath));
+    } else {
+        if (!isFetchableImageUrl(url)) {
+            throw new Error('external-image-not-editable');
+        }
+
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`No se pudo cargar la foto ${index + 1}`);
+        blob = await response.blob();
+    }
+
+    const type = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/jpeg';
+    const extension = type.split('/')[1]?.replace('jpeg', 'jpg') || 'jpg';
+    return new File([blob], `review-photo-${index + 1}.${extension}`, { type });
+};
+
 export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId, lockList = false, onClose, onSuccess, suggestedListIds }) => {
     useBodyScrollLock(true);
     const { user } = useAuth();
@@ -140,8 +182,10 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [processedPhotos, setProcessedPhotos] = useState<ProcessedPhoto[]>([]);
     const [existingPhotoUrls, setExistingPhotoUrls] = useState<string[]>([]);
+    const [existingPhotoStoragePaths, setExistingPhotoStoragePaths] = useState<string[]>([]);
     const [isPhotoEditorOpen, setIsPhotoEditorOpen] = useState(false);
     const [selectedFilesForEditor, setSelectedFilesForEditor] = useState<File[]>([]);
+    const [loadingExistingPhotosForEditor, setLoadingExistingPhotosForEditor] = useState(false);
     const [customTags, setCustomTags] = useState<string[]>([]);
     const [listAvailableTags, setListAvailableTags] = useState<string[]>([]);
 
@@ -236,12 +280,13 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             comment,
             criteriaScores,
             customTags,
-            imagePreview, // crude check for photo change
+            existingPhotoUrls,
+            processedPhotoCount: processedPhotos.length,
             listId: internalListId // Include listId in comparison structure
         });
 
         return currentData !== originalData;
-    }, [isNew, itemName, comment, criteriaScores, customTags, imagePreview, originalData, internalListId]);
+    }, [isNew, itemName, comment, criteriaScores, customTags, existingPhotoUrls, processedPhotos.length, originalData, internalListId]);
 
     // Fetch Review Data for Editing
     useEffect(() => {
@@ -256,12 +301,17 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 const reviewTags = data.tags ?? data.userTags ?? [];
                 setCustomTags(reviewTags);
                 const photoUrls = Array.isArray(data.photoUrls) ? data.photoUrls : [];
+                const photoStoragePaths = Array.isArray(data.photoStoragePaths)
+                    ? data.photoStoragePaths.filter((path): path is string => typeof path === 'string' && path.trim().length > 0)
+                    : [];
                 if (photoUrls.length > 0) {
                     setExistingPhotoUrls(photoUrls);
+                    setExistingPhotoStoragePaths(photoStoragePaths);
                     setImagePreview(photoUrls[0]);
                 } else if (data.photoUrl) {
                     setImagePreview(data.photoUrl);
                     setExistingPhotoUrls(data.photoUrl ? [data.photoUrl] : []);
+                    setExistingPhotoStoragePaths(photoStoragePaths);
                 }
 
                 const effectiveListId = resolvedListId || data.listId || data.parentListId || listId || null;
@@ -277,7 +327,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     comment: data.comment || '',
                     criteriaScores: data.scores || {},
                     customTags: data.tags || data.userTags || [],
-                    imagePreview: data.photoUrl || null,
+                    existingPhotoUrls: photoUrls.length > 0 ? photoUrls : (data.photoUrl ? [data.photoUrl] : []),
+                    processedPhotoCount: 0,
                     listId: effectiveListId
                 }));
 
@@ -490,6 +541,46 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         }
     };
 
+    const openExistingPhotosInEditor = async () => {
+        if (existingPhotoUrls.length === 0) return;
+        setLoadingExistingPhotosForEditor(true);
+        setError(null);
+        try {
+            const files: File[] = [];
+            const temporaryImportsToDelete: string[] = [];
+
+            for (let i = 0; i < existingPhotoUrls.slice(0, 3).length; i++) {
+                let url = existingPhotoUrls[i];
+                let storagePath = existingPhotoStoragePaths[i];
+
+                if (!storagePath && !isFetchableImageUrl(url)) {
+                    const imported = await importExternalReviewPhoto(url);
+                    url = imported.url;
+                    storagePath = imported.storagePath;
+                    temporaryImportsToDelete.push(imported.storagePath);
+                }
+
+                files.push(await fileFromExistingPhoto(url, i, storagePath));
+            }
+
+            setSelectedFilesForEditor(files);
+            setIsPhotoEditorOpen(true);
+            if (temporaryImportsToDelete.length > 0) {
+                showToast({
+                    variant: 'success',
+                    title: 'Fotos preparadas',
+                    message: 'Las fotos externas se han copiado temporalmente para poder editarlas.',
+                });
+                void Promise.allSettled(temporaryImportsToDelete.map(path => deleteObject(ref(storage, path))));
+            }
+        } catch (err) {
+            console.error('Could not open existing review photos in editor', err);
+            setError(getErrorMessage(err, 'No se pudieron cargar las fotos actuales para editarlas.'));
+        } finally {
+            setLoadingExistingPhotosForEditor(false);
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent | null, directPhotos?: ProcessedPhoto[]) => {
         e?.preventDefault();
         const photosToUpload = directPhotos ?? processedPhotos;
@@ -615,6 +706,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             let finalPhotoUrl = ''; // Declared here
             let finalPhotoUrls: string[] = [];
             const finalPhotoStoragePaths: string[] = [];
+            let replacedPhotoStoragePaths: string[] = [];
 
             if (selectedPlace) {
                 // Transform Place Data
@@ -641,11 +733,33 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         return;
                     }
                 } else if (existingPhotoUrls.length > 0) {
-                    finalPhotoUrls = existingPhotoUrls;
+                    for (let pi = 0; pi < existingPhotoUrls.length; pi++) {
+                        const existingUrl = existingPhotoUrls[pi];
+                        const existingStoragePath = existingPhotoStoragePaths[pi];
+
+                        if (existingStoragePath || isFetchableImageUrl(existingUrl)) {
+                            finalPhotoUrls.push(existingUrl);
+                            if (existingStoragePath) finalPhotoStoragePaths.push(existingStoragePath);
+                            continue;
+                        }
+
+                        const imported = await importExternalReviewPhoto(existingUrl);
+                        finalPhotoUrls.push(imported.url);
+                        finalPhotoStoragePaths.push(imported.storagePath);
+                    }
                 } else if (imagePreview && imagePreview.startsWith('http')) {
-                    finalPhotoUrls = [imagePreview];
+                    if (isFetchableImageUrl(imagePreview)) {
+                        finalPhotoUrls = [imagePreview];
+                    } else {
+                        const imported = await importExternalReviewPhoto(imagePreview);
+                        finalPhotoUrls = [imported.url];
+                        finalPhotoStoragePaths.push(imported.storagePath);
+                    }
                 }
                 finalPhotoUrl = finalPhotoUrls[0] || '';
+                replacedPhotoStoragePaths = editReviewId
+                    ? existingPhotoStoragePaths.filter(path => path && !finalPhotoStoragePaths.includes(path))
+                    : [];
 
                 try {
                     console.log(`Ensuring place ${finalPlaceId} exists via backend...`);
@@ -740,7 +854,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 reactionCounts: { like: 0, dislike: 0 },
                 photoUrl: finalPhotoUrl,
                 photoUrls: finalPhotoUrls.length > 0 ? finalPhotoUrls : (finalPhotoUrl ? [finalPhotoUrl] : []),
-                ...(finalPhotoStoragePaths.length > 0 ? { photoStoragePaths: finalPhotoStoragePaths } : {}),
+                photoStoragePaths: finalPhotoStoragePaths,
                 updatedAt: serverTimestamp(),
 
                 // Location Details
@@ -791,6 +905,12 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     createdAt: createdAtToKeep || serverTimestamp(),
                     updatedAt: serverTimestamp()
                 }, { merge: true });
+
+                if (replacedPhotoStoragePaths.length > 0) {
+                    await Promise.allSettled(
+                        replacedPhotoStoragePaths.map(path => deleteObject(ref(storage, path)))
+                    );
+                }
             } else {
                 // Create in the list subcollection (legacy/canonical path).
                 const newDocRef = await addDoc(collection(db, 'lists', finalListId, 'reviews'), {
@@ -1264,22 +1384,41 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                             </button>
                                             <button
                                                 type="button"
-                                                onClick={() => { setProcessedPhotos([]); setImagePreview(null); }}
+                                                onClick={() => {
+                                                    setProcessedPhotos([]);
+                                                    setImagePreview(null);
+                                                    setExistingPhotoUrls([]);
+                                                    setExistingPhotoStoragePaths([]);
+                                                }}
                                                 className="py-2 px-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl hover:bg-red-500/20 transition-all"
                                             >
                                                 <Trash2 className="w-3.5 h-3.5" />
                                             </button>
                                         </div>
                                     </div>
-                                ) : imagePreview ? (
+                                ) : existingPhotoUrls.length > 0 ? (
                                     /* Foto existente (modo edición legacy) */
                                     <div className="relative w-full h-44 rounded-xl overflow-hidden border border-white/10 group">
-                                        <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                        <img src={existingPhotoUrls[0]} alt="Preview" className="w-full h-full object-cover" />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        {existingPhotoUrls.length > 1 && (
+                                            <div className="absolute top-3 left-3 bg-black/70 px-2 py-1 rounded-lg text-white text-[11px] font-bold">
+                                                {existingPhotoUrls.length} fotos
+                                            </div>
+                                        )}
                                         <button
                                             type="button"
-                                            onClick={() => { setImagePreview(null); setExistingPhotoUrls([]); }}
-                                            className="absolute bottom-3 right-3 bg-red-500 hover:bg-red-400 px-3 py-1.5 rounded-lg text-white text-xs font-bold flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-all active:scale-95"
+                                            onClick={openExistingPhotosInEditor}
+                                            disabled={loadingExistingPhotosForEditor}
+                                            className="absolute bottom-3 left-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent-2)] px-3 py-1.5 rounded-lg text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95 disabled:opacity-70"
+                                        >
+                                            {loadingExistingPhotosForEditor && <Loader2 className="w-3 h-3 animate-spin" />}
+                                            Editar fotos
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setImagePreview(null); setExistingPhotoUrls([]); setExistingPhotoStoragePaths([]); }}
+                                            className="absolute bottom-3 right-3 bg-red-500 hover:bg-red-400 px-3 py-1.5 rounded-lg text-white text-xs font-bold flex items-center gap-1.5 transition-all active:scale-95"
                                         >
                                             <Trash2 className="w-3 h-3" /> Eliminar
                                         </button>
