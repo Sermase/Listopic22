@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { Building2, ExternalLink, Loader2, MapPin, Settings } from 'lucide-react';
-import { db } from '../firebase';
+import { db, functions } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 
 interface ManagedBusinessPlace {
@@ -17,6 +18,19 @@ interface ManagedBusinessPlace {
     businessOwnerUserId?: string;
 }
 
+interface BusinessTeamUser {
+    id: string;
+    username?: string;
+    displayName?: string;
+    email?: string;
+}
+
+interface BusinessTeam {
+    ownerUserId: string;
+    managerIds: string[];
+    users: BusinessTeamUser[];
+}
+
 const toNumber = (value: unknown): number | undefined => {
     const parsed = typeof value === 'number' ? value : Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
@@ -27,6 +41,11 @@ export const BusinessDashboardPage: React.FC = () => {
     const [places, setPlaces] = useState<ManagedBusinessPlace[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [expandedPlaceId, setExpandedPlaceId] = useState<string | null>(null);
+    const [teamsByPlace, setTeamsByPlace] = useState<Record<string, BusinessTeam>>({});
+    const [teamLoadingByPlace, setTeamLoadingByPlace] = useState<Record<string, boolean>>({});
+    const [teamSearchByPlace, setTeamSearchByPlace] = useState<Record<string, string>>({});
+    const [teamMessage, setTeamMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     useEffect(() => {
         if (!user?.uid) return;
@@ -36,16 +55,24 @@ export const BusinessDashboardPage: React.FC = () => {
             setLoading(true);
             setError('');
             try {
-                const snap = await getDocs(query(
-                    collection(db, 'places'),
-                    where('businessManagerIds', 'array-contains', user.uid),
-                    limit(50),
-                ));
+                const [managedSnap, ownedSnap] = await Promise.all([
+                    getDocs(query(
+                        collection(db, 'places'),
+                        where('businessManagerIds', 'array-contains', user.uid),
+                        limit(50),
+                    )),
+                    getDocs(query(
+                        collection(db, 'places'),
+                        where('businessOwnerUserId', '==', user.uid),
+                        limit(50),
+                    )),
+                ]);
                 if (cancelled) return;
 
-                const rows = snap.docs.map((docSnap) => {
+                const rowsById = new Map<string, ManagedBusinessPlace>();
+                [...managedSnap.docs, ...ownedSnap.docs].forEach((docSnap) => {
                     const data = docSnap.data() as Record<string, unknown>;
-                    return {
+                    rowsById.set(docSnap.id, {
                         id: docSnap.id,
                         name: typeof data.name === 'string' ? data.name : undefined,
                         address: typeof data.address === 'string' ? data.address : undefined,
@@ -55,10 +82,10 @@ export const BusinessDashboardPage: React.FC = () => {
                         averageRating: toNumber(data.averageRating),
                         businessVerified: data.businessVerified === true,
                         businessOwnerUserId: typeof data.businessOwnerUserId === 'string' ? data.businessOwnerUserId : undefined,
-                    } satisfies ManagedBusinessPlace;
+                    });
                 });
 
-                setPlaces(rows);
+                setPlaces(Array.from(rowsById.values()));
             } catch (err) {
                 console.error('BusinessDashboardPage: failed loading managed businesses', err);
                 if (!cancelled) {
@@ -79,6 +106,59 @@ export const BusinessDashboardPage: React.FC = () => {
     const sortedPlaces = useMemo(() => {
         return [...places].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'es'));
     }, [places]);
+
+    const loadTeam = async (placeId: string) => {
+        setTeamLoadingByPlace((prev) => ({ ...prev, [placeId]: true }));
+        setTeamMessage(null);
+        try {
+            const getBusinessTeam = httpsCallable<{ placeId: string }, BusinessTeam>(functions, 'getBusinessTeam');
+            const result = await getBusinessTeam({ placeId });
+            setTeamsByPlace((prev) => ({ ...prev, [placeId]: result.data }));
+        } catch (err) {
+            console.error('BusinessDashboardPage: failed loading team', err);
+            setTeamMessage({ type: 'error', text: 'No se pudo cargar el equipo de este negocio.' });
+        } finally {
+            setTeamLoadingByPlace((prev) => ({ ...prev, [placeId]: false }));
+        }
+    };
+
+    const toggleManage = (placeId: string) => {
+        setExpandedPlaceId((prev) => {
+            const next = prev === placeId ? null : placeId;
+            if (next && !teamsByPlace[next]) void loadTeam(next);
+            return next;
+        });
+    };
+
+    const updateTeamMember = async (placeId: string, action: 'add' | 'remove', targetUserId?: string) => {
+        const userSearch = (teamSearchByPlace[placeId] || '').trim();
+        if (action === 'add' && !userSearch) {
+            setTeamMessage({ type: 'error', text: 'Indica uid, username o email del usuario.' });
+            return;
+        }
+
+        setTeamLoadingByPlace((prev) => ({ ...prev, [placeId]: true }));
+        setTeamMessage(null);
+        try {
+            const updateBusinessTeamMember = httpsCallable(functions, 'updateBusinessTeamMember');
+            await updateBusinessTeamMember({ placeId, action, userSearch, targetUserId });
+            setTeamSearchByPlace((prev) => ({ ...prev, [placeId]: '' }));
+            await loadTeam(placeId);
+            setTeamMessage({ type: 'success', text: action === 'add' ? 'Usuario anadido al equipo.' : 'Usuario eliminado del equipo.' });
+        } catch (err) {
+            console.error('BusinessDashboardPage: failed updating team', err);
+            const text = err && typeof err === 'object' && 'message' in err && typeof (err as { message?: unknown }).message === 'string'
+                ? (err as { message: string }).message
+                : 'No se pudo actualizar el equipo.';
+            setTeamMessage({ type: 'error', text });
+        } finally {
+            setTeamLoadingByPlace((prev) => ({ ...prev, [placeId]: false }));
+        }
+    };
+
+    const userLabel = (teamUser: BusinessTeamUser) => {
+        return teamUser.username ? `@${teamUser.username}` : teamUser.displayName || teamUser.email || teamUser.id;
+    };
 
     return (
         <div className="min-h-screen pt-28 pb-16 px-4 sm:px-6" style={{ background: 'var(--lt-bg)', color: 'var(--lt-text)' }}>
@@ -164,14 +244,88 @@ export const BusinessDashboardPage: React.FC = () => {
                                             </Link>
                                             <button
                                                 type="button"
-                                                disabled
-                                                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-[var(--lt-text-muted)] opacity-60"
-                                                title="Próximamente"
+                                                onClick={() => toggleManage(place.id)}
+                                                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-[var(--lt-text)] hover:border-[var(--lt-accent-border)] transition-colors"
                                             >
                                                 <Settings className="w-4 h-4" />
                                                 Gestionar
                                             </button>
                                         </div>
+
+                                        {expandedPlaceId === place.id && (
+                                            <div className="mt-5 rounded-2xl border border-white/10 bg-black/15 p-4">
+                                                <h3 className="text-sm font-black text-[var(--lt-text)]">Equipo del negocio</h3>
+                                                <p className="mt-1 text-xs text-[var(--lt-text-muted)]">
+                                                    El propietario puede anadir o quitar gestores. Los gestores veran este negocio en su menu.
+                                                </p>
+
+                                                {teamMessage && (
+                                                    <div className={`mt-3 rounded-xl border px-3 py-2 text-xs ${
+                                                        teamMessage.type === 'success'
+                                                            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
+                                                            : 'border-red-500/25 bg-red-500/10 text-red-200'
+                                                    }`}>
+                                                        {teamMessage.text}
+                                                    </div>
+                                                )}
+
+                                                <div className="mt-3 flex gap-2">
+                                                    <input
+                                                        value={teamSearchByPlace[place.id] || ''}
+                                                        onChange={(event) => setTeamSearchByPlace((prev) => ({ ...prev, [place.id]: event.target.value }))}
+                                                        className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-[var(--lt-text)] outline-none focus:border-[var(--lt-accent-border)]"
+                                                        placeholder="uid, @username o email"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => updateTeamMember(place.id, 'add')}
+                                                        disabled={teamLoadingByPlace[place.id]}
+                                                        className="rounded-xl bg-[var(--lt-accent)] px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
+                                                    >
+                                                        Anadir
+                                                    </button>
+                                                </div>
+
+                                                {teamLoadingByPlace[place.id] && !teamsByPlace[place.id] ? (
+                                                    <div className="mt-4 flex items-center gap-2 text-xs text-[var(--lt-text-muted)]">
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                        Cargando equipo...
+                                                    </div>
+                                                ) : teamsByPlace[place.id] && (
+                                                    <div className="mt-4 space-y-2">
+                                                        {teamsByPlace[place.id].users.map((member) => {
+                                                            const isOwner = teamsByPlace[place.id].ownerUserId === member.id;
+                                                            const canRemove = user?.uid === teamsByPlace[place.id].ownerUserId && !isOwner;
+                                                            return (
+                                                                <div key={member.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                                                                    <div className="min-w-0">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="truncate text-sm font-bold text-[var(--lt-text)]">{userLabel(member)}</span>
+                                                                            {isOwner && (
+                                                                                <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">
+                                                                                    Propietario
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                        <p className="truncate text-[11px] text-[var(--lt-text-muted)]">{member.email || member.id}</p>
+                                                                    </div>
+                                                                    {canRemove && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => updateTeamMember(place.id, 'remove', member.id)}
+                                                                            disabled={teamLoadingByPlace[place.id]}
+                                                                            className="rounded-lg border border-red-500/25 bg-red-500/10 px-2.5 py-1.5 text-xs font-bold text-red-200 disabled:opacity-50"
+                                                                        >
+                                                                            Quitar
+                                                                        </button>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </article>
                             );

@@ -124,20 +124,44 @@ export const Navbar: React.FC = () => {
             return;
         }
 
-        const businessesQuery = query(
+        let managerPlaceIds = new Set<string>();
+        let ownerPlaceIds = new Set<string>();
+        const publishBusinessCount = () => {
+            setManagedBusinessCount(new Set([...managerPlaceIds, ...ownerPlaceIds]).size);
+        };
+
+        const managedBusinessesQuery = query(
             collection(db, 'places'),
             where('businessManagerIds', 'array-contains', user.uid),
             limit(20),
         );
+        const ownedBusinessesQuery = query(
+            collection(db, 'places'),
+            where('businessOwnerUserId', '==', user.uid),
+            limit(20),
+        );
 
-        const unsubscribe = onSnapshot(businessesQuery, (snapshot) => {
-            setManagedBusinessCount(snapshot.size);
+        const unsubscribeManaged = onSnapshot(managedBusinessesQuery, (snapshot) => {
+            managerPlaceIds = new Set(snapshot.docs.map((snap) => snap.id));
+            publishBusinessCount();
         }, (error) => {
             console.warn('Navbar managed businesses snapshot error:', error);
-            setManagedBusinessCount(0);
+            managerPlaceIds = new Set();
+            publishBusinessCount();
+        });
+        const unsubscribeOwned = onSnapshot(ownedBusinessesQuery, (snapshot) => {
+            ownerPlaceIds = new Set(snapshot.docs.map((snap) => snap.id));
+            publishBusinessCount();
+        }, (error) => {
+            console.warn('Navbar owned businesses snapshot error:', error);
+            ownerPlaceIds = new Set();
+            publishBusinessCount();
         });
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribeManaged();
+            unsubscribeOwned();
+        };
     }, [user]);
 
     useEffect(() => {

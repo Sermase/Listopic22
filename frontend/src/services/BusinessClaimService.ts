@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { db, storage } from '../firebase';
 
@@ -77,6 +77,8 @@ const safeFileName = (name: string) => {
     return cleaned || 'proof-file';
 };
 
+const claimDocId = (userId: string, placeId: string) => `${userId}_${placeId}`;
+
 export const validateBusinessClaimFiles = (files: File[]) => {
     if (files.length > MAX_FILES) {
         throw new Error(`Puedes adjuntar hasta ${MAX_FILES} archivos.`);
@@ -96,7 +98,7 @@ export const createBusinessClaim = async (input: CreateBusinessClaimInput): Prom
     const files = input.files.slice(0, MAX_FILES);
     validateBusinessClaimFiles(files);
 
-    const docRef = doc(collection(db, 'businessClaims'));
+    const docRef = doc(db, 'businessClaims', claimDocId(input.userId, input.placeId));
 
     const uploadedProofs: BusinessClaimProof[] = [];
     for (const file of files) {
@@ -143,9 +145,14 @@ export const createBusinessClaim = async (input: CreateBusinessClaimInput): Prom
     } catch (error) {
         const code = getFirebaseCode(error);
         console.error('Business claim document create failed', { code, placeId: input.placeId, error });
-        throw new Error(code === 'permission-denied'
-            ? 'No tienes permisos para crear la solicitud. Despliega las Firestore Rules nuevas.'
-            : `No se pudo crear la solicitud. ${code ? `(${code})` : ''}`.trim());
+        if (code === 'permission-denied') {
+            const existing = await getDoc(docRef).catch(() => null);
+            if (existing?.exists()) {
+                throw new Error('Ya existe una solicitud para este negocio. Si la ves como borrada, revisa en Firestore que no quede el documento businessClaims con este usuario y lugar.');
+            }
+            throw new Error('No se pudo crear la solicitud por permisos. Despliega las Firestore Rules nuevas y vuelve a intentarlo.');
+        }
+        throw new Error(`No se pudo crear la solicitud. ${code ? `(${code})` : ''}`.trim());
     }
 
     return { id: docRef.id, proofs: uploadedProofs };

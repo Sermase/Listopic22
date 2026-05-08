@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { arrayUnion, collection, doc, getDocs, limit as firestoreLimit, query, serverTimestamp, writeBatch } from 'firebase/firestore';
+import { collection, getDocs, limit as firestoreLimit, query } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { CheckCircle, ExternalLink, FileText, RefreshCw, XCircle } from 'lucide-react';
-import { db } from '../../firebase';
+import { db, functions } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import type { BusinessClaim, BusinessClaimStatus } from '../../services/BusinessClaimService';
 
@@ -31,6 +32,13 @@ const toMillis = (value: unknown) => {
     return 0;
 };
 
+const getErrorMessage = (error: unknown) => {
+    if (error && typeof error === 'object' && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
+        return (error as { message: string }).message;
+    }
+    return 'No se pudo revisar la solicitud.';
+};
+
 export const BusinessClaimsManagerTab: React.FC<BusinessClaimsManagerTabProps> = ({ highlightClaimId }) => {
     const { user } = useAuth();
     const [claims, setClaims] = useState<BusinessClaim[]>([]);
@@ -38,6 +46,7 @@ export const BusinessClaimsManagerTab: React.FC<BusinessClaimsManagerTabProps> =
     const [filter, setFilter] = useState<BusinessClaimStatus | 'all'>('pending');
     const [notes, setNotes] = useState<Record<string, string>>({});
     const [updatingId, setUpdatingId] = useState<string | null>(null);
+    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const loadClaims = async () => {
         setLoading(true);
@@ -71,36 +80,26 @@ export const BusinessClaimsManagerTab: React.FC<BusinessClaimsManagerTabProps> =
 
     const handleStatus = async (claim: BusinessClaim, status: Exclude<BusinessClaimStatus, 'pending'>) => {
         if (!user) return;
+        const adminNotes = (notes[claim.id] || '').trim();
+        if (status === 'rejected' && adminNotes.length < 8) {
+            setMessage({ type: 'error', text: 'Escribe un motivo de rechazo antes de rechazar la solicitud.' });
+            return;
+        }
         setUpdatingId(claim.id);
+        setMessage(null);
         try {
-            const batch = writeBatch(db);
-            batch.update(doc(db, 'businessClaims', claim.id), {
-                status,
-                adminNotes: notes[claim.id] || '',
-                reviewedBy: user.uid,
-                reviewedAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-            });
-
-            if (status === 'approved') {
-                batch.set(doc(db, 'places', claim.placeId), {
-                    businessVerified: true,
-                    businessClaimId: claim.id,
-                    businessOwnerUserId: claim.userId,
-                    businessManagerIds: arrayUnion(claim.userId),
-                    businessClaimedAt: serverTimestamp(),
-                    businessVerifiedBy: user.uid,
-                    updatedAt: serverTimestamp(),
-                }, { merge: true });
-            }
-
-            await batch.commit();
+            const reviewBusinessClaim = httpsCallable(functions, 'reviewBusinessClaim');
+            await reviewBusinessClaim({ claimId: claim.id, status, adminNotes });
             setClaims((prev) => prev.map((item) => item.id === claim.id ? {
                 ...item,
                 status,
-                adminNotes: notes[claim.id] || '',
+                adminNotes,
                 reviewedBy: user.uid,
             } : item));
+            setMessage({ type: 'success', text: status === 'approved' ? 'Solicitud aprobada y usuario notificado.' : 'Solicitud rechazada y usuario notificado.' });
+        } catch (error) {
+            console.error('BusinessClaimsManagerTab: review failed', error);
+            setMessage({ type: 'error', text: getErrorMessage(error) });
         } finally {
             setUpdatingId(null);
         }
@@ -141,6 +140,16 @@ export const BusinessClaimsManagerTab: React.FC<BusinessClaimsManagerTabProps> =
                         </button>
                     ))}
                 </div>
+
+                {message && (
+                    <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
+                        message.type === 'success'
+                            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
+                            : 'border-red-500/25 bg-red-500/10 text-red-200'
+                    }`}>
+                        {message.text}
+                    </div>
+                )}
             </div>
 
             {loading ? (
