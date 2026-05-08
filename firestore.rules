@@ -135,17 +135,11 @@ service cloud.firestore {
              && request.resource.data.userId == request.auth.uid
              && request.resource.data.status == 'pending'
              && request.resource.data.placeId is string
-             && !placeHasVerifiedBusiness(request.resource.data.placeId)
              && request.resource.data.placeName is string
              && request.resource.data.role is string
              && request.resource.data.contactEmail is string
              && request.resource.data.message is string
              && request.resource.data.proofs is list;
-    }
-
-    function placeHasVerifiedBusiness(placeId) {
-      return exists(/databases/$(database)/documents/places/$(placeId))
-             && get(/databases/$(database)/documents/places/$(placeId)).data.businessVerified == true;
     }
 
     function isFollowingUser(targetUserId) {

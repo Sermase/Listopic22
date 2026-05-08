@@ -64,6 +64,14 @@ const ALLOWED_FILE_TYPES = new Set([
 
 const cleanText = (value: string, maxLength: number) => value.trim().slice(0, maxLength);
 
+const getFirebaseCode = (error: unknown): string => {
+    if (error && typeof error === 'object' && 'code' in error) {
+        const code = (error as { code?: unknown }).code;
+        return typeof code === 'string' ? code : '';
+    }
+    return '';
+};
+
 const safeFileName = (name: string) => {
     const cleaned = name.trim().replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/-+/g, '-');
     return cleaned || 'proof-file';
@@ -94,8 +102,17 @@ export const createBusinessClaim = async (input: CreateBusinessClaimInput): Prom
     for (const file of files) {
         const path = `business-claims/${input.userId}/${docRef.id}/docs/${Date.now()}-${safeFileName(file.name)}`;
         const fileRef = ref(storage, path);
-        await uploadBytes(fileRef, file, { contentType: file.type });
-        const downloadUrl = await getDownloadURL(fileRef);
+        let downloadUrl = '';
+        try {
+            await uploadBytes(fileRef, file, { contentType: file.type });
+            downloadUrl = await getDownloadURL(fileRef);
+        } catch (error) {
+            const code = getFirebaseCode(error);
+            console.error('Business claim proof upload failed', { path, code, error });
+            throw new Error(code === 'storage/unauthorized' || code === 'permission-denied'
+                ? 'No tienes permisos para subir las pruebas. Despliega las Storage Rules nuevas o prueba sin adjuntar archivo.'
+                : `No se pudo subir "${file.name}". ${code ? `(${code})` : ''}`.trim());
+        }
         uploadedProofs.push({
             name: file.name,
             size: file.size,
@@ -105,23 +122,31 @@ export const createBusinessClaim = async (input: CreateBusinessClaimInput): Prom
         });
     }
 
-    await setDoc(docRef, {
-        userId: input.userId,
-        userEmail: input.userEmail || null,
-        userName: input.userName || null,
-        placeId: input.placeId,
-        placeName: cleanText(input.placeName, 180),
-        placeAddress: input.placeAddress ? cleanText(input.placeAddress, 260) : null,
-        role: cleanText(input.role, 120),
-        contactEmail: cleanText(input.contactEmail, 180),
-        contactPhone: input.contactPhone ? cleanText(input.contactPhone, 80) : '',
-        website: input.website ? cleanText(input.website, 240) : '',
-        message: cleanText(input.message, 1600),
-        status: 'pending',
-        proofs: uploadedProofs,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-    });
+    try {
+        await setDoc(docRef, {
+            userId: input.userId,
+            userEmail: input.userEmail || null,
+            userName: input.userName || null,
+            placeId: input.placeId,
+            placeName: cleanText(input.placeName, 180),
+            placeAddress: input.placeAddress ? cleanText(input.placeAddress, 260) : null,
+            role: cleanText(input.role, 120),
+            contactEmail: cleanText(input.contactEmail, 180),
+            contactPhone: input.contactPhone ? cleanText(input.contactPhone, 80) : '',
+            website: input.website ? cleanText(input.website, 240) : '',
+            message: cleanText(input.message, 1600),
+            status: 'pending',
+            proofs: uploadedProofs,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        });
+    } catch (error) {
+        const code = getFirebaseCode(error);
+        console.error('Business claim document create failed', { code, placeId: input.placeId, error });
+        throw new Error(code === 'permission-denied'
+            ? 'No tienes permisos para crear la solicitud. Despliega las Firestore Rules nuevas.'
+            : `No se pudo crear la solicitud. ${code ? `(${code})` : ''}`.trim());
+    }
 
     return { id: docRef.id, proofs: uploadedProofs };
 };
