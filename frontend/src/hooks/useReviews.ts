@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
 import { getCachedDocs } from '../lib/queryCache';
+import { fetchUserReviewsFromAccessibleLists } from '../lib/reviewFallbacks';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -214,12 +215,14 @@ async function fetchReviewsPage(
         }
     } catch (err: any) {
         if (err?.code === 'permission-denied') {
-            const fallback = await fetchPublicReviewsFromListSubcollections(type, {
-                pageLimit: customLimit || 20,
-                followingIds,
-                userId,
-                listId,
-            });
+            const fallback = userId && !listId && type === 'recent'
+                ? await fetchUserReviewsFromAccessibleLists(userId, customLimit || 20)
+                : await fetchPublicReviewsFromListSubcollections(type, {
+                    pageLimit: customLimit || 20,
+                    followingIds,
+                    userId,
+                    listId,
+                });
             rawReviews = fallback;
             hasMore = false;
         } else {

@@ -27,6 +27,7 @@ import {
     type UserProfileFormData,
 } from '../services/UserProfileService';
 import { USERNAME_MAX_LENGTH, isUsernameValid } from '../utils/username';
+import { fetchUserReviewsFromAccessibleLists } from '../lib/reviewFallbacks';
 
 /* 
     HOMEPAGE (Legacy Screenshot Match + Functional Logic: Categories & Range)
@@ -123,6 +124,14 @@ const pickRandomHeroSubtitle = (): string => {
 const toSafeNumber = (value: unknown): number => {
     const n = typeof value === 'number' ? value : Number(value);
     return Number.isFinite(n) ? n : 0;
+};
+
+const getErrorCode = (error: unknown): string | null => {
+    if (typeof error === 'object' && error !== null && 'code' in error) {
+        const code = (error as { code?: unknown }).code;
+        return typeof code === 'string' ? code : null;
+    }
+    return null;
 };
 
 const clampScore = (value: number): number => Math.max(0, Math.min(100, Math.round(value)));
@@ -457,8 +466,17 @@ export const HomePage: React.FC = () => {
                     listId: (d.data() as any).listId || d.ref.parent.parent?.id,
                 })));
             } catch (error) {
-                console.warn('[HomePage] Error fetching own taste reviews:', error);
-                if (!cancelled) setOwnTasteReviews([]);
+                if (getErrorCode(error) !== 'permission-denied') {
+                    console.warn('[HomePage] Error fetching own taste reviews:', error);
+                }
+
+                try {
+                    const fallbackReviews = await fetchUserReviewsFromAccessibleLists(user.uid, 60);
+                    if (!cancelled) setOwnTasteReviews(fallbackReviews);
+                } catch (fallbackError) {
+                    console.warn('[HomePage] Error fetching own taste reviews fallback:', fallbackError);
+                    if (!cancelled) setOwnTasteReviews([]);
+                }
             } finally {
                 if (!cancelled) setLoadingOwnTaste(false);
             }

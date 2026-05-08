@@ -13,6 +13,7 @@ import { ProgressiveImage } from '../components/ProgressiveImage';
 import type { MapItem } from '../components/MapView';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { Button, Card, IconButton, Modal, Tabs } from '../components/ui';
+import { fetchUserReviewsFromAccessibleLists } from '../lib/reviewFallbacks';
 
 const COLOR_OPTIONS = [
     '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
@@ -91,6 +92,12 @@ interface UploadedReviewPhoto {
     createdAt?: unknown;
 }
 
+type ReviewPhotoSource = {
+    id: string;
+    path: string;
+    data: Record<string, any>;
+};
+
 type ArchiveSavedItem = SavedItemEntity & { photoFallbackUrls?: string[] };
 type ArchiveSection = 'collections' | 'photos';
 type PhotoFilter = 'all' | 'place' | 'review';
@@ -121,6 +128,14 @@ function toMillis(value: any): number {
     if (typeof value?.seconds === 'number') return value.seconds * 1000;
     if (value instanceof Date) return value.getTime();
     return 0;
+}
+
+function getErrorCode(error: unknown): string | null {
+    if (typeof error === 'object' && error !== null && 'code' in error) {
+        const code = (error as { code?: unknown }).code;
+        return typeof code === 'string' ? code : null;
+    }
+    return null;
 }
 
 const firstString = (...values: unknown[]): string | undefined => {
@@ -315,18 +330,36 @@ export const ArchivePage: React.FC = () => {
         const loadUploadedReviewPhotos = async () => {
             setLoadingReviewPhotos(true);
             try {
-                const snap = await getDocs(query(
-                    collectionGroup(db, 'reviews'),
-                    where('userId', '==', user.uid),
-                    orderBy('createdAt', 'desc'),
-                    limit(160),
-                ));
+                let reviewSources: ReviewPhotoSource[] = [];
+
+                try {
+                    const snap = await getDocs(query(
+                        collectionGroup(db, 'reviews'),
+                        where('userId', '==', user.uid),
+                        orderBy('createdAt', 'desc'),
+                        limit(160),
+                    ));
+                    reviewSources = snap.docs.map((reviewDoc) => ({
+                        id: reviewDoc.id,
+                        path: reviewDoc.ref.path,
+                        data: reviewDoc.data() as Record<string, any>,
+                    }));
+                } catch (error) {
+                    if (getErrorCode(error) !== 'permission-denied') throw error;
+
+                    const fallbackReviews = await fetchUserReviewsFromAccessibleLists(user.uid, 160);
+                    reviewSources = fallbackReviews.map((review) => ({
+                        id: review.id,
+                        path: review.listId ? `lists/${review.listId}/reviews/${review.id}` : `reviews/${review.id}`,
+                        data: review as Record<string, any>,
+                    }));
+                }
                 if (cancelled) return;
 
                 const seen = new Set<string>();
-                const photos = snap.docs.flatMap((reviewDoc): UploadedReviewPhoto[] => {
-                    const data = reviewDoc.data() as Record<string, any>;
-                    const pathSegments = reviewDoc.ref.path.split('/');
+                const photos = reviewSources.flatMap((reviewDoc): UploadedReviewPhoto[] => {
+                    const data = reviewDoc.data;
+                    const pathSegments = reviewDoc.path.split('/');
                     const inferredListId = pathSegments.length === 4 && pathSegments[0] === 'lists'
                         ? pathSegments[1]
                         : undefined;
@@ -354,7 +387,7 @@ export const ArchivePage: React.FC = () => {
 
                             return {
                                 id: `${reviewDoc.id}-${index}`,
-                                docPath: reviewDoc.ref.path,
+                                docPath: reviewDoc.path,
                                 reviewId: reviewDoc.id,
                                 listId,
                                 placeId: typeof data.placeId === 'string' ? data.placeId : undefined,
