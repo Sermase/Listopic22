@@ -461,6 +461,33 @@ service cloud.firestore {
       }
     }
 
+    // Reseñas legacy en colección raíz. La app ya escribe en
+    // lists/{listId}/reviews, pero estas reglas evitan que queries
+    // collectionGroup('reviews') fallen por documentos antiguos.
+    match /reviews/{reviewId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.authorId == request.auth.uid ||
+        isJefe(request.auth.uid) ||
+        (resource.data.listId is string && canReadListById(resource.data.listId))
+      );
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.listId is string
+                    && reviewCreateHasOnlyAllowedFields()
+                    && canWriteToList(request.resource.data.listId);
+      allow update: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.authorId == request.auth.uid ||
+        isJefe(request.auth.uid)
+      ) && reviewUpdateChangesOnlyAllowedFields();
+      allow delete: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.authorId == request.auth.uid ||
+        isJefe(request.auth.uid)
+      );
+    }
+
     // ===============================================
     // REGLAS PARA ME GUSTA DE LISTAS (`list_likes`)
     // ===============================================

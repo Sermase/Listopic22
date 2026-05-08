@@ -28,6 +28,7 @@ export interface UserProfileEntity {
     followersCount?: number;
     followingCount?: number;
     reviewsCount?: number;
+    reviewCount?: number;
     badges?: Array<string | { id?: string }>;
     defaultDistanceKm?: number;
     listCount?: number;

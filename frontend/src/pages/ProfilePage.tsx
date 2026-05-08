@@ -1020,9 +1020,21 @@ export const ProfilePage: React.FC = () => {
           setStatsLoadedUserId(targetUserId);
         }
       } catch (error) {
-        console.error("Error loading advanced profile stats", error);
+        const code = getErrorCode(error);
         if (!cancelled) {
-          setStatsError("No se pudieron cargar las estadisticas.");
+          if (code === "permission-denied") {
+            console.warn("ProfilePage: advanced stats denied; using public profile counters", error);
+            setAdvancedStats({
+              ...EMPTY_ADVANCED_STATS,
+              totalReviews: profile?.reviewsCount || profile?.reviewCount || localReviews.length || 0,
+            });
+            setFavoriteReview(null);
+            setStatsLoadedUserId(targetUserId);
+            setStatsError(null);
+          } else {
+            console.error("Error loading advanced profile stats", error);
+            setStatsError("No se pudieron cargar las estadisticas.");
+          }
         }
       } finally {
         if (!cancelled) {
@@ -1036,7 +1048,7 @@ export const ProfilePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [targetUserId, statsLoadedUserId, user?.uid]);
+  }, [localReviews.length, profile?.reviewCount, profile?.reviewsCount, targetUserId, statsLoadedUserId, user?.uid]);
 
   const handleDeleteReview = (id: string) => {
     setLocalReviews((prev) => prev.filter((r) => r.id !== id));
