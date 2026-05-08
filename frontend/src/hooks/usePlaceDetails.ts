@@ -57,6 +57,7 @@ export interface PlaceDetails {
     businessClaimId?: string;
     businessOwnerUserId?: string;
     businessManagerIds?: string[];
+    coverManagerId?: string;
     placePhotos?: PlacePhoto[];
 }
 
@@ -244,6 +245,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         businessClaimId: typeof placeData?.businessClaimId === 'string' ? placeData.businessClaimId : undefined,
         businessOwnerUserId: typeof placeData?.businessOwnerUserId === 'string' ? placeData.businessOwnerUserId : undefined,
         businessManagerIds: Array.isArray(placeData?.businessManagerIds) ? placeData.businessManagerIds.filter((id: unknown) => typeof id === 'string') : undefined,
+        coverManagerId: typeof placeData?.coverManagerId === 'string' ? placeData.coverManagerId : undefined,
         placePhotos,
     };
 }

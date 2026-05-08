@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp, BriefcaseBusiness
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp, BriefcaseBusiness, CalendarDays
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -582,7 +582,24 @@ export const PlacePage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* 3. Detailed Info (New Rich Data) */}
+                    {/* 3. CoverManager Reservation Widget */}
+                    {place.coverManagerId && (
+                        <div className="glass-card rounded-2xl overflow-hidden shadow-xl">
+                            <div className="px-5 pt-4 pb-3 border-b border-white/5 flex items-center gap-2">
+                                <CalendarDays className="w-4 h-4 text-[var(--lt-accent)]" />
+                                <h3 className="text-sm font-bold text-white">Reservar mesa</h3>
+                            </div>
+                            <iframe
+                                src={`https://www.covermanager.com/reserve/module_restaurante/${encodeURIComponent(place.coverManagerId)}/spanish`}
+                                frameBorder={0}
+                                scrolling="no"
+                                style={{ width: '100%', minHeight: '500px', display: 'block' }}
+                                title="Reservar mesa"
+                            />
+                        </div>
+                    )}
+
+                    {/* 4. Detailed Info (New Rich Data) */}
                     <div className="glass-card p-5 rounded-2xl space-y-4 shadow-lg">
                         <h3 className="font-bold text-white border-b border-white/5 pb-2 text-sm uppercase tracking-wider">Detalles</h3>
 

@@ -309,9 +309,48 @@ const updateBusinessTeamMember = onCall(async (request) => {
   return { ok: true, user: publicUser(targetUserDoc), action };
 });
 
+const updateBusinessSettings = onCall({ region: "europe-west1" }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+
+  const placeId = asString(request.data?.placeId, 500);
+  if (!placeId) throw new HttpsError("invalid-argument", "placeId requerido.");
+
+  const placeRef = db.collection("places").doc(placeId);
+  const placeSnap = await placeRef.get();
+  if (!placeSnap.exists) throw new HttpsError("not-found", "Lugar no encontrado.");
+
+  const placeData = placeSnap.data();
+  const isOwner = placeData.businessOwnerUserId === uid;
+  const isManager = Array.isArray(placeData.businessManagerIds) && placeData.businessManagerIds.includes(uid);
+  if (!isOwner && !isManager) throw new HttpsError("permission-denied", "No tienes permiso para gestionar este negocio.");
+
+  const updatePayload = {};
+
+  if ("coverManagerId" in request.data) {
+    const raw = request.data.coverManagerId;
+    if (raw === null || raw === "") {
+      updatePayload.coverManagerId = FieldValue.delete();
+    } else {
+      if (typeof raw !== "string") throw new HttpsError("invalid-argument", "coverManagerId debe ser un string.");
+      if (raw.length > 200) throw new HttpsError("invalid-argument", "coverManagerId demasiado largo.");
+      if (!/^[a-zA-Z0-9_-]+$/.test(raw)) throw new HttpsError("invalid-argument", "coverManagerId solo puede contener letras, números, guiones y guiones bajos.");
+      updatePayload.coverManagerId = raw;
+    }
+  }
+
+  if (Object.keys(updatePayload).length === 0) return { ok: true };
+
+  updatePayload.updatedAt = FieldValue.serverTimestamp();
+  await placeRef.update(updatePayload);
+  logger.info("businessSettings: ajustes actualizados", { placeId, actorUid: uid });
+  return { ok: true };
+});
+
 module.exports = {
   onBusinessClaimCreated,
   reviewBusinessClaim,
   getBusinessTeam,
   updateBusinessTeamMember,
+  updateBusinessSettings,
 };

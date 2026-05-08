@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { Building2, ExternalLink, Loader2, MapPin, Settings } from 'lucide-react';
+import { Building2, CalendarDays, ExternalLink, Loader2, MapPin, Settings } from 'lucide-react';
 import { db, functions } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 
@@ -16,6 +16,7 @@ interface ManagedBusinessPlace {
     averageRating?: number;
     businessVerified?: boolean;
     businessOwnerUserId?: string;
+    coverManagerId?: string;
 }
 
 interface BusinessTeamUser {
@@ -46,6 +47,9 @@ export const BusinessDashboardPage: React.FC = () => {
     const [teamLoadingByPlace, setTeamLoadingByPlace] = useState<Record<string, boolean>>({});
     const [teamSearchByPlace, setTeamSearchByPlace] = useState<Record<string, string>>({});
     const [teamMessage, setTeamMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const [coverManagerInputByPlace, setCoverManagerInputByPlace] = useState<Record<string, string>>({});
+    const [coverManagerSavingByPlace, setCoverManagerSavingByPlace] = useState<Record<string, boolean>>({});
+    const [coverManagerMessageByPlace, setCoverManagerMessageByPlace] = useState<Record<string, { type: 'success' | 'error'; text: string }>>({});
 
     useEffect(() => {
         if (!user?.uid) return;
@@ -82,6 +86,7 @@ export const BusinessDashboardPage: React.FC = () => {
                         averageRating: toNumber(data.averageRating),
                         businessVerified: data.businessVerified === true,
                         businessOwnerUserId: typeof data.businessOwnerUserId === 'string' ? data.businessOwnerUserId : undefined,
+                        coverManagerId: typeof data.coverManagerId === 'string' ? data.coverManagerId : undefined,
                     });
                 });
 
@@ -125,7 +130,11 @@ export const BusinessDashboardPage: React.FC = () => {
     const toggleManage = (placeId: string) => {
         setExpandedPlaceId((prev) => {
             const next = prev === placeId ? null : placeId;
-            if (next && !teamsByPlace[next]) void loadTeam(next);
+            if (next) {
+                if (!teamsByPlace[next]) void loadTeam(next);
+                const place = places.find((p) => p.id === next);
+                setCoverManagerInputByPlace((inputs) => ({ ...inputs, [next]: place?.coverManagerId ?? '' }));
+            }
             return next;
         });
     };
@@ -158,6 +167,29 @@ export const BusinessDashboardPage: React.FC = () => {
 
     const userLabel = (teamUser: BusinessTeamUser) => {
         return teamUser.username ? `@${teamUser.username}` : teamUser.displayName || teamUser.email || teamUser.id;
+    };
+
+    const saveCoverManagerId = async (placeId: string) => {
+        const value = (coverManagerInputByPlace[placeId] ?? '').trim();
+        if (value !== '' && !/^[a-zA-Z0-9_-]+$/.test(value)) {
+            setCoverManagerMessageByPlace((prev) => ({ ...prev, [placeId]: { type: 'error', text: 'El código solo puede contener letras, números, guiones y guiones bajos.' } }));
+            return;
+        }
+        setCoverManagerSavingByPlace((prev) => ({ ...prev, [placeId]: true }));
+        setCoverManagerMessageByPlace((prev) => { const next = { ...prev }; delete next[placeId]; return next; });
+        try {
+            const updateBusinessSettings = httpsCallable(functions, 'updateBusinessSettings');
+            await updateBusinessSettings({ placeId, coverManagerId: value });
+            setPlaces((prev) => prev.map((p) => p.id === placeId ? { ...p, coverManagerId: value || undefined } : p));
+            setCoverManagerMessageByPlace((prev) => ({ ...prev, [placeId]: { type: 'success', text: value ? 'Código guardado correctamente.' : 'Código eliminado.' } }));
+        } catch (err) {
+            const text = err && typeof err === 'object' && 'message' in err && typeof (err as { message?: unknown }).message === 'string'
+                ? (err as { message: string }).message
+                : 'No se pudo guardar el código.';
+            setCoverManagerMessageByPlace((prev) => ({ ...prev, [placeId]: { type: 'error', text } }));
+        } finally {
+            setCoverManagerSavingByPlace((prev) => ({ ...prev, [placeId]: false }));
+        }
     };
 
     return (
@@ -323,6 +355,50 @@ export const BusinessDashboardPage: React.FC = () => {
                                                             );
                                                         })}
                                                     </div>
+                                                )}
+                                            </div>
+
+                                            {/* CoverManager integration */}
+                                            <div className="mt-4 rounded-2xl border border-white/10 bg-black/15 p-4">
+                                                <div className="flex items-center gap-2 mb-1">
+                                                    <CalendarDays className="w-4 h-4 text-[var(--lt-accent)] shrink-0" />
+                                                    <h3 className="text-sm font-black text-[var(--lt-text)]">Reservas (CoverManager)</h3>
+                                                </div>
+                                                <p className="text-xs text-[var(--lt-text-muted)] mb-3">
+                                                    Introduce el código de tu restaurante en CoverManager para mostrar el widget de reservas en tu página.
+                                                </p>
+
+                                                {coverManagerMessageByPlace[place.id] && (
+                                                    <div className={`mb-3 rounded-xl border px-3 py-2 text-xs ${
+                                                        coverManagerMessageByPlace[place.id].type === 'success'
+                                                            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
+                                                            : 'border-red-500/25 bg-red-500/10 text-red-200'
+                                                    }`}>
+                                                        {coverManagerMessageByPlace[place.id].text}
+                                                    </div>
+                                                )}
+
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        value={coverManagerInputByPlace[place.id] ?? place.coverManagerId ?? ''}
+                                                        onChange={(e) => setCoverManagerInputByPlace((prev) => ({ ...prev, [place.id]: e.target.value }))}
+                                                        className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-[var(--lt-text)] outline-none focus:border-[var(--lt-accent-border)] font-mono"
+                                                        placeholder="ej: mi-restaurante"
+                                                        maxLength={200}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => saveCoverManagerId(place.id)}
+                                                        disabled={coverManagerSavingByPlace[place.id]}
+                                                        className="rounded-xl bg-[var(--lt-accent)] px-3 py-2 text-sm font-bold text-white disabled:opacity-50 shrink-0"
+                                                    >
+                                                        {coverManagerSavingByPlace[place.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Guardar'}
+                                                    </button>
+                                                </div>
+                                                {(coverManagerInputByPlace[place.id] ?? place.coverManagerId) && (
+                                                    <p className="mt-2 text-[11px] text-[var(--lt-text-muted)]">
+                                                        Widget activo · los clientes verán el formulario de reserva en la página del lugar.
+                                                    </p>
                                                 )}
                                             </div>
                                         )}
