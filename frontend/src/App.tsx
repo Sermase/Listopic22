@@ -31,6 +31,7 @@ const DeveloperPage = React.lazy(() => import('./pages/DeveloperPage').then(m =>
 const LoginPage = React.lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
 const ArchivePage = React.lazy(() => import('./pages/ArchivePage').then(m => ({ default: m.ArchivePage })));
+const BusinessDashboardPage = React.lazy(() => import('./pages/BusinessDashboardPage').then(m => ({ default: m.BusinessDashboardPage })));
 const ChatsPage = React.lazy(() => import('./pages/ChatsPage').then(m => ({ default: m.ChatsPage })));
 const CreateReviewPage = React.lazy(() => import('./pages/CreateReviewPage').then(m => ({ default: m.CreateReviewPage })));
 const AboutPage = React.lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
@@ -234,6 +235,7 @@ const AppRoutes = () => {
               <Route path="/profile/:userId" element={<ProfilePage />} />
 
               <Route path="/archive" element={<ProtectedRoute><ArchivePage /></ProtectedRoute>} />
+              <Route path="/businesses" element={<ProtectedRoute><BusinessDashboardPage /></ProtectedRoute>} />
               <Route path="/chats" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
               <Route path="/chats/:chatId" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
 

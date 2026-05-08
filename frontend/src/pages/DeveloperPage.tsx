@@ -7,7 +7,7 @@ import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
 import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion, onSnapshot, orderBy } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown, ClipboardList, Activity } from 'lucide-react';
+import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown, ClipboardList, Activity, Building2 } from 'lucide-react';
 
 const FUNCTIONS_REGION = 'europe-west1';
 
@@ -21,6 +21,9 @@ const DeveloperItemModal = React.lazy(() => import('../components/developer/Deve
 const UserDataExportTab = React.lazy(() => import('../components/developer/UserDataExportTab').then(module => ({ default: module.UserDataExportTab })));
 const ApiUsageTab = React.lazy(() => import('../components/developer/ApiUsageTab').then(module => ({ default: module.ApiUsageTab })));
 const BusinessClaimsManagerTab = React.lazy(() => import('../components/developer/BusinessClaimsManagerTab').then(module => ({ default: module.BusinessClaimsManagerTab })));
+const BusinessManagersTab = React.lazy(() => import('../components/developer/BusinessManagersTab').then(module => ({ default: module.BusinessManagersTab })));
+
+type DeveloperActiveTab = 'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'businessClaims' | 'businessManagers' | 'branding' | 'others' | 'proyectos' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit' | 'apiusage';
 
 const DeveloperTabFallback: React.FC = () => (
     <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/60 p-8 text-center text-sm text-gray-400">
@@ -47,9 +50,10 @@ export const DeveloperPage: React.FC = () => {
     const { user, isJefe, loading: loadingAuth } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
     const [searchParams] = useSearchParams();
-    const initialTab = searchParams.get('tab') === 'businessClaims' ? 'businessClaims' : 'console';
+    const requestedTab = searchParams.get('tab');
+    const initialTab: DeveloperActiveTab = requestedTab === 'businessClaims' || requestedTab === 'businessManagers' ? requestedTab : 'console';
     const highlightClaimId = searchParams.get('claimId');
-    const [activeTab, setActiveTab] = useState<'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'businessClaims' | 'branding' | 'others' | 'proyectos' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit' | 'apiusage'>(initialTab);
+    const [activeTab, setActiveTab] = useState<DeveloperActiveTab>(initialTab);
     // Reactive: un usuario al que se le acaba de quitar el rol 'jefe' pierde
     // acceso inmediatamente sin recargar la página.
     const isAuthorized: boolean | null = loadingAuth ? null : isJefe;
@@ -743,7 +747,13 @@ export const DeveloperPage: React.FC = () => {
                             onClick={() => { setActiveTab('businessClaims'); setIsSidebarOpen(false); }}
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'businessClaims' ? 'border-emerald-500 bg-emerald-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
-                            <ClipboardList className="w-5 h-5" /> Negocios
+                            <ClipboardList className="w-5 h-5" /> Solicitudes negocio
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('businessManagers'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'businessManagers' ? 'border-emerald-500 bg-emerald-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <Building2 className="w-5 h-5" /> Gestor negocios
                         </button>
                         <button
                             onClick={() => { setActiveTab('branding'); setIsSidebarOpen(false); }}
@@ -2162,6 +2172,12 @@ export const DeveloperPage: React.FC = () => {
                         {activeTab === 'businessClaims' && (
                             <DeveloperLazyPanel>
                                 <BusinessClaimsManagerTab highlightClaimId={highlightClaimId} />
+                            </DeveloperLazyPanel>
+                        )}
+
+                        {activeTab === 'businessManagers' && (
+                            <DeveloperLazyPanel>
+                                <BusinessManagersTab />
                             </DeveloperLazyPanel>
                         )}
 
