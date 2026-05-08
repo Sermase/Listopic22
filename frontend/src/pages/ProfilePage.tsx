@@ -508,6 +508,7 @@ export const ProfilePage: React.FC = () => {
   useEffect(() => {
     if (fetchedReviews) {
       setLocalReviews(fetchedReviews);
+      setStatsLoadedUserId(null);
     }
   }, [fetchedReviews]);
 
@@ -534,7 +535,9 @@ export const ProfilePage: React.FC = () => {
           listId: (d.data() as any).listId || d.ref.parent.parent?.id,
         })));
       } catch (error) {
-        console.warn("[ProfilePage] Error fetching affinity reviews:", error);
+        if (getErrorCode(error) !== "permission-denied") {
+          console.warn("[ProfilePage] Error fetching affinity reviews:", error);
+        }
         if (!cancelled) setOwnAffinityReviews([]);
       } finally {
         if (!cancelled) setAffinityLoading(false);
@@ -702,14 +705,178 @@ export const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (!targetUserId) return;
+    if (!isOwnProfile && loadingReviews) return;
     if (statsLoadedUserId === targetUserId) return;
 
     let cancelled = false;
+
+    const getCreatedAtMillis = (value: any): number => {
+      if (!value) return 0;
+      if (typeof value?.toDate === "function") {
+        try {
+          return value.toDate().getTime();
+        } catch {
+          return 0;
+        }
+      }
+      if (typeof value?.seconds === "number") return value.seconds * 1000;
+      if (value instanceof Date) return value.getTime();
+      if (typeof value === "string" || typeof value === "number") {
+        const parsed = new Date(value).getTime();
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+      return 0;
+    };
+
+    const getReviewPhotoUrls = (review: Record<string, any>): string[] => {
+      const urls = new Set<string>();
+      const addPhoto = (photo: unknown) => {
+        if (typeof photo !== "string") return;
+        const trimmed = photo.trim();
+        if (trimmed) urls.add(trimmed);
+      };
+
+      addPhoto(review.photoUrl);
+      if (Array.isArray(review.photoUrls)) review.photoUrls.forEach(addPhoto);
+      if (Array.isArray(review.photos)) review.photos.forEach(addPhoto);
+      if (Array.isArray(review.images)) review.images.forEach(addPhoto);
+
+      return Array.from(urls);
+    };
+
+    const buildStatsFromReviews = (
+      reviews: Array<Record<string, any>>,
+      options: { placePhotosCount?: number } = {},
+    ) => {
+      let totalScore = 0;
+      let scoredReviewsCount = 0;
+      let reviewsWithPhotoCount = 0;
+      let reviewPhotosCount = 0;
+      const perListMap = new Map<
+        string,
+        { listName: string; reviewsCount: number; totalScore: number }
+      >();
+      const uniquePlaceIds = new Set<string>();
+      let favoriteCandidate: Record<string, any> | null = null;
+      let favoriteCandidateDate = 0;
+
+      reviews.forEach((review) => {
+        const rawScore = review.overallRating ?? review.rating ?? review.avgRating;
+        const numericScore = typeof rawScore === "number" ? rawScore : Number(rawScore);
+        const hasScore = typeof rawScore !== "undefined" && rawScore !== null && !Number.isNaN(numericScore);
+        const placeId = typeof review.placeId === "string" ? review.placeId.trim() : "";
+        if (placeId) uniquePlaceIds.add(placeId);
+
+        const reviewPhotoUrls = getReviewPhotoUrls(review);
+        if (reviewPhotoUrls.length > 0) {
+          reviewsWithPhotoCount += 1;
+          reviewPhotosCount += reviewPhotoUrls.length;
+        }
+
+        if (hasScore) {
+          totalScore += numericScore;
+          scoredReviewsCount += 1;
+          const reviewDate = getCreatedAtMillis(review.createdAt);
+          if (
+            !favoriteCandidate ||
+            numericScore > Number(favoriteCandidate.overallRating) ||
+            (numericScore === Number(favoriteCandidate.overallRating) && reviewDate > favoriteCandidateDate)
+          ) {
+            favoriteCandidate = review;
+            favoriteCandidateDate = reviewDate;
+          }
+        }
+
+        const listId = typeof review.listId === "string" ? review.listId.trim() : "";
+        if (!listId || !hasScore) return;
+        const fallbackListName =
+          typeof review.listName === "string" && review.listName.trim().length > 0
+            ? review.listName.trim()
+            : "Lista";
+        const current = perListMap.get(listId) || {
+          listName: fallbackListName,
+          reviewsCount: 0,
+          totalScore: 0,
+        };
+        current.reviewsCount += 1;
+        current.totalScore += numericScore;
+        perListMap.set(listId, current);
+      });
+
+      const perList = Array.from(perListMap.entries())
+        .map(([listId, value]) => ({
+          listId,
+          listName: value.listName || "Lista",
+          reviewsCount: value.reviewsCount,
+          averageRating: value.reviewsCount > 0 ? value.totalScore / value.reviewsCount : 0,
+        }))
+        .sort((a, b) => {
+          if (b.reviewsCount !== a.reviewsCount) return b.reviewsCount - a.reviewsCount;
+          return b.averageRating - a.averageRating;
+        });
+
+      const statsByList = perList.reduce((acc, curr) => {
+        acc[curr.listId] = curr;
+        return acc;
+      }, {} as Record<string, ListRatingStats>);
+
+      const favoriteCandidateData = favoriteCandidate as Record<string, any> | null;
+      const favoritePlaceNameRaw =
+        favoriteCandidateData && typeof favoriteCandidateData.placeName === "string"
+          ? favoriteCandidateData.placeName.trim()
+          : "";
+      const favoritePlaceAddressRaw =
+        favoriteCandidateData && typeof favoriteCandidateData.placeAddress === "string"
+          ? favoriteCandidateData.placeAddress.trim()
+          : "";
+      const favoritePlaceName =
+        favoritePlaceNameRaw ||
+        (favoritePlaceAddressRaw ? favoritePlaceAddressRaw.split(",")[0].trim() : "");
+      const favorite: FavoriteReviewSummary | null = favoriteCandidateData
+        ? {
+          id: String(favoriteCandidateData.id || ""),
+          placeId: typeof favoriteCandidateData.placeId === "string" ? favoriteCandidateData.placeId : "",
+          listId: String(favoriteCandidateData.listId || ""),
+          listName: typeof favoriteCandidateData.listName === "string" ? favoriteCandidateData.listName : "Lista",
+          itemName: typeof favoriteCandidateData.itemName === "string" ? favoriteCandidateData.itemName : "Elemento",
+          placeName: favoritePlaceName,
+          photoUrl: typeof favoriteCandidateData.photoUrl === "string" ? favoriteCandidateData.photoUrl : "",
+          score: Number(favoriteCandidateData.overallRating) || 0,
+        }
+        : null;
+
+      return {
+        stats: {
+          totalReviews: scoredReviewsCount,
+          averageRating: scoredReviewsCount > 0 ? totalScore / scoredReviewsCount : 0,
+          ratedListsCount: perList.length,
+          uniquePlacesCount: uniquePlaceIds.size,
+          reviewsWithPhotoCount,
+          reviewPhotosCount,
+          placePhotosCount: options.placePhotosCount || 0,
+          statsByList,
+        },
+        favorite,
+      };
+    };
 
     const loadAdvancedStats = async () => {
       setStatsLoading(true);
       setStatsError(null);
       try {
+        if (!isOwnProfile) {
+          const { stats, favorite } = buildStatsFromReviews(localReviews as Array<Record<string, any>>);
+          if (!cancelled) {
+            setAdvancedStats({
+              ...stats,
+              totalReviews: stats.totalReviews || profile?.reviewsCount || profile?.reviewCount || 0,
+            });
+            setFavoriteReview(favorite);
+            setStatsLoadedUserId(targetUserId);
+          }
+          return;
+        }
+
         const pageSize = 200;
         const maxReviews = 3000;
         const allReviews: Array<Record<string, any>> = [];
@@ -823,40 +990,6 @@ export const ProfilePage: React.FC = () => {
         const uniquePlaceIds = new Set<string>();
         let favoriteCandidate: Record<string, any> | null = null;
         let favoriteCandidateDate = 0;
-
-        const getCreatedAtMillis = (value: any): number => {
-          if (!value) return 0;
-          if (typeof value?.toDate === "function") {
-            try {
-              return value.toDate().getTime();
-            } catch {
-              return 0;
-            }
-          }
-          if (typeof value?.seconds === "number") return value.seconds * 1000;
-          if (value instanceof Date) return value.getTime();
-          if (typeof value === "string" || typeof value === "number") {
-            const parsed = new Date(value).getTime();
-            return Number.isFinite(parsed) ? parsed : 0;
-          }
-          return 0;
-        };
-
-        const getReviewPhotoUrls = (review: Record<string, any>): string[] => {
-          const urls = new Set<string>();
-          const addPhoto = (photo: unknown) => {
-            if (typeof photo !== "string") return;
-            const trimmed = photo.trim();
-            if (trimmed) urls.add(trimmed);
-          };
-
-          addPhoto(review.photoUrl);
-          if (Array.isArray(review.photoUrls)) review.photoUrls.forEach(addPhoto);
-          if (Array.isArray(review.photos)) review.photos.forEach(addPhoto);
-          if (Array.isArray(review.images)) review.images.forEach(addPhoto);
-
-          return Array.from(urls);
-        };
 
         let placePhotosCount = 0;
         if (targetUserId === user?.uid) {
@@ -1020,9 +1153,20 @@ export const ProfilePage: React.FC = () => {
           setStatsLoadedUserId(targetUserId);
         }
       } catch (error) {
-        console.error("Error loading advanced profile stats", error);
+        const code = getErrorCode(error);
         if (!cancelled) {
-          setStatsError("No se pudieron cargar las estadisticas.");
+          if (code === "permission-denied") {
+            setAdvancedStats({
+              ...EMPTY_ADVANCED_STATS,
+              totalReviews: profile?.reviewsCount || profile?.reviewCount || localReviews.length || 0,
+            });
+            setFavoriteReview(null);
+            setStatsLoadedUserId(targetUserId);
+            setStatsError(null);
+          } else {
+            console.error("Error loading advanced profile stats", error);
+            setStatsError("No se pudieron cargar las estadisticas.");
+          }
         }
       } finally {
         if (!cancelled) {
@@ -1036,7 +1180,7 @@ export const ProfilePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [targetUserId, statsLoadedUserId, user?.uid]);
+  }, [isOwnProfile, loadingReviews, localReviews.length, profile?.reviewCount, profile?.reviewsCount, targetUserId, statsLoadedUserId, user?.uid]);
 
   const handleDeleteReview = (id: string) => {
     setLocalReviews((prev) => prev.filter((r) => r.id !== id));

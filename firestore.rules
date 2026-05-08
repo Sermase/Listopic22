@@ -135,17 +135,11 @@ service cloud.firestore {
              && request.resource.data.userId == request.auth.uid
              && request.resource.data.status == 'pending'
              && request.resource.data.placeId is string
-             && !placeHasVerifiedBusiness(request.resource.data.placeId)
              && request.resource.data.placeName is string
              && request.resource.data.role is string
              && request.resource.data.contactEmail is string
              && request.resource.data.message is string
              && request.resource.data.proofs is list;
-    }
-
-    function placeHasVerifiedBusiness(placeId) {
-      return exists(/databases/$(database)/documents/places/$(placeId))
-             && get(/databases/$(database)/documents/places/$(placeId)).data.businessVerified == true;
     }
 
     function isFollowingUser(targetUserId) {
@@ -290,7 +284,7 @@ service cloud.firestore {
       }
 
       match /followers/{followerId} {
-        allow read, list: if request.auth != null && request.auth.uid == userId;
+        allow read, list: if request.auth != null;
         allow write: if false;
       }
 
@@ -465,6 +459,33 @@ service cloud.firestore {
                             );
         }
       }
+    }
+
+    // Reseñas legacy en colección raíz. La app ya escribe en
+    // lists/{listId}/reviews, pero estas reglas evitan que queries
+    // collectionGroup('reviews') fallen por documentos antiguos.
+    match /reviews/{reviewId} {
+      allow read: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.authorId == request.auth.uid ||
+        isJefe(request.auth.uid) ||
+        (resource.data.listId is string && canReadListById(resource.data.listId))
+      );
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid
+                    && request.resource.data.listId is string
+                    && reviewCreateHasOnlyAllowedFields()
+                    && canWriteToList(request.resource.data.listId);
+      allow update: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.authorId == request.auth.uid ||
+        isJefe(request.auth.uid)
+      ) && reviewUpdateChangesOnlyAllowedFields();
+      allow delete: if request.auth != null && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.authorId == request.auth.uid ||
+        isJefe(request.auth.uid)
+      );
     }
 
     // ===============================================
