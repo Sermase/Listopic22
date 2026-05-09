@@ -16,7 +16,7 @@ import {
     Search, Map as MapIcon, Users, List as ListIcon, MessageCircle,
     X, Clock, ChevronRight, Star, LocateFixed, Loader2,
     ArrowUpDown, ChevronDown, SlidersHorizontal, ShieldCheck, Bot, Utensils,
-    Coffee, Wine, Accessibility, Tags, MapPin, CircleDollarSign, Camera, EyeOff
+    Coffee, Wine, Accessibility, Tags, MapPin, CircleDollarSign, Camera, EyeOff, PawPrint
 } from 'lucide-react';
 
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
@@ -41,7 +41,7 @@ const TAB_ICONS: Record<string, React.ElementType> = {
 const FILTER_LABELS: Record<string, string> = {
     availableTags: 'Etiqueta', categoryId: 'Categoría', categoryName: 'Categoría', city: 'Ciudad',
     types: 'Tipo', priceLevel: 'Precio', serviceOptions: 'Servicio',
-    accessibilityOptions: 'Accesibilidad', userType: 'Tipo', badges: 'Insignia',
+    accessibilityOptions: 'Accesibilidad', petOptions: 'Mascotas', userType: 'Tipo', badges: 'Insignia',
     listCategoryId: 'Categoría', authorUserType: 'Tipo de usuario', placeCity: 'Ciudad', listName: 'Lista', groupTags: 'Tag', residence: 'Ciudad',
     itemTags: 'Etiqueta', hasPhoto: 'Fotos', isGlutenFree: 'Sin gluten', closedStatus: 'Estado', placeClosedStatus: 'Estado',
 };
@@ -81,6 +81,17 @@ const FACET_VALUE_LABELS: Record<string, Record<string, string>> = {
         wheelchairAccessibleParking: 'Parking accesible',
         wheelchairAccessibleRestroom: 'Baño accesible',
         hearingLoop: 'Bucle auditivo',
+    },
+    petOptions: {
+        petFriendly: 'Admite mascotas',
+        allowsDogs: 'Admite perros',
+        allowsCats: 'Admite gatos',
+        indoorAllowed: 'Interior permitido',
+        terraceOnly: 'Solo terraza',
+        assistanceDogsOnly: 'Perros de asistencia',
+        waterBowls: 'Cuencos de agua',
+        petMenu: 'MenÃº para mascotas',
+        requiresLeash: 'Requiere correa',
     },
     closedStatus: {
         permanently_closed: 'Cerrado permanente',
@@ -167,6 +178,7 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
         { attribute: 'city', label: 'Ciudad', icon: MapPin, defaultOpen: true },
         { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
         { attribute: 'isGlutenFree', label: 'Sin gluten', icon: Utensils, defaultOpen: true },
+        { attribute: 'petOptions', label: 'Mascotas', icon: PawPrint, defaultOpen: true },
         { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
         { attribute: 'types', label: 'Tipo', icon: Utensils, defaultOpen: true },
         { attribute: 'itemTags', label: 'Etiquetas de items', icon: Tags },
@@ -185,6 +197,7 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
         { attribute: 'placeCity', label: 'Ciudad', icon: MapPin, defaultOpen: true },
         { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
         { attribute: 'isGlutenFree', label: 'Sin gluten', icon: Utensils, defaultOpen: true },
+        { attribute: 'petOptions', label: 'Mascotas', icon: PawPrint, defaultOpen: true },
         { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
         { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
         { attribute: 'itemTags', label: 'Todas las etiquetas', icon: Tags },
@@ -197,6 +210,7 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
         { attribute: 'placeCity', label: 'Ciudad', icon: MapPin, defaultOpen: true },
         { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
         { attribute: 'isGlutenFree', label: 'Sin gluten', icon: Utensils, defaultOpen: true },
+        { attribute: 'petOptions', label: 'Mascotas', icon: PawPrint, defaultOpen: true },
         { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
         { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
         { attribute: 'itemTags', label: 'Todas las etiquetas', icon: Tags },

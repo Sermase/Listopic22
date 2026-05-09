@@ -13,6 +13,7 @@ import {
     GlassWater,
     Loader2,
     Music,
+    PawPrint,
     Plus,
     Save,
     ShoppingBag,
@@ -40,13 +41,14 @@ import type {
     BusinessIdentityInfo,
     BusinessInfoDocument,
     BusinessInfoSection,
+    BusinessPetsInfo,
     BusinessReservationsInfo,
     BusinessWeeklyHours,
     DeliveryProvider,
     ReservationDisplayMode,
     ReservationProvider,
 } from '../types/businessInfo';
-import { ALLERGEN_OPTIONS, CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_OPTIONS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
+import { ALLERGEN_OPTIONS, CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_OPTIONS, PET_POLICY_LABELS, PET_RESTRICTION_OPTIONS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
 
 type PlaceHeader = {
     name?: string;
@@ -63,6 +65,7 @@ const emptySections: Record<BusinessInfoSection, BusinessInfoDocument> = {
     contact: { section: 'contact', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
     commercial: { section: 'commercial', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
     accessibility: { section: 'accessibility', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
+    pets: { section: 'pets', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
     dietary: { section: 'dietary', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
     hours: { section: 'hours', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
     reservations: { section: 'reservations', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
@@ -299,6 +302,7 @@ export const BusinessManagePage: React.FC = () => {
         ['contact', 'Contacto'],
         ['commercial', 'Comercial'],
         ['accessibility', 'Accesibilidad'],
+        ['pets', 'Mascotas'],
         ['dietary', 'Alérgenos'],
         ['hours', 'Horarios'],
         ['reservations', 'Reservas'],
@@ -400,6 +404,12 @@ export const BusinessManagePage: React.FC = () => {
                                     onChange={(data) => updateData('accessibility', data)}
                                 />
                             )}
+                            {activeSection === 'pets' && (
+                                <PetsForm
+                                    doc={sections.pets as BusinessInfoDocument<'pets'>}
+                                    onChange={(data) => updateData('pets', data)}
+                                />
+                            )}
                             {activeSection === 'dietary' && (
                                 <DietaryForm
                                     doc={sections.dietary as BusinessInfoDocument<'dietary'>}
@@ -450,6 +460,7 @@ function normalizeSections(info: BusinessInfoSectionsResponse): Record<BusinessI
         contact: { ...emptySections.contact, ...(info.sections?.contact || {}) },
         commercial: { ...emptySections.commercial, ...(info.sections?.commercial || {}) },
         accessibility: { ...emptySections.accessibility, ...(info.sections?.accessibility || {}) },
+        pets: { ...emptySections.pets, ...(info.sections?.pets || {}) },
         dietary: { ...emptySections.dietary, ...(info.sections?.dietary || {}) },
         hours: { ...emptySections.hours, ...(info.sections?.hours || {}) },
         reservations: { ...emptySections.reservations, ...(info.sections?.reservations || {}) },
@@ -730,7 +741,6 @@ const AccessibilityForm: React.FC<{
                 ['accessibleBathroom', 'Baño adaptado'],
                 ['stepFreeEntrance', 'Entrada sin escalón'],
                 ['babyChanging', 'Cambiador para bebés'],
-                ['petFriendly', 'Acepta mascotas'],
                 ['hearingLoop', 'Bucle magnético'],
             ].map(([key, label]) => (
                 <label key={key} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-bold text-[var(--lt-text)]">
@@ -745,6 +755,89 @@ const AccessibilityForm: React.FC<{
         </div>
         <Field label="Notas">
             <textarea className={`${inputClass} min-h-24`} value={doc.data.notes || ''} onChange={(event) => onChange({ notes: event.target.value })} />
+        </Field>
+    </div>
+);
+
+const PetsForm: React.FC<{
+    doc: BusinessInfoDocument<'pets'>;
+    onChange: (data: Partial<BusinessPetsInfo>) => void;
+}> = ({ doc, onChange }) => (
+    <div className="space-y-5">
+        <SectionTitle title="Mascotas" text="Datos prÃ¡cticos para saber si se puede ir con perro u otras mascotas, y con quÃ© condiciones." />
+
+        <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-black text-emerald-100">
+                <PawPrint className="h-5 w-5" />
+                PolÃ­tica general
+            </h3>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="PolÃ­tica de mascotas">
+                    <select
+                        className={inputClass}
+                        value={doc.data.petPolicy || 'unknown'}
+                        onChange={(event) => {
+                            const petPolicy = event.target.value as BusinessPetsInfo['petPolicy'];
+                            onChange({
+                                petPolicy,
+                                petFriendly: petPolicy === 'allowed' || petPolicy === 'dogs_only' || petPolicy === 'terrace_only',
+                                allowsDogs: petPolicy === 'allowed' || petPolicy === 'dogs_only' || petPolicy === 'terrace_only',
+                                assistanceDogsOnly: petPolicy === 'assistance_only',
+                                terraceOnly: petPolicy === 'terrace_only',
+                            });
+                        }}
+                    >
+                        {Object.entries(PET_POLICY_LABELS).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                        ))}
+                    </select>
+                </Field>
+                <Field label="Notas visibles">
+                    <input
+                        className={inputClass}
+                        value={doc.data.notes || ''}
+                        onChange={(event) => onChange({ notes: event.target.value })}
+                        placeholder="Ej. mejor reservar terraza, avisar si vienes con perro..."
+                    />
+                </Field>
+            </div>
+        </div>
+
+        <div>
+            <h3 className="mb-3 text-sm font-black text-[var(--lt-text)]">Opciones disponibles</h3>
+            <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                    ['petFriendly', 'Admite mascotas'],
+                    ['allowsDogs', 'Admite perros'],
+                    ['allowsCats', 'Admite gatos'],
+                    ['indoorAllowed', 'Permite mascotas en interior'],
+                    ['terraceOnly', 'Solo terraza'],
+                    ['assistanceDogsOnly', 'Solo perros de asistencia'],
+                    ['waterBowls', 'Tiene cuencos de agua'],
+                    ['treatsAvailable', 'Tiene premios/snacks'],
+                    ['petMenu', 'Tiene menÃº o productos para mascotas'],
+                    ['sizeRestrictions', 'Hay restricciones de tamaÃ±o'],
+                    ['requiresLeash', 'Requiere correa'],
+                ].map(([key, label]) => (
+                    <label key={key} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-bold text-[var(--lt-text)]">
+                        <input
+                            type="checkbox"
+                            checked={Boolean(doc.data[key as keyof BusinessPetsInfo])}
+                            onChange={(event) => onChange({ [key]: event.target.checked } as Partial<BusinessPetsInfo>)}
+                        />
+                        {label}
+                    </label>
+                ))}
+            </div>
+        </div>
+
+        <Field label="Restricciones o condiciones" hint="Marca condiciones frecuentes. Puedes aÃ±adir otras separadas por coma en el campo inferior.">
+            <SuggestedListInput
+                suggestions={PET_RESTRICTION_OPTIONS}
+                value={doc.data.restrictions || []}
+                onChange={(items) => onChange({ restrictions: items })}
+                placeholder="solo perros pequeÃ±os, con correa..."
+            />
         </Field>
     </div>
 );

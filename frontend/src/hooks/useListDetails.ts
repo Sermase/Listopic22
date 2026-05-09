@@ -40,6 +40,10 @@ export interface ReviewEntity {
     accessibility?: Record<string, unknown> | string[];
     placeAccessibilityOptions?: Record<string, unknown> | string[];
     placeAccessibility?: Record<string, unknown> | string[];
+    petOptions?: Record<string, unknown> | string[];
+    pets?: Record<string, unknown> | string[];
+    placePetOptions?: Record<string, unknown> | string[];
+    placePets?: Record<string, unknown> | string[];
     placeAverageRating?: number;
     criteriaDefinition?: Record<string, { label: string; min?: number; max?: number; step?: number; ponderable?: boolean }>;
     authorId?: string;
@@ -174,6 +178,7 @@ async function fetchListDetails(listId: string): Promise<{ list: ListEntity; rev
             placeMainImage: firstUsablePlaceImage(place?.userPhotoUrl, place?.mainImageUrl, place?.photos),
             placeAverageRating: place?.rating || place?.avgScore,
             placeClosedStatus: place?.closedStatus || place?.googleBusinessStatus || place?.businessStatus || null,
+            placePetOptions: place?.businessPetOptions || place?.petOptions || place?.pets,
             authorName: user?.username || user?.displayName || user?.name || review.authorName,
             authorPhoto: user?.photoUrl || user?.photoURL || review.authorPhoto,
             lat: place?.location?.latitude || legacyReview.lat || review.lat,

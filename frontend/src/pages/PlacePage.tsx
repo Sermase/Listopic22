@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -23,7 +23,7 @@ import type { ReviewEntity } from '../hooks/useListDetails';
 import { EntityHero } from '../components/EntityHero';
 import { BusinessClaimModal } from '../components/BusinessClaimModal';
 import type { BusinessClaim } from '../services/BusinessClaimService';
-import { CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_LABELS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
+import { CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_LABELS, PET_POLICY_LABELS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 type PlaceReview = ReviewEntity & {
@@ -508,6 +508,26 @@ export const PlacePage: React.FC = () => {
     );
     const hasContactInfo = Boolean(place.website || place.phone || place.email || place.instagram);
     const dietary = place.resolvedBusinessInfo?.dietary;
+    const pets = place.resolvedBusinessInfo?.pets;
+    const petOptions = place.petOptions;
+    const hasPetInfo = Boolean(
+        pets?.petFriendly ||
+        pets?.allowsDogs ||
+        pets?.allowsCats ||
+        pets?.terraceOnly ||
+        pets?.indoorAllowed ||
+        pets?.assistanceDogsOnly ||
+        pets?.waterBowls ||
+        pets?.treatsAvailable ||
+        pets?.petMenu ||
+        pets?.sizeRestrictions ||
+        pets?.requiresLeash ||
+        (pets?.petPolicy && pets.petPolicy !== 'unknown') ||
+        pets?.restrictions?.length ||
+        pets?.notes ||
+        petOptions?.allowsDogs ||
+        petOptions?.petFriendly
+    );
     const hasDietaryInfo = Boolean(dietary && (
         dietary.glutenFreeOptions ||
         dietary.manyGlutenFreeOptions ||
@@ -831,6 +851,64 @@ export const PlacePage: React.FC = () => {
                                 {dietary?.notes && (
                                     <p className="mt-3 text-xs leading-relaxed text-amber-100/85">{dietary.notes}</p>
                                 )}
+                            </div>
+                        )}
+
+                        {hasPetInfo && (
+                            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+                                <h4 className="flex items-center gap-2 text-sm font-black text-emerald-100">
+                                    <PawPrint className="h-5 w-5" />
+                                    Mascotas
+                                </h4>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {(pets?.petFriendly || petOptions?.petFriendly) && (
+                                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-100">Admite mascotas</span>
+                                    )}
+                                    {(pets?.allowsDogs || petOptions?.allowsDogs) && (
+                                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-100">Admite perros</span>
+                                    )}
+                                    {pets?.allowsCats && (
+                                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-100">Admite gatos</span>
+                                    )}
+                                    {pets?.indoorAllowed && (
+                                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Interior permitido</span>
+                                    )}
+                                    {pets?.terraceOnly && (
+                                        <span className="rounded-full border border-amber-400/25 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-100">Solo terraza</span>
+                                    )}
+                                    {pets?.assistanceDogsOnly && (
+                                        <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-100">Perros de asistencia</span>
+                                    )}
+                                    {pets?.waterBowls && (
+                                        <span className="rounded-full border border-cyan-400/25 bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-100">Cuencos de agua</span>
+                                    )}
+                                    {pets?.petMenu && (
+                                        <span className="rounded-full border border-lime-400/25 bg-lime-500/10 px-3 py-1 text-xs font-bold text-lime-100">MenÃº para mascotas</span>
+                                    )}
+                                    {pets?.requiresLeash && (
+                                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Correa obligatoria</span>
+                                    )}
+                                </div>
+                                {pets?.petPolicy && pets.petPolicy !== 'unknown' && (
+                                    <p className="mt-3 rounded-xl border border-emerald-400/20 bg-black/10 p-3 text-xs font-semibold text-emerald-100">
+                                        {PET_POLICY_LABELS[pets.petPolicy] || pets.petPolicy}
+                                        {pets.notes ? ` Â· ${pets.notes}` : ''}
+                                    </p>
+                                )}
+                                {(!pets?.petPolicy || pets.petPolicy === 'unknown') && pets?.notes && (
+                                    <p className="mt-3 rounded-xl border border-emerald-400/20 bg-black/10 p-3 text-xs font-semibold text-emerald-100">
+                                        {pets.notes}
+                                    </p>
+                                )}
+                                {pets?.restrictions?.length ? (
+                                    <div className="mt-3 flex flex-wrap gap-2">
+                                        {pets.restrictions.map((restriction) => (
+                                            <span key={restriction} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
+                                                {restriction}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : null}
                             </div>
                         )}
 

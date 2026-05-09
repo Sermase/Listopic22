@@ -278,6 +278,7 @@ export const ArchivePage: React.FC = () => {
                 const snap = await getDocs(query(
                     collectionGroup(db, 'photos'),
                     where('userId', '==', user.uid),
+                    orderBy('createdAt', 'desc'),
                     limit(120),
                 ));
                 if (cancelled) return;

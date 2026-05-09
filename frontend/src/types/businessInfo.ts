@@ -8,6 +8,7 @@ export type BusinessInfoSection =
     | 'contact'
     | 'commercial'
     | 'accessibility'
+    | 'pets'
     | 'dietary'
     | 'hours'
     | 'reservations'
@@ -38,8 +39,32 @@ export interface BusinessAccessibilityInfo {
     accessibleBathroom?: boolean;
     stepFreeEntrance?: boolean;
     babyChanging?: boolean;
-    petFriendly?: boolean;
     hearingLoop?: boolean;
+    notes?: string;
+}
+
+export type PetPolicy =
+    | 'unknown'
+    | 'allowed'
+    | 'dogs_only'
+    | 'terrace_only'
+    | 'assistance_only'
+    | 'not_allowed';
+
+export interface BusinessPetsInfo {
+    petFriendly?: boolean;
+    allowsDogs?: boolean;
+    allowsCats?: boolean;
+    terraceOnly?: boolean;
+    indoorAllowed?: boolean;
+    assistanceDogsOnly?: boolean;
+    waterBowls?: boolean;
+    treatsAvailable?: boolean;
+    petMenu?: boolean;
+    sizeRestrictions?: boolean;
+    requiresLeash?: boolean;
+    petPolicy?: PetPolicy;
+    restrictions?: string[];
     notes?: string;
 }
 
@@ -144,6 +169,7 @@ export type BusinessSectionData = {
     contact: BusinessContactInfo;
     commercial: BusinessCommercialInfo;
     accessibility: BusinessAccessibilityInfo;
+    pets: BusinessPetsInfo;
     dietary: BusinessDietaryInfo;
     hours: BusinessHoursInfo;
     reservations: BusinessReservationsInfo;
@@ -171,6 +197,7 @@ export interface ResolvedBusinessInfo {
     contact?: BusinessContactInfo;
     commercial?: BusinessCommercialInfo;
     accessibility?: BusinessAccessibilityInfo;
+    pets?: BusinessPetsInfo;
     dietary?: BusinessDietaryInfo;
     hours?: BusinessHoursInfo;
     reservations?: BusinessReservationsInfo;
