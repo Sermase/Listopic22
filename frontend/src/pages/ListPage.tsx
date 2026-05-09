@@ -28,6 +28,7 @@ export interface FilterState {
     minRating: number;
     hasPhoto: boolean;
     glutenFree: boolean;
+    petFriendly: boolean;
     visited: boolean;
     accessibility: Record<string, boolean>;
     criteriaMin: Record<string, number>;
@@ -80,6 +81,28 @@ function extractAccessibilityKeys(...values: unknown[]) {
         }
     });
     return Array.from(keys).sort();
+}
+
+function extractPetKeys(...values: unknown[]) {
+    const keys = new Set<string>();
+    values.forEach(value => {
+        if (Array.isArray(value)) {
+            value.forEach(item => {
+                if (typeof item === 'string' && item.trim()) keys.add(item.trim());
+            });
+            return;
+        }
+        if (value && typeof value === 'object') {
+            Object.entries(value as Record<string, unknown>).forEach(([key, enabled]) => {
+                if (enabled === true || enabled === 'true') keys.add(key);
+            });
+        }
+    });
+    return Array.from(keys).sort();
+}
+
+function hasPetFriendlySignal(petOptions: string[] | undefined) {
+    return Boolean(petOptions?.some(key => ['petFriendly', 'allowsDogs', 'allowsCats', 'indoorAllowed', 'terraceOnly'].includes(key)));
 }
 
 function toFiniteNumber(value: unknown): number {
@@ -162,6 +185,7 @@ export const ListPage: React.FC = () => {
         minRating: 0,
         hasPhoto: false,
         glutenFree: false,
+        petFriendly: false,
         visited: false,
         accessibility: {},
         criteriaMin: {}
@@ -308,6 +332,7 @@ export const ListPage: React.FC = () => {
             criteriaSums: Record<string, number>;
             placeClosedStatus?: string | null;
             accessibilityOptions: string[];
+            petOptions: string[];
             lat?: number;
             lng?: number;
             latestReviewAt: number; // Timestamp for sorting
@@ -357,6 +382,12 @@ export const ListPage: React.FC = () => {
                         review.accessibility,
                         review.placeAccessibilityOptions,
                         review.placeAccessibility
+                    ),
+                    petOptions: extractPetKeys(
+                        review.petOptions,
+                        review.pets,
+                        review.placePetOptions,
+                        review.placePets
                     ),
                 };
             }
@@ -428,6 +459,14 @@ export const ListPage: React.FC = () => {
                 review.placeAccessibility
             ).forEach(key => {
                 if (!g.accessibilityOptions.includes(key)) g.accessibilityOptions.push(key);
+            });
+            extractPetKeys(
+                review.petOptions,
+                review.pets,
+                review.placePetOptions,
+                review.placePets
+            ).forEach(key => {
+                if (!g.petOptions.includes(key)) g.petOptions.push(key);
             });
 
             if ((!g.lat || !g.lng) && review.lat && review.lng) {
@@ -516,6 +555,7 @@ export const ListPage: React.FC = () => {
             items: { name: string; score: number }[];
             allTags: string[];
             accessibilityOptions: string[];
+            petOptions: string[];
             reviewsCount: number;
             placeClosedStatus?: string | null;
         }> = {};
@@ -540,6 +580,12 @@ export const ListPage: React.FC = () => {
                         review.placeAccessibilityOptions,
                         review.placeAccessibility
                     ),
+                    petOptions: extractPetKeys(
+                        review.petOptions,
+                        review.pets,
+                        review.placePetOptions,
+                        review.placePets
+                    ),
                     reviewsCount: 0,
                     placeClosedStatus: review.placeClosedStatus || null,
                 };
@@ -558,6 +604,14 @@ export const ListPage: React.FC = () => {
                 review.placeAccessibility
             ).forEach(key => {
                 if (!g.accessibilityOptions.includes(key)) g.accessibilityOptions.push(key);
+            });
+            extractPetKeys(
+                review.petOptions,
+                review.pets,
+                review.placePetOptions,
+                review.placePets
+            ).forEach(key => {
+                if (!g.petOptions.includes(key)) g.petOptions.push(key);
             });
 
             if (review.overallRating > g.maxScore) {
@@ -598,6 +652,9 @@ export const ListPage: React.FC = () => {
         }
         if (filters.glutenFree) {
             result = result.filter(item => hasGlutenFreeTag(item.allTags || item.tags));
+        }
+        if (filters.petFriendly) {
+            result = result.filter(item => hasPetFriendlySignal(item.petOptions));
         }
         if (filters.visited) {
             result = result.filter(item => item.userHasReviewed);
@@ -672,6 +729,9 @@ export const ListPage: React.FC = () => {
         }
         if (filters.glutenFree) {
             result = result.filter(item => hasGlutenFreeTag(item.allTags));
+        }
+        if (filters.petFriendly) {
+            result = result.filter(item => hasPetFriendlySignal(item.petOptions));
         }
         const selectedAccessibility = Object.entries(filters.accessibility || {})
             .filter(([, enabled]) => enabled)
@@ -1105,7 +1165,7 @@ export const ListPage: React.FC = () => {
                             <button
                                 onClick={() => setIsFilterModalOpen(true)}
                                 className={`h-9 w-9 flex-shrink-0 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
-                                    filters.minRating > 0 || filters.hasPhoto || filters.glutenFree || filters.visited || selectedTags.length > 0 || Object.values(filters.accessibility || {}).some(Boolean) || Object.values(filters.criteriaMin || {}).some(v => v > 0)
+                                    filters.minRating > 0 || filters.hasPhoto || filters.glutenFree || filters.petFriendly || filters.visited || selectedTags.length > 0 || Object.values(filters.accessibility || {}).some(Boolean) || Object.values(filters.criteriaMin || {}).some(v => v > 0)
                                         ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
                                         : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
                                 }`}

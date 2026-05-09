@@ -113,3 +113,22 @@ export const DELIVERY_PROVIDER_OPTIONS = Object.entries(DELIVERY_PROVIDER_LABELS
     value,
     label,
 }));
+
+export const PET_POLICY_LABELS: Record<string, string> = {
+    unknown: 'No indicado',
+    allowed: 'Mascotas admitidas',
+    dogs_only: 'Perros admitidos',
+    terrace_only: 'Solo en terraza',
+    assistance_only: 'Solo perros de asistencia',
+    not_allowed: 'No admite mascotas',
+};
+
+export const PET_RESTRICTION_OPTIONS = [
+    'Solo perros pequeÃ±os',
+    'Solo con correa',
+    'No se permite subir a sillas',
+    'Evitar horas de mucha afluencia',
+    'Consultar antes de reservar',
+    'TransportÃ­n recomendado',
+    'Puede variar segÃºn zona',
+];

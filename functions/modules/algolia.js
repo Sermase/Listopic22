@@ -70,7 +70,7 @@ const INDEX_SETTINGS = {
     },
     places: {
         searchableAttributes: ["unordered(name)", "unordered(address)", "unordered(city)", "unordered(types)", "unordered(itemTags)"],
-        attributesForFaceting: ["filterOnly(city)", "filterOnly(province)", "serviceOptions", "accessibilityOptions", "types", "priceLevel", "closedStatus", "googleBusinessStatus", "businessStatus", "hasPhoto", "itemTags", "isGlutenFree"],
+        attributesForFaceting: ["filterOnly(city)", "filterOnly(province)", "serviceOptions", "accessibilityOptions", "petOptions", "types", "priceLevel", "closedStatus", "googleBusinessStatus", "businessStatus", "hasPhoto", "itemTags", "isGlutenFree"],
         replicas: ["places_by_rating", "places_by_reviews", "places_by_distance"],
         customRanking: ["desc(rankingScore)", "desc(averageRating)", "desc(reviewsCount)", "desc(followersCount)"],
         numericAttributesForFiltering: ["rankingScore", "averageRating", "reviewsCount", "followersCount"]
@@ -84,7 +84,7 @@ const INDEX_SETTINGS = {
     },
     grouped_items: {
         searchableAttributes: ["unordered(itemName)", "unordered(establishmentName)", "unordered(listName)", "unordered(listCategoryName)", "unordered(groupTags)", "unordered(itemTags)"],
-        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "listCategoryName", "filterOnly(listAvailableTags)", "groupTags", "itemTags", "placeCity", "placeProvince", "authorUserType", "accessibilityOptions", "placeClosedStatus", "placeGoogleBusinessStatus", "placeBusinessStatus", "hasPhoto", "isGlutenFree"],
+        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "listCategoryName", "filterOnly(listAvailableTags)", "groupTags", "itemTags", "placeCity", "placeProvince", "authorUserType", "accessibilityOptions", "petOptions", "placeClosedStatus", "placeGoogleBusinessStatus", "placeBusinessStatus", "hasPhoto", "isGlutenFree"],
         replicas: ["grouped_items_by_score", "grouped_items_by_reviews"],
         customRanking: ["desc(rankingScore)", "desc(avgGeneralScore)", "desc(reviewCount)"],
         numericAttributesForFiltering: ["rankingScore", "avgGeneralScore", "reviewCount"]
@@ -527,6 +527,7 @@ async function transformPlaceRecord(data, docId) {
         types: Array.isArray(data.types) ? data.types : [],
         serviceOptions: trueObjectKeys(data.serviceOptions),
         accessibilityOptions: trueObjectKeys(data.accessibilityOptions || data.accessibility),
+        petOptions: trueObjectKeys(data.businessPetOptions || data.petOptions || data.pets),
         closedStatus,
         googleBusinessStatus: data.googleBusinessStatus || null,
         businessStatus: data.businessStatus || null,
@@ -661,6 +662,7 @@ function mapGroupToAlgoliaRecord(listId, listData, group, category = null) {
         thumbnailUrl,
         hasPhoto: Boolean(thumbnailUrl),
         accessibilityOptions: trueObjectKeys(group.accessibilityOptions || group.placeAccessibilityOptions || group.accessibility),
+        petOptions: trueObjectKeys(group.petOptions || group.placePetOptions || group.pets || group.placePets),
         placeClosedStatus,
         placeGoogleBusinessStatus: group.placeGoogleBusinessStatus || null,
         placeBusinessStatus: group.placeBusinessStatus || null,

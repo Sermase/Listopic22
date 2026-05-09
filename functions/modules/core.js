@@ -1252,7 +1252,8 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
         }
 
         const existingData = docSnapshot.exists ? (docSnapshot.data() || {}) : {};
-        const accessibilityOptions = await fetchPlaceAccessibilityOptions(result.place_id, apiKey);
+        const googleOptions = await fetchPlaceGoogleOptions(result.place_id, apiKey);
+        const accessibilityOptions = googleOptions.accessibilityOptions;
         const resolvedMainImageUrl = existingData.mainImageUrl || null;
         const mainImagePhotoReference = existingData.mainImagePhotoReference || null;
 
@@ -1280,6 +1281,7 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
           // Nuevos campos estructurados
           // Estos campos pueden rellenarse vía otras fuentes o con endpoints v1 en el futuro
           accessibility: resolveAccessibilityPayload(accessibilityOptions, existingData.accessibility),
+          petOptions: googleOptions.petOptions || existingData.petOptions || null,
           serviceOptions: existingData.serviceOptions || null,
           googleBusinessStatus: result.business_status || null,
           closedStatus: result.business_status === 'CLOSED_PERMANENTLY' ? 'permanently_closed'
@@ -2396,6 +2398,42 @@ function collectPlaceReviewTags(reviews) {
   return Array.from(tags).sort((a, b) => a.localeCompare(b, 'es'));
 }
 
+async function fetchPlaceGoogleOptions(placeId, apiKey, languageCode = 'es') {
+  if (!placeId || !apiKey) {
+    return {};
+  }
+
+  const url = `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?languageCode=${encodeURIComponent(languageCode)}`;
+  const headers = {
+    'X-Goog-Api-Key': apiKey,
+    'X-Goog-FieldMask': 'accessibilityOptions,allowsDogs'
+  };
+
+  try {
+    const response = await fetch(url, { method: 'GET', headers });
+    const data = await response.json();
+
+    if (!response.ok || data?.error) {
+      logger.warn("fetchPlaceGoogleOptions: error desde Places API.", {
+        status: response.status,
+        error: data?.error?.message || data?.error || response.statusText
+      });
+      return {};
+    }
+
+    return {
+      accessibilityOptions: data.accessibilityOptions || null,
+      petOptions: typeof data.allowsDogs === 'boolean' ? { allowsDogs: data.allowsDogs, petFriendly: data.allowsDogs } : null,
+    };
+  } catch (error) {
+    logger.warn("fetchPlaceGoogleOptions: error al contactar Places API.", {
+      placeId,
+      error: error.message
+    });
+    return {};
+  }
+}
+
 function hasPlaceAggregateSignalChanged(beforeData, afterData) {
   const fields = ['overallRating', 'photoUrl', 'placeMainImage', 'placeId'];
   if (fields.some(field => beforeData?.[field] !== afterData?.[field])) {
@@ -2528,7 +2566,8 @@ const adminUpdateAllPlaces = onCall(async (request) => {
 
         if (details.status === "OK" && details.result) {
           const result = details.result;
-          const accessibilityOptions = await fetchPlaceAccessibilityOptions(placeId, apiKey);
+          const googleOptions = await fetchPlaceGoogleOptions(placeId, apiKey);
+          const accessibilityOptions = googleOptions.accessibilityOptions;
           const addressFields = extractAddressFields(result.address_components);
           const resolvedName = resolveText(result.name, placeData.name);
           const resolvedAddress = resolveText(result.formatted_address, placeData.formatted_address || placeData.address);
@@ -2577,6 +2616,7 @@ const adminUpdateAllPlaces = onCall(async (request) => {
             types: resolvedTypes,
             // Accesibilidad via Places API v1; el resto se preserva.
             accessibility: resolveAccessibilityPayload(accessibilityOptions, placeData.accessibility),
+            petOptions: googleOptions.petOptions || placeData.petOptions || null,
             serviceOptions: placeData.serviceOptions || null,
             updatedAt: FieldValue.serverTimestamp(),
             lastGoogleSync: FieldValue.serverTimestamp()
@@ -2666,7 +2706,8 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
       const result = details.result;
       const existingDoc = await placeRef.get();
       const existingData = existingDoc.exists ? (existingDoc.data() || {}) : {};
-      const accessibilityOptions = await fetchPlaceAccessibilityOptions(googlePlaceId, apiKey);
+      const googleOptions = await fetchPlaceGoogleOptions(googlePlaceId, apiKey);
+      const accessibilityOptions = googleOptions.accessibilityOptions;
       const addressFields = extractAddressFields(result.address_components);
       const resolvedName = resolveText(result.name, existingData.name);
       const resolvedAddress = resolveText(result.formatted_address, existingData.formatted_address || existingData.address);
@@ -2714,6 +2755,7 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
         googleUserRatingsTotal: resolveNumber(result.user_ratings_total, existingData.googleUserRatingsTotal),
         types: resolvedTypes,
         accessibility: resolveAccessibilityPayload(accessibilityOptions, existingData.accessibility),
+        petOptions: googleOptions.petOptions || existingData.petOptions || null,
         updatedAt: FieldValue.serverTimestamp(),
         lastGoogleSync: FieldValue.serverTimestamp()
       };

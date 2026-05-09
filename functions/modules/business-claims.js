@@ -113,11 +113,12 @@ const onBusinessClaimCreated = onDocumentCreated({
 });
 
 const asString = (value, maxLength = 1000) => (typeof value === "string" ? value.trim().slice(0, maxLength) : "");
-const BUSINESS_INFO_SECTIONS = ["identity", "contact", "commercial", "accessibility", "dietary", "hours", "reservations", "deliveries"];
+const BUSINESS_INFO_SECTIONS = ["identity", "contact", "commercial", "accessibility", "pets", "dietary", "hours", "reservations", "deliveries"];
 const BUSINESS_INFO_SCHEMA_VERSION = 1;
 const BUSINESS_INFO_FREE_SECTIONS = new Set(BUSINESS_INFO_SECTIONS);
 const VALID_PRICE_RANGES = new Set(["low", "medium", "high", "premium"]);
 const VALID_CROSS_CONTAMINATION_RISKS = new Set(["unknown", "possible", "controlled", "dedicated"]);
+const VALID_PET_POLICIES = new Set(["unknown", "allowed", "dogs_only", "terrace_only", "assistance_only", "not_allowed"]);
 const VALID_RESERVATION_PROVIDERS = new Set(["covermanager", "thefork", "opentable", "zenchef", "resy", "google", "custom"]);
 const VALID_RESERVATION_DISPLAY_MODES = new Set(["external", "modal", "both"]);
 const VALID_DELIVERY_PROVIDERS = new Set(["glovo", "justeat", "ubereats", "deliveroo", "deliverect", "own", "whatsapp", "custom"]);
@@ -232,9 +233,27 @@ const sanitizeBusinessInfoData = (section, raw) => {
       accessibleBathroom: asBoolean(input.accessibleBathroom),
       stepFreeEntrance: asBoolean(input.stepFreeEntrance),
       babyChanging: asBoolean(input.babyChanging),
-      petFriendly: asBoolean(input.petFriendly),
       hearingLoop: asBoolean(input.hearingLoop),
       notes: asString(String(input.notes || "").replace(/[<>]/g, ""), 700),
+    };
+  }
+  if (section === "pets") {
+    const petPolicy = asString(input.petPolicy, 30);
+    return {
+      petFriendly: asBoolean(input.petFriendly),
+      allowsDogs: asBoolean(input.allowsDogs),
+      allowsCats: asBoolean(input.allowsCats),
+      terraceOnly: asBoolean(input.terraceOnly),
+      indoorAllowed: asBoolean(input.indoorAllowed),
+      assistanceDogsOnly: asBoolean(input.assistanceDogsOnly),
+      waterBowls: asBoolean(input.waterBowls),
+      treatsAvailable: asBoolean(input.treatsAvailable),
+      petMenu: asBoolean(input.petMenu),
+      sizeRestrictions: asBoolean(input.sizeRestrictions),
+      requiresLeash: asBoolean(input.requiresLeash),
+      petPolicy: VALID_PET_POLICIES.has(petPolicy) ? petPolicy : "",
+      restrictions: asStringArray(input.restrictions, 20, 80),
+      notes: asString(String(input.notes || "").replace(/[<>]/g, ""), 900),
     };
   }
   if (section === "dietary") {
@@ -696,6 +715,7 @@ const updateBusinessInfoSection = onCall(async (request) => {
   await assertBusinessManagerAccess(placeId, uid);
 
   const sanitizedData = sanitizeBusinessInfoData(section, request.data?.data);
+  const placeRef = db.collection("places").doc(placeId);
   const infoRef = db.collection("places").doc(placeId).collection("businessInfo").doc(section);
   const publicRef = db.collection("places").doc(placeId).collection("resolvedPublic").doc("business");
 
@@ -754,6 +774,10 @@ const updateBusinessInfoSection = onCall(async (request) => {
     if (Object.keys(projectionHiddenFields).length) projection.hiddenFields = projectionHiddenFields;
     projection.updatedAt = FieldValue.serverTimestamp();
     tx.set(publicRef, projection, { merge: false });
+    tx.set(placeRef, {
+      businessPetOptions: projection.pets || FieldValue.delete(),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
   });
 
   logger.info("businessInfo: seccion actualizada", { placeId, section, actorUid: uid, version: nextVersion, changed: didChange });

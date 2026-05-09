@@ -219,6 +219,7 @@ async function buildGroupedItemsForList(listId) {
                 placeGoogleBusinessStatus: placeInfo && typeof placeInfo.googleBusinessStatus === 'string' ? placeInfo.googleBusinessStatus : null,
                 placeBusinessStatus: placeInfo && typeof placeInfo.businessStatus === 'string' ? placeInfo.businessStatus : null,
                 placeAccessibilityOptions: placeInfo ? (placeInfo.accessibilityOptions || placeInfo.accessibility || null) : null,
+                placePetOptions: placeInfo ? (placeInfo.businessPetOptions || placeInfo.petOptions || placeInfo.pets || null) : null,
                 geoloc,
                 thumbnailMaxLikes: -1 // Track max likes for thumbnail selection
             };
@@ -292,6 +293,7 @@ async function buildGroupedItemsForList(listId) {
             placeGoogleBusinessStatus: group.placeGoogleBusinessStatus,
             placeBusinessStatus: group.placeBusinessStatus,
             placeAccessibilityOptions: group.placeAccessibilityOptions,
+            placePetOptions: group.placePetOptions,
             geoloc: group.geoloc,
             reviewIds: group.reviewIds,
             itemTags: uniqueTags(group.allTags),

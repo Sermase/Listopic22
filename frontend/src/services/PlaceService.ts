@@ -67,6 +67,7 @@ interface GooglePlaceLike {
     servesBreakfast?: boolean;
     servesLunch?: boolean;
     servesDinner?: boolean;
+    allowsDogs?: boolean;
 }
 
 interface GooglePlaceDetailsLike extends GooglePlaceLike {
@@ -289,7 +290,8 @@ export const PlaceService = {
                     // 'delivery', 'dineIn', 'takeout', 'reservable',
                     // 'servesBeer', 'servesWine', 'servesBreakfast', 'servesLunch', 'servesDinner',
                     // Accessibility
-                    'accessibilityOptions'
+                    'accessibilityOptions',
+                    'allowsDogs'
                 ]
             });
 
@@ -370,6 +372,10 @@ export interface LegacyPlace {
     // Accessibility (Legacy Structure)
     accessibility: PlaceAccessibility;
     serviceOptions?: PlaceServiceOptions;
+    petOptions?: {
+        allowsDogs?: boolean;
+        petFriendly?: boolean;
+    };
 
     // Metadata
     updatedAt: FieldValue;
@@ -440,6 +446,10 @@ export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: 
         servesBreakfast: !!src.servesBreakfast,
         servesLunch: !!src.servesLunch,
         servesDinner: !!src.servesDinner
+    };
+    const petOptions = {
+        allowsDogs: !!src.allowsDogs,
+        petFriendly: !!src.allowsDogs
     };
 
     // 7b. Map Accessibility (From accessibilityOptions array)
@@ -517,6 +527,7 @@ export const transformToLegacyPlace = (place: PlaceResult, detailedGoogleData?: 
         // Legacy Fields
         accessibility: accessibility,
         serviceOptions: serviceOptions,
+        petOptions: petOptions,
 
         updatedAt: serverTimestamp(),
         lastGoogleSync: serverTimestamp(),

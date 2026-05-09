@@ -41,6 +41,19 @@ export interface PlaceDetails {
         wheelchairAccessibleRestroom?: boolean;
         wheelchairAccessibleSeating?: boolean;
     };
+    petOptions?: {
+        petFriendly?: boolean;
+        allowsDogs?: boolean;
+        allowsCats?: boolean;
+        terraceOnly?: boolean;
+        indoorAllowed?: boolean;
+        assistanceDogsOnly?: boolean;
+        waterBowls?: boolean;
+        treatsAvailable?: boolean;
+        petMenu?: boolean;
+        sizeRestrictions?: boolean;
+        requiresLeash?: boolean;
+    };
     options?: {
         delivery?: boolean;
         takeout?: boolean;
@@ -311,6 +324,9 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     const hidesContact = (field: string) => Array.isArray(hiddenFields.contact) && hiddenFields.contact.includes(field);
     const businessAccessibility = resolvedBusiness?.accessibility;
     const hasBusinessAccessibility = Boolean(businessAccessibility && Object.keys(businessAccessibility).length > 0);
+    const businessPets = resolvedBusiness?.pets;
+    const hasBusinessPets = Boolean(businessPets && Object.keys(businessPets).length > 0);
+    const googlePetOptions = placeData?.businessPetOptions || placeData?.petOptions || placeData?.pets;
 
     return {
         placeId,
@@ -343,6 +359,19 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
             wheelchairAccessibleEntrance: placeData.accessibilityOptions.wheelchairAccessibleEntrance,
             wheelchairAccessibleRestroom: placeData.accessibilityOptions.wheelchairAccessibleRestroom,
         } : placeData?.accessibility,
+        petOptions: hasBusinessPets ? {
+            petFriendly: businessPets?.petFriendly || businessPets?.allowsDogs || businessPets?.allowsCats,
+            allowsDogs: businessPets?.allowsDogs,
+            allowsCats: businessPets?.allowsCats,
+            terraceOnly: businessPets?.terraceOnly,
+            indoorAllowed: businessPets?.indoorAllowed,
+            assistanceDogsOnly: businessPets?.assistanceDogsOnly,
+            waterBowls: businessPets?.waterBowls,
+            treatsAvailable: businessPets?.treatsAvailable,
+            petMenu: businessPets?.petMenu,
+            sizeRestrictions: businessPets?.sizeRestrictions,
+            requiresLeash: businessPets?.requiresLeash,
+        } : googlePetOptions,
         options: {
             delivery: optsSrc?.delivery,
             takeout: optsSrc?.takeout,

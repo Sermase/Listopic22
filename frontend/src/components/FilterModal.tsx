@@ -62,6 +62,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
             minRating: 0,
             hasPhoto: false,
             glutenFree: false,
+            petFriendly: false,
             visited: false,
             accessibility: {},
             criteriaMin: {}
@@ -220,6 +221,13 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                                     <div className={`w-11 h-6 rounded-full relative transition-colors ${filters.glutenFree ? 'bg-[var(--lt-accent)]' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
                                         <input type="checkbox" className="hidden" checked={filters.glutenFree} onChange={(e) => setFilters(prev => ({ ...prev, glutenFree: e.target.checked }))} />
                                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${filters.glutenFree ? 'translate-x-6' : 'translate-x-1'}`}></div>
+                                    </div>
+                                </label>
+                                <label className="flex items-center justify-between cursor-pointer group p-3 bg-white/5 rounded-xl transition-all hover:bg-white/10 border border-white/5">
+                                    <span className="text-gray-300 text-sm font-medium">Admite mascotas</span>
+                                    <div className={`w-11 h-6 rounded-full relative transition-colors ${filters.petFriendly ? 'bg-[var(--lt-accent)]' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
+                                        <input type="checkbox" className="hidden" checked={filters.petFriendly} onChange={(e) => setFilters(prev => ({ ...prev, petFriendly: e.target.checked }))} />
+                                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${filters.petFriendly ? 'translate-x-6' : 'translate-x-1'}`}></div>
                                     </div>
                                 </label>
                                 {setShowUnavailable && (
