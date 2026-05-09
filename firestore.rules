@@ -534,6 +534,25 @@ service cloud.firestore {
             resource.data.userId == request.auth.uid || isJefe(request.auth.uid)
           );
         }
+
+        // Datos de negocio gestionados mediante Cloud Functions.
+        // El cliente solo lee la proyeccion publica ya resuelta, sin tier/status/owner.
+        match /resolvedPublic/{docId} {
+          allow read: if docId == 'business';
+          allow write: if false;
+        }
+
+        match /businessInfo/{sectionId} {
+          allow read, write: if false;
+        }
+
+        match /businessInfoHistory/{changeId} {
+          allow read, write: if false;
+        }
+
+        match /businessInfoMeta/{sectionId} {
+          allow read, write: if false;
+        }
     }
     
     match /badges/{badgeId} {

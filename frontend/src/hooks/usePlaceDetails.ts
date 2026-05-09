@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
 import { getCachedDocs } from '../lib/queryCache';
+import type { BusinessHoursInfo, BusinessWeeklyHours, ResolvedBusinessInfo } from '../types/businessInfo';
 
 export interface PlacePhoto {
     id: string;
@@ -31,6 +32,8 @@ export interface PlaceDetails {
     googleUserRatingCount?: number;
     website?: string;
     phone?: string;
+    email?: string;
+    instagram?: string;
     priceLevel?: number;
     googleMapsUri?: string;
     accessibility?: {
@@ -50,6 +53,13 @@ export interface PlaceDetails {
         servesDinner?: boolean;
     };
     openingHours?: string[];
+    businessOpenStatus?: {
+        isOpen: boolean;
+        label: string;
+        detail?: string;
+    };
+    businessDescription?: string;
+    resolvedBusinessInfo?: ResolvedBusinessInfo;
     category?: string;
     closedStatus?: string;
     googleBusinessStatus?: string;
@@ -67,9 +77,98 @@ const toMillis = (value: any): number => {
     return 0;
 };
 
+const localized = (value: unknown): string | undefined => {
+    if (typeof value === 'string') return value || undefined;
+    if (value && typeof value === 'object') {
+        const text = value as { es?: unknown; en?: unknown };
+        return typeof text.es === 'string' && text.es ? text.es : typeof text.en === 'string' && text.en ? text.en : undefined;
+    }
+    return undefined;
+};
+
+const businessDayNames = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
+
+const parseBusinessDay = (value: unknown, fallbackIndex: number): number => {
+    if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 6) return value;
+    if (typeof value === 'string') {
+        const numeric = Number(value);
+        if (Number.isInteger(numeric) && numeric >= 0 && numeric <= 6) return numeric;
+        const normalized = value.toLowerCase();
+        const namedIndex = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'].indexOf(normalized);
+        if (namedIndex >= 0) return namedIndex;
+    }
+    return fallbackIndex >= 0 && fallbackIndex <= 6 ? fallbackIndex : 0;
+};
+
+const normalizeBusinessWeeklyHours = (hours: BusinessHoursInfo | undefined): BusinessWeeklyHours[] => {
+    if (!hours?.weeklySchedule?.length) return [];
+    return hours.weeklySchedule.map((day, index) => ({
+        ...day,
+        day: parseBusinessDay(day.day, index),
+        periods: day.periods || [],
+    })).sort((a, b) => a.day - b.day);
+};
+
+const timeToMinutes = (value: string | undefined): number | null => {
+    if (!value || !/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) return null;
+    const [hours, minutes] = value.split(':').map(Number);
+    return hours * 60 + minutes;
+};
+
+const formatBusinessHours = (hours: BusinessHoursInfo | undefined): string[] | undefined => {
+    const weeklySchedule = normalizeBusinessWeeklyHours(hours);
+    if (!weeklySchedule.length) return undefined;
+    return weeklySchedule
+        .map((day) => {
+            if (day.closed) return `${businessDayNames[day.day] || 'Dia'}: Cerrado`;
+            const periods = (day.periods || []).map((period) => `${period.open} - ${period.close}`).join(', ');
+            return `${businessDayNames[day.day] || 'Dia'}: ${periods || 'Sin horario'}`;
+        });
+};
+
+const getBusinessOpenStatus = (hours: BusinessHoursInfo | undefined) => {
+    const weeklySchedule = normalizeBusinessWeeklyHours(hours);
+    if (!weeklySchedule.length) return undefined;
+
+    const now = new Date();
+    const todayIndex = (now.getDay() + 6) % 7;
+    const today = weeklySchedule.find((day) => day.day === todayIndex);
+    if (!today || today.closed) {
+        return { isOpen: false, label: 'Cerrado ahora', detail: today ? 'Hoy cerrado' : undefined };
+    }
+
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    for (const period of today.periods || []) {
+        const open = timeToMinutes(period.open);
+        const close = timeToMinutes(period.close);
+        if (open === null || close === null) continue;
+        const isOpen = close >= open
+            ? nowMinutes >= open && nowMinutes < close
+            : nowMinutes >= open || nowMinutes < close;
+        if (isOpen) {
+            return { isOpen: true, label: 'Abierto ahora', detail: `Hasta ${period.close}` };
+        }
+    }
+
+    const nextPeriod = (today.periods || [])
+        .map((period) => ({ period, open: timeToMinutes(period.open) }))
+        .filter((item): item is { period: { open: string; close: string }; open: number } => item.open !== null && item.open > nowMinutes)
+        .sort((a, b) => a.open - b.open)[0];
+
+    return {
+        isOpen: false,
+        label: 'Cerrado ahora',
+        detail: nextPeriod ? `Abre a las ${nextPeriod.period.open}` : undefined,
+    };
+};
+
 async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     const placeDocSnap = await getDoc(doc(db, 'places', placeId));
     const placeData = placeDocSnap.exists() ? placeDocSnap.data() : null;
+    const resolvedBusinessSnapPromise = getDoc(doc(db, 'places', placeId, 'resolvedPublic', 'business')).catch(e => {
+        if (e?.code !== 'permission-denied') console.warn('Failed to fetch resolved business info', e);
+        return null;
+    });
     const placePhotosSnapPromise = getDocs(
         query(collection(db, 'places', placeId, 'photos'), orderBy('createdAt', 'desc'), limit(40))
     ).catch(e => {
@@ -109,6 +208,9 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         return { docs: [] };
     });
     const placePhotosSnap = await placePhotosSnapPromise;
+    const resolvedBusinessSnap = await resolvedBusinessSnapPromise;
+    const resolvedBusiness = resolvedBusinessSnap?.exists() ? resolvedBusinessSnap.data() as ResolvedBusinessInfo : undefined;
+    const hiddenFields = resolvedBusiness?.hiddenFields || {};
 
     reviewsByList.push(
         globalReviewsSnap.docs.map(d => ({ id: d.id, ...(d.data() as Record<string, unknown>) } as ReviewEntity))
@@ -198,9 +300,16 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
 
     const optsSrc = placeData?.serviceOptions || placeData;
 
+    const businessName = localized(resolvedBusiness?.identity?.displayName);
+    const businessDescription = localized(resolvedBusiness?.identity?.description);
+    const businessHours = formatBusinessHours(resolvedBusiness?.hours);
+    const hidesContact = (field: string) => Array.isArray(hiddenFields.contact) && hiddenFields.contact.includes(field);
+    const businessAccessibility = resolvedBusiness?.accessibility;
+    const hasBusinessAccessibility = Boolean(businessAccessibility && Object.keys(businessAccessibility).length > 0);
+
     return {
         placeId,
-        name: placeData?.name || reviews[0]?.itemName || 'Lugar',
+        name: businessName || placeData?.name || reviews[0]?.itemName || 'Lugar',
         photoUrl: firstUsablePlaceImage(
             placeData?.userPhotoUrl,
             placePhotos[0]?.url,
@@ -215,11 +324,17 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         reviews: enrichedReviews,
         relatedLists,
         coords,
-        website: placeData?.websiteUri || placeData?.website,
-        phone: placeData?.formattedPhoneNumber || placeData?.internationalPhoneNumber,
+        website: resolvedBusiness?.contact?.website || (hidesContact('website') ? undefined : placeData?.websiteUri || placeData?.website),
+        phone: resolvedBusiness?.contact?.phone || (hidesContact('phone') ? undefined : placeData?.formattedPhoneNumber || placeData?.internationalPhoneNumber),
+        email: resolvedBusiness?.contact?.email,
+        instagram: resolvedBusiness?.contact?.instagram,
         priceLevel: placeData?.priceLevel,
         googleMapsUri: placeData?.googleMapsUrl || placeData?.googleMapsUri,
-        accessibility: placeData?.accessibilityOptions ? {
+        accessibility: hasBusinessAccessibility ? {
+            wheelchairAccessibleEntrance: businessAccessibility?.wheelchairAccess || businessAccessibility?.stepFreeEntrance,
+            wheelchairAccessibleRestroom: businessAccessibility?.accessibleBathroom,
+            wheelchairAccessibleSeating: businessAccessibility?.wheelchairAccess,
+        } : placeData?.accessibilityOptions ? {
             wheelchairAccessibleEntrance: placeData.accessibilityOptions.wheelchairAccessibleEntrance,
             wheelchairAccessibleRestroom: placeData.accessibilityOptions.wheelchairAccessibleRestroom,
         } : placeData?.accessibility,
@@ -234,7 +349,10 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
             servesLunch: optsSrc?.servesLunch || optsSrc?.serves_lunch,
             servesDinner: optsSrc?.servesDinner || optsSrc?.serves_dinner,
         },
-        openingHours: placeData?.currentOpeningHours?.weekdayDescriptions || placeData?.openingHours,
+        openingHours: businessHours || placeData?.currentOpeningHours?.weekdayDescriptions || placeData?.openingHours,
+        businessOpenStatus: getBusinessOpenStatus(resolvedBusiness?.hours),
+        businessDescription,
+        resolvedBusinessInfo: resolvedBusiness,
         googleRating: placeData?.googleRating || placeData?.rating,
         googleUserRatingCount: placeData?.userRatingCount || placeData?.user_ratings_total,
         category: placeData?.category || placeData?.types?.[0],

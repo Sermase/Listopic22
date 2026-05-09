@@ -234,13 +234,20 @@ export const BusinessDashboardPage: React.FC = () => {
                                             {place.averageRating !== undefined && <span>{place.averageRating.toFixed(1)} media</span>}
                                         </div>
 
-                                        <div className="mt-5 flex gap-2">
+                                        <div className="mt-5 grid grid-cols-3 gap-2">
                                             <Link
                                                 to={`/place/${place.id}`}
-                                                className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-[var(--lt-text)] hover:border-[var(--lt-accent-border)] transition-colors"
+                                                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-[var(--lt-text)] hover:border-[var(--lt-accent-border)] transition-colors"
                                             >
                                                 <ExternalLink className="w-4 h-4" />
                                                 Ver lugar
+                                            </Link>
+                                            <Link
+                                                to={`/businesses/${place.id}/manage`}
+                                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--lt-accent)] px-3 py-2 text-sm font-bold text-white shadow-lg shadow-[var(--lt-accent-shadow)] transition-colors"
+                                            >
+                                                <Building2 className="w-4 h-4" />
+                                                Datos
                                             </Link>
                                             <button
                                                 type="button"
@@ -248,7 +255,7 @@ export const BusinessDashboardPage: React.FC = () => {
                                                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-[var(--lt-text)] hover:border-[var(--lt-accent-border)] transition-colors"
                                             >
                                                 <Settings className="w-4 h-4" />
-                                                Gestionar
+                                                Equipo
                                             </button>
                                         </div>
 
