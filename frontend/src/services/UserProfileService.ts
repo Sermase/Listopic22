@@ -435,7 +435,7 @@ export const updateUserProfilePreferences = async (
         const candidateUsernameError = getUsernameValidationError(candidateUsername);
         if (candidateUsernameError) {
             if (!requestedUsername) {
-                throw makeError('username-missing', 'Debes definir un username valido para guardar el perfil.');
+                throw makeError('username-missing', 'Debes definir un username válido para guardar el perfil.');
             }
             throw makeError('username-invalid', candidateUsernameError);
         }

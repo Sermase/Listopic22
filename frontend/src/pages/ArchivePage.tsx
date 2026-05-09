@@ -417,12 +417,6 @@ export const ArchivePage: React.FC = () => {
     }, [user, photoReloadKey]);
 
     useEffect(() => {
-        if (archives.length > 0 && expandedIds.length === 0) {
-            setExpandedIds([archives[0].id]);
-        }
-    }, [archives]);
-
-    useEffect(() => {
         expandedIds.forEach(id => {
             if (!archiveItems[id] && !loadingItems[id]) fetchItemsForArchive(id);
         });

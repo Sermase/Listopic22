@@ -33,6 +33,7 @@ export interface ListEntity {
     followersCount: number;
     commentsCount: number;
     reviewCount: number;
+    reviewsCount?: number;
 
     averageRating: number;
     avgScore?: number;
@@ -87,19 +88,34 @@ async function fetchLists(
             .map(snap => ({ id: snap!.id, ...snap!.data() })) as ListEntity[];
     }
 
-    let q;
+    const dedupe = (items: ListEntity[]) => Array.from(new Map(items.map((item) => [item.id, item])).values());
+
+    let fetchedLists: ListEntity[];
     if (userId) {
+        let q;
         if (includePrivate) {
             q = query(listsRef, where('userId', '==', userId), orderBy('createdAt', 'desc'), limit(50));
         } else {
             q = query(listsRef, where('userId', '==', userId), where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(50));
         }
+        const snap = await getDocs(q);
+        fetchedLists = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ListEntity[];
     } else {
-        q = query(listsRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(50));
+        const [isPublicSnap, visibilitySnap] = await Promise.all([
+            getDocs(query(listsRef, where('isPublic', '==', true), orderBy('createdAt', 'desc'), limit(50))).catch((error) => {
+                console.warn('useLists: failed to load public lists by isPublic', error);
+                return null;
+            }),
+            getDocs(query(listsRef, where('visibility', '==', 'public'), orderBy('createdAt', 'desc'), limit(50))).catch((error) => {
+                console.warn('useLists: failed to load public lists by visibility', error);
+                return null;
+            }),
+        ]);
+        fetchedLists = dedupe([
+            ...(isPublicSnap?.docs.map(d => ({ id: d.id, ...d.data() }) as ListEntity) || []),
+            ...(visibilitySnap?.docs.map(d => ({ id: d.id, ...d.data() }) as ListEntity) || []),
+        ]);
     }
-
-    const snap = await getDocs(q);
-    const fetchedLists = snap.docs.map(d => ({ id: d.id, ...d.data() })) as ListEntity[];
 
     if (filter === 'top_rated') {
         fetchedLists.sort((a, b) => {

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -23,7 +23,7 @@ import type { ReviewEntity } from '../hooks/useListDetails';
 import { EntityHero } from '../components/EntityHero';
 import { BusinessClaimModal } from '../components/BusinessClaimModal';
 import type { BusinessClaim } from '../services/BusinessClaimService';
-import { CROSS_CONTAMINATION_LABELS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
+import { CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_LABELS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 type PlaceReview = ReviewEntity & {
@@ -57,6 +57,10 @@ const providerLabel = (provider?: string) => {
     };
     return provider ? labels[provider] || 'Reservas' : 'Reservas';
 };
+
+const deliveryProviderLabel = (provider?: string) => (
+    provider ? DELIVERY_PROVIDER_LABELS[provider] || 'Delivery' : 'Delivery'
+);
 
 type RelatedList = {
     id: string;
@@ -110,12 +114,13 @@ export const PlacePage: React.FC = () => {
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
     const fromListId = searchParams.get('listId');
+    const focusedReviewId = searchParams.get('reviewId');
 
     const [heroReady, setHeroReady] = useState(false);
     const [syncing, setSyncing] = useState(false);
     const [syncError, setSyncError] = useState<string | null>(null);
 
-    const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes' | 'photos'>('reviews');
+    const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes' | 'photos'>('dishes');
     const [reviewViewMode, setReviewViewMode] = useState<'list' | 'gallery'>('gallery');
     const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -128,6 +133,7 @@ export const PlacePage: React.FC = () => {
     const [isPlacePhotoUploadOpen, setIsPlacePhotoUploadOpen] = useState(false);
     const [isBusinessClaimOpen, setIsBusinessClaimOpen] = useState(false);
     const [isReservationOpen, setIsReservationOpen] = useState(false);
+    const [isBusinessDetailsExpanded, setIsBusinessDetailsExpanded] = useState(false);
     const [businessClaims, setBusinessClaims] = useState<BusinessClaim[]>([]);
     const [loadingBusinessClaims, setLoadingBusinessClaims] = useState(false);
 
@@ -161,6 +167,21 @@ export const PlacePage: React.FC = () => {
                 ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     }, [expandedReviewId]);
+
+    useEffect(() => {
+        if (!focusedReviewId) return;
+        setActiveTab('reviews');
+        setReviewViewMode('gallery');
+        setExpandedReviewId(focusedReviewId);
+    }, [focusedReviewId]);
+
+    useEffect(() => {
+        if (!focusedReviewId || !place?.reviews?.length) return;
+        const reviewIndex = place.reviews.findIndex((review) => review.id === focusedReviewId);
+        if (reviewIndex >= 0) {
+            setVisibleCount(prev => Math.max(prev, reviewIndex + 1));
+        }
+    }, [focusedReviewId, place?.reviews]);
 
     useEffect(() => {
         if (!user || !placeId) {
@@ -467,12 +488,31 @@ export const PlacePage: React.FC = () => {
     const reservationMode = reservations?.displayMode || 'modal';
     const reservationButtonText = reservations?.buttonText || 'Reservar mesa';
     const shouldUseReservationModal = reservationEnabled && reservationEmbedUrl && reservationMode !== 'external';
+    const deliveries = place.resolvedBusinessInfo?.deliveries;
+    const deliveryLinks = deliveries?.enabled === true ? (deliveries.links || []).filter((link) => Boolean(link.url)) : [];
+    const hasDeliveryInfo = deliveryLinks.length > 0 || Boolean(deliveries?.notes);
+    const commercialInfo = place.resolvedBusinessInfo?.commercial;
+    const hasServiceInfo = Boolean(
+        commercialInfo?.priceRange ||
+        commercialInfo?.cuisineTypes?.length ||
+        commercialInfo?.services?.length ||
+        place.options?.delivery ||
+        place.options?.takeout ||
+        place.options?.dineIn ||
+        place.options?.reservable ||
+        place.options?.servesBreakfast ||
+        place.options?.servesLunch ||
+        place.options?.servesDinner ||
+        place.options?.servesBeer ||
+        place.options?.servesWine
+    );
+    const hasContactInfo = Boolean(place.website || place.phone || place.email || place.instagram);
     const dietary = place.resolvedBusinessInfo?.dietary;
     const hasDietaryInfo = Boolean(dietary && (
         dietary.glutenFreeOptions ||
         dietary.manyGlutenFreeOptions ||
         dietary.glutenFreeMenu ||
-        dietary.crossContaminationRisk ||
+        (dietary.crossContaminationRisk && dietary.crossContaminationRisk !== 'unknown') ||
         dietary.crossContaminationNotes ||
         dietary.vegetarianOptions ||
         dietary.veganOptions ||
@@ -548,7 +588,7 @@ export const PlacePage: React.FC = () => {
                                     className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all ml-2"
                                 >
                                     <Plus className="w-4 h-4" />
-                                    <span>Añadir Reseña</span>
+                                    <span>Añadir reseña</span>
                                 </button>
                                 <button
                                     onClick={() => setIsPlacePhotoUploadOpen(true)}
@@ -641,7 +681,19 @@ export const PlacePage: React.FC = () => {
 
                     {/* 3. Detailed Info (New Rich Data) */}
                     <div className="glass-card p-5 rounded-2xl space-y-4 shadow-lg">
-                        <h3 className="font-bold text-white border-b border-white/5 pb-2 text-sm uppercase tracking-wider">Detalles</h3>
+                        <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-2">
+                            <h3 className="font-bold text-white text-sm uppercase tracking-wider">Detalles</h3>
+                            <button
+                                type="button"
+                                onClick={() => setIsBusinessDetailsExpanded((value) => !value)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs font-bold text-[var(--lt-text-muted)] sm:hidden"
+                            >
+                                {isBusinessDetailsExpanded ? 'Ocultar' : 'Ver'}
+                                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isBusinessDetailsExpanded ? 'rotate-180' : ''}`} />
+                            </button>
+                        </div>
+
+                        <div className={`${isBusinessDetailsExpanded ? 'block' : 'hidden'} space-y-4 sm:block`}>
 
                         {place.businessDescription && (
                             <p className="rounded-xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] p-3 text-sm leading-relaxed text-[var(--lt-text)]">
@@ -688,11 +740,43 @@ export const PlacePage: React.FC = () => {
                             </div>
                         )}
 
+                        {hasDeliveryInfo && (
+                            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <h4 className="flex items-center gap-2 text-sm font-black text-[var(--lt-text)]">
+                                            <Bike className="h-5 w-5 text-emerald-300" />
+                                            Delivery y pedidos
+                                        </h4>
+                                        {deliveries?.notes && (
+                                            <p className="mt-1 text-xs leading-relaxed text-[var(--lt-text-muted)]">{deliveries.notes}</p>
+                                        )}
+                                    </div>
+                                    {deliveryLinks.length > 0 && (
+                                        <div className="flex flex-col gap-2 sm:min-w-52">
+                                            {deliveryLinks.map((link, index) => (
+                                                <a
+                                                    key={`${link.provider || 'delivery'}-${index}`}
+                                                    href={link.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/15 px-4 py-2 text-sm font-black text-emerald-100 hover:bg-emerald-500/25"
+                                                >
+                                                    <ShoppingBag className="h-4 w-4" />
+                                                    {link.label || `Pedir en ${deliveryProviderLabel(link.provider)}`}
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {hasDietaryInfo && (
                             <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
                                 <h4 className="flex items-center gap-2 text-sm font-black text-amber-100">
                                     <AlertTriangle className="h-5 w-5" />
-                                    Alergenos y dietas
+                                    Alérgenos y dietas
                                 </h4>
                                 <div className="mt-3 flex flex-wrap gap-2">
                                     {dietary?.glutenFreeOptions && (
@@ -711,7 +795,7 @@ export const PlacePage: React.FC = () => {
                                         <span className="rounded-full border border-lime-400/25 bg-lime-500/10 px-3 py-1 text-xs font-bold text-lime-200">Vegano</span>
                                     )}
                                     {dietary?.dairyFreeOptions && (
-                                        <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-200">Sin lacteos</span>
+                                        <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-200">Sin lácteos</span>
                                     )}
                                     {dietary?.nutFreeOptions && (
                                         <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-200">Sin frutos secos</span>
@@ -720,7 +804,7 @@ export const PlacePage: React.FC = () => {
                                         <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-200">Sin huevo</span>
                                     )}
                                     {dietary?.allergenMenuAvailable && (
-                                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Carta de alergenos</span>
+                                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Carta de alérgenos</span>
                                     )}
                                     {dietary?.staffCanAdviseAllergens && (
                                         <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Personal informado</span>
@@ -734,7 +818,7 @@ export const PlacePage: React.FC = () => {
                                 )}
                                 {dietary?.allergens?.length ? (
                                     <div className="mt-3">
-                                        <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-100/80">Alergenos relevantes</p>
+                                        <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-100/80">Alérgenos relevantes</p>
                                         <div className="mt-2 flex flex-wrap gap-2">
                                             {dietary.allergens.map((allergen) => (
                                                 <span key={allergen} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
@@ -750,39 +834,43 @@ export const PlacePage: React.FC = () => {
                             </div>
                         )}
 
-                        {place.openingHours?.length ? (
-                            <div className="border-b border-white/5 pb-4">
-                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                                    <h4 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[var(--lt-text-muted)]">
-                                        <Clock className="w-4 h-4 text-[var(--lt-accent)]" />
-                                        Horario
-                                    </h4>
-                                    {place.businessOpenStatus && (
-                                        <span className={`rounded-full border px-3 py-1 text-xs font-black ${place.businessOpenStatus.isOpen
-                                            ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300'
-                                            : 'border-rose-400/30 bg-rose-500/10 text-rose-300'
-                                        }`}>
-                                            {place.businessOpenStatus.label}
-                                            {place.businessOpenStatus.detail ? ` · ${place.businessOpenStatus.detail}` : ''}
-                                        </span>
-                                    )}
-                                </div>
+                        <div className="border-b border-white/5 pb-4">
+                            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                <h4 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[var(--lt-text-muted)]">
+                                    <Clock className="w-4 h-4 text-[var(--lt-accent)]" />
+                                    Horario
+                                </h4>
+                                {place.businessOpenStatus && (
+                                    <span className={`rounded-full border px-3 py-1 text-xs font-black ${place.businessOpenStatus.isOpen
+                                        ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300'
+                                        : 'border-rose-400/30 bg-rose-500/10 text-rose-300'
+                                    }`}>
+                                        {place.businessOpenStatus.label}
+                                        {place.businessOpenStatus.detail ? ` · ${place.businessOpenStatus.detail}` : ''}
+                                    </span>
+                                )}
+                            </div>
+                            {place.openingHours?.length ? (
                                 <div className="overflow-hidden rounded-xl border border-white/10 bg-black/10">
                                     {place.openingHours.map((line) => {
                                         const parsed = splitHoursLine(line);
                                         return (
                                             <div key={line} className="flex items-center justify-between gap-4 border-b border-white/5 px-3 py-2 last:border-b-0">
-                                                <span className="text-xs font-bold text-[var(--lt-text-muted)]">{parsed.day || 'Dia'}</span>
+                                                <span className="text-xs font-bold text-[var(--lt-text-muted)]">{parsed.day || 'Día'}</span>
                                                 <span className="text-sm font-semibold text-[var(--lt-text)]">{parsed.hours}</span>
                                             </div>
                                         );
                                     })}
                                 </div>
-                                {place.resolvedBusinessInfo?.hours?.notes && (
-                                    <p className="mt-2 text-xs text-[var(--lt-text-muted)]">{place.resolvedBusinessInfo.hours.notes}</p>
-                                )}
-                            </div>
-                        ) : null}
+                            ) : (
+                                <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-3 text-sm font-semibold text-[var(--lt-text-muted)]">
+                                    Sin horario definido
+                                </div>
+                            )}
+                            {place.resolvedBusinessInfo?.hours?.notes && (
+                                <p className="mt-2 text-xs text-[var(--lt-text-muted)]">{place.resolvedBusinessInfo.hours.notes}</p>
+                            )}
+                        </div>
 
                         {/* Price & Features Grid */}
                         <div className="grid grid-cols-2 gap-4 pb-4 border-b border-white/5">
@@ -813,10 +901,10 @@ export const PlacePage: React.FC = () => {
                                             <span className="text-gray-400 text-xs">-</span>
                                         )}
                                     </div>
-                                </div>
-                            )}
+                            </div>
+                        )}
                         </div>
-
+                        {hasServiceInfo && (
                         <div className="space-y-2">
                             <h4 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[var(--lt-text-muted)]">
                                 <Check className="w-4 h-4 text-[var(--lt-accent)]" />
@@ -880,12 +968,13 @@ export const PlacePage: React.FC = () => {
                             )}
                             </div>
                         </div>
+                        )}
 
                         {place.resolvedBusinessInfo?.commercial?.paymentMethods?.length ? (
                             <div className="space-y-2 border-t border-white/5 pt-4">
                                 <h4 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[var(--lt-text-muted)]">
                                     <CreditCard className="w-4 h-4 text-[var(--lt-accent)]" />
-                                    Metodos de pago
+                                    Métodos de pago
                                 </h4>
                                 <div className="flex flex-wrap gap-2">
                                     {place.resolvedBusinessInfo.commercial.paymentMethods.map((method) => (
@@ -897,6 +986,7 @@ export const PlacePage: React.FC = () => {
                             </div>
                         ) : null}
 
+                        {hasContactInfo && (
                         <div className="flex flex-col gap-3 border-t border-white/5 pt-4">
                             <h4 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[var(--lt-text-muted)]">
                                 <Globe className="w-4 h-4 text-[var(--lt-accent)]" />
@@ -910,7 +1000,7 @@ export const PlacePage: React.FC = () => {
                                     className="flex items-center justify-center gap-2 w-full p-3 rounded-xl bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold text-sm transition-all shadow-lg shadow-[var(--lt-accent-shadow)] group"
                                 >
                                     <Globe className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                                    Visitar Sitio Web
+                                    Visitar sitio web
                                 </a>
                             )}
                             {place.phone && (
@@ -942,6 +1032,8 @@ export const PlacePage: React.FC = () => {
                                     Instagram
                                 </a>
                             )}
+                        </div>
+                        )}
                         </div>
                     </div>
 

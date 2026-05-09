@@ -86,7 +86,7 @@ const localized = (value: unknown): string | undefined => {
     return undefined;
 };
 
-const businessDayNames = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
+const businessDayNames = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
 const parseBusinessDay = (value: unknown, fallbackIndex: number): number => {
     if (typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 6) return value;
@@ -102,11 +102,14 @@ const parseBusinessDay = (value: unknown, fallbackIndex: number): number => {
 
 const normalizeBusinessWeeklyHours = (hours: BusinessHoursInfo | undefined): BusinessWeeklyHours[] => {
     if (!hours?.weeklySchedule?.length) return [];
-    return hours.weeklySchedule.map((day, index) => ({
-        ...day,
-        day: parseBusinessDay(day.day, index),
-        periods: day.periods || [],
-    })).sort((a, b) => a.day - b.day);
+    return hours.weeklySchedule
+        .map((day, index) => ({
+            ...day,
+            day: parseBusinessDay(day.day, index),
+            periods: day.periods || [],
+        }))
+        .filter((day) => day.closed === true || Boolean(day.periods?.length))
+        .sort((a, b) => a.day - b.day);
 };
 
 const timeToMinutes = (value: string | undefined): number | null => {
@@ -118,12 +121,14 @@ const timeToMinutes = (value: string | undefined): number | null => {
 const formatBusinessHours = (hours: BusinessHoursInfo | undefined): string[] | undefined => {
     const weeklySchedule = normalizeBusinessWeeklyHours(hours);
     if (!weeklySchedule.length) return undefined;
-    return weeklySchedule
+    const lines = weeklySchedule
         .map((day) => {
-            if (day.closed) return `${businessDayNames[day.day] || 'Dia'}: Cerrado`;
+            if (day.closed) return `${businessDayNames[day.day] || 'Día'}: Cerrado`;
             const periods = (day.periods || []).map((period) => `${period.open} - ${period.close}`).join(', ');
-            return `${businessDayNames[day.day] || 'Dia'}: ${periods || 'Sin horario'}`;
-        });
+            return periods ? `${businessDayNames[day.day] || 'Día'}: ${periods}` : '';
+        })
+        .filter(Boolean);
+    return lines.length ? lines : undefined;
 };
 
 const getBusinessOpenStatus = (hours: BusinessHoursInfo | undefined) => {
@@ -133,9 +138,9 @@ const getBusinessOpenStatus = (hours: BusinessHoursInfo | undefined) => {
     const now = new Date();
     const todayIndex = (now.getDay() + 6) % 7;
     const today = weeklySchedule.find((day) => day.day === todayIndex);
-    if (!today || today.closed) {
-        return { isOpen: false, label: 'Cerrado ahora', detail: today ? 'Hoy cerrado' : undefined };
-    }
+    if (!today) return undefined;
+    if (today.closed) return { isOpen: false, label: 'Cerrado ahora', detail: 'Hoy cerrado' };
+    if (!today.periods?.length) return undefined;
 
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
     for (const period of today.periods || []) {

@@ -376,6 +376,7 @@ service cloud.firestore {
     // ===============================================
     match /lists/{listId} {
       allow read: if resource.data.isPublic == true ||
+                      resource.data.visibility == 'public' ||
                       (request.auth != null && (
                         resource.data.userId == request.auth.uid ||
                         (resource.data.get('editors', []).hasAny([request.auth.uid])) ||
@@ -385,7 +386,7 @@ service cloud.firestore {
                         isFollowingList(listId) ||
                         isListFollower(listId)
                       ));
-      allow list: if resource.data.isPublic == true || (request.auth != null && (
+      allow list: if resource.data.isPublic == true || resource.data.visibility == 'public' || (request.auth != null && (
         resource.data.userId == request.auth.uid || 
         (resource.data.get('editors', []).hasAny([request.auth.uid])) ||
         isJefe(request.auth.uid)

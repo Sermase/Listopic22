@@ -1,4 +1,4 @@
-const CACHE_NAME = 'listopic-shell-v3';
+const CACHE_NAME = 'listopic-shell-v4';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -35,6 +35,10 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  // In local development, Vite frequently replaces chunks during HMR.
+  // Let the dev server handle requests directly to avoid stale cached assets.
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') return;
+
   // Skip Firebase Auth reserved paths
   if (url.pathname.startsWith('/__/auth/')) return;
 
@@ -66,7 +70,10 @@ self.addEventListener('fetch', (event) => {
         .catch(async () => {
           const cachedResponse = await caches.match(request);
           if (cachedResponse) return cachedResponse;
-          throw new Error('Asset unavailable offline');
+          return new Response('', {
+            status: 503,
+            statusText: 'Asset unavailable offline',
+          });
         }),
     );
     return;

@@ -289,7 +289,7 @@ export const BusinessDashboardPage: React.FC = () => {
                                                         disabled={teamLoadingByPlace[place.id]}
                                                         className="rounded-xl bg-[var(--lt-accent)] px-3 py-2 text-sm font-bold text-white disabled:opacity-50"
                                                     >
-                                                        Anadir
+                                                        Añadir
                                                     </button>
                                                 </div>
 

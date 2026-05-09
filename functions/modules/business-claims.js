@@ -5,6 +5,7 @@ const logger = require("firebase-functions/logger");
 const fetch = require("node-fetch");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { assertJefeAccess, rateLimit, writeAuditLog } = require("./lib/auth");
+const { sendNotification } = require("./notifications");
 
 const resendApiKey = defineSecret("RESEND_API_KEY");
 const db = getFirestore();
@@ -112,13 +113,14 @@ const onBusinessClaimCreated = onDocumentCreated({
 });
 
 const asString = (value, maxLength = 1000) => (typeof value === "string" ? value.trim().slice(0, maxLength) : "");
-const BUSINESS_INFO_SECTIONS = ["identity", "contact", "commercial", "accessibility", "dietary", "hours", "reservations"];
+const BUSINESS_INFO_SECTIONS = ["identity", "contact", "commercial", "accessibility", "dietary", "hours", "reservations", "deliveries"];
 const BUSINESS_INFO_SCHEMA_VERSION = 1;
 const BUSINESS_INFO_FREE_SECTIONS = new Set(BUSINESS_INFO_SECTIONS);
 const VALID_PRICE_RANGES = new Set(["low", "medium", "high", "premium"]);
 const VALID_CROSS_CONTAMINATION_RISKS = new Set(["unknown", "possible", "controlled", "dedicated"]);
 const VALID_RESERVATION_PROVIDERS = new Set(["covermanager", "thefork", "opentable", "zenchef", "resy", "google", "custom"]);
 const VALID_RESERVATION_DISPLAY_MODES = new Set(["external", "modal", "both"]);
+const VALID_DELIVERY_PROVIDERS = new Set(["glovo", "justeat", "ubereats", "deliveroo", "deliverect", "own", "whatsapp", "custom"]);
 const VALID_SOURCES = new Set(["business_user", "admin_override", "ai_extracted", "user_suggestion"]);
 
 const asStringArray = (value, maxItems = 20, maxLength = 80) => {
@@ -265,6 +267,7 @@ const sanitizeBusinessInfoData = (section, raw) => {
           const parsedDay = Number(day.day);
           if (!Number.isInteger(parsedDay) || parsedDay < 0 || parsedDay > 6) return null;
           const periods = sanitizePeriods(day.periods);
+          if (day.closed !== true && periods.length === 0) return null;
           return { day: parsedDay, closed: day.closed === true, periods };
         })
         .filter(Boolean)
@@ -311,7 +314,29 @@ const sanitizeBusinessInfoData = (section, raw) => {
       buttonText: asString(String(input.buttonText || "Reservar mesa").replace(/[<>]/g, ""), 50) || "Reservar mesa",
     };
   }
-  throw new HttpsError("invalid-argument", "Seccion no valida.");
+  if (section === "deliveries") {
+    const rawLinks = Array.isArray(input.links) ? input.links : [];
+    const links = rawLinks
+      .map((item) => {
+        if (!item || typeof item !== "object") return null;
+        const provider = asString(item.provider, 30);
+        const url = sanitizeUrl(item.url);
+        if (!url) return null;
+        return {
+          provider: VALID_DELIVERY_PROVIDERS.has(provider) ? provider : "custom",
+          label: asString(String(item.label || "").replace(/[<>]/g, ""), 60),
+          url,
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 8);
+    return {
+      enabled: input.enabled === true && links.length > 0,
+      links,
+      notes: asString(String(input.notes || "").replace(/[<>]/g, ""), 700),
+    };
+  }
+  throw new HttpsError("invalid-argument", "Sección no válida.");
 };
 
 const hasContent = (value) => {
@@ -332,6 +357,30 @@ const pruneEmpty = (value) => {
     return result;
   }
   return value;
+};
+
+const stableStringify = (value) => {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+};
+
+const getBusinessInfoChangedFields = (beforeDoc, afterDoc) => {
+  const beforeData = beforeDoc?.data && typeof beforeDoc.data === "object" ? beforeDoc.data : {};
+  const afterData = afterDoc?.data && typeof afterDoc.data === "object" ? afterDoc.data : {};
+  const keys = new Set([...Object.keys(beforeData), ...Object.keys(afterData)]);
+  const changed = [];
+  keys.forEach((key) => {
+    if (stableStringify(beforeData[key]) !== stableStringify(afterData[key])) changed.push(`data.${key}`);
+  });
+  if (stableStringify(beforeDoc?.hiddenFields || []) !== stableStringify(afterDoc?.hiddenFields || [])) {
+    changed.push("hiddenFields");
+  }
+  if ((beforeDoc?.status || "active") !== (afterDoc?.status || "active")) changed.push("status");
+  if ((beforeDoc?.source || "business_user") !== (afterDoc?.source || "business_user")) changed.push("source");
+  return changed.slice(0, 40);
 };
 
 const notificationForClaim = (claimId, claim, status, adminNotes) => {
@@ -362,7 +411,7 @@ const reviewBusinessClaim = onCall(async (request) => {
 
   if (!claimId) throw new HttpsError("invalid-argument", "Falta claimId.");
   if (status !== "approved" && status !== "rejected") {
-    throw new HttpsError("invalid-argument", "Estado de revision no valido.");
+    throw new HttpsError("invalid-argument", "Estado de revisión no válido.");
   }
   if (status === "rejected" && adminNotes.length < 8) {
     throw new HttpsError("failed-precondition", "Indica un motivo de rechazo antes de rechazar la solicitud.");
@@ -403,12 +452,14 @@ const reviewBusinessClaim = onCall(async (request) => {
       }, { merge: true });
     }
 
-    tx.set(
-      db.collection("users").doc(claimData.userId).collection("notifications").doc(`business_claim_${claimId}`),
-      notificationForClaim(claimId, claimData, status, adminNotes),
-      { merge: true },
-    );
   });
+
+  await sendNotification(
+    claimData.userId,
+    "business_claim_reviewed",
+    notificationForClaim(claimId, claimData, status, adminNotes),
+    { notificationId: `business_claim_${claimId}` },
+  );
 
   await writeAuditLog(actorUid, "businessClaim.review", {
     claimId,
@@ -439,7 +490,7 @@ async function getUserDocBySearch(searchTerm) {
     if (!snap.empty) return snap.docs[0];
   }
 
-  throw new HttpsError("not-found", "No se encontro ningun usuario con esos datos.");
+  throw new HttpsError("not-found", "No se encontró ningún usuario con esos datos.");
 }
 
 function publicUser(userDoc) {
@@ -454,7 +505,7 @@ function publicUser(userDoc) {
 }
 
 async function assertBusinessManagerAccess(placeId, uid) {
-  if (!uid) throw new HttpsError("unauthenticated", "Debes iniciar sesion.");
+  if (!uid) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
   const placeRef = db.collection("places").doc(placeId);
   const placeSnap = await placeRef.get();
   if (!placeSnap.exists) throw new HttpsError("not-found", "El negocio no existe.");
@@ -503,8 +554,9 @@ const updateBusinessTeamMember = onCall(async (request) => {
   const uid = request.auth?.uid;
   const placeId = asString(request.data?.placeId, 300);
   const action = asString(request.data?.action, 20);
+  const makeOwner = request.data?.makeOwner === true;
   if (!placeId) throw new HttpsError("invalid-argument", "Falta placeId.");
-  if (action !== "add" && action !== "remove") throw new HttpsError("invalid-argument", "Accion no valida.");
+  if (action !== "add" && action !== "remove") throw new HttpsError("invalid-argument", "Acción no válida.");
 
   const { placeRef, place, isOwner, isAdmin } = await assertBusinessManagerAccess(placeId, uid);
   if (!isOwner && !isAdmin) {
@@ -514,17 +566,37 @@ const updateBusinessTeamMember = onCall(async (request) => {
   const targetUserDoc = action === "add"
     ? await getUserDocBySearch(request.data?.userSearch)
     : await db.collection("users").doc(asString(request.data?.targetUserId, 300)).get();
-  if (!targetUserDoc.exists) throw new HttpsError("not-found", "No se encontro el usuario.");
+  if (!targetUserDoc.exists) throw new HttpsError("not-found", "No se encontró el usuario.");
   const targetUid = targetUserDoc.id;
 
   if (targetUid === place.businessOwnerUserId && action === "remove") {
     throw new HttpsError("failed-precondition", "No puedes quitar al propietario principal.");
   }
 
-  await placeRef.update({
+  const updatePayload = {
     businessManagerIds: action === "add" ? FieldValue.arrayUnion(targetUid) : FieldValue.arrayRemove(targetUid),
     updatedAt: FieldValue.serverTimestamp(),
-  });
+  };
+  if (action === "add" && makeOwner) {
+    updatePayload.businessOwnerUserId = targetUid;
+    updatePayload.businessVerified = true;
+  }
+
+  await placeRef.update(updatePayload);
+
+  if (action === "add" && targetUid !== uid) {
+    const placeName = place.name || place.displayName || "un negocio";
+    await sendNotification(targetUid, "business_assigned", {
+      senderId: uid,
+      placeId,
+      placeName,
+      role: makeOwner ? "owner" : "manager",
+      message: makeOwner
+        ? `Te han asignado como propietario de ${placeName}.`
+        : `Te han asignado la gestión de ${placeName}.`,
+      link: "/businesses",
+    }, { notificationId: `business_assigned_${placeId}` });
+  }
 
   logger.info("businessClaims: equipo de negocio actualizado", { placeId, actorUid: uid, targetUid, action });
   return { ok: true, user: publicUser(targetUserDoc), action };
@@ -555,10 +627,13 @@ async function buildResolvedBusinessProjection(tx, placeId) {
 
 async function writeBusinessInfoHistory(tx, placeId, section, actorUid, beforeData, afterData) {
   const historyRef = db.collection("places").doc(placeId).collection("businessInfoHistory").doc();
+  const changedFields = getBusinessInfoChangedFields(beforeData, afterData);
+  if (beforeData && changedFields.length === 0) return;
   tx.set(historyRef, {
     section,
-    before: beforeData || null,
-    after: afterData || null,
+    beforeVersion: Number(beforeData?.version || 0),
+    afterVersion: Number(afterData?.version || 0),
+    changedFields,
     changedBy: actorUid,
     reason: "business_update",
     createdAt: FieldValue.serverTimestamp(),
@@ -609,9 +684,9 @@ const updateBusinessInfoSection = onCall(async (request) => {
   const source = asString(request.data?.source, 40) || "business_user";
 
   if (!placeId) throw new HttpsError("invalid-argument", "Falta placeId.");
-  if (!BUSINESS_INFO_SECTIONS.includes(section)) throw new HttpsError("invalid-argument", "Seccion no valida.");
-  if (!VALID_SOURCES.has(source)) throw new HttpsError("invalid-argument", "Origen no valido.");
-  if (!BUSINESS_INFO_FREE_SECTIONS.has(section)) throw new HttpsError("permission-denied", "Esta seccion requiere un plan superior.");
+  if (!BUSINESS_INFO_SECTIONS.includes(section)) throw new HttpsError("invalid-argument", "Sección no válida.");
+  if (!VALID_SOURCES.has(source)) throw new HttpsError("invalid-argument", "Origen no válido.");
+  if (!BUSINESS_INFO_FREE_SECTIONS.has(section)) throw new HttpsError("permission-denied", "Esta sección requiere un plan superior.");
 
   const rate = await rateLimit("businessInfoUpdate", `${uid || "anon"}_${placeId}`, 30, 24 * 60 * 60);
   if (!rate.allowed) {
@@ -625,6 +700,7 @@ const updateBusinessInfoSection = onCall(async (request) => {
   const publicRef = db.collection("places").doc(placeId).collection("resolvedPublic").doc("business");
 
   let nextVersion = 1;
+  let didChange = false;
   await db.runTransaction(async (tx) => {
     const currentSnap = await tx.get(infoRef);
     const current = currentSnap.exists ? currentSnap.data() : null;
@@ -653,6 +729,12 @@ const updateBusinessInfoSection = onCall(async (request) => {
       updatedAt: FieldValue.serverTimestamp(),
       createdAt: current?.createdAt || FieldValue.serverTimestamp(),
     };
+    const changedFields = getBusinessInfoChangedFields(current, nextDoc);
+    if (current && changedFields.length === 0) {
+      nextVersion = currentVersion;
+      return;
+    }
+    didChange = true;
     sectionDocs[section] = nextDoc;
 
     tx.set(infoRef, nextDoc, { merge: true });
@@ -674,7 +756,7 @@ const updateBusinessInfoSection = onCall(async (request) => {
     tx.set(publicRef, projection, { merge: false });
   });
 
-  logger.info("businessInfo: seccion actualizada", { placeId, section, actorUid: uid, version: nextVersion });
+  logger.info("businessInfo: seccion actualizada", { placeId, section, actorUid: uid, version: nextVersion, changed: didChange });
   return { ok: true, section, version: nextVersion };
 });
 

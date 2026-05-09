@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useTheme, type ThemeId } from "../context/ThemeContext";
 import { useUserProfile, type UserProfileEntity } from "../hooks/useUserProfile";
@@ -250,6 +250,9 @@ export const ProfilePage: React.FC = () => {
   const appConfig = useAppConfig();
   const navigate = useNavigate();
   const { userId: paramUserId } = useParams<{ userId: string }>();
+  const [searchParams] = useSearchParams();
+  const focusedReviewId = searchParams.get("reviewId");
+  const requestedTab = searchParams.get("tab");
   const [activeTab, setActiveTab] = useState<
     "lists" | "reviews" | "following" | "stats"
   >("reviews");
@@ -511,6 +514,36 @@ export const ProfilePage: React.FC = () => {
       setStatsLoadedUserId(null);
     }
   }, [fetchedReviews]);
+
+  useEffect(() => {
+    if (!focusedReviewId || requestedTab !== "reviews") return;
+    setActiveTab("reviews");
+    setReviewListFilter("all");
+    setReviewViewMode("gallery");
+    setExpandedReviewIds((prev) =>
+      prev.includes(focusedReviewId) ? prev : [focusedReviewId],
+    );
+  }, [focusedReviewId, requestedTab]);
+
+  useEffect(() => {
+    if (!focusedReviewId || loadingReviews || loadingMore) return;
+    if (localReviews.some((review) => review.id === focusedReviewId)) return;
+    if (!hasMore) return;
+    fetchMore();
+  }, [focusedReviewId, localReviews, loadingReviews, loadingMore, hasMore, fetchMore]);
+
+  useEffect(() => {
+    if (!focusedReviewId || activeTab !== "reviews") return;
+    if (!localReviews.some((review) => review.id === focusedReviewId)) return;
+
+    const timeoutId = window.setTimeout(() => {
+      document
+        .getElementById(`profile-review-${focusedReviewId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [focusedReviewId, activeTab, localReviews, expandedReviewIds]);
 
   useEffect(() => {
     if (!appConfig.showProfileAffinity || isOwnProfile || !user?.uid || !targetUserId) {
@@ -1730,7 +1763,7 @@ export const ProfilePage: React.FC = () => {
     } catch (err: any) {
       console.error("Error deleting account:", err);
       if (err?.code === "functions/unauthenticated") {
-        setDeleteError("Por seguridad, necesitas volver a iniciar sesion antes de eliminar tu cuenta.");
+        setDeleteError("Por seguridad, necesitas volver a iniciar sesión antes de eliminar tu cuenta.");
       } else if (err?.code === "auth/requires-recent-login") {
         setDeleteError("Por seguridad, necesitas volver a iniciar sesión antes de eliminar tu cuenta. Cierra sesión, vuelve a entrar y repite el proceso.");
       } else {
@@ -2440,7 +2473,7 @@ export const ProfilePage: React.FC = () => {
                           <p className="text-[11px] text-amber-300 mt-2">
                             {hasLockedUsername
                               ? "El username no se puede cambiar una vez guardado. Maximo 18 caracteres y sin espacios."
-                              : "Tu username actual no es valido. Debes guardarlo ahora y quedara bloqueado cuando sea correcto."}
+                              : "Tu username actual no es válido. Debes guardarlo ahora y quedará bloqueado cuando sea correcto."}
                           </p>
                         </div>
 
@@ -2643,7 +2676,7 @@ export const ProfilePage: React.FC = () => {
                         </div>
                         <p className="text-[10px] text-gray-500 mt-1">
                           Este rango se aplicara automaticamente cuando inicies
-                          nueva sesion.
+                          nueva sesión.
                         </p>
                       </div>
                     </div>
@@ -3107,12 +3140,13 @@ export const ProfilePage: React.FC = () => {
               ) : (
                 <div className="space-y-4">
                   {sortedProfileReviews.map((review: any) => (
-                    <ReviewCard
-                      key={review.id}
-                      review={review}
-                      onDelete={handleDeleteReview}
-                      onEdit={handleEditReview}
-                    />
+                    <div id={`profile-review-${review.id}`} key={review.id} className="scroll-mt-24">
+                      <ReviewCard
+                        review={review}
+                        onDelete={handleDeleteReview}
+                        onEdit={handleEditReview}
+                      />
+                    </div>
                   ))}
                 </div>
               )}
