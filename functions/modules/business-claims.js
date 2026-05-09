@@ -4,7 +4,7 @@ const { defineSecret } = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
 const fetch = require("node-fetch");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-const { assertJefeAccess, writeAuditLog } = require("./lib/auth");
+const { assertJefeAccess, rateLimit, writeAuditLog } = require("./lib/auth");
 
 const resendApiKey = defineSecret("RESEND_API_KEY");
 const db = getFirestore();
@@ -112,6 +112,227 @@ const onBusinessClaimCreated = onDocumentCreated({
 });
 
 const asString = (value, maxLength = 1000) => (typeof value === "string" ? value.trim().slice(0, maxLength) : "");
+const BUSINESS_INFO_SECTIONS = ["identity", "contact", "commercial", "accessibility", "dietary", "hours", "reservations"];
+const BUSINESS_INFO_SCHEMA_VERSION = 1;
+const BUSINESS_INFO_FREE_SECTIONS = new Set(BUSINESS_INFO_SECTIONS);
+const VALID_PRICE_RANGES = new Set(["low", "medium", "high", "premium"]);
+const VALID_CROSS_CONTAMINATION_RISKS = new Set(["unknown", "possible", "controlled", "dedicated"]);
+const VALID_RESERVATION_PROVIDERS = new Set(["covermanager", "thefork", "opentable", "zenchef", "resy", "google", "custom"]);
+const VALID_RESERVATION_DISPLAY_MODES = new Set(["external", "modal", "both"]);
+const VALID_SOURCES = new Set(["business_user", "admin_override", "ai_extracted", "user_suggestion"]);
+
+const asStringArray = (value, maxItems = 20, maxLength = 80) => {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(value
+    .map((item) => asString(item, maxLength))
+    .filter(Boolean)))
+    .slice(0, maxItems);
+};
+
+const asBoolean = (value) => value === true;
+
+const sanitizeLocalizedText = (value, maxLength = 1000) => {
+  if (typeof value === "string") {
+    const es = asString(value.replace(/[<>]/g, ""), maxLength);
+    return es ? { es } : {};
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const result = {};
+  ["es", "en"].forEach((lang) => {
+    const text = asString(value[lang]?.replace ? value[lang].replace(/[<>]/g, "") : value[lang], maxLength);
+    if (text) result[lang] = text;
+  });
+  return result;
+};
+
+const sanitizeUrl = (value) => {
+  const raw = asString(value, 400);
+  if (!raw) return "";
+  try {
+    const url = new URL(raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return "";
+    return url.toString().slice(0, 400);
+  } catch (_) {
+    return "";
+  }
+};
+
+const extractIframeSrc = (value) => {
+  const raw = asString(value, 1200);
+  if (!raw) return "";
+  const match = raw.match(/src=["']([^"']+)["']/i);
+  return match ? match[1] : raw;
+};
+
+const sanitizeReservationUrl = (value) => sanitizeUrl(extractIframeSrc(value));
+
+const sanitizeEmail = (value) => {
+  const email = asString(value, 180).toLowerCase();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : "";
+};
+
+const sanitizeInstagram = (value) => {
+  const raw = asString(value, 120);
+  if (!raw) return "";
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    const url = sanitizeUrl(raw);
+    return url.includes("instagram.com/") ? url : "";
+  }
+  return raw.replace(/^@/, "").replace(/[^a-zA-Z0-9._]/g, "").slice(0, 60);
+};
+
+const isTime = (value) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+const sanitizePeriods = (value, maxItems = 4) => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((period) => {
+      if (!period || typeof period !== "object") return null;
+      const open = asString(period.open, 5);
+      const close = asString(period.close, 5);
+      if (!isTime(open) || !isTime(close)) return null;
+      return { open, close };
+    })
+    .filter(Boolean)
+    .slice(0, maxItems);
+};
+
+const sanitizeBusinessInfoData = (section, raw) => {
+  const input = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+  if (section === "identity") {
+    return {
+      displayName: sanitizeLocalizedText(input.displayName, 120),
+      description: sanitizeLocalizedText(input.description, 1400),
+      languages: asStringArray(input.languages, 12, 40),
+    };
+  }
+  if (section === "contact") {
+    return {
+      phone: asString(input.phone, 40),
+      website: sanitizeUrl(input.website),
+      email: sanitizeEmail(input.email),
+      instagram: sanitizeInstagram(input.instagram),
+    };
+  }
+  if (section === "commercial") {
+    const priceRange = asString(input.priceRange, 20);
+    return {
+      priceRange: VALID_PRICE_RANGES.has(priceRange) ? priceRange : "",
+      cuisineTypes: asStringArray(input.cuisineTypes, 20, 60),
+      paymentMethods: asStringArray(input.paymentMethods, 20, 60),
+      services: asStringArray(input.services, 30, 80),
+    };
+  }
+  if (section === "accessibility") {
+    return {
+      wheelchairAccess: asBoolean(input.wheelchairAccess),
+      accessibleBathroom: asBoolean(input.accessibleBathroom),
+      stepFreeEntrance: asBoolean(input.stepFreeEntrance),
+      babyChanging: asBoolean(input.babyChanging),
+      petFriendly: asBoolean(input.petFriendly),
+      hearingLoop: asBoolean(input.hearingLoop),
+      notes: asString(String(input.notes || "").replace(/[<>]/g, ""), 700),
+    };
+  }
+  if (section === "dietary") {
+    const crossContaminationRisk = asString(input.crossContaminationRisk, 20);
+    return {
+      glutenFreeOptions: asBoolean(input.glutenFreeOptions),
+      manyGlutenFreeOptions: asBoolean(input.manyGlutenFreeOptions),
+      glutenFreeMenu: asBoolean(input.glutenFreeMenu),
+      crossContaminationRisk: VALID_CROSS_CONTAMINATION_RISKS.has(crossContaminationRisk) ? crossContaminationRisk : "",
+      crossContaminationNotes: asString(String(input.crossContaminationNotes || "").replace(/[<>]/g, ""), 700),
+      vegetarianOptions: asBoolean(input.vegetarianOptions),
+      veganOptions: asBoolean(input.veganOptions),
+      dairyFreeOptions: asBoolean(input.dairyFreeOptions),
+      nutFreeOptions: asBoolean(input.nutFreeOptions),
+      eggFreeOptions: asBoolean(input.eggFreeOptions),
+      allergenMenuAvailable: asBoolean(input.allergenMenuAvailable),
+      staffCanAdviseAllergens: asBoolean(input.staffCanAdviseAllergens),
+      allergens: asStringArray(input.allergens, 20, 80),
+      notes: asString(String(input.notes || "").replace(/[<>]/g, ""), 900),
+    };
+  }
+  if (section === "hours") {
+    const weeklySchedule = Array.isArray(input.weeklySchedule) ? input.weeklySchedule : [];
+    const specialHours = Array.isArray(input.specialHours) ? input.specialHours : [];
+    const temporaryClosures = Array.isArray(input.temporaryClosures) ? input.temporaryClosures : [];
+    return {
+      weeklySchedule: weeklySchedule
+        .map((day) => {
+          if (!day || typeof day !== "object") return null;
+          const parsedDay = Number(day.day);
+          if (!Number.isInteger(parsedDay) || parsedDay < 0 || parsedDay > 6) return null;
+          const periods = sanitizePeriods(day.periods);
+          return { day: parsedDay, closed: day.closed === true, periods };
+        })
+        .filter(Boolean)
+        .slice(0, 7),
+      specialHours: specialHours
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const date = asString(item.date, 10);
+          if (!isDate(date)) return null;
+          return {
+            date,
+            label: asString(String(item.label || "").replace(/[<>]/g, ""), 80),
+            closed: item.closed === true,
+            periods: sanitizePeriods(item.periods),
+          };
+        })
+        .filter(Boolean)
+        .slice(0, 30),
+      temporaryClosures: temporaryClosures
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const from = asString(item.from, 10);
+          const to = asString(item.to, 10);
+          if (!isDate(from) || !isDate(to)) return null;
+          return { from, to, reason: asString(String(item.reason || "").replace(/[<>]/g, ""), 160) };
+        })
+        .filter(Boolean)
+        .slice(0, 10),
+      notes: asString(String(input.notes || "").replace(/[<>]/g, ""), 700),
+    };
+  }
+  if (section === "reservations") {
+    const provider = asString(input.provider, 40);
+    const displayMode = asString(input.displayMode, 20);
+    const embedUrl = sanitizeReservationUrl(input.embedUrl || input.widgetUrl || input.iframe || input.code);
+    const externalUrl = sanitizeReservationUrl(input.externalUrl || input.reservationUrl || input.url || embedUrl);
+    const enabled = input.enabled === true && Boolean(embedUrl || externalUrl);
+    return {
+      enabled,
+      provider: VALID_RESERVATION_PROVIDERS.has(provider) ? provider : "custom",
+      embedUrl,
+      externalUrl,
+      displayMode: VALID_RESERVATION_DISPLAY_MODES.has(displayMode) ? displayMode : embedUrl ? "modal" : "external",
+      buttonText: asString(String(input.buttonText || "Reservar mesa").replace(/[<>]/g, ""), 50) || "Reservar mesa",
+    };
+  }
+  throw new HttpsError("invalid-argument", "Seccion no valida.");
+};
+
+const hasContent = (value) => {
+  if (Array.isArray(value)) return value.length > 0;
+  if (value && typeof value === "object") return Object.values(value).some(hasContent);
+  if (typeof value === "boolean") return value === true;
+  return Boolean(value);
+};
+
+const pruneEmpty = (value) => {
+  if (Array.isArray(value)) return value.map(pruneEmpty).filter((item) => hasContent(item));
+  if (value && typeof value === "object") {
+    const result = {};
+    Object.entries(value).forEach(([key, child]) => {
+      const cleaned = pruneEmpty(child);
+      if (hasContent(cleaned)) result[key] = cleaned;
+    });
+    return result;
+  }
+  return value;
+};
 
 const notificationForClaim = (claimId, claim, status, adminNotes) => {
   const approved = status === "approved";
@@ -309,9 +530,159 @@ const updateBusinessTeamMember = onCall(async (request) => {
   return { ok: true, user: publicUser(targetUserDoc), action };
 });
 
+async function buildResolvedBusinessProjection(tx, placeId) {
+  const resolved = {};
+  const hiddenFields = {};
+
+  for (const section of BUSINESS_INFO_SECTIONS) {
+    const infoRef = db.collection("places").doc(placeId).collection("businessInfo").doc(section);
+    const snap = tx ? await tx.get(infoRef) : await infoRef.get();
+    if (!snap.exists) continue;
+    const docData = snap.data() || {};
+    if (docData.status !== "active") continue;
+
+    const cleanedData = section === "accessibility" ? (docData.data || {}) : pruneEmpty(docData.data || {});
+    if (hasContent(cleanedData)) resolved[section] = cleanedData;
+    const sectionHiddenFields = Array.isArray(docData.hiddenFields)
+      ? docData.hiddenFields.filter((field) => typeof field === "string" && field.length <= 80)
+      : [];
+    if (sectionHiddenFields.length) hiddenFields[section] = sectionHiddenFields;
+  }
+
+  if (Object.keys(hiddenFields).length) resolved.hiddenFields = hiddenFields;
+  return resolved;
+}
+
+async function writeBusinessInfoHistory(tx, placeId, section, actorUid, beforeData, afterData) {
+  const historyRef = db.collection("places").doc(placeId).collection("businessInfoHistory").doc();
+  tx.set(historyRef, {
+    section,
+    before: beforeData || null,
+    after: afterData || null,
+    changedBy: actorUid,
+    reason: "business_update",
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
+const getBusinessInfoForManager = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  const placeId = asString(request.data?.placeId, 300);
+  if (!placeId) throw new HttpsError("invalid-argument", "Falta placeId.");
+
+  await assertBusinessManagerAccess(placeId, uid);
+
+  const sections = {};
+  const snaps = await Promise.all(BUSINESS_INFO_SECTIONS.map((section) => (
+    db.collection("places").doc(placeId).collection("businessInfo").doc(section).get()
+  )));
+
+  snaps.forEach((snap, index) => {
+    const section = BUSINESS_INFO_SECTIONS[index];
+    sections[section] = snap.exists
+      ? snap.data()
+      : {
+        section,
+        schemaVersion: BUSINESS_INFO_SCHEMA_VERSION,
+        source: "business_user",
+        status: "active",
+        tier: "free",
+        version: 0,
+        hiddenFields: [],
+        data: {},
+      };
+  });
+
+  const publicSnap = await db.collection("places").doc(placeId).collection("resolvedPublic").doc("business").get();
+  return {
+    sections,
+    resolvedPublic: publicSnap.exists ? publicSnap.data() : {},
+  };
+});
+
+const updateBusinessInfoSection = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  const placeId = asString(request.data?.placeId, 300);
+  const section = asString(request.data?.section, 40);
+  const expectedVersion = Number(request.data?.version ?? 0);
+  const hiddenFields = asStringArray(request.data?.hiddenFields, 30, 80);
+  const source = asString(request.data?.source, 40) || "business_user";
+
+  if (!placeId) throw new HttpsError("invalid-argument", "Falta placeId.");
+  if (!BUSINESS_INFO_SECTIONS.includes(section)) throw new HttpsError("invalid-argument", "Seccion no valida.");
+  if (!VALID_SOURCES.has(source)) throw new HttpsError("invalid-argument", "Origen no valido.");
+  if (!BUSINESS_INFO_FREE_SECTIONS.has(section)) throw new HttpsError("permission-denied", "Esta seccion requiere un plan superior.");
+
+  const rate = await rateLimit("businessInfoUpdate", `${uid || "anon"}_${placeId}`, 30, 24 * 60 * 60);
+  if (!rate.allowed) {
+    throw new HttpsError("resource-exhausted", "Has hecho demasiados cambios hoy en este negocio.");
+  }
+
+  await assertBusinessManagerAccess(placeId, uid);
+
+  const sanitizedData = sanitizeBusinessInfoData(section, request.data?.data);
+  const infoRef = db.collection("places").doc(placeId).collection("businessInfo").doc(section);
+  const publicRef = db.collection("places").doc(placeId).collection("resolvedPublic").doc("business");
+
+  let nextVersion = 1;
+  await db.runTransaction(async (tx) => {
+    const currentSnap = await tx.get(infoRef);
+    const current = currentSnap.exists ? currentSnap.data() : null;
+    const sectionDocs = {};
+    for (const sectionId of BUSINESS_INFO_SECTIONS) {
+      if (sectionId === section) continue;
+      const sectionSnap = await tx.get(db.collection("places").doc(placeId).collection("businessInfo").doc(sectionId));
+      if (sectionSnap.exists) sectionDocs[sectionId] = sectionSnap.data();
+    }
+    const currentVersion = Number(current?.version || 0);
+    if (Number.isFinite(expectedVersion) && expectedVersion > 0 && currentVersion !== expectedVersion) {
+      throw new HttpsError("aborted", "Estos datos han cambiado. Recarga el negocio antes de guardar.");
+    }
+
+    nextVersion = currentVersion + 1;
+    const nextDoc = {
+      section,
+      schemaVersion: BUSINESS_INFO_SCHEMA_VERSION,
+      source,
+      status: "active",
+      tier: "free",
+      version: nextVersion,
+      hiddenFields,
+      data: sanitizedData,
+      updatedBy: uid,
+      updatedAt: FieldValue.serverTimestamp(),
+      createdAt: current?.createdAt || FieldValue.serverTimestamp(),
+    };
+    sectionDocs[section] = nextDoc;
+
+    tx.set(infoRef, nextDoc, { merge: true });
+    await writeBusinessInfoHistory(tx, placeId, section, uid, current, nextDoc);
+
+    const projection = {};
+    const projectionHiddenFields = {};
+    Object.entries(sectionDocs).forEach(([sectionId, docData]) => {
+      if (!docData || docData.status !== "active") return;
+      const cleanedData = sectionId === "accessibility" ? (docData.data || {}) : pruneEmpty(docData.data || {});
+      if (hasContent(cleanedData)) projection[sectionId] = cleanedData;
+      const sectionHiddenFields = Array.isArray(docData.hiddenFields)
+        ? docData.hiddenFields.filter((field) => typeof field === "string" && field.length <= 80)
+        : [];
+      if (sectionHiddenFields.length) projectionHiddenFields[sectionId] = sectionHiddenFields;
+    });
+    if (Object.keys(projectionHiddenFields).length) projection.hiddenFields = projectionHiddenFields;
+    projection.updatedAt = FieldValue.serverTimestamp();
+    tx.set(publicRef, projection, { merge: false });
+  });
+
+  logger.info("businessInfo: seccion actualizada", { placeId, section, actorUid: uid, version: nextVersion });
+  return { ok: true, section, version: nextVersion };
+});
+
 module.exports = {
   onBusinessClaimCreated,
   reviewBusinessClaim,
   getBusinessTeam,
   updateBusinessTeamMember,
+  getBusinessInfoForManager,
+  updateBusinessInfoSection,
 };

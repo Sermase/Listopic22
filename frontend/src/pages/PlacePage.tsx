@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp, BriefcaseBusiness
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -23,9 +23,39 @@ import type { ReviewEntity } from '../hooks/useListDetails';
 import { EntityHero } from '../components/EntityHero';
 import { BusinessClaimModal } from '../components/BusinessClaimModal';
 import type { BusinessClaim } from '../services/BusinessClaimService';
+import { CROSS_CONTAMINATION_LABELS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
+};
+
+const instagramHref = (value: string) => (
+    value.startsWith('http://') || value.startsWith('https://')
+        ? value
+        : `https://instagram.com/${value.replace(/^@/, '')}`
+);
+
+const splitHoursLine = (line: string) => {
+    const separator = line.indexOf(':');
+    if (separator < 0) return { day: '', hours: line };
+    return {
+        day: line.slice(0, separator).trim(),
+        hours: line.slice(separator + 1).trim(),
+    };
+};
+
+const providerLabel = (provider?: string) => {
+    const labels: Record<string, string> = {
+        covermanager: 'CoverManager',
+        thefork: 'TheFork',
+        opentable: 'OpenTable',
+        zenchef: 'Zenchef',
+        resy: 'Resy',
+        google: 'Google Reserve',
+        custom: 'Reservas',
+    };
+    return provider ? labels[provider] || 'Reservas' : 'Reservas';
 };
 
 type RelatedList = {
@@ -97,6 +127,7 @@ export const PlacePage: React.FC = () => {
     const [showReportModal, setShowReportModal] = useState(false);
     const [isPlacePhotoUploadOpen, setIsPlacePhotoUploadOpen] = useState(false);
     const [isBusinessClaimOpen, setIsBusinessClaimOpen] = useState(false);
+    const [isReservationOpen, setIsReservationOpen] = useState(false);
     const [businessClaims, setBusinessClaims] = useState<BusinessClaim[]>([]);
     const [loadingBusinessClaims, setLoadingBusinessClaims] = useState(false);
 
@@ -109,6 +140,7 @@ export const PlacePage: React.FC = () => {
     // Infinite Scroll State
     const [visibleCount, setVisibleCount] = useState(4);
     const loadMoreRef = React.useRef<HTMLDivElement>(null);
+    useBodyScrollLock(isReservationOpen);
 
     useEffect(() => {
         const observer = new IntersectionObserver((entries) => {
@@ -428,6 +460,31 @@ export const PlacePage: React.FC = () => {
         setIsShareModalOpen(true);
     };
 
+    const reservations = place.resolvedBusinessInfo?.reservations;
+    const reservationEnabled = reservations?.enabled === true && Boolean(reservations.embedUrl || reservations.externalUrl);
+    const reservationEmbedUrl = reservations?.embedUrl;
+    const reservationExternalUrl = reservations?.externalUrl || reservations?.embedUrl;
+    const reservationMode = reservations?.displayMode || 'modal';
+    const reservationButtonText = reservations?.buttonText || 'Reservar mesa';
+    const shouldUseReservationModal = reservationEnabled && reservationEmbedUrl && reservationMode !== 'external';
+    const dietary = place.resolvedBusinessInfo?.dietary;
+    const hasDietaryInfo = Boolean(dietary && (
+        dietary.glutenFreeOptions ||
+        dietary.manyGlutenFreeOptions ||
+        dietary.glutenFreeMenu ||
+        dietary.crossContaminationRisk ||
+        dietary.crossContaminationNotes ||
+        dietary.vegetarianOptions ||
+        dietary.veganOptions ||
+        dietary.dairyFreeOptions ||
+        dietary.nutFreeOptions ||
+        dietary.eggFreeOptions ||
+        dietary.allergenMenuAvailable ||
+        dietary.staffCanAdviseAllergens ||
+        dietary.allergens?.length ||
+        dietary.notes
+    ));
+
     return (
         <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
             {/* Hero */}
@@ -586,6 +643,147 @@ export const PlacePage: React.FC = () => {
                     <div className="glass-card p-5 rounded-2xl space-y-4 shadow-lg">
                         <h3 className="font-bold text-white border-b border-white/5 pb-2 text-sm uppercase tracking-wider">Detalles</h3>
 
+                        {place.businessDescription && (
+                            <p className="rounded-xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] p-3 text-sm leading-relaxed text-[var(--lt-text)]">
+                                {place.businessDescription}
+                            </p>
+                        )}
+
+                        {reservationEnabled && (
+                            <div className="rounded-2xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] p-4">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <h4 className="flex items-center gap-2 text-sm font-black text-[var(--lt-text)]">
+                                            <CalendarCheck className="h-5 w-5 text-[var(--lt-accent)]" />
+                                            Reserva mesa
+                                        </h4>
+                                        <p className="mt-1 text-xs text-[var(--lt-text-muted)]">
+                                            Sistema de reservas: {providerLabel(reservations?.provider)}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col gap-2 sm:flex-row">
+                                        {shouldUseReservationModal && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsReservationOpen(true)}
+                                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--lt-accent)] px-4 py-2 text-sm font-black text-white shadow-lg shadow-[var(--lt-accent-shadow)]"
+                                            >
+                                                <CalendarCheck className="h-4 w-4" />
+                                                {reservationButtonText}
+                                            </button>
+                                        )}
+                                        {reservationExternalUrl && (reservationMode === 'external' || reservationMode === 'both' || !shouldUseReservationModal) && (
+                                            <a
+                                                href={reservationExternalUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black text-[var(--lt-text)] hover:bg-white/10"
+                                            >
+                                                <ExternalLink className="h-4 w-4" />
+                                                Abrir reservas
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {hasDietaryInfo && (
+                            <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
+                                <h4 className="flex items-center gap-2 text-sm font-black text-amber-100">
+                                    <AlertTriangle className="h-5 w-5" />
+                                    Alergenos y dietas
+                                </h4>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {dietary?.glutenFreeOptions && (
+                                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-200">Opciones sin gluten</span>
+                                    )}
+                                    {dietary?.manyGlutenFreeOptions && (
+                                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-200">Muchos platos sin gluten</span>
+                                    )}
+                                    {dietary?.glutenFreeMenu && (
+                                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-200">Carta sin gluten</span>
+                                    )}
+                                    {dietary?.vegetarianOptions && (
+                                        <span className="rounded-full border border-lime-400/25 bg-lime-500/10 px-3 py-1 text-xs font-bold text-lime-200">Vegetariano</span>
+                                    )}
+                                    {dietary?.veganOptions && (
+                                        <span className="rounded-full border border-lime-400/25 bg-lime-500/10 px-3 py-1 text-xs font-bold text-lime-200">Vegano</span>
+                                    )}
+                                    {dietary?.dairyFreeOptions && (
+                                        <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-200">Sin lacteos</span>
+                                    )}
+                                    {dietary?.nutFreeOptions && (
+                                        <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-200">Sin frutos secos</span>
+                                    )}
+                                    {dietary?.eggFreeOptions && (
+                                        <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-200">Sin huevo</span>
+                                    )}
+                                    {dietary?.allergenMenuAvailable && (
+                                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Carta de alergenos</span>
+                                    )}
+                                    {dietary?.staffCanAdviseAllergens && (
+                                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Personal informado</span>
+                                    )}
+                                </div>
+                                {dietary?.crossContaminationRisk && dietary.crossContaminationRisk !== 'unknown' && (
+                                    <p className="mt-3 rounded-xl border border-amber-400/20 bg-black/10 p-3 text-xs font-semibold text-amber-100">
+                                        Gluten: {CROSS_CONTAMINATION_LABELS[dietary.crossContaminationRisk] || dietary.crossContaminationRisk}
+                                        {dietary.crossContaminationNotes ? ` · ${dietary.crossContaminationNotes}` : ''}
+                                    </p>
+                                )}
+                                {dietary?.allergens?.length ? (
+                                    <div className="mt-3">
+                                        <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-100/80">Alergenos relevantes</p>
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                            {dietary.allergens.map((allergen) => (
+                                                <span key={allergen} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
+                                                    {allergen}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ) : null}
+                                {dietary?.notes && (
+                                    <p className="mt-3 text-xs leading-relaxed text-amber-100/85">{dietary.notes}</p>
+                                )}
+                            </div>
+                        )}
+
+                        {place.openingHours?.length ? (
+                            <div className="border-b border-white/5 pb-4">
+                                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                    <h4 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[var(--lt-text-muted)]">
+                                        <Clock className="w-4 h-4 text-[var(--lt-accent)]" />
+                                        Horario
+                                    </h4>
+                                    {place.businessOpenStatus && (
+                                        <span className={`rounded-full border px-3 py-1 text-xs font-black ${place.businessOpenStatus.isOpen
+                                            ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300'
+                                            : 'border-rose-400/30 bg-rose-500/10 text-rose-300'
+                                        }`}>
+                                            {place.businessOpenStatus.label}
+                                            {place.businessOpenStatus.detail ? ` · ${place.businessOpenStatus.detail}` : ''}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="overflow-hidden rounded-xl border border-white/10 bg-black/10">
+                                    {place.openingHours.map((line) => {
+                                        const parsed = splitHoursLine(line);
+                                        return (
+                                            <div key={line} className="flex items-center justify-between gap-4 border-b border-white/5 px-3 py-2 last:border-b-0">
+                                                <span className="text-xs font-bold text-[var(--lt-text-muted)]">{parsed.day || 'Dia'}</span>
+                                                <span className="text-sm font-semibold text-[var(--lt-text)]">{parsed.hours}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                {place.resolvedBusinessInfo?.hours?.notes && (
+                                    <p className="mt-2 text-xs text-[var(--lt-text-muted)]">{place.resolvedBusinessInfo.hours.notes}</p>
+                                )}
+                            </div>
+                        ) : null}
+
                         {/* Price & Features Grid */}
                         <div className="grid grid-cols-2 gap-4 pb-4 border-b border-white/5">
                             {place.priceLevel !== undefined && (
@@ -619,8 +817,27 @@ export const PlacePage: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Options Chips */}
-                        <div className="flex flex-wrap gap-2">
+                        <div className="space-y-2">
+                            <h4 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[var(--lt-text-muted)]">
+                                <Check className="w-4 h-4 text-[var(--lt-accent)]" />
+                                Servicios
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                            {place.resolvedBusinessInfo?.commercial?.priceRange && (
+                                <span className="px-3 py-1 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] rounded-full text-xs font-bold flex items-center gap-1">
+                                    <Star className="w-3 h-3" /> {PRICE_RANGE_LABELS[place.resolvedBusinessInfo.commercial.priceRange] || place.resolvedBusinessInfo.commercial.priceRange}
+                                </span>
+                            )}
+                            {place.resolvedBusinessInfo?.commercial?.cuisineTypes?.slice(0, 6).map((type) => (
+                                <span key={type} className="px-3 py-1 bg-white/5 text-[var(--lt-text)] border border-white/10 rounded-full text-xs font-bold flex items-center gap-1">
+                                    <Utensils className="w-3 h-3" /> {type}
+                                </span>
+                            ))}
+                            {place.resolvedBusinessInfo?.commercial?.services?.slice(0, 6).map((service) => (
+                                <span key={service} className="px-3 py-1 bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 rounded-full text-xs font-bold flex items-center gap-1">
+                                    <Check className="w-3 h-3" /> {service}
+                                </span>
+                            ))}
                             {place.options?.delivery && (
                                 <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-bold flex items-center gap-1">
                                     <Bike className="w-3 h-3" /> Delivery
@@ -661,10 +878,30 @@ export const PlacePage: React.FC = () => {
                                     <Wine className="w-3 h-3" /> Alcohol
                                 </span>
                             )}
+                            </div>
                         </div>
 
-                        {/* Contact Buttons */}
-                        <div className="flex flex-col gap-3 pt-2">
+                        {place.resolvedBusinessInfo?.commercial?.paymentMethods?.length ? (
+                            <div className="space-y-2 border-t border-white/5 pt-4">
+                                <h4 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[var(--lt-text-muted)]">
+                                    <CreditCard className="w-4 h-4 text-[var(--lt-accent)]" />
+                                    Metodos de pago
+                                </h4>
+                                <div className="flex flex-wrap gap-2">
+                                    {place.resolvedBusinessInfo.commercial.paymentMethods.map((method) => (
+                                        <span key={method} className="px-3 py-1 bg-white/5 text-[var(--lt-text)] border border-white/10 rounded-full text-xs font-bold flex items-center gap-1">
+                                            <CreditCard className="w-3 h-3" /> {method}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : null}
+
+                        <div className="flex flex-col gap-3 border-t border-white/5 pt-4">
+                            <h4 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[var(--lt-text-muted)]">
+                                <Globe className="w-4 h-4 text-[var(--lt-accent)]" />
+                                Contacto
+                            </h4>
                             {place.website && (
                                 <a
                                     href={place.website}
@@ -683,6 +920,26 @@ export const PlacePage: React.FC = () => {
                                 >
                                     <Smartphone className="w-4 h-4 group-hover:scale-110 transition-transform" />
                                     Llamar ({place.phone})
+                                </a>
+                            )}
+                            {place.email && (
+                                <a
+                                    href={`mailto:${place.email}`}
+                                    className="flex items-center justify-center gap-2 w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-bold text-sm transition-all border border-white/10 group"
+                                >
+                                    <Mail className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                    {place.email}
+                                </a>
+                            )}
+                            {place.instagram && (
+                                <a
+                                    href={instagramHref(place.instagram)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-center gap-2 w-full p-3 rounded-xl bg-pink-500/10 hover:bg-pink-500/15 text-pink-200 font-bold text-sm transition-all border border-pink-500/20 group"
+                                >
+                                    <Instagram className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                                    Instagram
                                 </a>
                             )}
                         </div>
@@ -1145,6 +1402,53 @@ export const PlacePage: React.FC = () => {
                     />
                 </div >
             </main >
+
+            {isReservationOpen && reservationEmbedUrl && (
+                <div
+                    className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-6"
+                    onClick={(event) => {
+                        if (event.target === event.currentTarget) setIsReservationOpen(false);
+                    }}
+                >
+                    <div className="flex h-[min(780px,92vh)] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[var(--lt-card-strong)] shadow-2xl">
+                        <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                            <div className="min-w-0">
+                                <h3 className="truncate text-base font-black text-[var(--lt-text)]">Reserva mesa</h3>
+                                <p className="text-xs text-[var(--lt-text-muted)]">{providerLabel(reservations?.provider)} · {place.name}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {reservationExternalUrl && (
+                                    <a
+                                        href={reservationExternalUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex min-h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-bold text-[var(--lt-text)]"
+                                    >
+                                        <ExternalLink className="mr-1.5 h-4 w-4" />
+                                        Abrir
+                                    </a>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={() => setIsReservationOpen(false)}
+                                    className="grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-white/5 text-[var(--lt-text)]"
+                                    aria-label="Cerrar reservas"
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+                        </div>
+                        <iframe
+                            src={reservationEmbedUrl}
+                            title={`Reservas en ${place.name}`}
+                            className="h-full w-full flex-1 bg-white"
+                            loading="lazy"
+                            referrerPolicy="strict-origin-when-cross-origin"
+                            sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-top-navigation-by-user-activation"
+                        />
+                    </div>
+                </div>
+            )}
 
             <SaveToArchiveModal
                 isOpen={isSaveModalOpen}

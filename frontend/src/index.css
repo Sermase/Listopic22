@@ -129,6 +129,12 @@
         }
     }
 
+    select option,
+    select optgroup {
+        background-color: var(--lt-card-strong);
+        color: var(--lt-text);
+    }
+
     h1,
     h2,
     h3,
