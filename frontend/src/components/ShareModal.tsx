@@ -374,7 +374,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         if (platform === 'chat') {
             if (!user) {
                 setStatusTone('error');
-                setStatusMessage('Inicia sesion para compartir en chats');
+                setStatusMessage('Inicia sesión para compartir en chats');
                 return;
             }
             setIsCardStylePickerOpen(false);

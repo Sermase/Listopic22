@@ -1730,7 +1730,7 @@ export const ProfilePage: React.FC = () => {
     } catch (err: any) {
       console.error("Error deleting account:", err);
       if (err?.code === "functions/unauthenticated") {
-        setDeleteError("Por seguridad, necesitas volver a iniciar sesion antes de eliminar tu cuenta.");
+        setDeleteError("Por seguridad, necesitas volver a iniciar sesión antes de eliminar tu cuenta.");
       } else if (err?.code === "auth/requires-recent-login") {
         setDeleteError("Por seguridad, necesitas volver a iniciar sesión antes de eliminar tu cuenta. Cierra sesión, vuelve a entrar y repite el proceso.");
       } else {
@@ -2440,7 +2440,7 @@ export const ProfilePage: React.FC = () => {
                           <p className="text-[11px] text-amber-300 mt-2">
                             {hasLockedUsername
                               ? "El username no se puede cambiar una vez guardado. Maximo 18 caracteres y sin espacios."
-                              : "Tu username actual no es valido. Debes guardarlo ahora y quedara bloqueado cuando sea correcto."}
+                              : "Tu username actual no es válido. Debes guardarlo ahora y quedará bloqueado cuando sea correcto."}
                           </p>
                         </div>
 
@@ -2643,7 +2643,7 @@ export const ProfilePage: React.FC = () => {
                         </div>
                         <p className="text-[10px] text-gray-500 mt-1">
                           Este rango se aplicara automaticamente cuando inicies
-                          nueva sesion.
+                          nueva sesión.
                         </p>
                       </div>
                     </div>

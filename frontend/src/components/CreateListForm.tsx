@@ -220,6 +220,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 categoryId, // "comida_hmm" etc
                 userId: user.uid,
                 isPublic,
+                visibility: isPublic ? 'public' : 'private',
                 publicAccess: isPublic ? publicAccess : 'reader', // Reset to reader if private just in case
                 parentListId: parentListId || null,
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
-import { ArrowLeft, Building2, Check, Loader2, Save } from 'lucide-react';
+import { ArrowLeft, Building2, Check, Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { db } from '../firebase';
 import {
     getBusinessInfoForManager,
@@ -12,6 +12,8 @@ import type {
     BusinessAccessibilityInfo,
     BusinessCommercialInfo,
     BusinessContactInfo,
+    BusinessDeliveriesInfo,
+    BusinessDeliveryLink,
     BusinessDietaryInfo,
     BusinessHoursInfo,
     BusinessIdentityInfo,
@@ -19,10 +21,11 @@ import type {
     BusinessInfoSection,
     BusinessReservationsInfo,
     BusinessWeeklyHours,
+    DeliveryProvider,
     ReservationDisplayMode,
     ReservationProvider,
 } from '../types/businessInfo';
-import { ALLERGEN_OPTIONS, BUSINESS_SERVICE_OPTIONS, CROSS_CONTAMINATION_LABELS, PAYMENT_METHOD_OPTIONS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
+import { ALLERGEN_OPTIONS, BUSINESS_SERVICE_OPTIONS, CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_OPTIONS, PAYMENT_METHOD_OPTIONS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
 
 type PlaceHeader = {
     name?: string;
@@ -33,7 +36,7 @@ type PlaceHeader = {
 
 type Message = { type: 'success' | 'error'; text: string } | null;
 
-const weekdays = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
+const weekdays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const emptySections: Record<BusinessInfoSection, BusinessInfoDocument> = {
     identity: { section: 'identity', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
     contact: { section: 'contact', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
@@ -42,6 +45,7 @@ const emptySections: Record<BusinessInfoSection, BusinessInfoDocument> = {
     dietary: { section: 'dietary', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
     hours: { section: 'hours', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
     reservations: { section: 'reservations', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
+    deliveries: { section: 'deliveries', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
 };
 
 const splitList = (value: string) => value.split(',').map((item) => item.trim()).filter(Boolean);
@@ -51,7 +55,7 @@ const getErrorMessage = (error: unknown) => {
     if (error && typeof error === 'object' && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
         return (error as { message: string }).message;
     }
-    return 'No se pudo guardar la informacion.';
+    return 'No se pudo guardar la información.';
 };
 
 const Field: React.FC<{
@@ -100,7 +104,7 @@ export const BusinessManagePage: React.FC = () => {
                 setSections(normalizeSections(info));
             } catch (error) {
                 console.error('BusinessManagePage: load failed', error);
-                if (!cancelled) setMessage({ type: 'error', text: 'No se pudo cargar la gestion del negocio.' });
+                if (!cancelled) setMessage({ type: 'error', text: 'No se pudo cargar la gestión del negocio.' });
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -159,7 +163,7 @@ export const BusinessManagePage: React.FC = () => {
                 ...prev,
                 [section]: { ...prev[section], version: result.version },
             }));
-            setMessage({ type: 'success', text: 'Informacion guardada.' });
+            setMessage({ type: 'success', text: 'Información guardada.' });
         } catch (error) {
             console.error('BusinessManagePage: save failed', error);
             setMessage({ type: 'error', text: getErrorMessage(error) });
@@ -173,9 +177,10 @@ export const BusinessManagePage: React.FC = () => {
         ['contact', 'Contacto'],
         ['commercial', 'Comercial'],
         ['accessibility', 'Accesibilidad'],
-        ['dietary', 'Alergenos'],
+        ['dietary', 'Alérgenos'],
         ['hours', 'Horarios'],
         ['reservations', 'Reservas'],
+        ['deliveries', 'Delivery'],
     ] as const), []);
 
     if (!placeId) return null;
@@ -207,7 +212,7 @@ export const BusinessManagePage: React.FC = () => {
                             <h1 className="mt-3 text-2xl font-black tracking-tight sm:text-4xl">{place?.name || 'Gestionar negocio'}</h1>
                             {place?.address && <p className="mt-2 text-sm text-[var(--lt-text-muted)]">{place.address}</p>}
                             <p className="mt-4 max-w-2xl text-sm text-[var(--lt-text-muted)]">
-                                Estos datos tienen prioridad sobre Google cuando esten activos. Los metadatos internos del plan no se muestran publicamente.
+                                Estos datos tienen prioridad sobre Google cuando estén activos. Los metadatos internos del plan no se muestran públicamente.
                             </p>
                         </div>
                     </div>
@@ -291,6 +296,12 @@ export const BusinessManagePage: React.FC = () => {
                                     onChange={(data) => updateData('reservations', data)}
                                 />
                             )}
+                            {activeSection === 'deliveries' && (
+                                <DeliveriesForm
+                                    doc={sections.deliveries as BusinessInfoDocument<'deliveries'>}
+                                    onChange={(data) => updateData('deliveries', data)}
+                                />
+                            )}
 
                             <div className="mt-6 flex justify-end border-t border-white/10 pt-5">
                                 <button
@@ -320,6 +331,7 @@ function normalizeSections(info: BusinessInfoSectionsResponse): Record<BusinessI
         dietary: { ...emptySections.dietary, ...(info.sections?.dietary || {}) },
         hours: { ...emptySections.hours, ...(info.sections?.hours || {}) },
         reservations: { ...emptySections.reservations, ...(info.sections?.reservations || {}) },
+        deliveries: { ...emptySections.deliveries, ...(info.sections?.deliveries || {}) },
     };
 }
 
@@ -328,14 +340,14 @@ const IdentityForm: React.FC<{
     onChange: (data: Partial<BusinessIdentityInfo>) => void;
 }> = ({ doc, onChange }) => (
     <div className="space-y-4">
-        <SectionTitle title="Identidad" text="Nombre visible, descripcion e idiomas que el negocio quiere destacar." />
+        <SectionTitle title="Identidad" text="Nombre visible, descripción e idiomas que el negocio quiere destacar." />
         <Field label="Nombre visible">
             <input className={inputClass} value={doc.data.displayName?.es || ''} onChange={(event) => onChange({ displayName: { ...doc.data.displayName, es: event.target.value } })} />
         </Field>
-        <Field label="Descripcion">
+        <Field label="Descripción">
             <textarea className={`${inputClass} min-h-32`} value={doc.data.description?.es || ''} onChange={(event) => onChange({ description: { ...doc.data.description, es: event.target.value } })} />
         </Field>
-        <Field label="Idiomas" hint="Separados por coma. Ejemplo: espanol, ingles, frances">
+        <Field label="Idiomas" hint="Separados por coma. Ejemplo: español, inglés, francés">
             <input className={inputClass} value={joinList(doc.data.languages)} onChange={(event) => onChange({ languages: splitList(event.target.value) })} />
         </Field>
     </div>
@@ -347,15 +359,15 @@ const ContactForm: React.FC<{
     onHiddenChange: (field: string, checked: boolean) => void;
 }> = ({ doc, onChange, onHiddenChange }) => (
     <div className="space-y-4">
-        <SectionTitle title="Contacto" text="Datos de contacto publicos. Puedes ocultar datos de Google aunque no pongas sustituto." />
-        <Field label="Telefono">
+        <SectionTitle title="Contacto" text="Datos de contacto públicos. Puedes ocultar datos de Google aunque no pongas sustituto." />
+        <Field label="Teléfono">
             <input className={inputClass} value={doc.data.phone || ''} onChange={(event) => onChange({ phone: event.target.value })} />
         </Field>
-        <HideGoogleField checked={doc.hiddenFields.includes('phone')} label="Ocultar telefono de Google si este campo esta vacio" onChange={(checked) => onHiddenChange('phone', checked)} />
+        <HideGoogleField checked={doc.hiddenFields.includes('phone')} label="Ocultar teléfono de Google si este campo está vacío" onChange={(checked) => onHiddenChange('phone', checked)} />
         <Field label="Web">
             <input className={inputClass} value={doc.data.website || ''} onChange={(event) => onChange({ website: event.target.value })} placeholder="https://..." />
         </Field>
-        <HideGoogleField checked={doc.hiddenFields.includes('website')} label="Ocultar web de Google si este campo esta vacio" onChange={(checked) => onHiddenChange('website', checked)} />
+        <HideGoogleField checked={doc.hiddenFields.includes('website')} label="Ocultar web de Google si este campo está vacío" onChange={(checked) => onHiddenChange('website', checked)} />
         <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Email">
                 <input className={inputClass} value={doc.data.email || ''} onChange={(event) => onChange({ email: event.target.value })} />
@@ -372,7 +384,7 @@ const CommercialForm: React.FC<{
     onChange: (data: Partial<BusinessCommercialInfo>) => void;
 }> = ({ doc, onChange }) => (
     <div className="space-y-4">
-        <SectionTitle title="Comercial" text="Categoria real del negocio, servicios y metodos de pago." />
+        <SectionTitle title="Comercial" text="Categoría real del negocio, servicios y métodos de pago." />
         <Field label="Rango de precio">
             <select className={inputClass} value={doc.data.priceRange || ''} onChange={(event) => onChange({ priceRange: event.target.value as BusinessCommercialInfo['priceRange'] })}>
                 <option value="">Sin definir</option>
@@ -381,10 +393,10 @@ const CommercialForm: React.FC<{
                 ))}
             </select>
         </Field>
-        <Field label="Tipos de cocina / categoria" hint="Separados por coma. Ejemplo: mexicana, brunch, cafeteria">
+        <Field label="Tipos de cocina / categoría" hint="Separados por coma. Ejemplo: mexicana, brunch, cafetería">
             <ListInput value={doc.data.cuisineTypes || []} onChange={(items) => onChange({ cuisineTypes: items })} placeholder="mexicana, brunch, cafeteria" />
         </Field>
-        <Field label="Metodos de pago" hint="Elige los habituales. Puedes anadir otros al final.">
+        <Field label="Métodos de pago" hint="Elige los habituales. Puedes añadir otros al final.">
             <OptionGrid
                 options={PAYMENT_METHOD_OPTIONS}
                 value={doc.data.paymentMethods || []}
@@ -453,15 +465,15 @@ const AccessibilityForm: React.FC<{
     onChange: (data: Partial<BusinessAccessibilityInfo>) => void;
 }> = ({ doc, onChange }) => (
     <div className="space-y-4">
-        <SectionTitle title="Accesibilidad" text="Informacion practica para decidir antes de ir." />
+        <SectionTitle title="Accesibilidad" text="Información práctica para decidir antes de ir." />
         <div className="grid gap-3 sm:grid-cols-2">
             {[
                 ['wheelchairAccess', 'Acceso para silla de ruedas'],
-                ['accessibleBathroom', 'Bano adaptado'],
-                ['stepFreeEntrance', 'Entrada sin escalon'],
-                ['babyChanging', 'Cambiador para bebes'],
+                ['accessibleBathroom', 'Baño adaptado'],
+                ['stepFreeEntrance', 'Entrada sin escalón'],
+                ['babyChanging', 'Cambiador para bebés'],
                 ['petFriendly', 'Acepta mascotas'],
-                ['hearingLoop', 'Bucle magnetico'],
+                ['hearingLoop', 'Bucle magnético'],
             ].map(([key, label]) => (
                 <label key={key} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-bold text-[var(--lt-text)]">
                     <input
@@ -484,7 +496,7 @@ const DietaryForm: React.FC<{
     onChange: (data: Partial<BusinessDietaryInfo>) => void;
 }> = ({ doc, onChange }) => (
     <div className="space-y-5">
-        <SectionTitle title="Alergenos y dietas" text="Informacion sensible para decidir con seguridad, especialmente para personas celiacas o con alergias." />
+        <SectionTitle title="Alérgenos y dietas" text="Información sensible para decidir con seguridad, especialmente para personas celíacas o con alergias." />
 
         <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
             <h3 className="text-sm font-black text-amber-100">Sin gluten</h3>
@@ -492,7 +504,7 @@ const DietaryForm: React.FC<{
                 {[
                     ['glutenFreeOptions', 'Tiene opciones sin gluten'],
                     ['manyGlutenFreeOptions', 'Tiene muchos platos sin gluten'],
-                    ['glutenFreeMenu', 'Tiene carta o seccion sin gluten'],
+                    ['glutenFreeMenu', 'Tiene carta o sección sin gluten'],
                 ].map(([key, label]) => (
                     <label key={key} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-bold text-[var(--lt-text)]">
                         <input
@@ -505,7 +517,7 @@ const DietaryForm: React.FC<{
                 ))}
             </div>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Field label="Contaminacion cruzada">
+                <Field label="Contaminación cruzada">
                     <select
                         className={inputClass}
                         value={doc.data.crossContaminationRisk || 'unknown'}
@@ -528,16 +540,16 @@ const DietaryForm: React.FC<{
         </div>
 
         <div>
-            <h3 className="mb-3 text-sm font-black text-[var(--lt-text)]">Opciones dieteticas</h3>
+            <h3 className="mb-3 text-sm font-black text-[var(--lt-text)]">Opciones dietéticas</h3>
             <div className="grid gap-3 sm:grid-cols-2">
                 {[
                     ['vegetarianOptions', 'Opciones vegetarianas'],
                     ['veganOptions', 'Opciones veganas'],
-                    ['dairyFreeOptions', 'Opciones sin lactosa/lacteos'],
+                    ['dairyFreeOptions', 'Opciones sin lactosa/lácteos'],
                     ['nutFreeOptions', 'Opciones sin frutos secos'],
                     ['eggFreeOptions', 'Opciones sin huevo'],
-                    ['allergenMenuAvailable', 'Carta de alergenos disponible'],
-                    ['staffCanAdviseAllergens', 'El personal informa sobre alergenos'],
+                    ['allergenMenuAvailable', 'Carta de alérgenos disponible'],
+                    ['staffCanAdviseAllergens', 'El personal informa sobre alérgenos'],
                 ].map(([key, label]) => (
                     <label key={key} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-bold text-[var(--lt-text)]">
                         <input
@@ -551,7 +563,7 @@ const DietaryForm: React.FC<{
             </div>
         </div>
 
-        <Field label="Alergenos relevantes" hint="Marca los alergenos que el negocio tiene identificados o trata de forma especifica.">
+        <Field label="Alérgenos relevantes" hint="Marca los alérgenos que el negocio tiene identificados o trata de forma específica.">
             <OptionGrid
                 options={ALLERGEN_OPTIONS}
                 value={doc.data.allergens || []}
@@ -582,7 +594,7 @@ const HoursForm: React.FC<{
 
     return (
         <div className="space-y-4">
-            <SectionTitle title="Horarios" text="Primera version: horario semanal regular. Los especiales y cierres temporales ya quedan en el modelo para mas adelante." />
+            <SectionTitle title="Horarios" text="Primera versión: horario semanal regular. Los especiales y cierres temporales ya quedan en el modelo para más adelante." />
             <div className="space-y-2">
                 {weekly.map((day) => {
                     const period = day.periods?.[0] || { open: '', close: '' };
@@ -643,12 +655,12 @@ const ReservationsForm: React.FC<{
                     onChange={(event) => onChange({ displayMode: event.target.value as ReservationDisplayMode })}
                 >
                     <option value="modal">Modal incrustado</option>
-                    <option value="external">Boton externo</option>
-                    <option value="both">Modal + boton externo</option>
+                    <option value="external">Botón externo</option>
+                    <option value="both">Modal + botón externo</option>
                 </select>
             </Field>
         </div>
-        <Field label="URL o iframe del widget" hint="Puedes pegar el enlace directo o el iframe que te da CoverManager. Listopic guardara solo la URL segura.">
+        <Field label="URL o iframe del widget" hint="Puedes pegar el enlace directo o el iframe que te da CoverManager. Listopic guardará solo la URL segura.">
             <textarea
                 className={`${inputClass} min-h-28`}
                 value={doc.data.embedUrl || ''}
@@ -656,7 +668,7 @@ const ReservationsForm: React.FC<{
                 placeholder="https://www.covermanager.com/reservation/module_restaurant/..."
             />
         </Field>
-        <Field label="URL externa de respaldo" hint="Se usa si el iframe no carga o si eliges boton externo. Si la dejas vacia se usara la URL del widget.">
+        <Field label="URL externa de respaldo" hint="Se usa si el iframe no carga o si eliges botón externo. Si la dejas vacía se usará la URL del widget.">
             <input
                 className={inputClass}
                 value={doc.data.externalUrl || ''}
@@ -664,7 +676,7 @@ const ReservationsForm: React.FC<{
                 placeholder="https://..."
             />
         </Field>
-        <Field label="Texto del boton">
+        <Field label="Texto del botón">
             <input
                 className={inputClass}
                 value={doc.data.buttonText || 'Reservar mesa'}
@@ -672,10 +684,113 @@ const ReservationsForm: React.FC<{
             />
         </Field>
         <p className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs text-amber-100">
-            Algunos proveedores pueden bloquear el iframe fuera de dominios autorizados. En ese caso, el usuario puede abrir la reserva con el boton externo.
+            Algunos proveedores pueden bloquear el iframe fuera de dominios autorizados. En ese caso, el usuario puede abrir la reserva con el botón externo.
         </p>
     </div>
 );
+
+const DeliveriesForm: React.FC<{
+    doc: BusinessInfoDocument<'deliveries'>;
+    onChange: (data: Partial<BusinessDeliveriesInfo>) => void;
+}> = ({ doc, onChange }) => {
+    const links = doc.data.links || [];
+
+    const updateLink = (index: number, patch: Partial<BusinessDeliveryLink>) => {
+        onChange({
+            links: links.map((link, currentIndex) => (
+                currentIndex === index ? { ...link, ...patch } : link
+            )),
+        });
+    };
+
+    const addLink = () => {
+        onChange({
+            enabled: true,
+            links: [...links, { provider: 'glovo', label: '', url: '' }],
+        });
+    };
+
+    const removeLink = (index: number) => {
+        const next = links.filter((_, currentIndex) => currentIndex !== index);
+        onChange({ links: next, enabled: next.length > 0 ? doc.data.enabled : false });
+    };
+
+    return (
+        <div className="space-y-4">
+            <SectionTitle title="Delivery" text="Enlaces oficiales para pedir comida a domicilio o recoger pedidos desde plataformas externas." />
+            <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-bold text-[var(--lt-text)]">
+                <input
+                    type="checkbox"
+                    checked={doc.data.enabled === true}
+                    onChange={(event) => onChange({ enabled: event.target.checked })}
+                />
+                Mostrar pedidos a domicilio en este lugar
+            </label>
+
+            <div className="space-y-3">
+                {links.map((link, index) => (
+                    <div key={`${link.provider || 'delivery'}-${index}`} className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                        <div className="grid gap-3 lg:grid-cols-[180px,1fr,1.4fr,44px]">
+                            <Field label="Proveedor">
+                                <select
+                                    className={inputClass}
+                                    value={link.provider || 'custom'}
+                                    onChange={(event) => updateLink(index, { provider: event.target.value as DeliveryProvider })}
+                                >
+                                    {DELIVERY_PROVIDER_OPTIONS.map((option) => (
+                                        <option key={option.value} value={option.value}>{option.label}</option>
+                                    ))}
+                                </select>
+                            </Field>
+                            <Field label="Texto visible">
+                                <input
+                                    className={inputClass}
+                                    value={link.label || ''}
+                                    onChange={(event) => updateLink(index, { label: event.target.value })}
+                                    placeholder="Pedir en Glovo"
+                                />
+                            </Field>
+                            <Field label="URL">
+                                <input
+                                    className={inputClass}
+                                    value={link.url || ''}
+                                    onChange={(event) => updateLink(index, { url: event.target.value })}
+                                    placeholder="https://..."
+                                />
+                            </Field>
+                            <button
+                                type="button"
+                                onClick={() => removeLink(index)}
+                                className="mt-5 inline-flex h-11 w-11 items-center justify-center rounded-xl border border-red-400/20 bg-red-500/10 text-red-200 hover:bg-red-500/20"
+                                aria-label="Eliminar enlace"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <button
+                type="button"
+                onClick={addLink}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black text-[var(--lt-text)] hover:bg-white/10"
+            >
+                <Plus className="h-4 w-4" />
+                Añadir enlace de delivery
+            </button>
+
+            <Field label="Notas">
+                <textarea
+                    className={`${inputClass} min-h-24`}
+                    value={doc.data.notes || ''}
+                    onChange={(event) => onChange({ notes: event.target.value })}
+                    placeholder="Ejemplo: también hacen reparto propio por teléfono los fines de semana."
+                />
+            </Field>
+        </div>
+    );
+};
 
 const SectionTitle: React.FC<{ title: string; text: string }> = ({ title, text }) => (
     <div>

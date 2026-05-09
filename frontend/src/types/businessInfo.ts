@@ -10,7 +10,8 @@ export type BusinessInfoSection =
     | 'accessibility'
     | 'dietary'
     | 'hours'
-    | 'reservations';
+    | 'reservations'
+    | 'deliveries';
 
 export interface BusinessIdentityInfo {
     displayName?: LocalizedText;
@@ -116,6 +117,28 @@ export interface BusinessReservationsInfo {
     buttonText?: string;
 }
 
+export type DeliveryProvider =
+    | 'glovo'
+    | 'justeat'
+    | 'ubereats'
+    | 'deliveroo'
+    | 'deliverect'
+    | 'own'
+    | 'whatsapp'
+    | 'custom';
+
+export interface BusinessDeliveryLink {
+    provider?: DeliveryProvider;
+    label?: string;
+    url?: string;
+}
+
+export interface BusinessDeliveriesInfo {
+    enabled?: boolean;
+    links?: BusinessDeliveryLink[];
+    notes?: string;
+}
+
 export type BusinessSectionData = {
     identity: BusinessIdentityInfo;
     contact: BusinessContactInfo;
@@ -124,6 +147,7 @@ export type BusinessSectionData = {
     dietary: BusinessDietaryInfo;
     hours: BusinessHoursInfo;
     reservations: BusinessReservationsInfo;
+    deliveries: BusinessDeliveriesInfo;
 };
 
 export type BusinessSectionPayload = BusinessSectionData[BusinessInfoSection];
@@ -150,6 +174,7 @@ export interface ResolvedBusinessInfo {
     dietary?: BusinessDietaryInfo;
     hours?: BusinessHoursInfo;
     reservations?: BusinessReservationsInfo;
+    deliveries?: BusinessDeliveriesInfo;
     hiddenFields?: Partial<Record<BusinessInfoSection, string[]>>;
     updatedAt?: unknown;
 }

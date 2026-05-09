@@ -33,9 +33,20 @@ const canRegisterServiceWorker = 'serviceWorker' in navigator
     || window.location.hostname === 'localhost'
     || window.location.hostname === '127.0.0.1'
   );
+const isLocalDevelopmentHost = window.location.hostname === 'localhost'
+  || window.location.hostname === '127.0.0.1';
 
 if (canRegisterServiceWorker) {
   window.addEventListener('load', () => {
+    if (isLocalDevelopmentHost) {
+      navigator.serviceWorker.getRegistrations()
+        .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+        .catch((error) => {
+          console.error('Service worker unregister failed:', error);
+        });
+      return;
+    }
+
     navigator.serviceWorker
       .register('/sw.js')
       .then((registration) => registration.update())

@@ -968,7 +968,7 @@ export const HomePage: React.FC = () => {
             if (range === null) {
                 return {
                     ...list,
-                    reviewsInRangeCount: list.reviewCount || 0
+                    reviewsInRangeCount: list.reviewCount || list.reviewsCount || 0
                 };
             }
 
@@ -976,10 +976,73 @@ export const HomePage: React.FC = () => {
             const count = reviewsInRange.filter(r => r.listId === list.id).length;
             return {
                 ...list,
-                reviewsInRangeCount: count
+                reviewsInRangeCount: count || list.reviewCount || list.reviewsCount || 0
             };
         });
     }, [filteredLists, reviewsInRange, range]);
+
+    const listCarouselItems = useMemo(() => {
+        const byId = new Map<string, any>();
+
+        listsWithRangeStats.forEach((list: any) => {
+            if (!list?.id) return;
+            byId.set(list.id, {
+                ...list,
+                reviewsInRangeCount: toSafeNumber(list.reviewsInRangeCount ?? list.reviewCount ?? list.reviewsCount),
+            });
+        });
+
+        reviewsInRange.forEach((review: any) => {
+            const listId = review.listId;
+            if (!listId) return;
+
+            const existing = byId.get(listId);
+            if (existing) {
+                existing.reviewsInRangeCount = Math.max(
+                    toSafeNumber(existing.reviewsInRangeCount ?? existing.reviewCount ?? existing.reviewsCount),
+                    1,
+                );
+                if (!existing.thumbnailUrl && !existing.mainImageUrl && !existing.photoUrl && !existing.coverUrl && !existing.imageUrl) {
+                    existing.photoUrl = review.placeMainImage || review.photoUrl || review.photoUrls?.[0];
+                }
+                byId.set(listId, existing);
+                return;
+            }
+
+            byId.set(listId, {
+                id: listId,
+                name: review.listName || review.category || 'Lista',
+                description: '',
+                userId: review.userId || review.authorId || '',
+                authorName: review.authorName,
+                photoUrl: review.placeMainImage || review.photoUrl || review.photoUrls?.[0] || '',
+                thumbnailUrl: review.placeMainImage || review.photoUrl || review.photoUrls?.[0] || '',
+                isPublic: true,
+                visibility: 'public',
+                itemCount: 0,
+                groupedItemsCount: 0,
+                followersCount: 0,
+                commentsCount: 0,
+                reviewCount: 1,
+                reviewsCount: 1,
+                reviewsInRangeCount: 1,
+                averageRating: review.overallRating || 0,
+                availableTags: [],
+                criteriaAverages: {},
+                reactions: {},
+                categoryId: review.categoryId || review.listCategoryId,
+                category: review.category || review.listCategoryName,
+            });
+        });
+
+        return Array.from(byId.values())
+            .filter((list: any) => Boolean(list.id && list.name))
+            .sort((a: any, b: any) =>
+                toSafeNumber(b.reviewsInRangeCount ?? b.reviewCount ?? b.reviewsCount) -
+                toSafeNumber(a.reviewsInRangeCount ?? a.reviewCount ?? a.reviewsCount)
+            )
+            .slice(0, 10);
+    }, [listsWithRangeStats, reviewsInRange]);
 
     const surpriseCandidates = useMemo(() => {
         type SurpriseCandidate = {
@@ -1241,12 +1304,12 @@ export const HomePage: React.FC = () => {
                         {activeTab === 'explore' && (<>
                             {/* 1. Listas */}
                             <CardCarousel
-                                title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas Recientes"}
+                                title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas recientes"}
                                 viewAllLink={buildCarouselSearchLink('lists', activeTab === 'explore' ? 'most_reviewed' : 'latest')}
                                 items={activeTab === 'explore'
-                                    ? listsWithRangeStats.sort((a, b) => (b.reviewsInRangeCount ?? b.reviewCount ?? 0) - (a.reviewsInRangeCount ?? a.reviewCount ?? 0)).slice(0, 10)
+                                    ? listCarouselItems
                                     : filteredLists}
-                                loading={loadingLists}
+                                loading={(loadingLists || loadingReviews) && (activeTab === 'explore' ? listCarouselItems.length === 0 : filteredLists.length === 0)}
                                 icon={<ListIcon className="w-5 h-5 text-blue-400" />}
                                 accentClass="bg-blue-500/20"
                                 renderItem={(list: any, index: number) => (
@@ -1274,7 +1337,7 @@ export const HomePage: React.FC = () => {
                                             <div className="flex items-center gap-4 opacity-90 text-xs text-gray-300 font-medium">
                                                 <div className="flex items-center gap-1.5" title="Reseñas dentro de tu rango de distancia">
                                                     <MessageCircle className="w-3.5 h-3.5 text-[var(--lt-accent)]" />
-                                                    <span>{list.reviewsInRangeCount !== undefined ? list.reviewsInRangeCount : (list.reviewCount || 0)}</span>
+                                                    <span>{list.reviewsInRangeCount !== undefined ? list.reviewsInRangeCount : (list.reviewCount || list.reviewsCount || 0)}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5" title="Seguidores de la lista">
                                                     <Users className="w-3.5 h-3.5 text-rose-400" />

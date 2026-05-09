@@ -193,6 +193,9 @@ function buildMessage(type, senderName, count, payload) {
             return `Has subido al nivel ${payload.level || ""}`;
         case "badge_earned":
             return `Has desbloqueado la medalla "${payload.badgeName || ""}"`;
+        case "business_claim_reviewed":
+        case "business_assigned":
+            return payload.message || "Actualización de negocio";
         default:
             return payload.message || "Nueva notificación";
     }

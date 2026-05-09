@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    arrayRemove,
-    arrayUnion,
     collection,
     doc,
     documentId,
@@ -9,12 +7,11 @@ import {
     getDocs,
     limit,
     query,
-    serverTimestamp,
-    updateDoc,
     where,
 } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { Building2, Crown, ExternalLink, Loader2, RefreshCw, Search, ShieldCheck, UserMinus, UserPlus, X } from 'lucide-react';
-import { db } from '../../firebase';
+import { db, functions } from '../../firebase';
 
 interface BusinessPlace {
     id: string;
@@ -57,6 +54,8 @@ const userSubtitle = (user?: ManagedUser): string => {
         .filter(Boolean)
         .join(' / ');
 };
+
+const updateBusinessTeamMember = httpsCallable(functions, 'updateBusinessTeamMember');
 
 export const BusinessManagersTab: React.FC = () => {
     const [places, setPlaces] = useState<BusinessPlace[]>([]);
@@ -197,7 +196,7 @@ export const BusinessManagersTab: React.FC = () => {
             }
 
             if (candidates.length === 0) {
-                setMessage({ type: 'error', text: 'No se encontro ningun usuario con ese uid, username o email.' });
+                setMessage({ type: 'error', text: 'No se encontró ningún usuario con ese uid, username o email.' });
                 return;
             }
 
@@ -222,14 +221,12 @@ export const BusinessManagersTab: React.FC = () => {
         setUpdatingPlaceId(place.id);
         setMessage(null);
         try {
-            const patch: Record<string, unknown> = {
-                businessVerified: true,
-                businessManagerIds: arrayUnion(selectedUser.id),
-                updatedAt: serverTimestamp(),
-            };
-            if (makeOwner) patch.businessOwnerUserId = selectedUser.id;
-
-            await updateDoc(doc(db, 'places', place.id), patch);
+            await updateBusinessTeamMember({
+                placeId: place.id,
+                action: 'add',
+                userSearch: selectedUser.id,
+                makeOwner,
+            });
             patchPlaceLocally(place.id, {
                 businessVerified: true,
                 businessOwnerUserId: makeOwner ? selectedUser.id : place.businessOwnerUserId,
@@ -245,17 +242,17 @@ export const BusinessManagersTab: React.FC = () => {
     };
 
     const removeManager = async (place: BusinessPlace, userId: string) => {
-        if (!window.confirm('Quitar este usuario de la gestion del negocio?')) return;
+        if (!window.confirm('¿Quitar este usuario de la gestión del negocio?')) return;
 
         setUpdatingPlaceId(place.id);
         setMessage(null);
         try {
             const nextManagers = (place.businessManagerIds || []).filter((id) => id !== userId);
             const wasOwner = place.businessOwnerUserId === userId;
-            await updateDoc(doc(db, 'places', place.id), {
-                businessManagerIds: arrayRemove(userId),
-                businessOwnerUserId: wasOwner ? '' : place.businessOwnerUserId || '',
-                updatedAt: serverTimestamp(),
+            await updateBusinessTeamMember({
+                placeId: place.id,
+                action: 'remove',
+                targetUserId: userId,
             });
             patchPlaceLocally(place.id, {
                 businessManagerIds: nextManagers,
@@ -274,11 +271,11 @@ export const BusinessManagersTab: React.FC = () => {
         setUpdatingPlaceId(place.id);
         setMessage(null);
         try {
-            await updateDoc(doc(db, 'places', place.id), {
-                businessOwnerUserId: userId,
-                businessManagerIds: arrayUnion(userId),
-                businessVerified: true,
-                updatedAt: serverTimestamp(),
+            await updateBusinessTeamMember({
+                placeId: place.id,
+                action: 'add',
+                userSearch: userId,
+                makeOwner: true,
             });
             patchPlaceLocally(place.id, {
                 businessOwnerUserId: userId,
@@ -326,7 +323,7 @@ export const BusinessManagersTab: React.FC = () => {
                                 value={placeSearch}
                                 onChange={(event) => setPlaceSearch(event.target.value)}
                                 className="w-full rounded-xl border border-white/10 bg-black/20 py-3 pl-10 pr-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
-                                placeholder="Nombre, placeId, direccion, gestor..."
+                                placeholder="Nombre, placeId, dirección, gestor..."
                             />
                         </div>
                     </label>
@@ -427,7 +424,7 @@ export const BusinessManagersTab: React.FC = () => {
                                                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-200 hover:bg-emerald-500/15 disabled:opacity-50"
                                             >
                                                 <UserPlus className="h-3.5 w-3.5" />
-                                                Anadir gestor
+                                                Añadir gestor
                                             </button>
                                             <button
                                                 type="button"
@@ -436,7 +433,7 @@ export const BusinessManagersTab: React.FC = () => {
                                                 className="inline-flex items-center gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/15 disabled:opacity-50"
                                             >
                                                 <Crown className="h-3.5 w-3.5" />
-                                                Anadir como propietario
+                                                Añadir como propietario
                                             </button>
                                         </div>
 
@@ -475,15 +472,17 @@ export const BusinessManagersTab: React.FC = () => {
                                                                         Hacer propietario
                                                                     </button>
                                                                 )}
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => removeManager(place, managerId)}
-                                                                    disabled={updatingPlaceId === place.id}
-                                                                    className="inline-flex items-center gap-1 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-200 disabled:opacity-50"
-                                                                >
-                                                                    <UserMinus className="h-3.5 w-3.5" />
-                                                                    Quitar
-                                                                </button>
+                                                                {!isOwner && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => removeManager(place, managerId)}
+                                                                        disabled={updatingPlaceId === place.id}
+                                                                        className="inline-flex items-center gap-1 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-200 disabled:opacity-50"
+                                                                    >
+                                                                        <UserMinus className="h-3.5 w-3.5" />
+                                                                        Quitar
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </div>
                                                     );

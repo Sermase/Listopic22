@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { X, Bell, Heart, UserPlus, MessageSquare, Star, Award } from 'lucide-react';
-import { collection, query, orderBy, limit, onSnapshot, doc, updateDoc, writeBatch, deleteDoc } from 'firebase/firestore';
+import { X, Bell, Heart, UserPlus, MessageSquare, Star, Award, Building2 } from 'lucide-react';
+import { collection, query, orderBy, limit, onSnapshot, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -49,16 +49,41 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         const unread = notifications.filter(n => !n.read);
         if (unread.length === 0) return;
 
-        const batch = writeBatch(db);
-        unread.forEach(n => {
-            const ref = doc(db, 'users', user.uid, 'notifications', n.id);
-            if (n.deletedOnRead) {
-                batch.delete(ref);
-            } else {
-                batch.update(ref, { read: true });
-            }
-        });
-        await batch.commit();
+        try {
+            const batch = writeBatch(db);
+            unread.forEach(n => {
+                const ref = doc(db, 'users', user.uid, 'notifications', n.id);
+                if (n.deletedOnRead) {
+                    batch.delete(ref);
+                } else {
+                    batch.update(ref, { read: true });
+                }
+            });
+            await batch.commit();
+        } catch (error) {
+            console.error('NotificationModal mark all read error:', error);
+        }
+    };
+
+    const markNotificationRead = async (notification: any) => {
+        if (!user || notification.read) return;
+        const ids: string[] = Array.isArray(notification.groupIds) ? notification.groupIds : [notification.id];
+
+        try {
+            const batch = writeBatch(db);
+            ids.forEach((id) => {
+                const original = notifications.find((item) => item.id === id) || notification;
+                const ref = doc(db, 'users', user.uid, 'notifications', id);
+                if (original.deletedOnRead) {
+                    batch.delete(ref);
+                } else {
+                    batch.update(ref, { read: true });
+                }
+            });
+            await batch.commit();
+        } catch (error) {
+            console.error('NotificationModal mark read error:', error);
+        }
     };
 
     const getIcon = (type: string) => {
@@ -77,6 +102,9 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 return <Bell className="w-4 h-4 text-cyan-500" />;
             case 'badge_earned':
                 return <Award className="w-4 h-4 text-amber-400" />;
+            case 'business_claim_reviewed':
+            case 'business_assigned':
+                return <Building2 className="w-4 h-4 text-emerald-400" />;
             case 'level_up':
             case 'system': return <Star className="w-4 h-4 text-amber-500" />;
             default: return <Bell className="w-4 h-4 text-gray-500" />;
@@ -121,6 +149,8 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 base.senderName = senderText;
                 base.groupCount = group.length;
                 base.isGrouped = true;
+                base.groupIds = group.map(n => n.id);
+                base.read = group.every(n => n.read);
                 return base;
             })
             .sort((a, b) => {
@@ -144,13 +174,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                     key={notification.id}
                     to={getLink(notification)}
                     onClick={() => {
-                        if (!notification.read && user) {
-                            if (notification.deletedOnRead) {
-                                deleteDoc(doc(db, 'users', user.uid, 'notifications', notification.id));
-                            } else {
-                                updateDoc(doc(db, 'users', user.uid, 'notifications', notification.id), { read: true });
-                            }
-                        }
+                        void markNotificationRead(notification);
                         onClose();
                     }}
                     className={`block rounded-xl border p-3 transition-all ${!notification.read
@@ -224,13 +248,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                                 key={notification.id}
                                 to={getLink(notification)}
                                 onClick={() => {
-                                    if (!notification.read && user) {
-                                        if (notification.deletedOnRead) {
-                                            deleteDoc(doc(db, 'users', user.uid, 'notifications', notification.id));
-                                        } else {
-                                            updateDoc(doc(db, 'users', user.uid, 'notifications', notification.id), { read: true });
-                                        }
-                                    }
+                                    void markNotificationRead(notification);
                                     onClose();
                                 }}
                                 className={`block p-4 hover:bg-white/5 transition-colors ${!notification.read ? 'bg-[var(--lt-accent-soft)]' : ''}`}
@@ -292,7 +310,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                                 onClick={handleMarkAllRead}
                                 className="text-[10px] uppercase font-bold text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors"
                             >
-                                Marcar leÃ­das
+                                Marcar leídas
                             </button>
                             <button onClick={onClose} className="p-1 rounded-full hover:bg-white/10 transition-colors">
                                 <X className="w-5 h-5 text-gray-400" />

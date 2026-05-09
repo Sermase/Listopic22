@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { X, Bell, Heart, UserPlus, MessageSquare, Star, Trash2, Award } from 'lucide-react';
-import { collection, query, orderBy, getDocs, doc, deleteDoc } from 'firebase/firestore';
+import { X, Bell, Heart, UserPlus, MessageSquare, Star, Trash2, Award, Building2 } from 'lucide-react';
+import { collection, query, orderBy, getDocs, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -50,6 +50,16 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
         }
     };
 
+    const markRead = async (id: string) => {
+        if (!user) return;
+        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+        try {
+            await updateDoc(doc(db, 'users', user.uid, 'notifications', id), { read: true });
+        } catch (error) {
+            console.error("Error marking notification as read:", error);
+        }
+    };
+
     const getIcon = (type: string) => {
         switch (type) {
             case 'like':
@@ -66,6 +76,9 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
                 return <Bell className="w-4 h-4 text-cyan-500" />;
             case 'badge_earned':
                 return <Award className="w-4 h-4 text-amber-400" />;
+            case 'business_claim_reviewed':
+            case 'business_assigned':
+                return <Building2 className="w-4 h-4 text-emerald-400" />;
             case 'level_up':
             case 'system': return <Star className="w-4 h-4 text-amber-500" />;
             default: return <Bell className="w-4 h-4 text-gray-500" />;
@@ -92,7 +105,7 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
                 <div className="p-4 border-b border-white/10 flex items-center justify-between bg-[var(--lt-card-strong)]">
                     <h2 className="text-xl font-bold text-white flex items-center gap-2">
                         <Bell className="w-5 h-5 text-[var(--lt-accent)]" />
-                        Histórico de Notificaciones
+                        Histórico de notificaciones
                     </h2>
                     <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                         <X className="w-5 h-5 text-gray-400" />
@@ -113,7 +126,10 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
                                 <div key={notification.id} className="group relative flex items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors border border-white/5">
                                     <Link
                                         to={getLink(notification)}
-                                        onClick={onClose}
+                                        onClick={() => {
+                                            void markRead(notification.id);
+                                            onClose();
+                                        }}
                                         className="flex-1 flex items-start gap-4"
                                     >
                                         <div className="shrink-0 w-10 h-10 rounded-full bg-black/30 border border-white/10 flex items-center justify-center mt-1">

@@ -126,7 +126,7 @@ export const BusinessClaimModal: React.FC<BusinessClaimModalProps> = ({
 
                 <form onSubmit={handleSubmit} className="p-5 space-y-4">
                     <p className="text-sm text-gray-300">
-                        Envia una explicación y pruebas de que gestionas este lugar. Revisaremos la solicitud desde Developer y te aparecerá aquí el estado.
+                        Envía una explicación y pruebas de que gestionas este lugar. Revisaremos la solicitud desde Developer y te aparecerá aquí el estado.
                     </p>
 
                     <div className="rounded-xl border border-white/10 bg-black/15 p-4">
