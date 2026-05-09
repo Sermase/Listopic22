@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { getNotificationLink } from '../utils/notificationLinks';
 
 interface NotificationHistoryModalProps {
     onClose: () => void;
@@ -50,11 +51,20 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
         }
     };
 
-    const markRead = async (id: string) => {
+    const markRead = async (notification: any) => {
         if (!user) return;
-        setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+        if (notification.deletedOnRead) {
+            setNotifications(prev => prev.filter(n => n.id !== notification.id));
+        } else {
+            setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true } : n));
+        }
         try {
-            await updateDoc(doc(db, 'users', user.uid, 'notifications', id), { read: true });
+            const ref = doc(db, 'users', user.uid, 'notifications', notification.id);
+            if (notification.deletedOnRead) {
+                await deleteDoc(ref);
+            } else if (!notification.read) {
+                await updateDoc(ref, { read: true });
+            }
         } catch (error) {
             console.error("Error marking notification as read:", error);
         }
@@ -85,20 +95,6 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
         }
     };
 
-    const getLink = (notification: any) => {
-        if (notification.link) return notification.link;
-        if ((notification.type === 'follow' || notification.type === 'new_follower') && (notification.fromUserId || notification.senderId)) {
-            return `/profile/${notification.fromUserId || notification.senderId}`;
-        }
-        if ((notification.type === 'like' || notification.type === 'review_like') && notification.placeId) {
-            return `/place/${notification.placeId}`;
-        }
-        if (notification.type === 'level_up' || notification.type === 'badge_earned') {
-            return user ? `/profile/${user.uid}` : '#';
-        }
-        return '#';
-    }
-
     return (
         <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div className="bg-[var(--lt-bg)] w-full h-full md:h-auto md:max-h-[90vh] md:max-w-2xl md:rounded-2xl shadow-2xl flex flex-col overflow-hidden border-none md:border border-white/10" onClick={e => e.stopPropagation()}>
@@ -125,9 +121,9 @@ export const NotificationHistoryModal: React.FC<NotificationHistoryModalProps> =
                             {notifications.map(notification => (
                                 <div key={notification.id} className="group relative flex items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors border border-white/5">
                                     <Link
-                                        to={getLink(notification)}
+                                        to={getNotificationLink(notification, user?.uid)}
                                         onClick={() => {
-                                            void markRead(notification.id);
+                                            void markRead(notification);
                                             onClose();
                                         }}
                                         className="flex-1 flex items-start gap-4"

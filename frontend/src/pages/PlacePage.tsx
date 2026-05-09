@@ -114,6 +114,7 @@ export const PlacePage: React.FC = () => {
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
     const fromListId = searchParams.get('listId');
+    const focusedReviewId = searchParams.get('reviewId');
 
     const [heroReady, setHeroReady] = useState(false);
     const [syncing, setSyncing] = useState(false);
@@ -166,6 +167,21 @@ export const PlacePage: React.FC = () => {
                 ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     }, [expandedReviewId]);
+
+    useEffect(() => {
+        if (!focusedReviewId) return;
+        setActiveTab('reviews');
+        setReviewViewMode('gallery');
+        setExpandedReviewId(focusedReviewId);
+    }, [focusedReviewId]);
+
+    useEffect(() => {
+        if (!focusedReviewId || !place?.reviews?.length) return;
+        const reviewIndex = place.reviews.findIndex((review) => review.id === focusedReviewId);
+        if (reviewIndex >= 0) {
+            setVisibleCount(prev => Math.max(prev, reviewIndex + 1));
+        }
+    }, [focusedReviewId, place?.reviews]);
 
     useEffect(() => {
         if (!user || !placeId) {

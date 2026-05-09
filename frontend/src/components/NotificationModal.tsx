@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { X, Bell, Heart, UserPlus, MessageSquare, Star, Award, Building2 } from 'lucide-react';
-import { collection, query, orderBy, limit, onSnapshot, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, limit, onSnapshot, doc, writeBatch, getDocs, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { getNotificationLink } from '../utils/notificationLinks';
 
 interface NotificationModalProps {
     onClose: () => void;
@@ -46,10 +47,20 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
     const handleMarkAllRead = async () => {
         if (!user) return;
-        const unread = notifications.filter(n => !n.read);
-        if (unread.length === 0) return;
 
         try {
+            const unreadQuery = query(
+                collection(db, 'users', user.uid, 'notifications'),
+                where('read', '==', false),
+                limit(450),
+            );
+            const unreadSnap = await getDocs(unreadQuery);
+            const unread = unreadSnap.docs
+                .map(d => ({ id: d.id, ...d.data() } as any))
+                .filter(n => n.type !== 'new_message');
+
+            if (unread.length === 0) return;
+
             const batch = writeBatch(db);
             unread.forEach(n => {
                 const ref = doc(db, 'users', user.uid, 'notifications', n.id);
@@ -60,6 +71,9 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 }
             });
             await batch.commit();
+            setNotifications(prev => prev
+                .filter(n => !unread.some(item => item.id === n.id && item.deletedOnRead))
+                .map(n => unread.some(item => item.id === n.id) ? { ...n, read: true } : n));
         } catch (error) {
             console.error('NotificationModal mark all read error:', error);
         }
@@ -73,6 +87,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
             const batch = writeBatch(db);
             ids.forEach((id) => {
                 const original = notifications.find((item) => item.id === id) || notification;
+                if (original.read) return;
                 const ref = doc(db, 'users', user.uid, 'notifications', id);
                 if (original.deletedOnRead) {
                     batch.delete(ref);
@@ -81,6 +96,9 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 }
             });
             await batch.commit();
+            setNotifications(prev => prev
+                .filter(n => !(ids.includes(n.id) && n.deletedOnRead))
+                .map(n => ids.includes(n.id) ? { ...n, read: true } : n));
         } catch (error) {
             console.error('NotificationModal mark read error:', error);
         }
@@ -110,20 +128,6 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
             default: return <Bell className="w-4 h-4 text-gray-500" />;
         }
     };
-
-    const getLink = (notification: any) => {
-        if (notification.link) return notification.link;
-        if ((notification.type === 'follow' || notification.type === 'new_follower') && (notification.fromUserId || notification.senderId)) {
-            return `/profile/${notification.fromUserId || notification.senderId}`;
-        }
-        if ((notification.type === 'like' || notification.type === 'review_like') && notification.placeId) {
-            return `/place/${notification.placeId}`;
-        }
-        if (notification.type === 'level_up' || notification.type === 'badge_earned') {
-            return user ? `/profile/${user.uid}` : '#';
-        }
-        return '#';
-    }
 
     const groupedNotifications = useMemo(() => {
         const groups: Record<string, any[]> = {};
@@ -172,7 +176,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
             {groupedNotifications.map(notification => (
                 <Link
                     key={notification.id}
-                    to={getLink(notification)}
+                    to={getNotificationLink(notification, user?.uid)}
                     onClick={() => {
                         void markNotificationRead(notification);
                         onClose();
@@ -246,7 +250,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                         {groupedNotifications.map(notification => (
                             <Link
                                 key={notification.id}
-                                to={getLink(notification)}
+                                to={getNotificationLink(notification, user?.uid)}
                                 onClick={() => {
                                     void markNotificationRead(notification);
                                     onClose();

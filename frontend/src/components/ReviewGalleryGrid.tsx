@@ -49,12 +49,12 @@ const ExpandedReview: React.FC<{
 
     React.useEffect(() => {
         requestAnimationFrame(() => {
-            ref.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
     }, []);
 
     return (
-        <div ref={ref} className="col-span-3 md:col-span-4 lg:col-span-5 mb-4 scroll-mt-24 animate-[fade-in_0.2s_ease-out] flex flex-col">
+        <div id={`profile-review-${review.id}`} ref={ref} className="col-span-3 md:col-span-4 lg:col-span-5 mb-4 scroll-mt-24 animate-[fade-in_0.2s_ease-out] flex flex-col">
             <div className="flex justify-center mb-3">
                 <button
                     onClick={(e) => { e.stopPropagation(); onClose(); }}

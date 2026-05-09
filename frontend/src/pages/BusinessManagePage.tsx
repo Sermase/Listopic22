@@ -1,7 +1,28 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
-import { ArrowLeft, Building2, Check, Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import {
+    Accessibility,
+    ArrowLeft,
+    Baby,
+    Banknote,
+    Building2,
+    Check,
+    Coffee,
+    CreditCard,
+    GlassWater,
+    Loader2,
+    Music,
+    Plus,
+    Save,
+    ShoppingBag,
+    Smartphone,
+    Trash2,
+    Utensils,
+    Wallet,
+    Wifi,
+    Wine,
+} from 'lucide-react';
 import { db } from '../firebase';
 import {
     getBusinessInfoForManager,
@@ -25,7 +46,7 @@ import type {
     ReservationDisplayMode,
     ReservationProvider,
 } from '../types/businessInfo';
-import { ALLERGEN_OPTIONS, BUSINESS_SERVICE_OPTIONS, CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_OPTIONS, PAYMENT_METHOD_OPTIONS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
+import { ALLERGEN_OPTIONS, CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_OPTIONS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
 
 type PlaceHeader = {
     name?: string;
@@ -71,6 +92,107 @@ const Field: React.FC<{
 );
 
 const inputClass = 'w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-[var(--lt-text)] outline-none transition-colors placeholder:text-[var(--lt-text-muted)] focus:border-[var(--lt-accent-border)]';
+
+type OptionGroup = {
+    title: string;
+    text?: string;
+    icon: React.ElementType;
+    options: string[];
+};
+
+const COMMON_CUISINE_TYPES = [
+    'Española',
+    'Mediterránea',
+    'Tapas',
+    'Bar',
+    'Cafetería',
+    'Brunch',
+    'Italiana',
+    'Pizza',
+    'Hamburguesas',
+    'Mexicana',
+    'Japonesa',
+    'Sushi',
+    'China',
+    'India',
+    'Vegana',
+    'Vegetariana',
+    'Sin gluten',
+    'Coctelería',
+];
+
+const PAYMENT_METHOD_GROUPS: OptionGroup[] = [
+    {
+        title: 'Más habituales',
+        text: 'Lo que la mayoría busca primero.',
+        icon: CreditCard,
+        options: ['Tarjeta', 'Efectivo', 'Contactless', 'Bizum'],
+    },
+    {
+        title: 'Móvil y online',
+        icon: Smartphone,
+        options: ['Apple Pay', 'Google Pay', 'PayPal', 'Pago online', 'Pago en app'],
+    },
+    {
+        title: 'Vales y empresa',
+        icon: Wallet,
+        options: ['Ticket Restaurant', 'Cheque gourmet', 'Sodexo', 'Transferencia'],
+    },
+    {
+        title: 'Tarjetas concretas',
+        icon: Banknote,
+        options: ['Visa', 'Mastercard', 'American Express', 'Contra reembolso'],
+    },
+];
+
+const BUSINESS_SERVICE_GROUPS: OptionGroup[] = [
+    {
+        title: 'Comer y reservar',
+        text: 'Servicios básicos del local.',
+        icon: Utensils,
+        options: ['Comer en local', 'Reservas', 'Terraza', 'Para llevar', 'Recogida en local'],
+    },
+    {
+        title: 'Delivery y pedidos',
+        icon: ShoppingBag,
+        options: ['Entrega a domicilio', 'Pedidos online', 'Pago en mesa'],
+    },
+    {
+        title: 'Momentos del día',
+        icon: Coffee,
+        options: ['Desayunos', 'Brunch', 'Comidas', 'Cenas', 'Menú del día', 'Menú infantil'],
+    },
+    {
+        title: 'Dietas destacadas',
+        icon: GlassWater,
+        options: ['Opciones vegetarianas', 'Opciones veganas', 'Sin gluten', 'Sin lactosa'],
+    },
+    {
+        title: 'Bebidas',
+        icon: Wine,
+        options: ['Café', 'Copas', 'Cócteles', 'Vino', 'Cerveza'],
+    },
+    {
+        title: 'Ambiente y eventos',
+        icon: Music,
+        options: ['Música en directo', 'Eventos privados', 'Catering', 'Cumpleaños', 'Apto para grupos', 'Zona tranquila', 'Zona fumadores'],
+    },
+    {
+        title: 'Familias y mascotas',
+        icon: Baby,
+        options: ['Apto para familias', 'Tronas', 'Cambiador para bebés', 'Pet friendly'],
+    },
+    {
+        title: 'Comodidades',
+        icon: Wifi,
+        options: ['WiFi', 'Enchufes', 'Aire acondicionado', 'Calefacción', 'Televisión', 'Vistas', 'Azotea'],
+    },
+    {
+        title: 'Accesibilidad y llegada',
+        icon: Accessibility,
+        options: ['Acceso sin escalón', 'Baño adaptado', 'Parking', 'Parking cercano', 'Aparcacoches'],
+    },
+];
 
 export const BusinessManagePage: React.FC = () => {
     const { placeId } = useParams<{ placeId: string }>();
@@ -394,24 +516,160 @@ const CommercialForm: React.FC<{
             </select>
         </Field>
         <Field label="Tipos de cocina / categoría" hint="Separados por coma. Ejemplo: mexicana, brunch, cafetería">
-            <ListInput value={doc.data.cuisineTypes || []} onChange={(items) => onChange({ cuisineTypes: items })} placeholder="mexicana, brunch, cafeteria" />
+            <SuggestedListInput
+                suggestions={COMMON_CUISINE_TYPES}
+                value={doc.data.cuisineTypes || []}
+                onChange={(items) => onChange({ cuisineTypes: items })}
+                placeholder="mexicana, brunch, cafetería"
+            />
         </Field>
-        <Field label="Métodos de pago" hint="Elige los habituales. Puedes añadir otros al final.">
-            <OptionGrid
-                options={PAYMENT_METHOD_OPTIONS}
+        <Field label="Métodos de pago" hint="Elige los habituales. Los más usados aparecen primero.">
+            <GroupedOptionGrid
+                groups={PAYMENT_METHOD_GROUPS}
                 value={doc.data.paymentMethods || []}
                 onChange={(items) => onChange({ paymentMethods: items })}
             />
         </Field>
-        <Field label="Servicios" hint="Selecciona solo lo que el local ofrece de verdad.">
-            <OptionGrid
-                options={BUSINESS_SERVICE_OPTIONS}
+        <Field label="Servicios" hint="Selecciona solo lo que el local ofrece de verdad. Está organizado por bloques para ir más rápido.">
+            <GroupedOptionGrid
+                groups={BUSINESS_SERVICE_GROUPS}
                 value={doc.data.services || []}
                 onChange={(items) => onChange({ services: items })}
             />
         </Field>
     </div>
 );
+
+const SuggestedListInput: React.FC<{
+    suggestions: string[];
+    value: string[];
+    onChange: (items: string[]) => void;
+    placeholder?: string;
+}> = ({ suggestions, value, onChange, placeholder }) => {
+    const selected = new Set(value.map((item) => item.toLowerCase()));
+    const toggleSuggestion = (option: string) => {
+        const exists = selected.has(option.toLowerCase());
+        onChange(exists
+            ? value.filter((item) => item.toLowerCase() !== option.toLowerCase())
+            : [...value, option]
+        );
+    };
+
+    return (
+        <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+                {suggestions.map((option) => {
+                    const isSelected = selected.has(option.toLowerCase());
+                    return (
+                        <button
+                            key={option}
+                            type="button"
+                            onClick={() => toggleSuggestion(option)}
+                            className={`rounded-full border px-3 py-1.5 text-xs font-black transition-colors ${
+                                isSelected
+                                    ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent)] text-white shadow-md shadow-[var(--lt-accent-shadow)]'
+                                    : 'border-white/10 bg-white/5 text-[var(--lt-text-muted)] hover:bg-white/10 hover:text-[var(--lt-text)]'
+                            }`}
+                        >
+                            {option}
+                        </button>
+                    );
+                })}
+            </div>
+            <ListInput value={value} onChange={onChange} placeholder={placeholder} />
+        </div>
+    );
+};
+
+const GroupedOptionGrid: React.FC<{
+    groups: OptionGroup[];
+    value: string[];
+    onChange: (items: string[]) => void;
+}> = ({ groups, value, onChange }) => {
+    const selected = new Set(value);
+    const knownOptions = new Set(groups.flatMap((group) => group.options));
+    const customSelected = value.filter((item) => !knownOptions.has(item));
+
+    const toggle = (option: string) => {
+        const next = selected.has(option)
+            ? value.filter((item) => item !== option)
+            : [...value, option];
+        onChange(next);
+    };
+
+    return (
+        <div className="space-y-4">
+            {groups.map(({ title, text, icon: Icon, options }) => {
+                const selectedCount = options.filter((option) => selected.has(option)).length;
+                return (
+                    <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 sm:p-4">
+                        <div className="mb-3 flex items-start justify-between gap-3">
+                            <div className="flex min-w-0 items-start gap-3">
+                                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                    <Icon className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-black text-[var(--lt-text)]">{title}</h3>
+                                    {text && <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">{text}</p>}
+                                </div>
+                            </div>
+                            {selectedCount > 0 && (
+                                <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-1 text-[10px] font-black text-emerald-200">
+                                    {selectedCount}
+                                </span>
+                            )}
+                        </div>
+                        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                            {options.map((option) => {
+                                const isSelected = selected.has(option);
+                                return (
+                                    <button
+                                        key={option}
+                                        type="button"
+                                        onClick={() => toggle(option)}
+                                        aria-pressed={isSelected}
+                                        className={`flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-left text-sm font-bold transition-colors ${
+                                            isSelected
+                                                ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent)]/20 text-[var(--lt-text)]'
+                                                : 'border-white/10 bg-white/5 text-[var(--lt-text-muted)] hover:bg-white/10 hover:text-[var(--lt-text)]'
+                                        }`}
+                                    >
+                                        <span className={`grid h-5 w-5 shrink-0 place-items-center rounded-md border ${
+                                            isSelected
+                                                ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent)] text-white'
+                                                : 'border-white/15 bg-black/10 text-transparent'
+                                        }`}>
+                                            <Check className="h-3.5 w-3.5" />
+                                        </span>
+                                        <span>{option}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
+            })}
+
+            {customSelected.length > 0 && (
+                <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3">
+                    <h3 className="text-xs font-black uppercase tracking-[0.14em] text-amber-100">Opciones guardadas antiguas</h3>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {customSelected.map((option) => (
+                            <button
+                                key={option}
+                                type="button"
+                                onClick={() => toggle(option)}
+                                className="rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-100"
+                            >
+                                {option} ×
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const OptionGrid: React.FC<{
     options: string[];
