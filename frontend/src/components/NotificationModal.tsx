@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Bell, Heart, UserPlus, MessageSquare, Star, Award, Building2 } from 'lucide-react';
 import { collection, query, orderBy, limit, onSnapshot, doc, writeBatch, getDocs, where } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -11,16 +12,19 @@ interface NotificationModalProps {
     onClose: () => void;
     onOpenHistory: () => void;
     mobile?: boolean;
+    anchorEl?: HTMLElement | null;
 }
 
 export const NotificationModal: React.FC<NotificationModalProps> = ({
     onClose,
     onOpenHistory,
     mobile = false,
+    anchorEl = null,
 }) => {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
     useBodyScrollLock(mobile);
     // showHistory removed, controlled by parent
 
@@ -44,6 +48,23 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
         return () => unsubscribe();
     }, [user]);
+
+    useEffect(() => {
+        if (mobile || !anchorEl) return;
+
+        const updateAnchorRect = () => {
+            setAnchorRect(anchorEl.getBoundingClientRect());
+        };
+
+        updateAnchorRect();
+        window.addEventListener('resize', updateAnchorRect);
+        window.addEventListener('scroll', updateAnchorRect, true);
+
+        return () => {
+            window.removeEventListener('resize', updateAnchorRect);
+            window.removeEventListener('scroll', updateAnchorRect, true);
+        };
+    }, [anchorEl, mobile]);
 
     const handleMarkAllRead = async () => {
         if (!user) return;
@@ -298,9 +319,10 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
     );
 
     if (mobile) {
-        return (
+        return createPortal(
             <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4 pointer-events-auto" onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
                 <div
+                    data-notification-panel
                     className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[80vh] mx-4"
                     onClick={(event) => event.stopPropagation()}
                 >
@@ -335,13 +357,29 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                         </button>
                     </div>
                 </div>
-            </div>
+            </div>,
+            document.body,
         );
     }
 
-    return (
-        <div className="absolute top-12 right-0 w-80 md:w-96 bg-[var(--lt-card-strong)] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 animate-fade-in origin-top-right pointer-events-auto">
+    const desktopStyle: React.CSSProperties = anchorRect
+        ? {
+            top: Math.round(anchorRect.bottom + 10),
+            right: Math.max(12, Math.round(window.innerWidth - anchorRect.right)),
+        }
+        : {
+            top: 'calc(env(safe-area-inset-top) + 5rem)',
+            right: '1rem',
+        };
+
+    return createPortal(
+        <div
+            data-notification-panel
+            className="fixed w-80 md:w-96 bg-[var(--lt-card-strong)] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-[2147483000] animate-fade-in origin-top-right pointer-events-auto"
+            style={desktopStyle}
+        >
             {panelContent}
-        </div>
+        </div>,
+        document.body,
     );
 };

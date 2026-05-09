@@ -201,6 +201,10 @@ export const Navbar: React.FC = () => {
     useEffect(() => {
         if (!showNotifications || notificationPanelMode !== 'desktop') return;
         const handler = (e: MouseEvent) => {
+            const target = e.target as HTMLElement | null;
+            if (target?.closest('[data-notification-panel]')) {
+                return;
+            }
             if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
                 setShowNotifications(false);
             }
@@ -306,6 +310,7 @@ export const Navbar: React.FC = () => {
 
                                 {showNotifications && notificationPanelMode === 'desktop' && (
                                     <NotificationModal
+                                        anchorEl={bellRef.current}
                                         onClose={() => setShowNotifications(false)}
                                         onOpenHistory={() => {
                                             setShowNotifications(false);
