@@ -40,6 +40,8 @@ export interface PlaceDetails {
         wheelchairAccessibleEntrance?: boolean;
         wheelchairAccessibleRestroom?: boolean;
         wheelchairAccessibleSeating?: boolean;
+        wheelchairAccessibleParking?: boolean;
+        hearingLoop?: boolean;
     };
     petOptions?: {
         petFriendly?: boolean;
