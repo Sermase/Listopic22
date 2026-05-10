@@ -90,7 +90,7 @@ const FACET_VALUE_LABELS: Record<string, Record<string, string>> = {
         terraceOnly: 'Solo terraza',
         assistanceDogsOnly: 'Perros de asistencia',
         waterBowls: 'Cuencos de agua',
-        petMenu: 'MenÃº para mascotas',
+        petMenu: 'Menú para mascotas',
         requiresLeash: 'Requiere correa',
     },
     closedStatus: {

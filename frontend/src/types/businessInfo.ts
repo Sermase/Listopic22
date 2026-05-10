@@ -8,6 +8,7 @@ export type BusinessInfoSection =
     | 'contact'
     | 'commercial'
     | 'accessibility'
+    | 'family'
     | 'pets'
     | 'dietary'
     | 'hours'
@@ -35,11 +36,40 @@ export interface BusinessCommercialInfo {
 }
 
 export interface BusinessAccessibilityInfo {
-    wheelchairAccess?: boolean;
-    accessibleBathroom?: boolean;
+    // Movilidad
     stepFreeEntrance?: boolean;
-    babyChanging?: boolean;
+    accessibleBathroom?: boolean;
+    rampAvailable?: boolean;
+    wheelchairFriendlyTables?: boolean;
+    elevator?: boolean;
+    accessibleParking?: boolean;
+    bathroomGrabBars?: boolean;
+    // Visual
+    guideDogsWelcome?: boolean;
+    brailleMenu?: boolean;
+    largePrintMenu?: boolean;
+    digitalMenuScreenReader?: boolean;
+    // Auditiva
     hearingLoop?: boolean;
+    visualMenu?: boolean;
+    quietEnvironment?: boolean;
+    signLanguageStaff?: boolean;
+    // Cognitiva / sensorial
+    pictogramMenu?: boolean;
+    easyReadMenu?: boolean;
+    sensoryFriendlyArea?: boolean;
+    notes?: string;
+}
+
+export interface BusinessFamilyInfo {
+    babyChanging?: boolean;
+    familyRestroom?: boolean;
+    highChairs?: boolean;
+    kidsMenu?: boolean;
+    playArea?: boolean;
+    strollerFriendly?: boolean;
+    bottleWarming?: boolean;
+    breastfeedingFriendly?: boolean;
     notes?: string;
 }
 
@@ -169,6 +199,7 @@ export type BusinessSectionData = {
     contact: BusinessContactInfo;
     commercial: BusinessCommercialInfo;
     accessibility: BusinessAccessibilityInfo;
+    family: BusinessFamilyInfo;
     pets: BusinessPetsInfo;
     dietary: BusinessDietaryInfo;
     hours: BusinessHoursInfo;
@@ -197,6 +228,7 @@ export interface ResolvedBusinessInfo {
     contact?: BusinessContactInfo;
     commercial?: BusinessCommercialInfo;
     accessibility?: BusinessAccessibilityInfo;
+    family?: BusinessFamilyInfo;
     pets?: BusinessPetsInfo;
     dietary?: BusinessDietaryInfo;
     hours?: BusinessHoursInfo;

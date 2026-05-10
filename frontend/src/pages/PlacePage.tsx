@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -10,6 +10,7 @@ import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
 import { usePlaceDetails } from '../hooks/usePlaceDetails';
 import { PlaceService } from '../services/PlaceService';
 import { ReviewCard } from '../components/ReviewCard';
+import { ReviewCardList } from '../components/ReviewCardList';
 import { MapView } from '../components/MapView';
 import { useAuth } from '../context/AuthContext';
 import { collection, doc, getDoc, getDocs, query, setDoc, deleteDoc, serverTimestamp, where } from 'firebase/firestore';
@@ -61,6 +62,40 @@ const providerLabel = (provider?: string) => {
 const deliveryProviderLabel = (provider?: string) => (
     provider ? DELIVERY_PROVIDER_LABELS[provider] || 'Delivery' : 'Delivery'
 );
+
+const languageLabel = (language: string) => {
+    const labels: Record<string, string> = {
+        es: 'Español',
+        en: 'Inglés',
+        ca: 'Catalán',
+        eu: 'Euskera',
+        gl: 'Gallego',
+        fr: 'Francés',
+        it: 'Italiano',
+        de: 'Alemán',
+        pt: 'Portugués',
+    };
+    return labels[language.toLowerCase()] || language;
+};
+
+const nonCommercialServiceLabels = new Set([
+    'Opciones vegetarianas',
+    'Opciones veganas',
+    'Sin gluten',
+    'Sin lactosa',
+    'Pet friendly',
+    'Entrega a domicilio',
+    'Recogida en local',
+    'Pedidos online',
+    'Pago en mesa',
+    'Acceso sin escalón',
+    'Acceso sin escalÃ³n',
+    'Bano adaptado',
+    'Baño adaptado',
+    'BaÃ±o adaptado',
+    'Cambiador para bebés',
+    'Cambiador para bebÃ©s',
+]);
 
 type RelatedList = {
     id: string;
@@ -121,7 +156,7 @@ export const PlacePage: React.FC = () => {
     const [syncError, setSyncError] = useState<string | null>(null);
 
     const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes' | 'photos'>('dishes');
-    const [reviewViewMode, setReviewViewMode] = useState<'list' | 'gallery'>('gallery');
+    const [reviewViewMode, setReviewViewMode] = useState<'list' | 'full' | 'gallery'>('list');
     const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -134,6 +169,11 @@ export const PlacePage: React.FC = () => {
     const [isBusinessClaimOpen, setIsBusinessClaimOpen] = useState(false);
     const [isReservationOpen, setIsReservationOpen] = useState(false);
     const [isBusinessDetailsExpanded, setIsBusinessDetailsExpanded] = useState(false);
+    const [isAccessibilityExpanded, setIsAccessibilityExpanded] = useState(false);
+    const [isFamilyExpanded, setIsFamilyExpanded] = useState(false);
+    const [isPetsExpanded, setIsPetsExpanded] = useState(false);
+    const [isDietaryExpanded, setIsDietaryExpanded] = useState(false);
+    const [isDeliveryExpanded, setIsDeliveryExpanded] = useState(false);
     const [businessClaims, setBusinessClaims] = useState<BusinessClaim[]>([]);
     const [loadingBusinessClaims, setLoadingBusinessClaims] = useState(false);
 
@@ -484,18 +524,28 @@ export const PlacePage: React.FC = () => {
     const reservations = place.resolvedBusinessInfo?.reservations;
     const reservationEnabled = reservations?.enabled === true && Boolean(reservations.embedUrl || reservations.externalUrl);
     const reservationEmbedUrl = reservations?.embedUrl;
-    const reservationExternalUrl = reservations?.externalUrl || reservations?.embedUrl;
-    const reservationMode = reservations?.displayMode || 'modal';
+    const reservationFallbackUrl = reservations?.externalUrl || place.website || reservations?.embedUrl;
     const reservationButtonText = reservations?.buttonText || 'Reservar mesa';
-    const shouldUseReservationModal = reservationEnabled && reservationEmbedUrl && reservationMode !== 'external';
+    const openReservationFallback = () => {
+        if (!reservationFallbackUrl) return;
+        window.open(reservationFallbackUrl, '_blank', 'noopener,noreferrer');
+    };
+    const handleReservationClick = () => {
+        if (reservationEmbedUrl) {
+            setIsReservationOpen(true);
+            return;
+        }
+        openReservationFallback();
+    };
     const deliveries = place.resolvedBusinessInfo?.deliveries;
     const deliveryLinks = deliveries?.enabled === true ? (deliveries.links || []).filter((link) => Boolean(link.url)) : [];
     const hasDeliveryInfo = deliveryLinks.length > 0 || Boolean(deliveries?.notes);
     const commercialInfo = place.resolvedBusinessInfo?.commercial;
+    const visibleCommercialServices = (commercialInfo?.services || []).filter((service) => !nonCommercialServiceLabels.has(service));
     const hasServiceInfo = Boolean(
         commercialInfo?.priceRange ||
         commercialInfo?.cuisineTypes?.length ||
-        commercialInfo?.services?.length ||
+        visibleCommercialServices.length ||
         place.options?.delivery ||
         place.options?.takeout ||
         place.options?.dineIn ||
@@ -510,6 +560,9 @@ export const PlacePage: React.FC = () => {
     const dietary = place.resolvedBusinessInfo?.dietary;
     const pets = place.resolvedBusinessInfo?.pets;
     const petOptions = place.petOptions;
+    const accessibilityInfo = place.resolvedBusinessInfo?.accessibility;
+    const familyInfo = place.resolvedBusinessInfo?.family;
+    const languages = place.resolvedBusinessInfo?.identity?.languages?.filter(Boolean) || [];
     const hasPetInfo = Boolean(
         pets?.petFriendly ||
         pets?.allowsDogs ||
@@ -525,8 +578,14 @@ export const PlacePage: React.FC = () => {
         (pets?.petPolicy && pets.petPolicy !== 'unknown') ||
         pets?.restrictions?.length ||
         pets?.notes ||
+        petOptions?.petFriendly ||
         petOptions?.allowsDogs ||
-        petOptions?.petFriendly
+        petOptions?.allowsCats ||
+        petOptions?.terraceOnly ||
+        petOptions?.indoorAllowed ||
+        petOptions?.assistanceDogsOnly ||
+        petOptions?.waterBowls ||
+        petOptions?.requiresLeash
     );
     const hasDietaryInfo = Boolean(dietary && (
         dietary.glutenFreeOptions ||
@@ -541,9 +600,79 @@ export const PlacePage: React.FC = () => {
         dietary.eggFreeOptions ||
         dietary.allergenMenuAvailable ||
         dietary.staffCanAdviseAllergens ||
-        dietary.allergens?.length ||
         dietary.notes
     ));
+
+    const accessibilityMobilityKeys: Array<[keyof NonNullable<typeof accessibilityInfo>, string]> = [
+        ['stepFreeEntrance', 'Entrada sin escalones'],
+        ['accessibleBathroom', 'Baño adaptado'],
+        ['rampAvailable', 'Rampa permanente'],
+        ['wheelchairFriendlyTables', 'Mesas para silla de ruedas'],
+        ['elevator', 'Ascensor'],
+        ['accessibleParking', 'Aparcamiento PMR'],
+        ['bathroomGrabBars', 'Barras de apoyo en baño'],
+    ];
+    const accessibilityVisualKeys: Array<[keyof NonNullable<typeof accessibilityInfo>, string]> = [
+        ['guideDogsWelcome', 'Perros guía bienvenidos'],
+        ['brailleMenu', 'Carta en braille'],
+        ['largePrintMenu', 'Carta letra grande'],
+        ['digitalMenuScreenReader', 'Carta digital con lector de pantalla'],
+    ];
+    const accessibilityHearingKeys: Array<[keyof NonNullable<typeof accessibilityInfo>, string]> = [
+        ['hearingLoop', 'Bucle magnético'],
+        ['visualMenu', 'Carta visual completa'],
+        ['quietEnvironment', 'Entorno tranquilo'],
+        ['signLanguageStaff', 'Personal con LSE'],
+    ];
+    const accessibilityCognitiveKeys: Array<[keyof NonNullable<typeof accessibilityInfo>, string]> = [
+        ['pictogramMenu', 'Carta con pictogramas'],
+        ['easyReadMenu', 'Carta en lectura fácil'],
+        ['sensoryFriendlyArea', 'Zona poco estimulante'],
+    ];
+    const hasOwnAccessibility = Boolean(
+        accessibilityInfo && (
+            Object.entries(accessibilityInfo).some(([key, value]) => key !== 'notes' && value === true) ||
+            (accessibilityInfo.notes && accessibilityInfo.notes.trim().length > 0)
+        )
+    );
+    const googleA11yEquivalents: Partial<Record<keyof NonNullable<typeof accessibilityInfo>, boolean | undefined>> = {
+        stepFreeEntrance: place.accessibility?.wheelchairAccessibleEntrance === true,
+        accessibleBathroom: place.accessibility?.wheelchairAccessibleRestroom === true,
+        wheelchairFriendlyTables: place.accessibility?.wheelchairAccessibleSeating === true,
+        accessibleParking: place.accessibility?.wheelchairAccessibleParking === true,
+        hearingLoop: place.accessibility?.hearingLoop === true,
+    };
+    const accessibilityBlocks = [
+        { id: 'mobility', title: 'Movilidad', items: accessibilityMobilityKeys },
+        { id: 'visual', title: 'Personas ciegas o con baja visión', items: accessibilityVisualKeys },
+        { id: 'hearing', title: 'Personas sordas o con baja audición', items: accessibilityHearingKeys },
+        { id: 'cognitive', title: 'Cognitiva, sensorial y TEA', items: accessibilityCognitiveKeys },
+    ].map((block) => ({
+        ...block,
+        active: block.items
+            .filter(([key]) => {
+                if (hasOwnAccessibility) return Boolean(accessibilityInfo?.[key]);
+                return Boolean(googleA11yEquivalents[key]);
+            })
+            .map(([, label]) => label),
+    }));
+    const hasAccessibilityRichInfo = accessibilityBlocks.some((block) => block.active.length > 0) || Boolean(accessibilityInfo?.notes);
+    const accessibilityFromGoogleOnly = !hasOwnAccessibility && hasAccessibilityRichInfo;
+
+    const familyEntries: Array<[keyof NonNullable<typeof familyInfo>, string]> = [
+        ['babyChanging', 'Cambiador para bebés'],
+        ['familyRestroom', 'Baño familiar'],
+        ['highChairs', 'Tronas para niños'],
+        ['kidsMenu', 'Menú o platos infantiles'],
+        ['playArea', 'Zona de juegos / parque infantil'],
+        ['strollerFriendly', 'Apto para entrar con carrito'],
+        ['bottleWarming', 'Calientan biberones'],
+        ['breastfeedingFriendly', 'Espacio para amamantar'],
+    ];
+    const activeFamilyEntries = familyInfo
+        ? familyEntries.filter(([key]) => Boolean(familyInfo[key])).map(([, label]) => label)
+        : [];
+    const hasFamilyInfo = activeFamilyEntries.length > 0 || Boolean(familyInfo?.notes);
 
     return (
         <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
@@ -721,195 +850,31 @@ export const PlacePage: React.FC = () => {
                             </p>
                         )}
 
+                        {languages.length > 0 && (
+                            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                                <h4 className="flex items-center gap-2 text-sm font-black text-[var(--lt-text)]">
+                                    <Globe className="h-5 w-5 text-[var(--lt-accent)]" />
+                                    Idiomas
+                                </h4>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    {languages.map((language) => (
+                                        <span key={language} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
+                                            {languageLabel(language)}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {reservationEnabled && (
-                            <div className="rounded-2xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] p-4">
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div>
-                                        <h4 className="flex items-center gap-2 text-sm font-black text-[var(--lt-text)]">
-                                            <CalendarCheck className="h-5 w-5 text-[var(--lt-accent)]" />
-                                            Reserva mesa
-                                        </h4>
-                                        <p className="mt-1 text-xs text-[var(--lt-text-muted)]">
-                                            Sistema de reservas: {providerLabel(reservations?.provider)}
-                                        </p>
-                                    </div>
-                                    <div className="flex flex-col gap-2 sm:flex-row">
-                                        {shouldUseReservationModal && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setIsReservationOpen(true)}
-                                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--lt-accent)] px-4 py-2 text-sm font-black text-white shadow-lg shadow-[var(--lt-accent-shadow)]"
-                                            >
-                                                <CalendarCheck className="h-4 w-4" />
-                                                {reservationButtonText}
-                                            </button>
-                                        )}
-                                        {reservationExternalUrl && (reservationMode === 'external' || reservationMode === 'both' || !shouldUseReservationModal) && (
-                                            <a
-                                                href={reservationExternalUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-black text-[var(--lt-text)] hover:bg-white/10"
-                                            >
-                                                <ExternalLink className="h-4 w-4" />
-                                                Abrir reservas
-                                            </a>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {hasDeliveryInfo && (
-                            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
-                                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                    <div>
-                                        <h4 className="flex items-center gap-2 text-sm font-black text-[var(--lt-text)]">
-                                            <Bike className="h-5 w-5 text-emerald-300" />
-                                            Delivery y pedidos
-                                        </h4>
-                                        {deliveries?.notes && (
-                                            <p className="mt-1 text-xs leading-relaxed text-[var(--lt-text-muted)]">{deliveries.notes}</p>
-                                        )}
-                                    </div>
-                                    {deliveryLinks.length > 0 && (
-                                        <div className="flex flex-col gap-2 sm:min-w-52">
-                                            {deliveryLinks.map((link, index) => (
-                                                <a
-                                                    key={`${link.provider || 'delivery'}-${index}`}
-                                                    href={link.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-500/15 px-4 py-2 text-sm font-black text-emerald-100 hover:bg-emerald-500/25"
-                                                >
-                                                    <ShoppingBag className="h-4 w-4" />
-                                                    {link.label || `Pedir en ${deliveryProviderLabel(link.provider)}`}
-                                                </a>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {hasDietaryInfo && (
-                            <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4">
-                                <h4 className="flex items-center gap-2 text-sm font-black text-amber-100">
-                                    <AlertTriangle className="h-5 w-5" />
-                                    Alérgenos y dietas
-                                </h4>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                    {dietary?.glutenFreeOptions && (
-                                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-200">Opciones sin gluten</span>
-                                    )}
-                                    {dietary?.manyGlutenFreeOptions && (
-                                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-200">Muchos platos sin gluten</span>
-                                    )}
-                                    {dietary?.glutenFreeMenu && (
-                                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-200">Carta sin gluten</span>
-                                    )}
-                                    {dietary?.vegetarianOptions && (
-                                        <span className="rounded-full border border-lime-400/25 bg-lime-500/10 px-3 py-1 text-xs font-bold text-lime-200">Vegetariano</span>
-                                    )}
-                                    {dietary?.veganOptions && (
-                                        <span className="rounded-full border border-lime-400/25 bg-lime-500/10 px-3 py-1 text-xs font-bold text-lime-200">Vegano</span>
-                                    )}
-                                    {dietary?.dairyFreeOptions && (
-                                        <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-200">Sin lácteos</span>
-                                    )}
-                                    {dietary?.nutFreeOptions && (
-                                        <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-200">Sin frutos secos</span>
-                                    )}
-                                    {dietary?.eggFreeOptions && (
-                                        <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-200">Sin huevo</span>
-                                    )}
-                                    {dietary?.allergenMenuAvailable && (
-                                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Carta de alérgenos</span>
-                                    )}
-                                    {dietary?.staffCanAdviseAllergens && (
-                                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Personal informado</span>
-                                    )}
-                                </div>
-                                {dietary?.crossContaminationRisk && dietary.crossContaminationRisk !== 'unknown' && (
-                                    <p className="mt-3 rounded-xl border border-amber-400/20 bg-black/10 p-3 text-xs font-semibold text-amber-100">
-                                        Gluten: {CROSS_CONTAMINATION_LABELS[dietary.crossContaminationRisk] || dietary.crossContaminationRisk}
-                                        {dietary.crossContaminationNotes ? ` · ${dietary.crossContaminationNotes}` : ''}
-                                    </p>
-                                )}
-                                {dietary?.allergens?.length ? (
-                                    <div className="mt-3">
-                                        <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-100/80">Alérgenos relevantes</p>
-                                        <div className="mt-2 flex flex-wrap gap-2">
-                                            {dietary.allergens.map((allergen) => (
-                                                <span key={allergen} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
-                                                    {allergen}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                ) : null}
-                                {dietary?.notes && (
-                                    <p className="mt-3 text-xs leading-relaxed text-amber-100/85">{dietary.notes}</p>
-                                )}
-                            </div>
-                        )}
-
-                        {hasPetInfo && (
-                            <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
-                                <h4 className="flex items-center gap-2 text-sm font-black text-emerald-100">
-                                    <PawPrint className="h-5 w-5" />
-                                    Mascotas
-                                </h4>
-                                <div className="mt-3 flex flex-wrap gap-2">
-                                    {(pets?.petFriendly || petOptions?.petFriendly) && (
-                                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-100">Admite mascotas</span>
-                                    )}
-                                    {(pets?.allowsDogs || petOptions?.allowsDogs) && (
-                                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-100">Admite perros</span>
-                                    )}
-                                    {pets?.allowsCats && (
-                                        <span className="rounded-full border border-emerald-400/25 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-100">Admite gatos</span>
-                                    )}
-                                    {pets?.indoorAllowed && (
-                                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Interior permitido</span>
-                                    )}
-                                    {pets?.terraceOnly && (
-                                        <span className="rounded-full border border-amber-400/25 bg-amber-500/10 px-3 py-1 text-xs font-bold text-amber-100">Solo terraza</span>
-                                    )}
-                                    {pets?.assistanceDogsOnly && (
-                                        <span className="rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-bold text-sky-100">Perros de asistencia</span>
-                                    )}
-                                    {pets?.waterBowls && (
-                                        <span className="rounded-full border border-cyan-400/25 bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-100">Cuencos de agua</span>
-                                    )}
-                                    {pets?.petMenu && (
-                                        <span className="rounded-full border border-lime-400/25 bg-lime-500/10 px-3 py-1 text-xs font-bold text-lime-100">MenÃº para mascotas</span>
-                                    )}
-                                    {pets?.requiresLeash && (
-                                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Correa obligatoria</span>
-                                    )}
-                                </div>
-                                {pets?.petPolicy && pets.petPolicy !== 'unknown' && (
-                                    <p className="mt-3 rounded-xl border border-emerald-400/20 bg-black/10 p-3 text-xs font-semibold text-emerald-100">
-                                        {PET_POLICY_LABELS[pets.petPolicy] || pets.petPolicy}
-                                        {pets.notes ? ` Â· ${pets.notes}` : ''}
-                                    </p>
-                                )}
-                                {(!pets?.petPolicy || pets.petPolicy === 'unknown') && pets?.notes && (
-                                    <p className="mt-3 rounded-xl border border-emerald-400/20 bg-black/10 p-3 text-xs font-semibold text-emerald-100">
-                                        {pets.notes}
-                                    </p>
-                                )}
-                                {pets?.restrictions?.length ? (
-                                    <div className="mt-3 flex flex-wrap gap-2">
-                                        {pets.restrictions.map((restriction) => (
-                                            <span key={restriction} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
-                                                {restriction}
-                                            </span>
-                                        ))}
-                                    </div>
-                                ) : null}
-                            </div>
+                            <button
+                                type="button"
+                                onClick={handleReservationClick}
+                                className="flex w-full min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--lt-accent)] px-4 py-3 text-sm font-black text-white shadow-lg shadow-[var(--lt-accent-shadow)] hover:brightness-110 transition"
+                            >
+                                <CalendarCheck className="h-5 w-5" />
+                                {reservationButtonText}
+                            </button>
                         )}
 
                         <div className="border-b border-white/5 pb-4">
@@ -959,28 +924,41 @@ export const PlacePage: React.FC = () => {
                                 </div>
                             )}
 
-                            {place.accessibility && (
-                                <div className="col-span-2 sm:col-span-1">
-                                    <span className="text-xs text-gray-500 block mb-1">Accesibilidad</span>
-                                    <div className="space-y-1">
-                                        {place.accessibility.wheelchairAccessibleEntrance && (
-                                            <div className="flex items-center gap-2 text-[var(--lt-accent)] font-medium text-xs">
-                                                <Accessibility className="w-4 h-4" />
-                                                <span>Entrada adaptada</span>
-                                            </div>
-                                        )}
-                                        {place.accessibility.wheelchairAccessibleRestroom && (
-                                            <div className="flex items-center gap-2 text-[var(--lt-accent)] font-medium text-xs">
-                                                <Accessibility className="w-4 h-4" />
-                                                <span>Baño adaptado</span>
-                                            </div>
-                                        )}
-                                        {!place.accessibility.wheelchairAccessibleEntrance && !place.accessibility.wheelchairAccessibleRestroom && (
+                            {(hasOwnAccessibility || place.accessibility) && (() => {
+                                const stepFree = hasOwnAccessibility
+                                    ? accessibilityInfo?.stepFreeEntrance
+                                    : place.accessibility?.wheelchairAccessibleEntrance;
+                                const accessibleBath = hasOwnAccessibility
+                                    ? accessibilityInfo?.accessibleBathroom
+                                    : place.accessibility?.wheelchairAccessibleRestroom;
+                                if (!stepFree && !accessibleBath) {
+                                    return (
+                                        <div className="col-span-2 sm:col-span-1">
+                                            <span className="text-xs text-gray-500 block mb-1">Accesibilidad</span>
                                             <span className="text-gray-400 text-xs">-</span>
-                                        )}
+                                        </div>
+                                    );
+                                }
+                                return (
+                                    <div className="col-span-2 sm:col-span-1">
+                                        <span className="text-xs text-gray-500 block mb-1">Accesibilidad</span>
+                                        <div className="space-y-1">
+                                            {stepFree && (
+                                                <div className="flex items-center gap-2 text-[var(--lt-accent)] font-medium text-xs">
+                                                    <Accessibility className="w-4 h-4" />
+                                                    <span>Entrada sin escalones</span>
+                                                </div>
+                                            )}
+                                            {accessibleBath && (
+                                                <div className="flex items-center gap-2 text-[var(--lt-accent)] font-medium text-xs">
+                                                    <Accessibility className="w-4 h-4" />
+                                                    <span>Baño adaptado</span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                            </div>
-                        )}
+                                );
+                            })()}
                         </div>
                         {hasServiceInfo && (
                         <div className="space-y-2">
@@ -999,7 +977,7 @@ export const PlacePage: React.FC = () => {
                                     <Utensils className="w-3 h-3" /> {type}
                                 </span>
                             ))}
-                            {place.resolvedBusinessInfo?.commercial?.services?.slice(0, 6).map((service) => (
+                            {visibleCommercialServices.slice(0, 6).map((service) => (
                                 <span key={service} className="px-3 py-1 bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 rounded-full text-xs font-bold flex items-center gap-1">
                                     <Check className="w-3 h-3" /> {service}
                                 </span>
@@ -1112,6 +1090,261 @@ export const PlacePage: React.FC = () => {
                             )}
                         </div>
                         )}
+
+                        {hasDeliveryInfo && (
+                            <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)] p-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDeliveryExpanded((value) => !value)}
+                                    className="flex w-full items-center justify-between gap-3 text-left"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="flex items-center gap-2 text-sm font-black text-[var(--lt-text)]">
+                                            <Bike className="h-5 w-5 text-emerald-500" />
+                                            Delivery y pedidos
+                                        </h4>
+                                        {deliveryLinks.length > 0 && (
+                                            <span className="rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-2 py-0.5 text-[10px] font-black text-[var(--lt-accent)]">
+                                                {deliveryLinks.length}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <ChevronDown className={`h-4 w-4 text-[var(--lt-text-muted)] transition-transform ${isDeliveryExpanded ? 'rotate-180' : ''}`} />
+                                </button>
+                                {isDeliveryExpanded && (
+                                    <div className="mt-3 space-y-3">
+                                        {deliveries?.notes && (
+                                            <p className="text-xs leading-relaxed text-[var(--lt-text-muted)]">{deliveries.notes}</p>
+                                        )}
+                                        {deliveryLinks.length > 0 && (
+                                            <div className="flex flex-col gap-2">
+                                                {deliveryLinks.map((link, index) => (
+                                                    <a
+                                                        key={`${link.provider || 'delivery'}-${index}`}
+                                                        href={link.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card)] px-4 py-2 text-sm font-black text-[var(--lt-text)] hover:bg-[var(--lt-glass)]"
+                                                    >
+                                                        <ShoppingBag className="h-4 w-4 text-emerald-500" />
+                                                        {link.label || `Pedir en ${deliveryProviderLabel(link.provider)}`}
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {hasDietaryInfo && (
+                            <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)] p-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsDietaryExpanded((value) => !value)}
+                                    className="flex w-full items-center justify-between gap-3 text-left"
+                                >
+                                    <h4 className="flex items-center gap-2 text-sm font-black text-[var(--lt-text)]">
+                                        <AlertTriangle className="h-5 w-5 text-amber-500" />
+                                        Alérgenos y dietas
+                                    </h4>
+                                    <ChevronDown className={`h-4 w-4 text-[var(--lt-text-muted)] transition-transform ${isDietaryExpanded ? 'rotate-180' : ''}`} />
+                                </button>
+                                {isDietaryExpanded && (
+                                    <div className="mt-3 space-y-3">
+                                        <div className="flex flex-wrap gap-2">
+                                            {dietary?.glutenFreeOptions && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Opciones sin gluten</span>
+                                            )}
+                                            {dietary?.manyGlutenFreeOptions && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Muchos platos sin gluten</span>
+                                            )}
+                                            {dietary?.glutenFreeMenu && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Carta sin gluten</span>
+                                            )}
+                                            {dietary?.vegetarianOptions && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Vegetariano</span>
+                                            )}
+                                            {dietary?.veganOptions && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Vegano</span>
+                                            )}
+                                            {dietary?.dairyFreeOptions && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Sin lácteos</span>
+                                            )}
+                                            {dietary?.nutFreeOptions && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Sin frutos secos</span>
+                                            )}
+                                            {dietary?.eggFreeOptions && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Sin huevo</span>
+                                            )}
+                                            {dietary?.allergenMenuAvailable && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Carta de alérgenos</span>
+                                            )}
+                                            {dietary?.staffCanAdviseAllergens && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Personal informado</span>
+                                            )}
+                                        </div>
+                                        {dietary?.crossContaminationRisk && dietary.crossContaminationRisk !== 'unknown' && (
+                                            <p className="rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-3 text-xs font-semibold text-[var(--lt-text)]">
+                                                Gluten: {CROSS_CONTAMINATION_LABELS[dietary.crossContaminationRisk] || dietary.crossContaminationRisk}
+                                                {dietary.crossContaminationNotes ? ` · ${dietary.crossContaminationNotes}` : ''}
+                                            </p>
+                                        )}
+                                        {dietary?.notes && (
+                                            <p className="text-xs leading-relaxed text-[var(--lt-text-muted)]">{dietary.notes}</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {hasAccessibilityRichInfo && (
+                            <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)] p-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsAccessibilityExpanded((value) => !value)}
+                                    className="flex w-full items-center justify-between gap-3 text-left"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="flex items-center gap-2 text-sm font-black text-[var(--lt-text)]">
+                                            <Accessibility className="h-5 w-5 text-sky-500" />
+                                            Accesibilidad
+                                        </h4>
+                                        {accessibilityFromGoogleOnly && (
+                                            <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--lt-text-muted)]">
+                                                Google
+                                            </span>
+                                        )}
+                                    </div>
+                                    <ChevronDown className={`h-4 w-4 text-[var(--lt-text-muted)] transition-transform ${isAccessibilityExpanded ? 'rotate-180' : ''}`} />
+                                </button>
+                                {isAccessibilityExpanded && (
+                                    <div className="mt-3 space-y-3">
+                                        {accessibilityFromGoogleOnly && (
+                                            <p className="text-xs leading-relaxed text-[var(--lt-text-muted)]">
+                                                Información sin verificar por el negocio. Los datos provienen de Google Maps y pueden estar desactualizados.
+                                            </p>
+                                        )}
+                                        {accessibilityBlocks.filter((block) => block.active.length > 0).map((block) => (
+                                            <div key={block.id} className="rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-3">
+                                                <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--lt-text-muted)]">{block.title}</p>
+                                                <div className="mt-2 flex flex-wrap gap-2">
+                                                    {block.active.map((label) => (
+                                                        <span key={label} className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
+                                                            {label}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {accessibilityInfo?.notes && (
+                                            <p className="rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-3 text-xs leading-relaxed text-[var(--lt-text-muted)]">{accessibilityInfo.notes}</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {hasFamilyInfo && (
+                            <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)] p-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsFamilyExpanded((value) => !value)}
+                                    className="flex w-full items-center justify-between gap-3 text-left"
+                                >
+                                    <h4 className="flex items-center gap-2 text-sm font-black text-[var(--lt-text)]">
+                                        <Baby className="h-5 w-5 text-pink-500" />
+                                        Familias
+                                    </h4>
+                                    <ChevronDown className={`h-4 w-4 text-[var(--lt-text-muted)] transition-transform ${isFamilyExpanded ? 'rotate-180' : ''}`} />
+                                </button>
+                                {isFamilyExpanded && (
+                                    <div className="mt-3 space-y-3">
+                                        {activeFamilyEntries.length > 0 && (
+                                            <div className="flex flex-wrap gap-2">
+                                                {activeFamilyEntries.map((label) => (
+                                                    <span key={label} className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
+                                                        {label}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {familyInfo?.notes && (
+                                            <p className="rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-3 text-xs leading-relaxed text-[var(--lt-text-muted)]">{familyInfo.notes}</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {hasPetInfo && (
+                            <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)] p-4">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsPetsExpanded((value) => !value)}
+                                    className="flex w-full items-center justify-between gap-3 text-left"
+                                >
+                                    <h4 className="flex items-center gap-2 text-sm font-black text-[var(--lt-text)]">
+                                        <PawPrint className="h-5 w-5 text-emerald-500" />
+                                        Mascotas
+                                    </h4>
+                                    <ChevronDown className={`h-4 w-4 text-[var(--lt-text-muted)] transition-transform ${isPetsExpanded ? 'rotate-180' : ''}`} />
+                                </button>
+                                {isPetsExpanded && (
+                                    <div className="mt-3 space-y-3">
+                                        <div className="flex flex-wrap gap-2">
+                                            {(pets?.petFriendly || petOptions?.petFriendly) && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Admite mascotas</span>
+                                            )}
+                                            {(pets?.allowsDogs || petOptions?.allowsDogs) && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Admite perros</span>
+                                            )}
+                                            {(pets?.allowsCats || petOptions?.allowsCats) && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Admite gatos</span>
+                                            )}
+                                            {(pets?.indoorAllowed || petOptions?.indoorAllowed) && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Interior permitido</span>
+                                            )}
+                                            {(pets?.terraceOnly || petOptions?.terraceOnly) && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Solo terraza</span>
+                                            )}
+                                            {(pets?.assistanceDogsOnly || petOptions?.assistanceDogsOnly) && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Perros de asistencia</span>
+                                            )}
+                                            {(pets?.waterBowls || petOptions?.waterBowls) && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Cuencos de agua</span>
+                                            )}
+                                            {pets?.petMenu && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Menú para mascotas</span>
+                                            )}
+                                            {(pets?.requiresLeash || petOptions?.requiresLeash) && (
+                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Correa obligatoria</span>
+                                            )}
+                                        </div>
+                                        {pets?.petPolicy && pets.petPolicy !== 'unknown' && (
+                                            <p className="rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-3 text-xs font-semibold text-[var(--lt-text)]">
+                                                {PET_POLICY_LABELS[pets.petPolicy] || pets.petPolicy}
+                                                {pets.notes ? ` · ${pets.notes}` : ''}
+                                            </p>
+                                        )}
+                                        {(!pets?.petPolicy || pets.petPolicy === 'unknown') && pets?.notes && (
+                                            <p className="rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-3 text-xs font-semibold text-[var(--lt-text)]">
+                                                {pets.notes}
+                                            </p>
+                                        )}
+                                        {pets?.restrictions?.length ? (
+                                            <div className="flex flex-wrap gap-2">
+                                                {pets.restrictions.map((restriction) => (
+                                                    <span key={restriction} className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
+                                                        {restriction}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         </div>
                     </div>
 
@@ -1216,6 +1449,13 @@ export const PlacePage: React.FC = () => {
                                         <ListIcon className="w-3.5 h-3.5" />
                                     </button>
                                     <button
+                                        onClick={() => setReviewViewMode('full')}
+                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'full' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                        title="Vista detallada"
+                                    >
+                                        <Rows3 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
                                         onClick={() => setReviewViewMode('gallery')}
                                         className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'gallery' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
                                         title="Vista galería"
@@ -1225,7 +1465,24 @@ export const PlacePage: React.FC = () => {
                                 </div>
                             </div>
 
-                            {reviewViewMode === 'gallery' ? (
+                            {reviewViewMode === 'full' ? (
+                                <div className="grid grid-cols-1 gap-6">
+                                    {place.reviews.slice(0, visibleCount).map(review => (
+                                        <ReviewCard
+                                            key={review.id}
+                                            review={review}
+                                            reactionConfig={reactionConfig || undefined}
+                                            onEdit={handleEditReview}
+                                            placeClosedStatus={place.closedStatus}
+                                        />
+                                    ))}
+                                    {visibleCount < place.reviews.length && (
+                                        <div ref={loadMoreRef} className="py-4 flex justify-center">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--lt-accent-border)]"></div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : reviewViewMode === 'gallery' ? (
                                 <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
                                     {place.reviews.slice(0, visibleCount).map(review => {
                                         const typedReview = review as PlaceReview;
@@ -1295,14 +1552,14 @@ export const PlacePage: React.FC = () => {
                                     )}
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 gap-6">
+                                <div className="flex flex-col gap-3">
                                     {place.reviews.slice(0, visibleCount).map(review => (
-                                        <ReviewCard
+                                        <ReviewCardList
                                             key={review.id}
                                             review={review}
-                                            reactionConfig={reactionConfig || undefined}
                                             onEdit={handleEditReview}
                                             placeClosedStatus={place.closedStatus}
+                                            hidePlaceName
                                         />
                                     ))}
                                     {visibleCount < place.reviews.length && (
@@ -1587,9 +1844,9 @@ export const PlacePage: React.FC = () => {
                                 <p className="text-xs text-[var(--lt-text-muted)]">{providerLabel(reservations?.provider)} · {place.name}</p>
                             </div>
                             <div className="flex items-center gap-2">
-                                {reservationExternalUrl && (
+                                {reservationFallbackUrl && reservationFallbackUrl !== reservationEmbedUrl && (
                                     <a
-                                        href={reservationExternalUrl}
+                                        href={reservationFallbackUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="inline-flex min-h-10 items-center justify-center rounded-xl border border-white/10 bg-white/5 px-3 text-xs font-bold text-[var(--lt-text)]"
@@ -1615,6 +1872,7 @@ export const PlacePage: React.FC = () => {
                             loading="lazy"
                             referrerPolicy="strict-origin-when-cross-origin"
                             sandbox="allow-forms allow-scripts allow-same-origin allow-popups allow-top-navigation-by-user-activation"
+                            onError={openReservationFallback}
                         />
                     </div>
                 </div>

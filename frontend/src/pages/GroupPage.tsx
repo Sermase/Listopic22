@@ -3,12 +3,13 @@ import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, Flag, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp } from 'lucide-react';
+import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, Flag, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp } from 'lucide-react';
 import { Lightbox } from '../components/Lightbox';
 import { ProgressiveImage } from '../components/ProgressiveImage';
 import { NonPonderableGauge } from '../components/NonPonderableGauge';
 import { ReportModal } from '../components/ReportModal';
 import { ReviewCard } from '../components/ReviewCard';
+import { ReviewCardList } from '../components/ReviewCardList';
 import { AddReviewForm } from '../components/AddReviewForm';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
 import { ShareModal } from '../components/ShareModal';
@@ -75,7 +76,7 @@ export const GroupPage: React.FC = () => {
     const [lightboxIndex, setLightboxIndex] = useState(0);
 
     // View mode for reviews
-    const [reviewViewMode, setReviewViewMode] = useState<'list' | 'gallery'>('gallery');
+    const [reviewViewMode, setReviewViewMode] = useState<'list' | 'full' | 'gallery'>('list');
     const [groupActiveTab, setGroupActiveTab] = useState<'reviews' | 'photos'>('reviews');
     const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
 
@@ -878,6 +879,13 @@ export const GroupPage: React.FC = () => {
                                     <ListIcon className="w-3.5 h-3.5" />
                                 </button>
                                 <button
+                                    onClick={() => setReviewViewMode('full')}
+                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'full' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                    title="Vista detallada"
+                                >
+                                    <Rows3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
                                     onClick={() => setReviewViewMode('gallery')}
                                     className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'gallery' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
                                     title="Vista galería"
@@ -889,7 +897,18 @@ export const GroupPage: React.FC = () => {
 
                         {/* Reviews Grid */}
                         {reviews.length > 0 ? (
-                            reviewViewMode === 'gallery' ? (
+                            reviewViewMode === 'full' ? (
+                                <div className="grid grid-cols-1 gap-8 animate-fade-in">
+                                    {reviews.slice(0, visibleCount).map(review => (
+                                        <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} placeClosedStatus={placeClosedStatus || undefined} />
+                                    ))}
+                                    {visibleCount < reviews.length && (
+                                        <div ref={loadMoreRef} className="py-4 flex justify-center">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--lt-accent-border)]"></div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : reviewViewMode === 'gallery' ? (
                                 <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2 animate-fade-in">
                                     {reviews.slice(0, visibleCount).map(review => {
                                         const score = review.overallRating || 0;
@@ -953,9 +972,16 @@ export const GroupPage: React.FC = () => {
                                     )}
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 gap-8 animate-fade-in">
+                                <div className="flex flex-col gap-3 animate-fade-in">
                                     {reviews.slice(0, visibleCount).map(review => (
-                                        <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} placeClosedStatus={placeClosedStatus || undefined} />
+                                        <ReviewCardList
+                                            key={review.id}
+                                            review={review}
+                                            onDelete={handleDeleteReview}
+                                            onEdit={handleEditReview}
+                                            placeClosedStatus={placeClosedStatus || undefined}
+                                            hidePlaceName
+                                        />
                                     ))}
                                     {visibleCount < reviews.length && (
                                         <div ref={loadMoreRef} className="py-4 flex justify-center">
