@@ -352,12 +352,17 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         priceLevel: placeData?.priceLevel,
         googleMapsUri: placeData?.googleMapsUrl || placeData?.googleMapsUri,
         accessibility: hasBusinessAccessibility ? {
-            wheelchairAccessibleEntrance: businessAccessibility?.wheelchairAccess || businessAccessibility?.stepFreeEntrance,
+            wheelchairAccessibleEntrance: businessAccessibility?.stepFreeEntrance,
             wheelchairAccessibleRestroom: businessAccessibility?.accessibleBathroom,
-            wheelchairAccessibleSeating: businessAccessibility?.wheelchairAccess,
+            wheelchairAccessibleSeating: businessAccessibility?.wheelchairFriendlyTables,
+            wheelchairAccessibleParking: businessAccessibility?.accessibleParking,
+            hearingLoop: businessAccessibility?.hearingLoop,
         } : placeData?.accessibilityOptions ? {
             wheelchairAccessibleEntrance: placeData.accessibilityOptions.wheelchairAccessibleEntrance,
             wheelchairAccessibleRestroom: placeData.accessibilityOptions.wheelchairAccessibleRestroom,
+            wheelchairAccessibleSeating: placeData.accessibilityOptions.wheelchairAccessibleSeating,
+            wheelchairAccessibleParking: placeData.accessibilityOptions.wheelchairAccessibleParking,
+            hearingLoop: placeData.accessibilityOptions.hearingLoop,
         } : placeData?.accessibility,
         petOptions: hasBusinessPets ? {
             petFriendly: businessPets?.petFriendly || businessPets?.allowsDogs || businessPets?.allowsCats,

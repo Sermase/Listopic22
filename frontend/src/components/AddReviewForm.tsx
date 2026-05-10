@@ -615,7 +615,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
         try {
             // --- AUTOMATION: "Quiero ir" -> "Ya fui" (ARCHIVES) ---
-            // Requirement: "si hacemos una reseÃ±a de ... elemento en Quiero ir, se pase automÃ¡ticamente a ya fui" (in Archives)
+            // Requirement: "si hacemos una reseña de ... elemento en Quiero ir, se pase automáticamente a ya fui" (in Archives)
 
             // 1. Ensure "Ya fui" archive exists
             let yaFuiArchiveId: string | null = null;

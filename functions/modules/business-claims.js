@@ -113,7 +113,7 @@ const onBusinessClaimCreated = onDocumentCreated({
 });
 
 const asString = (value, maxLength = 1000) => (typeof value === "string" ? value.trim().slice(0, maxLength) : "");
-const BUSINESS_INFO_SECTIONS = ["identity", "contact", "commercial", "accessibility", "pets", "dietary", "hours", "reservations", "deliveries"];
+const BUSINESS_INFO_SECTIONS = ["identity", "contact", "commercial", "accessibility", "family", "pets", "dietary", "hours", "reservations", "deliveries"];
 const BUSINESS_INFO_SCHEMA_VERSION = 1;
 const BUSINESS_INFO_FREE_SECTIONS = new Set(BUSINESS_INFO_SECTIONS);
 const VALID_PRICE_RANGES = new Set(["low", "medium", "high", "premium"]);
@@ -229,11 +229,41 @@ const sanitizeBusinessInfoData = (section, raw) => {
   }
   if (section === "accessibility") {
     return {
-      wheelchairAccess: asBoolean(input.wheelchairAccess),
-      accessibleBathroom: asBoolean(input.accessibleBathroom),
+      // Movilidad
       stepFreeEntrance: asBoolean(input.stepFreeEntrance),
-      babyChanging: asBoolean(input.babyChanging),
+      accessibleBathroom: asBoolean(input.accessibleBathroom),
+      rampAvailable: asBoolean(input.rampAvailable),
+      wheelchairFriendlyTables: asBoolean(input.wheelchairFriendlyTables),
+      elevator: asBoolean(input.elevator),
+      accessibleParking: asBoolean(input.accessibleParking),
+      bathroomGrabBars: asBoolean(input.bathroomGrabBars),
+      // Visual
+      guideDogsWelcome: asBoolean(input.guideDogsWelcome),
+      brailleMenu: asBoolean(input.brailleMenu),
+      largePrintMenu: asBoolean(input.largePrintMenu),
+      digitalMenuScreenReader: asBoolean(input.digitalMenuScreenReader),
+      // Auditiva
       hearingLoop: asBoolean(input.hearingLoop),
+      visualMenu: asBoolean(input.visualMenu),
+      quietEnvironment: asBoolean(input.quietEnvironment),
+      signLanguageStaff: asBoolean(input.signLanguageStaff),
+      // Cognitiva / sensorial
+      pictogramMenu: asBoolean(input.pictogramMenu),
+      easyReadMenu: asBoolean(input.easyReadMenu),
+      sensoryFriendlyArea: asBoolean(input.sensoryFriendlyArea),
+      notes: asString(String(input.notes || "").replace(/[<>]/g, ""), 700),
+    };
+  }
+  if (section === "family") {
+    return {
+      babyChanging: asBoolean(input.babyChanging),
+      familyRestroom: asBoolean(input.familyRestroom),
+      highChairs: asBoolean(input.highChairs),
+      kidsMenu: asBoolean(input.kidsMenu),
+      playArea: asBoolean(input.playArea),
+      strollerFriendly: asBoolean(input.strollerFriendly),
+      bottleWarming: asBoolean(input.bottleWarming),
+      breastfeedingFriendly: asBoolean(input.breastfeedingFriendly),
       notes: asString(String(input.notes || "").replace(/[<>]/g, ""), 700),
     };
   }

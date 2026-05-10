@@ -30,15 +30,8 @@ export const BUSINESS_SERVICE_OPTIONS = [
     'Terraza',
     'Reservas',
     'Para llevar',
-    'Entrega a domicilio',
-    'Recogida en local',
-    'Pedidos online',
     'Menú del día',
     'Menú infantil',
-    'Opciones vegetarianas',
-    'Opciones veganas',
-    'Sin gluten',
-    'Sin lactosa',
     'Desayunos',
     'Brunch',
     'Comidas',
@@ -54,7 +47,7 @@ export const BUSINESS_SERVICE_OPTIONS = [
     'Cumpleaños',
     'Apto para grupos',
     'Apto para familias',
-    'Pet friendly',
+    'Tronas',
     'WiFi',
     'Enchufes',
     'Aire acondicionado',
@@ -63,32 +56,10 @@ export const BUSINESS_SERVICE_OPTIONS = [
     'Parking',
     'Parking cercano',
     'Aparcacoches',
-    'Acceso sin escalón',
-    'Baño adaptado',
-    'Tronas',
-    'Cambiador para bebés',
-    'Pago en mesa',
     'Zona fumadores',
     'Zona tranquila',
     'Vistas',
     'Azotea',
-];
-
-export const ALLERGEN_OPTIONS = [
-    'Gluten',
-    'Lactosa',
-    'Frutos secos',
-    'Cacahuetes',
-    'Huevo',
-    'Soja',
-    'Pescado',
-    'Crustáceos',
-    'Moluscos',
-    'Apio',
-    'Mostaza',
-    'Sésamo',
-    'Sulfitos',
-    'Altramuces',
 ];
 
 export const CROSS_CONTAMINATION_LABELS: Record<string, string> = {
@@ -124,11 +95,9 @@ export const PET_POLICY_LABELS: Record<string, string> = {
 };
 
 export const PET_RESTRICTION_OPTIONS = [
-    'Solo perros pequeÃ±os',
+    'Solo perros pequeños',
     'Solo con correa',
     'No se permite subir a sillas',
     'Evitar horas de mucha afluencia',
     'Consultar antes de reservar',
-    'TransportÃ­n recomendado',
-    'Puede variar segÃºn zona',
 ];

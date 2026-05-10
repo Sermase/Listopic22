@@ -8,16 +8,19 @@ import {
     Banknote,
     Building2,
     Check,
+    ChevronDown,
     Coffee,
     CreditCard,
-    GlassWater,
+    Ear,
+    Eye,
+    Info,
     Loader2,
     Music,
     PawPrint,
     Plus,
     Save,
-    ShoppingBag,
     Smartphone,
+    Sparkles,
     Trash2,
     Utensils,
     Wallet,
@@ -37,6 +40,7 @@ import type {
     BusinessDeliveriesInfo,
     BusinessDeliveryLink,
     BusinessDietaryInfo,
+    BusinessFamilyInfo,
     BusinessHoursInfo,
     BusinessIdentityInfo,
     BusinessInfoDocument,
@@ -45,10 +49,9 @@ import type {
     BusinessReservationsInfo,
     BusinessWeeklyHours,
     DeliveryProvider,
-    ReservationDisplayMode,
     ReservationProvider,
 } from '../types/businessInfo';
-import { ALLERGEN_OPTIONS, CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_OPTIONS, PET_POLICY_LABELS, PET_RESTRICTION_OPTIONS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
+import { CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_OPTIONS, PET_POLICY_LABELS, PET_RESTRICTION_OPTIONS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
 
 type PlaceHeader = {
     name?: string;
@@ -65,6 +68,7 @@ const emptySections: Record<BusinessInfoSection, BusinessInfoDocument> = {
     contact: { section: 'contact', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
     commercial: { section: 'commercial', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
     accessibility: { section: 'accessibility', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
+    family: { section: 'family', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
     pets: { section: 'pets', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
     dietary: { section: 'dietary', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
     hours: { section: 'hours', schemaVersion: 1, source: 'business_user', status: 'active', tier: 'free', version: 0, hiddenFields: [], data: {} },
@@ -153,22 +157,12 @@ const BUSINESS_SERVICE_GROUPS: OptionGroup[] = [
         title: 'Comer y reservar',
         text: 'Servicios básicos del local.',
         icon: Utensils,
-        options: ['Comer en local', 'Reservas', 'Terraza', 'Para llevar', 'Recogida en local'],
-    },
-    {
-        title: 'Delivery y pedidos',
-        icon: ShoppingBag,
-        options: ['Entrega a domicilio', 'Pedidos online', 'Pago en mesa'],
+        options: ['Comer en local', 'Reservas', 'Terraza', 'Para llevar'],
     },
     {
         title: 'Momentos del día',
         icon: Coffee,
         options: ['Desayunos', 'Brunch', 'Comidas', 'Cenas', 'Menú del día', 'Menú infantil'],
-    },
-    {
-        title: 'Dietas destacadas',
-        icon: GlassWater,
-        options: ['Opciones vegetarianas', 'Opciones veganas', 'Sin gluten', 'Sin lactosa'],
     },
     {
         title: 'Bebidas',
@@ -181,9 +175,9 @@ const BUSINESS_SERVICE_GROUPS: OptionGroup[] = [
         options: ['Música en directo', 'Eventos privados', 'Catering', 'Cumpleaños', 'Apto para grupos', 'Zona tranquila', 'Zona fumadores'],
     },
     {
-        title: 'Familias y mascotas',
+        title: 'Familias',
         icon: Baby,
-        options: ['Apto para familias', 'Tronas', 'Cambiador para bebés', 'Pet friendly'],
+        options: ['Apto para familias', 'Tronas'],
     },
     {
         title: 'Comodidades',
@@ -191,9 +185,9 @@ const BUSINESS_SERVICE_GROUPS: OptionGroup[] = [
         options: ['WiFi', 'Enchufes', 'Aire acondicionado', 'Calefacción', 'Televisión', 'Vistas', 'Azotea'],
     },
     {
-        title: 'Accesibilidad y llegada',
-        icon: Accessibility,
-        options: ['Acceso sin escalón', 'Baño adaptado', 'Parking', 'Parking cercano', 'Aparcacoches'],
+        title: 'Llegada',
+        icon: Building2,
+        options: ['Parking', 'Parking cercano', 'Aparcacoches'],
     },
 ];
 
@@ -302,6 +296,7 @@ export const BusinessManagePage: React.FC = () => {
         ['contact', 'Contacto'],
         ['commercial', 'Comercial'],
         ['accessibility', 'Accesibilidad'],
+        ['family', 'Familias'],
         ['pets', 'Mascotas'],
         ['dietary', 'Alérgenos'],
         ['hours', 'Horarios'],
@@ -404,6 +399,12 @@ export const BusinessManagePage: React.FC = () => {
                                     onChange={(data) => updateData('accessibility', data)}
                                 />
                             )}
+                            {activeSection === 'family' && (
+                                <FamilyForm
+                                    doc={sections.family as BusinessInfoDocument<'family'>}
+                                    onChange={(data) => updateData('family', data)}
+                                />
+                            )}
                             {activeSection === 'pets' && (
                                 <PetsForm
                                     doc={sections.pets as BusinessInfoDocument<'pets'>}
@@ -460,6 +461,7 @@ function normalizeSections(info: BusinessInfoSectionsResponse): Record<BusinessI
         contact: { ...emptySections.contact, ...(info.sections?.contact || {}) },
         commercial: { ...emptySections.commercial, ...(info.sections?.commercial || {}) },
         accessibility: { ...emptySections.accessibility, ...(info.sections?.accessibility || {}) },
+        family: { ...emptySections.family, ...(info.sections?.family || {}) },
         pets: { ...emptySections.pets, ...(info.sections?.pets || {}) },
         dietary: { ...emptySections.dietary, ...(info.sections?.dietary || {}) },
         hours: { ...emptySections.hours, ...(info.sections?.hours || {}) },
@@ -729,32 +731,207 @@ const ListInput: React.FC<{
     );
 };
 
+const InfoTooltip: React.FC<{ text: string }> = ({ text }) => (
+    <span className="group relative inline-flex">
+        <Info
+            className="h-3.5 w-3.5 text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)] cursor-help"
+            tabIndex={0}
+        />
+        <span className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 hidden w-64 -translate-x-1/2 rounded-lg border border-white/10 bg-[var(--lt-bg)] p-3 text-xs font-normal leading-relaxed text-[var(--lt-text)] shadow-xl group-hover:block group-focus-within:block">
+            {text}
+        </span>
+    </span>
+);
+
+const AccessibilityCheck: React.FC<{
+    checked: boolean;
+    onChange: (value: boolean) => void;
+    label: string;
+    hint?: string;
+}> = ({ checked, onChange, label, hint }) => (
+    <label className="flex items-start gap-3 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-3 text-sm font-bold text-[var(--lt-text)]">
+        <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={checked}
+            onChange={(event) => onChange(event.target.checked)}
+        />
+        <span className="flex-1">{label}</span>
+        {hint && <InfoTooltip text={hint} />}
+    </label>
+);
+
+type AccessibilityBlockKey = 'mobility' | 'visual' | 'hearing' | 'cognitive';
+
+type AccessibilityField = {
+    key: keyof BusinessAccessibilityInfo;
+    label: string;
+    hint?: string;
+};
+
+const ACCESSIBILITY_BLOCKS: Array<{
+    id: AccessibilityBlockKey;
+    title: string;
+    description: string;
+    icon: React.ComponentType<{ className?: string }>;
+    fields: AccessibilityField[];
+}> = [
+    {
+        id: 'mobility',
+        title: 'Movilidad',
+        description: 'Personas con silla de ruedas o movilidad reducida.',
+        icon: Accessibility,
+        fields: [
+            { key: 'stepFreeEntrance', label: 'Entrada sin escalones', hint: 'Una persona en silla de ruedas puede entrar sin necesidad de ayuda externa ni rampa portátil.' },
+            { key: 'accessibleBathroom', label: 'Baño adaptado', hint: 'Con espacio suficiente para giro de silla y barras de apoyo.' },
+            { key: 'rampAvailable', label: 'Rampa permanente disponible' },
+            { key: 'wheelchairFriendlyTables', label: 'Mesas con espacio para silla de ruedas' },
+            { key: 'elevator', label: 'Ascensor (si tiene varias plantas)' },
+            { key: 'accessibleParking', label: 'Aparcamiento PMR propio o cercano' },
+            { key: 'bathroomGrabBars', label: 'Barras de apoyo en el baño' },
+        ],
+    },
+    {
+        id: 'visual',
+        title: 'Personas ciegas o con baja visión',
+        description: '',
+        icon: Eye,
+        fields: [
+            { key: 'guideDogsWelcome', label: 'Perros guía bienvenidos' },
+            { key: 'brailleMenu', label: 'Carta en braille' },
+            { key: 'largePrintMenu', label: 'Carta en letra grande' },
+            { key: 'digitalMenuScreenReader', label: 'Carta digital compatible con lector de pantalla', hint: 'El QR o web del menú se lee correctamente con TalkBack (Android) o VoiceOver (iOS).' },
+        ],
+    },
+    {
+        id: 'hearing',
+        title: 'Personas sordas o con baja audición',
+        description: '',
+        icon: Ear,
+        fields: [
+            { key: 'hearingLoop', label: 'Bucle magnético', hint: 'Sistema que conecta directamente con audífonos en modo T para oír al personal con claridad.' },
+            { key: 'visualMenu', label: 'Carta visual completa', hint: 'Se puede pedir sin depender de oír al camarero recitar la carta o las opciones.' },
+            { key: 'quietEnvironment', label: 'Entorno con poco ruido ambiente' },
+            { key: 'signLanguageStaff', label: 'Personal con conocimientos de lengua de signos' },
+        ],
+    },
+    {
+        id: 'cognitive',
+        title: 'Cognitiva, sensorial y TEA',
+        description: '',
+        icon: Sparkles,
+        fields: [
+            { key: 'pictogramMenu', label: 'Carta con pictogramas' },
+            { key: 'easyReadMenu', label: 'Carta en lectura fácil', hint: 'Texto sencillo, frases cortas e imágenes de apoyo. Pensado para personas con dificultades de lectura o comprensión.' },
+            { key: 'sensoryFriendlyArea', label: 'Zona con poca estimulación sensorial' },
+        ],
+    },
+];
+
 const AccessibilityForm: React.FC<{
     doc: BusinessInfoDocument<'accessibility'>;
     onChange: (data: Partial<BusinessAccessibilityInfo>) => void;
+}> = ({ doc, onChange }) => {
+    const [open, setOpen] = useState<Record<AccessibilityBlockKey, boolean>>({
+        mobility: true,
+        visual: false,
+        hearing: false,
+        cognitive: false,
+    });
+    const toggle = (id: AccessibilityBlockKey) => setOpen((prev) => ({ ...prev, [id]: !prev[id] }));
+
+    return (
+        <div className="space-y-4">
+            <SectionTitle title="Accesibilidad" text="Marca solo lo que estés seguro de que cumple el negocio. La información poco clara puede hacer perder un viaje a alguien con limitaciones." />
+            {ACCESSIBILITY_BLOCKS.map((block) => {
+                const Icon = block.icon;
+                const isOpen = open[block.id];
+                const checkedCount = block.fields.filter((field) => Boolean(doc.data[field.key])).length;
+                return (
+                    <div key={block.id} className="overflow-hidden rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)]">
+                        <button
+                            type="button"
+                            onClick={() => toggle(block.id)}
+                            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                        >
+                            <div className="flex items-center gap-3">
+                                <Icon className="h-5 w-5 text-[var(--lt-accent)]" />
+                                <div>
+                                    <h3 className="text-sm font-black text-[var(--lt-text)]">{block.title}</h3>
+                                    {block.description && <p className="text-xs text-[var(--lt-text-muted)]">{block.description}</p>}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {checkedCount > 0 && (
+                                    <span className="rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-2 py-0.5 text-[10px] font-black text-[var(--lt-accent)]">
+                                        {checkedCount}
+                                    </span>
+                                )}
+                                <ChevronDown className={`h-4 w-4 text-[var(--lt-text-muted)] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                            </div>
+                        </button>
+                        {isOpen && (
+                            <div className="grid gap-3 px-4 pb-4 sm:grid-cols-2">
+                                {block.fields.map((field) => (
+                                    <AccessibilityCheck
+                                        key={field.key}
+                                        label={field.label}
+                                        hint={field.hint}
+                                        checked={Boolean(doc.data[field.key])}
+                                        onChange={(value) => onChange({ [field.key]: value } as Partial<BusinessAccessibilityInfo>)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            })}
+            <Field label="Notas">
+                <textarea
+                    className={`${inputClass} min-h-24`}
+                    value={doc.data.notes || ''}
+                    onChange={(event) => onChange({ notes: event.target.value })}
+                    placeholder="Cualquier matiz que no encaje en las opciones anteriores."
+                />
+            </Field>
+        </div>
+    );
+};
+
+const FamilyForm: React.FC<{
+    doc: BusinessInfoDocument<'family'>;
+    onChange: (data: Partial<BusinessFamilyInfo>) => void;
 }> = ({ doc, onChange }) => (
     <div className="space-y-4">
-        <SectionTitle title="Accesibilidad" text="Información práctica para decidir antes de ir." />
+        <SectionTitle title="Familias" text="Servicios pensados para ir con bebés o niños pequeños." />
         <div className="grid gap-3 sm:grid-cols-2">
-            {[
-                ['wheelchairAccess', 'Acceso para silla de ruedas'],
-                ['accessibleBathroom', 'Baño adaptado'],
-                ['stepFreeEntrance', 'Entrada sin escalón'],
+            {([
                 ['babyChanging', 'Cambiador para bebés'],
-                ['hearingLoop', 'Bucle magnético'],
-            ].map(([key, label]) => (
-                <label key={key} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-bold text-[var(--lt-text)]">
+                ['familyRestroom', 'Baño familiar'],
+                ['highChairs', 'Tronas para niños'],
+                ['kidsMenu', 'Menú o platos infantiles'],
+                ['playArea', 'Zona de juegos / parque infantil'],
+                ['strollerFriendly', 'Apto para entrar con carrito'],
+                ['bottleWarming', 'Calientan biberones / comida del bebé'],
+                ['breastfeedingFriendly', 'Espacio cómodo para amamantar'],
+            ] as Array<[keyof BusinessFamilyInfo, string]>).map(([key, label]) => (
+                <label key={key} className="flex items-center gap-3 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-3 text-sm font-bold text-[var(--lt-text)]">
                     <input
                         type="checkbox"
-                        checked={Boolean(doc.data[key as keyof BusinessAccessibilityInfo])}
-                        onChange={(event) => onChange({ [key]: event.target.checked } as Partial<BusinessAccessibilityInfo>)}
+                        checked={Boolean(doc.data[key])}
+                        onChange={(event) => onChange({ [key]: event.target.checked } as Partial<BusinessFamilyInfo>)}
                     />
                     {label}
                 </label>
             ))}
         </div>
         <Field label="Notas">
-            <textarea className={`${inputClass} min-h-24`} value={doc.data.notes || ''} onChange={(event) => onChange({ notes: event.target.value })} />
+            <textarea
+                className={`${inputClass} min-h-24`}
+                value={doc.data.notes || ''}
+                onChange={(event) => onChange({ notes: event.target.value })}
+                placeholder="Detalles sobre menú infantil, horario familiar, etc."
+            />
         </Field>
     </div>
 );
@@ -764,15 +941,15 @@ const PetsForm: React.FC<{
     onChange: (data: Partial<BusinessPetsInfo>) => void;
 }> = ({ doc, onChange }) => (
     <div className="space-y-5">
-        <SectionTitle title="Mascotas" text="Datos prÃ¡cticos para saber si se puede ir con perro u otras mascotas, y con quÃ© condiciones." />
+        <SectionTitle title="Mascotas" text="Datos prácticos para saber si se puede ir con perro u otras mascotas, y con qué condiciones." />
 
         <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-4">
             <h3 className="flex items-center gap-2 text-sm font-black text-emerald-100">
                 <PawPrint className="h-5 w-5" />
-                PolÃ­tica general
+                Política general
             </h3>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <Field label="PolÃ­tica de mascotas">
+                <Field label="Política de mascotas">
                     <select
                         className={inputClass}
                         value={doc.data.petPolicy || 'unknown'}
@@ -782,8 +959,10 @@ const PetsForm: React.FC<{
                                 petPolicy,
                                 petFriendly: petPolicy === 'allowed' || petPolicy === 'dogs_only' || petPolicy === 'terrace_only',
                                 allowsDogs: petPolicy === 'allowed' || petPolicy === 'dogs_only' || petPolicy === 'terrace_only',
+                                allowsCats: petPolicy === 'allowed',
                                 assistanceDogsOnly: petPolicy === 'assistance_only',
                                 terraceOnly: petPolicy === 'terrace_only',
+                                indoorAllowed: petPolicy === 'allowed' || petPolicy === 'dogs_only',
                             });
                         }}
                     >
@@ -807,16 +986,8 @@ const PetsForm: React.FC<{
             <h3 className="mb-3 text-sm font-black text-[var(--lt-text)]">Opciones disponibles</h3>
             <div className="grid gap-3 sm:grid-cols-2">
                 {[
-                    ['petFriendly', 'Admite mascotas'],
-                    ['allowsDogs', 'Admite perros'],
-                    ['allowsCats', 'Admite gatos'],
                     ['indoorAllowed', 'Permite mascotas en interior'],
-                    ['terraceOnly', 'Solo terraza'],
-                    ['assistanceDogsOnly', 'Solo perros de asistencia'],
                     ['waterBowls', 'Tiene cuencos de agua'],
-                    ['treatsAvailable', 'Tiene premios/snacks'],
-                    ['petMenu', 'Tiene menÃº o productos para mascotas'],
-                    ['sizeRestrictions', 'Hay restricciones de tamaÃ±o'],
                     ['requiresLeash', 'Requiere correa'],
                 ].map(([key, label]) => (
                     <label key={key} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-sm font-bold text-[var(--lt-text)]">
@@ -831,12 +1002,12 @@ const PetsForm: React.FC<{
             </div>
         </div>
 
-        <Field label="Restricciones o condiciones" hint="Marca condiciones frecuentes. Puedes aÃ±adir otras separadas por coma en el campo inferior.">
+        <Field label="Restricciones o condiciones" hint="Marca condiciones frecuentes. Puedes añadir otras separadas por coma en el campo inferior.">
             <SuggestedListInput
                 suggestions={PET_RESTRICTION_OPTIONS}
                 value={doc.data.restrictions || []}
                 onChange={(items) => onChange({ restrictions: items })}
-                placeholder="solo perros pequeÃ±os, con correa..."
+                placeholder="solo perros pequeños, con correa..."
             />
         </Field>
     </div>
@@ -913,14 +1084,6 @@ const DietaryForm: React.FC<{
                 ))}
             </div>
         </div>
-
-        <Field label="Alérgenos relevantes" hint="Marca los alérgenos que el negocio tiene identificados o trata de forma específica.">
-            <OptionGrid
-                options={ALLERGEN_OPTIONS}
-                value={doc.data.allergens || []}
-                onChange={(items) => onChange({ allergens: items })}
-            />
-        </Field>
 
         <Field label="Notas adicionales">
             <textarea
@@ -999,17 +1162,6 @@ const ReservationsForm: React.FC<{
                     <option value="custom">Otro / propio</option>
                 </select>
             </Field>
-            <Field label="Modo">
-                <select
-                    className={inputClass}
-                    value={doc.data.displayMode || 'modal'}
-                    onChange={(event) => onChange({ displayMode: event.target.value as ReservationDisplayMode })}
-                >
-                    <option value="modal">Modal incrustado</option>
-                    <option value="external">Botón externo</option>
-                    <option value="both">Modal + botón externo</option>
-                </select>
-            </Field>
         </div>
         <Field label="URL o iframe del widget" hint="Puedes pegar el enlace directo o el iframe que te da CoverManager. Listopic guardará solo la URL segura.">
             <textarea
@@ -1019,7 +1171,7 @@ const ReservationsForm: React.FC<{
                 placeholder="https://www.covermanager.com/reservation/module_restaurant/..."
             />
         </Field>
-        <Field label="URL externa de respaldo" hint="Se usa si el iframe no carga o si eliges botón externo. Si la dejas vacía se usará la URL del widget.">
+        <Field label="URL externa de respaldo" hint="Se usa si no hay widget o si el iframe no carga. Si la dejas vacia se usara la URL del widget.">
             <input
                 className={inputClass}
                 value={doc.data.externalUrl || ''}
@@ -1035,7 +1187,7 @@ const ReservationsForm: React.FC<{
             />
         </Field>
         <p className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs text-amber-100">
-            Algunos proveedores pueden bloquear el iframe fuera de dominios autorizados. En ese caso, el usuario puede abrir la reserva con el botón externo.
+            En la pagina del lugar se muestra un solo boton: abre el widget si existe y, si no, abre este enlace externo.
         </p>
     </div>
 );

@@ -2297,16 +2297,16 @@ export const ProfilePage: React.FC = () => {
         </div>
 
         {/* Avatar Enlarged Modal with "Miembro desde" */}
-        {isAvatarModalOpen && profile && (
+        {isAvatarModalOpen && profile && createPortal(
           <div
-            className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-page-fade"
+            className="fixed inset-0 z-[2147483000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-page-fade"
             onClick={() => setIsAvatarModalOpen(false)}
           >
             <button
               aria-label="Cerrar"
               onClick={() => setIsAvatarModalOpen(false)}
-              className="fixed right-4 p-3 text-white/50 hover:text-white transition-colors bg-black/30 hover:bg-black/60 rounded-full z-[151]"
-              style={{ top: 'calc(env(safe-area-inset-top) + 0.75rem)' }}
+              className="fixed right-4 md:right-6 p-3 text-white/70 hover:text-white transition-colors bg-black/50 hover:bg-black/70 rounded-full z-[2147483001] border border-white/10"
+              style={{ top: 'calc(env(safe-area-inset-top) + 5rem)' }}
             >
               <X className="w-6 h-6" />
             </button>
@@ -2358,7 +2358,8 @@ export const ProfilePage: React.FC = () => {
                 </div>
               )}
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Preferences Modal */}
