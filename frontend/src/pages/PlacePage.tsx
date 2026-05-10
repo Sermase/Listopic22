@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -10,6 +10,7 @@ import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
 import { usePlaceDetails } from '../hooks/usePlaceDetails';
 import { PlaceService } from '../services/PlaceService';
 import { ReviewCard } from '../components/ReviewCard';
+import { ReviewCardList } from '../components/ReviewCardList';
 import { MapView } from '../components/MapView';
 import { useAuth } from '../context/AuthContext';
 import { collection, doc, getDoc, getDocs, query, setDoc, deleteDoc, serverTimestamp, where } from 'firebase/firestore';
@@ -155,7 +156,7 @@ export const PlacePage: React.FC = () => {
     const [syncError, setSyncError] = useState<string | null>(null);
 
     const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes' | 'photos'>('dishes');
-    const [reviewViewMode, setReviewViewMode] = useState<'list' | 'gallery'>('gallery');
+    const [reviewViewMode, setReviewViewMode] = useState<'list' | 'full' | 'gallery'>('list');
     const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -1448,6 +1449,13 @@ export const PlacePage: React.FC = () => {
                                         <ListIcon className="w-3.5 h-3.5" />
                                     </button>
                                     <button
+                                        onClick={() => setReviewViewMode('full')}
+                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'full' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                        title="Vista detallada"
+                                    >
+                                        <Rows3 className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
                                         onClick={() => setReviewViewMode('gallery')}
                                         className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'gallery' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
                                         title="Vista galería"
@@ -1457,7 +1465,24 @@ export const PlacePage: React.FC = () => {
                                 </div>
                             </div>
 
-                            {reviewViewMode === 'gallery' ? (
+                            {reviewViewMode === 'full' ? (
+                                <div className="grid grid-cols-1 gap-6">
+                                    {place.reviews.slice(0, visibleCount).map(review => (
+                                        <ReviewCard
+                                            key={review.id}
+                                            review={review}
+                                            reactionConfig={reactionConfig || undefined}
+                                            onEdit={handleEditReview}
+                                            placeClosedStatus={place.closedStatus}
+                                        />
+                                    ))}
+                                    {visibleCount < place.reviews.length && (
+                                        <div ref={loadMoreRef} className="py-4 flex justify-center">
+                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--lt-accent-border)]"></div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : reviewViewMode === 'gallery' ? (
                                 <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
                                     {place.reviews.slice(0, visibleCount).map(review => {
                                         const typedReview = review as PlaceReview;
@@ -1527,14 +1552,14 @@ export const PlacePage: React.FC = () => {
                                     )}
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 gap-6">
+                                <div className="flex flex-col gap-3">
                                     {place.reviews.slice(0, visibleCount).map(review => (
-                                        <ReviewCard
+                                        <ReviewCardList
                                             key={review.id}
                                             review={review}
-                                            reactionConfig={reactionConfig || undefined}
                                             onEdit={handleEditReview}
                                             placeClosedStatus={place.closedStatus}
+                                            hidePlaceName
                                         />
                                     ))}
                                     {visibleCount < place.reviews.length && (

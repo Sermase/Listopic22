@@ -5,12 +5,13 @@ import { useLists } from '../hooks/useLists';
 import { useUsers } from '../hooks/useUsers';
 import { useReviews } from '../hooks/useReviews';
 import { ReviewCard } from '../components/ReviewCard';
+import { ReviewCardList } from '../components/ReviewCardList';
 import { ProgressiveImage } from '../components/ProgressiveImage';
 import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { MapView } from '../components/MapView';
 import { UserAvatar } from '../components/UserAvatar';
-import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, Flame, TrendingUp, Gem, HeartHandshake } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, Flame, TrendingUp, Gem, HeartHandshake, Rows3 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, collectionGroup, query, getDocs, limit, doc, getDoc, getDocFromServer, onSnapshot, where } from 'firebase/firestore';
@@ -403,6 +404,7 @@ export const HomePage: React.FC = () => {
 
     // Infinite Scroll / Pagination
     const [visibleCount, setVisibleCount] = useState(4);
+    const [feedViewMode, setFeedViewMode] = useState<'full' | 'list'>('full');
     const loadMoreRef = React.useRef<HTMLDivElement>(null);
 
     // --- DATA FETCHING (Dynamic based on Tab) ---
@@ -1210,7 +1212,7 @@ export const HomePage: React.FC = () => {
                     </div>
 
                     {/* Navigation Pills */}
-                    <div className="flex justify-center mt-8 gap-4">
+                    <div className="relative flex justify-center items-center mt-8 gap-4">
                         <div className="inline-flex bg-white/5 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-inner">
                             <button
                                 onClick={() => setActiveTab('explore')}
@@ -1233,6 +1235,24 @@ export const HomePage: React.FC = () => {
                                 Novedades
                             </button>
                         </div>
+                        {activeTab === 'news' && (
+                            <div className="absolute right-0 top-1/2 -translate-y-1/2 flex bg-black/20 rounded-xl p-0.5 border border-white/10">
+                                <button
+                                    onClick={() => setFeedViewMode('full')}
+                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${feedViewMode === 'full' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                    title="Vista detallada"
+                                >
+                                    <Rows3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                    onClick={() => setFeedViewMode('list')}
+                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${feedViewMode === 'list' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                    title="Vista lista"
+                                >
+                                    <ListIcon className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {homeContentLoading && (
@@ -1599,9 +1619,11 @@ export const HomePage: React.FC = () => {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="space-y-8" key="feed">
+                                    <div className={feedViewMode === 'list' ? 'flex flex-col gap-3' : 'space-y-8'} key="feed">
                                         {filteredItems.slice(0, visibleCount).map((review: any) => (
-                                            <ReviewCard key={review.id} review={review} />
+                                            feedViewMode === 'list'
+                                                ? <ReviewCardList key={review.id} review={review} />
+                                                : <ReviewCard key={review.id} review={review} />
                                         ))}
                                         {(visibleCount < filteredItems.length || hasMore) && (
                                             <div ref={loadMoreRef} className="py-8 flex justify-center">
