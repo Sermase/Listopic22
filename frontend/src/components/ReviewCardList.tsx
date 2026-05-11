@@ -29,6 +29,8 @@ interface ReviewCardListProps {
     placeClosedStatus?: string;
     /** Cuando la lista ya muestra el contexto del lugar (PlacePage), oculta nombre del lugar */
     hidePlaceName?: boolean;
+    /** En móvil ocupa todo el ancho sin bordes laterales ni esquinas redondeadas */
+    mobileFullWidth?: boolean;
 }
 
 const getScoreTone = (score: number) => {
@@ -44,7 +46,7 @@ const formatScore = (score: number | undefined) => {
     return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
 };
 
-export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp, hidePlaceName }) => {
+export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp, hidePlaceName, mobileFullWidth }) => {
     const placeClosedStatus = placeClosedStatusProp || (review as any).placeClosedStatus || undefined;
     const { user } = useAuth();
     const queryClient = useQueryClient();
@@ -219,7 +221,10 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
         <>
             <article
                 onClick={handleCardClick}
-                className="group rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)] p-4 cursor-pointer transition-colors hover:border-[var(--lt-border-strong)]"
+                className={`group bg-[var(--lt-glass)] cursor-pointer transition-colors border-[var(--lt-border)] ${mobileFullWidth
+                    ? 'border-none sm:border sm:rounded-2xl px-4 py-3 sm:p-4 sm:hover:border-[var(--lt-border-strong)]'
+                    : 'rounded-2xl border p-4 hover:border-[var(--lt-border-strong)]'
+                }`}
             >
                 {/* Header: avatar + nombre + contexto + fecha + menú */}
                 <div className="flex items-start gap-3">
@@ -236,7 +241,8 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                         />
                     </Link>
                     <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        {/* Línea 1: username · fecha */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
                             <Link
                                 to={review.userId ? `/profile/${review.userId}` : '#'}
                                 onClick={(e) => e.stopPropagation()}
@@ -255,33 +261,44 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                                 </span>
                             )}
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs text-[var(--lt-text-muted)] truncate">
-                            <span className="font-semibold text-[var(--lt-text)] truncate">{review.itemName}</span>
-                            {!hidePlaceName && review.placeName && (
-                                <>
-                                    <span>·</span>
+                        {/* Línea 2: nombre del plato */}
+                        {review.itemName && (
+                            <div className="text-sm font-semibold text-[var(--lt-text)] truncate mt-0.5">
+                                {review.itemName}
+                            </div>
+                        )}
+                        {/* Línea 3: lugar · ciudad · lista */}
+                        {(!hidePlaceName && review.placeName) || review.listName ? (
+                            <div className="flex items-center gap-1 text-xs text-[var(--lt-text-muted)] truncate mt-0.5">
+                                {!hidePlaceName && review.placeName && (
                                     <Link
                                         to={`/place/${review.placeId}`}
                                         onClick={(e) => e.stopPropagation()}
-                                        className="hover:text-[var(--lt-accent)] truncate"
+                                        className="hover:text-[var(--lt-accent)] truncate shrink-0"
                                     >
                                         {review.placeName}
                                     </Link>
-                                </>
-                            )}
-                            {review.listName && (
-                                <>
-                                    <span>·</span>
-                                    <Link
-                                        to={review.listId ? `/list/${review.listId}` : '#'}
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="hover:text-[var(--lt-accent)] truncate"
-                                    >
-                                        {review.listName}
-                                    </Link>
-                                </>
-                            )}
-                        </div>
+                                )}
+                                {!hidePlaceName && review.placeName && (review as any).placeCity && (
+                                    <>
+                                        <span className="shrink-0">·</span>
+                                        <span className="truncate shrink-0">{(review as any).placeCity}</span>
+                                    </>
+                                )}
+                                {review.listName && (
+                                    <>
+                                        {(!hidePlaceName && review.placeName) && <span className="shrink-0">·</span>}
+                                        <Link
+                                            to={review.listId ? `/list/${review.listId}` : '#'}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="hover:text-[var(--lt-accent)] truncate"
+                                        >
+                                            {review.listName}
+                                        </Link>
+                                    </>
+                                )}
+                            </div>
+                        ) : null}
                     </div>
                     <ReviewCardMenu
                         isOwner={!!isOwner}
