@@ -5,9 +5,11 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { PlaceService } from '../services/PlaceService';
 import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
-import { collection, query, where, getDocs, doc, getDoc, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, getDocFromServer, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion, onSnapshot, orderBy } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useQueryClient } from '@tanstack/react-query';
 import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown, ClipboardList, Activity, Building2 } from 'lucide-react';
+import { invalidateDoc } from '../lib/queryCache';
 
 const FUNCTIONS_REGION = 'europe-west1';
 
@@ -47,6 +49,7 @@ interface ConsoleSearchParams {
 }
 
 export const DeveloperPage: React.FC = () => {
+    const queryClient = useQueryClient();
     const { user, isJefe, loading: loadingAuth } = useAuth();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
     const [searchParams] = useSearchParams();
@@ -601,8 +604,12 @@ export const DeveloperPage: React.FC = () => {
         const idToken = await user.getIdToken();
         const googleId = selectedItem.googlePlaceId || selectedItem.id;
         await PlaceService.ensurePlaceSyncedWithBackend(googleId, idToken);
+        invalidateDoc('places', selectedItem.id);
+        queryClient.invalidateQueries({ queryKey: ['placeDetails', selectedItem.id] });
+        queryClient.invalidateQueries({ queryKey: ['doc', 'places', selectedItem.id] });
         // Refresh the selected item from Firestore
-        const snap = await getDoc(doc(db, 'places', selectedItem.id));
+        const placeRef = doc(db, 'places', selectedItem.id);
+        const snap = await getDocFromServer(placeRef).catch(() => getDoc(placeRef));
         if (snap.exists()) setSelectedItem({ id: snap.id, ...snap.data() });
         handleConsoleSearch();
     };

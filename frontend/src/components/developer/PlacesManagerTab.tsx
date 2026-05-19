@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { db } from '../../firebase';
-import { collection, query, getDocs, limit as firestoreLimit, deleteDoc, doc, getDoc } from 'firebase/firestore';
+import { collection, query, getDocs, limit as firestoreLimit, deleteDoc, doc, getDoc, getDocFromServer } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateDoc } from '../../lib/queryCache';
 import {
     Search, RefreshCw, AlertTriangle, CheckSquare, Square, MapPin,
     RefreshCcw, Trash2, ChevronUp, ChevronDown, ArrowUpDown, Copy, GitMerge, ExternalLink
@@ -172,6 +174,8 @@ const getClosedLabel = (place: PlaceRecord): { label: string; color: string } | 
 };
 
 export const PlacesManagerTab: React.FC = () => {
+    const queryClient = useQueryClient();
+
     // Data
     const [places, setPlaces] = useState<PlaceRecord[]>([]);
     const [loading, setLoading] = useState(false);
@@ -421,7 +425,11 @@ export const PlacesManagerTab: React.FC = () => {
     };
 
     const refreshPlaceInList = async (placeId: string) => {
-        const snap = await getDoc(doc(db, 'places', placeId));
+        invalidateDoc('places', placeId);
+        queryClient.invalidateQueries({ queryKey: ['placeDetails', placeId] });
+        queryClient.invalidateQueries({ queryKey: ['doc', 'places', placeId] });
+        const placeRef = doc(db, 'places', placeId);
+        const snap = await getDocFromServer(placeRef).catch(() => getDoc(placeRef));
         if (snap.exists()) {
             const updated: PlaceRecord = { id: snap.id, ...snap.data() };
             setPlaces(prev => prev.map(p => p.id === placeId ? updated : p));

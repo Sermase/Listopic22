@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { collection, query, where, getDocs, doc, getDoc, limit, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, getDocFromServer, limit, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
@@ -183,7 +183,8 @@ const getBusinessOpenStatus = (hours: BusinessHoursInfo | undefined) => {
 };
 
 async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
-    const placeDocSnap = await getDoc(doc(db, 'places', placeId));
+    const placeRef = doc(db, 'places', placeId);
+    const placeDocSnap = await getDocFromServer(placeRef).catch(() => getDoc(placeRef));
     const placeData = placeDocSnap.exists() ? placeDocSnap.data() : null;
     const resolvedBusinessSnapPromise = getDoc(doc(db, 'places', placeId, 'resolvedPublic', 'business')).catch(e => {
         if (e?.code !== 'permission-denied') console.warn('Failed to fetch resolved business info', e);
@@ -413,12 +414,17 @@ export const usePlaceDetails = (placeId: string | undefined) => {
         queryKey: ['placeDetails', placeId],
         enabled: !!placeId,
         queryFn: () => fetchPlaceDetails(placeId!),
+        staleTime: 0,
+        refetchOnMount: 'always',
     });
 
     return {
         place: q.data ?? null,
         loading: q.isLoading,
         error: q.error ? (q.error as Error).message : null,
-        refresh: () => qc.invalidateQueries({ queryKey: ['placeDetails', placeId] }),
+        refresh: async () => {
+            await qc.invalidateQueries({ queryKey: ['placeDetails', placeId] });
+            return q.refetch();
+        },
     };
 };

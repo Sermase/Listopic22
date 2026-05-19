@@ -477,7 +477,7 @@ export const PlacePage: React.FC = () => {
         try {
             const idToken = await user.getIdToken();
             await PlaceService.ensurePlaceSyncedWithBackend(placeId, idToken);
-            refresh();
+            await refresh();
         } catch (err: unknown) {
             setSyncError(getErrorMessage(err, 'Error al sincronizar con Google'));
         } finally {
