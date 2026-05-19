@@ -162,6 +162,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
                             className="w-full bg-black/20 border border-white/10 rounded-lg px-4 py-3 text-white outline-none focus:border-red-500 transition-colors appearance-none disabled:opacity-40"
                         >
                             <option value="inappropriate">Contenido inapropiado / ofensivo</option>
+                            <option value="child_safety">Seguridad infantil / EASI</option>
                             <option value="spam">Spam / Publicidad no deseada</option>
                             <option value="fake">Información falsa / engañosa</option>
                             {(targetType === 'place' || targetType === 'review') && (

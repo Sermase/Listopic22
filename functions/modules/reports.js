@@ -16,6 +16,7 @@ const db = getFirestore();
 const REPORT_TARGET_TYPES = new Set(['place', 'review', 'list', 'group', 'user', 'other']);
 const REPORT_ISSUE_TYPES = new Set([
     'inappropriate',
+    'child_safety',
     'spam',
     'fake',
     'place_closed',

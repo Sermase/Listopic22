@@ -36,6 +36,9 @@ export const Footer: React.FC<{ compact?: boolean }> = ({ compact }) => {
                         <Link to="/privacy" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
                             Privacidad
                         </Link>
+                        <Link to="/child-safety" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
+                            Seguridad infantil
+                        </Link>
                         <Link to="/terms" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
                             Términos de Uso
                         </Link>
