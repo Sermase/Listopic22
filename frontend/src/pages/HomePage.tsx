@@ -1236,7 +1236,8 @@ export const HomePage: React.FC = () => {
                             </button>
                         </div>
                         {activeTab === 'news' && (
-                            <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/10">
+                            <div className="flex w-full max-w-[95%] justify-end">
+                                <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/10">
                                 <button
                                     onClick={() => setFeedViewMode('full')}
                                     className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${feedViewMode === 'full' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
@@ -1251,6 +1252,7 @@ export const HomePage: React.FC = () => {
                                 >
                                     <ListIcon className="w-3.5 h-3.5" />
                                 </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1265,11 +1267,11 @@ export const HomePage: React.FC = () => {
                     )}
 
                     {/* Filter Chips (Categories) */}
-                    <div className="flex flex-wrap justify-between items-center mt-8 gap-4">
-                        <div className="flex-1"></div>
-
-
-                    </div>
+                    {activeTab === 'explore' && (
+                        <div className="flex flex-wrap justify-between items-center mt-8 gap-4">
+                            <div className="flex-1"></div>
+                        </div>
+                    )}
 
 
                     {/* Map Collapsible */}
