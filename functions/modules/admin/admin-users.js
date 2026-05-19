@@ -326,6 +326,11 @@ const deleteOwnAccount = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (
   const uid = request.auth.uid;
   const keepReviews = request.data?.keepReviews === true;
   const keepSublists = request.data?.keepSublists === true;
+  const userDocSnap = await db.collection('users').doc(uid).get();
+  const userData = userDocSnap.exists ? (userDocSnap.data() || {}) : {};
+  const usernameLower = typeof userData.usernameLower === 'string'
+    ? userData.usernameLower.trim().toLowerCase()
+    : '';
   const state = { batch: db.batch(), count: 0 };
   const counters = { reviews: 0, lists: 0, subcollections: 0 };
 
@@ -353,6 +358,10 @@ const deleteOwnAccount = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (
   state.count++;
   state.batch.delete(db.collection('users').doc(uid));
   state.count++;
+  if (usernameLower) {
+    state.batch.delete(db.collection('usernameClaims').doc(usernameLower));
+    state.count++;
+  }
   await commitBatchIfNeeded(state, true);
 
   await getAuth().deleteUser(uid);
