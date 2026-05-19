@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, ShieldAlert } from 'lucide-react';
 import { Footer } from '../components/Footer';
 
-const SAFETY_CONTACT_EMAIL = 'sergio.marserr@gmail.com';
+const SAFETY_CONTACT_EMAIL = 'istaricore@gmail.com';
 
 const Section: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
     <section className="mb-8">

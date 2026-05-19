@@ -218,6 +218,9 @@ export interface BusinessInfoDocument<S extends BusinessInfoSection = BusinessIn
     version: number;
     hiddenFields: string[];
     data: BusinessSectionData[S];
+    truthDeclarationAccepted?: boolean;
+    truthDeclarationText?: string;
+    truthDeclarationAcceptedAt?: unknown;
     updatedBy?: string;
     updatedAt?: unknown;
     createdAt?: unknown;

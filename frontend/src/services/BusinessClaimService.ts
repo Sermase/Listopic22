@@ -27,6 +27,9 @@ export interface BusinessClaim {
     message: string;
     status: BusinessClaimStatus;
     proofs: BusinessClaimProof[];
+    truthDeclarationAccepted?: boolean;
+    truthDeclarationText?: string;
+    truthDeclarationAcceptedAt?: unknown;
     adminNotes?: string | null;
     createdAt?: unknown;
     updatedAt?: unknown;
@@ -46,6 +49,7 @@ export interface CreateBusinessClaimInput {
     contactPhone?: string;
     website?: string;
     message: string;
+    truthDeclarationAccepted: boolean;
     files: File[];
 }
 
@@ -97,6 +101,9 @@ export const validateBusinessClaimFiles = (files: File[]) => {
 export const createBusinessClaim = async (input: CreateBusinessClaimInput): Promise<{ id: string; proofs: BusinessClaimProof[] }> => {
     const files = input.files.slice(0, MAX_FILES);
     validateBusinessClaimFiles(files);
+    if (!input.truthDeclarationAccepted) {
+        throw new Error('Debes confirmar que la información enviada es veraz y que estás autorizado a reclamar este negocio.');
+    }
 
     const docRef = doc(db, 'businessClaims', claimDocId(input.userId, input.placeId));
 
@@ -137,6 +144,9 @@ export const createBusinessClaim = async (input: CreateBusinessClaimInput): Prom
             contactPhone: input.contactPhone ? cleanText(input.contactPhone, 80) : '',
             website: input.website ? cleanText(input.website, 240) : '',
             message: cleanText(input.message, 1600),
+            truthDeclarationAccepted: true,
+            truthDeclarationText: 'Declaro que la información enviada es veraz, que estoy autorizado a reclamar este negocio y que las pruebas adjuntas son legítimas.',
+            truthDeclarationAcceptedAt: serverTimestamp(),
             status: 'pending',
             proofs: uploadedProofs,
             createdAt: serverTimestamp(),

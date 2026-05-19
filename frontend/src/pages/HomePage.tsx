@@ -1212,7 +1212,7 @@ export const HomePage: React.FC = () => {
                     </div>
 
                     {/* Navigation Pills */}
-                    <div className="relative flex justify-center items-center mt-8 gap-4">
+                    <div className="flex flex-col items-center mt-8 gap-3">
                         <div className="inline-flex bg-white/5 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-inner">
                             <button
                                 onClick={() => setActiveTab('explore')}
@@ -1236,7 +1236,7 @@ export const HomePage: React.FC = () => {
                             </button>
                         </div>
                         {activeTab === 'news' && (
-                            <div className="absolute right-0 top-1/2 -translate-y-1/2 flex bg-black/20 rounded-xl p-0.5 border border-white/10">
+                            <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/10">
                                 <button
                                     onClick={() => setFeedViewMode('full')}
                                     className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${feedViewMode === 'full' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}

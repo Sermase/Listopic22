@@ -126,7 +126,8 @@ service cloud.firestore {
       return [
         'userId', 'userEmail', 'userName', 'placeId', 'placeName', 'placeAddress',
         'role', 'contactEmail', 'contactPhone', 'website', 'message', 'status',
-        'proofs', 'createdAt', 'updatedAt'
+        'proofs', 'truthDeclarationAccepted', 'truthDeclarationText',
+        'truthDeclarationAcceptedAt', 'createdAt', 'updatedAt'
       ];
     }
 
@@ -140,7 +141,9 @@ service cloud.firestore {
              && request.resource.data.role is string
              && request.resource.data.contactEmail is string
              && request.resource.data.message is string
-             && request.resource.data.proofs is list;
+             && request.resource.data.proofs is list
+             && request.resource.data.truthDeclarationAccepted == true
+             && request.resource.data.truthDeclarationText is string;
     }
 
     function isFollowingUser(targetUserId) {
@@ -689,6 +692,5 @@ service cloud.firestore {
     }
   }
 }
-
 
 

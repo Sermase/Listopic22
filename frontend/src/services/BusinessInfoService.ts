@@ -33,6 +33,8 @@ export const updateBusinessInfoSection = async <S extends BusinessInfoSection>(i
         hiddenFields: input.hiddenFields || [],
         version: input.version || 0,
         source: 'business_user',
+        truthDeclarationAccepted: true,
+        truthDeclarationText: 'Confirmo que la información comercial guardada es correcta, actual y útil para informar a los usuarios de Listopic.',
     });
     return result.data as { ok: boolean; section: S; version: number };
 };

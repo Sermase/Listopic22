@@ -437,15 +437,20 @@ export const BusinessManagePage: React.FC = () => {
                             )}
 
                             <div className="mt-6 flex justify-end border-t border-white/10 pt-5">
-                                <button
-                                    type="button"
-                                    onClick={() => saveSection(activeSection)}
-                                    disabled={saving === activeSection}
-                                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--lt-accent)] px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-[var(--lt-accent-shadow)] disabled:opacity-60"
-                                >
-                                    {saving === activeSection ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                                    Guardar
-                                </button>
+                                <div className="flex w-full flex-col gap-3 sm:max-w-xl sm:items-end">
+                                    <p className="text-xs leading-relaxed text-[var(--lt-text-muted)] sm:text-right">
+                                        Al guardar confirmas que estos datos son correctos, actuales y útiles para informar a los usuarios de Listopic.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={() => saveSection(activeSection)}
+                                        disabled={saving === activeSection}
+                                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--lt-accent)] px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-[var(--lt-accent-shadow)] disabled:opacity-60"
+                                    >
+                                        {saving === activeSection ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                        Guardar
+                                    </button>
+                                </div>
                             </div>
                         </section>
                     </div>

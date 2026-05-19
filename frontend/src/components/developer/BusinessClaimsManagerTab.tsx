@@ -202,6 +202,13 @@ export const BusinessClaimsManagerTab: React.FC<BusinessClaimsManagerTabProps> =
                                 {claim.message}
                             </p>
 
+                            {claim.truthDeclarationAccepted && (
+                                <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+                                    <p className="text-xs font-bold uppercase text-amber-200/80">Declaración de veracidad aceptada</p>
+                                    <p className="mt-1">{claim.truthDeclarationText || 'El solicitante declara que la información enviada es veraz y que está autorizado a reclamar este negocio.'}</p>
+                                </div>
+                            )}
+
                             {claim.proofs?.length > 0 && (
                                 <div className="mt-4">
                                     <p className="mb-2 text-xs font-bold uppercase text-gray-500">Pruebas</p>

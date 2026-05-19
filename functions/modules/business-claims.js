@@ -44,6 +44,9 @@ const buildEmailHtml = (claimId, claim) => {
       <p><strong>Solicitud:</strong></p>
       <p style="white-space:pre-wrap">${escapeHtml(claim.message)}</p>
 
+      <p><strong>Declaración de veracidad:</strong><br/>
+      ${claim.truthDeclarationAccepted ? "Aceptada" : "No consta"}${claim.truthDeclarationText ? ` — ${escapeHtml(claim.truthDeclarationText)}` : ""}</p>
+
       <p><strong>Pruebas:</strong></p>
       ${proofList}
 
@@ -731,11 +734,16 @@ const updateBusinessInfoSection = onCall(async (request) => {
   const expectedVersion = Number(request.data?.version ?? 0);
   const hiddenFields = asStringArray(request.data?.hiddenFields, 30, 80);
   const source = asString(request.data?.source, 40) || "business_user";
+  const truthDeclarationAccepted = request.data?.truthDeclarationAccepted === true;
+  const truthDeclarationText = asString(request.data?.truthDeclarationText, 300);
 
   if (!placeId) throw new HttpsError("invalid-argument", "Falta placeId.");
   if (!BUSINESS_INFO_SECTIONS.includes(section)) throw new HttpsError("invalid-argument", "Sección no válida.");
   if (!VALID_SOURCES.has(source)) throw new HttpsError("invalid-argument", "Origen no válido.");
   if (!BUSINESS_INFO_FREE_SECTIONS.has(section)) throw new HttpsError("permission-denied", "Esta sección requiere un plan superior.");
+  if (source === "business_user" && !truthDeclarationAccepted) {
+    throw new HttpsError("failed-precondition", "Debes confirmar que la información enviada es veraz y que estás autorizado a publicarla.");
+  }
 
   const rate = await rateLimit("businessInfoUpdate", `${uid || "anon"}_${placeId}`, 30, 24 * 60 * 60);
   if (!rate.allowed) {
@@ -775,6 +783,9 @@ const updateBusinessInfoSection = onCall(async (request) => {
       version: nextVersion,
       hiddenFields,
       data: sanitizedData,
+      truthDeclarationAccepted,
+      truthDeclarationText: truthDeclarationText || "Confirmo que la información comercial guardada es correcta, actual y útil para informar a los usuarios de Listopic.",
+      truthDeclarationAcceptedAt: FieldValue.serverTimestamp(),
       updatedBy: uid,
       updatedAt: FieldValue.serverTimestamp(),
       createdAt: current?.createdAt || FieldValue.serverTimestamp(),

@@ -31,6 +31,7 @@ export const BusinessClaimModal: React.FC<BusinessClaimModalProps> = ({
     const [website, setWebsite] = useState('');
     const [message, setMessage] = useState('');
     const [files, setFiles] = useState<File[]>([]);
+    const [truthDeclarationAccepted, setTruthDeclarationAccepted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedPlace, setSelectedPlace] = useState<Pick<PlaceResult, 'id' | 'name' | 'address'> | null>(() => ({
@@ -49,8 +50,8 @@ export const BusinessClaimModal: React.FC<BusinessClaimModalProps> = ({
     }, [isOpen, placeAddress, placeId, placeName]);
 
     const canSubmit = useMemo(() => {
-        return Boolean(user && selectedPlace?.id && role.trim().length >= 2 && contactEmail.trim().includes('@') && message.trim().length >= 20);
-    }, [contactEmail, message, role, selectedPlace?.id, user]);
+        return Boolean(user && selectedPlace?.id && role.trim().length >= 2 && contactEmail.trim().includes('@') && message.trim().length >= 20 && truthDeclarationAccepted);
+    }, [contactEmail, message, role, selectedPlace?.id, truthDeclarationAccepted, user]);
 
     if (!isOpen) return null;
 
@@ -74,6 +75,7 @@ export const BusinessClaimModal: React.FC<BusinessClaimModalProps> = ({
                 contactPhone,
                 website,
                 message,
+                truthDeclarationAccepted,
                 files,
             });
 
@@ -92,6 +94,7 @@ export const BusinessClaimModal: React.FC<BusinessClaimModalProps> = ({
             setWebsite('');
             setMessage('');
             setFiles([]);
+            setTruthDeclarationAccepted(false);
             onClose();
         } catch (err) {
             const message = err instanceof Error ? err.message : 'No se pudo enviar la solicitud.';
@@ -238,6 +241,19 @@ export const BusinessClaimModal: React.FC<BusinessClaimModalProps> = ({
                                 ))}
                             </div>
                         )}
+                    </label>
+
+                    <label className="flex gap-3 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">
+                        <input
+                            type="checkbox"
+                            checked={truthDeclarationAccepted}
+                            onChange={(event) => setTruthDeclarationAccepted(event.target.checked)}
+                            className="mt-1 h-4 w-4 shrink-0 accent-[var(--lt-accent)]"
+                            required
+                        />
+                        <span>
+                            Declaro que la información enviada es veraz, que estoy autorizado a reclamar este negocio y que las pruebas adjuntas son legítimas.
+                        </span>
                     </label>
 
                     <div className="flex flex-col sm:flex-row gap-3 sm:justify-end pt-2">
