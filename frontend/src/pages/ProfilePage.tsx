@@ -1317,7 +1317,7 @@ export const ProfilePage: React.FC = () => {
   const displayedReviewsCount =
     statsLoadedUserId === targetUserId
       ? advancedStats.totalReviews
-      : profile?.reviewsCount || 0;
+      : profile?.reviewsCount || profile?.reviewCount || 0;
 
   const profileStatCards = useMemo(
     () => [
@@ -2362,41 +2362,42 @@ export const ProfilePage: React.FC = () => {
           document.body
         )}
 
+        {/* Preferences Modal */}
         {isEditing && isOwnProfile && createPortal(
           <div
-            className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
+            className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-start md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
             onClick={() => !savingPreferences && setIsEditing(false)}
           >
             <div
-              className="w-full h-full md:h-[88vh] md:max-h-[88vh] md:max-w-3xl rounded-none md:rounded-2xl border-0 md:border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-none md:shadow-2xl overflow-hidden flex flex-col"
+              className="w-full h-[100dvh] md:h-[88vh] md:max-h-[88vh] md:max-w-3xl rounded-none md:rounded-2xl border-0 md:border border-white/10 bg-[var(--lt-card-strong)] shadow-none md:shadow-2xl overflow-hidden flex flex-col"
               onClick={(event) => event.stopPropagation()}
             >
-              <div className="sticky top-0 z-20 px-4 md:px-5 py-3 md:py-4 border-b border-[var(--lt-border)] bg-[var(--lt-card-strong)] flex items-center justify-between" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
+              <div className="sticky top-0 z-20 px-4 md:px-5 py-3 md:py-4 border-b border-white/10 bg-[var(--lt-card-strong)] flex items-center justify-between" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
                 <div>
-                  <h3 className="text-[var(--lt-text)] font-bold text-lg">
+                  <h3 className="text-white font-bold text-lg">
                     Preferencias de perfil
                   </h3>
-                  <p className="text-xs text-[var(--lt-text-muted)] mt-1">
+                  <p className="text-xs text-gray-400 mt-1">
                     Configura datos del usuario y ajustes de busqueda.
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => !savingPreferences && setIsEditing(false)}
-                  className="p-2 rounded-lg bg-[var(--lt-glass)] border border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-[var(--lt-glass-hover,rgba(255,255,255,0.06))] transition-colors"
+                  className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               <div className="px-4 md:px-5 pt-4 overflow-x-auto">
-                <div className="inline-flex min-w-max rounded-xl border border-[var(--lt-border)] bg-[var(--lt-bg-deep)] p-1">
+                <div className="inline-flex min-w-max rounded-xl border border-white/10 bg-[var(--lt-bg-deep)] p-1">
                   <button
                     type="button"
                     onClick={() => setPreferencesTab("user")}
                     className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "user"
                       ? "bg-[var(--lt-accent)] text-white"
-                      : "text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                      : "text-gray-300 hover:text-white"
                       }`}
                   >
                     Usuario
@@ -2406,7 +2407,7 @@ export const ProfilePage: React.FC = () => {
                     onClick={() => setPreferencesTab("search")}
                     className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "search"
                       ? "bg-[var(--lt-accent)] text-white"
-                      : "text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                      : "text-gray-300 hover:text-white"
                       }`}
                   >
                     Busqueda
@@ -2416,7 +2417,7 @@ export const ProfilePage: React.FC = () => {
                     onClick={() => setPreferencesTab("notifications")}
                     className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "notifications"
                       ? "bg-[var(--lt-accent)] text-white"
-                      : "text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                      : "text-gray-300 hover:text-white"
                       }`}
                   >
                     Notificaciones
@@ -2426,7 +2427,7 @@ export const ProfilePage: React.FC = () => {
                     onClick={() => setPreferencesTab("appearance")}
                     className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "appearance"
                       ? "bg-[var(--lt-accent)] text-white"
-                      : "text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                      : "text-gray-300 hover:text-white"
                       }`}
                   >
                     Apariencia
@@ -2448,13 +2449,13 @@ export const ProfilePage: React.FC = () => {
                 {preferencesTab === "user" && (
                   <>
                     <div>
-                      <h4 className="text-[var(--lt-text)] font-bold mb-4 flex items-center gap-2">
+                      <h4 className="text-white font-bold mb-4 flex items-center gap-2">
                         <UsersIcon className="w-4 h-4 text-[var(--lt-accent)]" /> Perfil
                         publico
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="md:col-span-2">
-                          <label className="text-[var(--lt-text-muted)] text-xs uppercase font-bold block mb-1.5">
+                          <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">
                             {hasLockedUsername
                               ? "Username (bloqueado)"
                               : "Username (obligatorio)"}
@@ -2465,12 +2466,12 @@ export const ProfilePage: React.FC = () => {
                             onChange={(e) => setEditUsername(e.target.value)}
                             disabled={hasLockedUsername}
                             className={`w-full border rounded-lg px-3 py-2 ${hasLockedUsername
-                              ? "bg-[var(--lt-bg-deep)] border-[var(--lt-border)] text-[var(--lt-text-muted)] opacity-60 cursor-not-allowed"
-                              : "bg-[var(--lt-bg-deep)] border-[var(--lt-border)] text-[var(--lt-text)] outline-none focus:border-[var(--lt-accent-border)]"
+                              ? "bg-black/40 border-white/10 text-gray-400 cursor-not-allowed"
+                              : "bg-black/20 border-amber-400/40 text-white outline-none focus:border-[var(--lt-accent-border)]"
                               }`}
                             placeholder="Sin espacios, maximo 18 caracteres"
                           />
-                          <p className="text-[11px] text-amber-500 font-medium mt-2">
+                          <p className="text-[11px] text-amber-300 mt-2">
                             {hasLockedUsername
                               ? "El username no se puede cambiar una vez guardado. Maximo 18 caracteres y sin espacios."
                               : "Tu username actual no es válido. Debes guardarlo ahora y quedará bloqueado cuando sea correcto."}
@@ -2478,66 +2479,66 @@ export const ProfilePage: React.FC = () => {
                         </div>
 
                         <div>
-                          <label className="text-[var(--lt-text-muted)] text-xs uppercase font-bold block mb-1.5">
+                          <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">
                             Display Name
                           </label>
                           <input
                             type="text"
                             value={editDisplayName}
                             onChange={(e) => setEditDisplayName(e.target.value)}
-                            className="w-full bg-[var(--lt-bg-deep)] border border-[var(--lt-border)] rounded-lg text-[var(--lt-text)] px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
                             placeholder="Visible publicamente"
                           />
                         </div>
 
                         <div>
-                          <label className="text-[var(--lt-text-muted)] text-xs uppercase font-bold block mb-1.5">
+                          <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">
                             Nombre
                           </label>
                           <input
                             type="text"
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            className="w-full bg-[var(--lt-bg-deep)] border border-[var(--lt-border)] rounded-lg text-[var(--lt-text)] px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
                             placeholder="Opcional"
                           />
                         </div>
 
                         <div>
-                          <label className="text-[var(--lt-text-muted)] text-xs uppercase font-bold block mb-1.5">
+                          <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">
                             Apellidos
                           </label>
                           <input
                             type="text"
                             value={editSurnames}
                             onChange={(e) => setEditSurnames(e.target.value)}
-                            className="w-full bg-[var(--lt-bg-deep)] border border-[var(--lt-border)] rounded-lg text-[var(--lt-text)] px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
                             placeholder="Opcional"
                           />
                         </div>
 
                         <div>
-                          <label className="text-[var(--lt-text-muted)] text-xs uppercase font-bold block mb-1.5">
+                          <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">
                             Lugar
                           </label>
                           <input
                             type="text"
                             value={editLocation}
                             onChange={(e) => setEditLocation(e.target.value)}
-                            className="w-full bg-[var(--lt-bg-deep)] border border-[var(--lt-border)] rounded-lg text-[var(--lt-text)] px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
                             placeholder="Opcional"
                           />
                         </div>
 
                         <div className="md:col-span-2">
-                          <label className="text-[var(--lt-text-muted)] text-xs uppercase font-bold block mb-1.5">
+                          <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">
                             Biografia
                           </label>
                           <textarea
                             value={editBio}
                             onChange={(e) => setEditBio(e.target.value)}
                             rows={4}
-                            className="w-full bg-[var(--lt-bg-deep)] border border-[var(--lt-border)] rounded-lg text-[var(--lt-text)] px-3 py-2 outline-none focus:border-[var(--lt-accent-border)] resize-y"
+                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)] resize-y"
                             placeholder="Opcional"
                           />
                         </div>
@@ -2545,7 +2546,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
 
                     <div>
-                      <h4 className="text-[var(--lt-text)] font-bold mb-4 flex items-center gap-2">
+                      <h4 className="text-white font-bold mb-4 flex items-center gap-2">
                         <UsersIcon className="w-4 h-4 text-[var(--lt-accent)]" /> Avatar
                       </h4>
                       <div className="flex flex-col gap-4">
@@ -2568,10 +2569,10 @@ export const ProfilePage: React.FC = () => {
                             }}
                             className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${profile.photoUrl === user?.photoURL
                               ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] ring-1 ring-[var(--lt-accent)]"
-                              : "bg-[var(--lt-bg-deep)] border-[var(--lt-border)] hover:border-[var(--lt-accent-border)]"
+                              : "bg-black/20 border-white/10 hover:border-white/30"
                               }`}
                           >
-                            <div className="w-10 h-10 rounded-full overflow-hidden border border-[var(--lt-border)]">
+                            <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10">
                               {user?.photoURL ? (
                                 <img
                                   src={user.photoURL}
@@ -2582,7 +2583,7 @@ export const ProfilePage: React.FC = () => {
                                 <div className="w-full h-full bg-gray-700"></div>
                               )}
                             </div>
-                            <span className="text-xs font-bold text-[var(--lt-text-muted)]">
+                            <span className="text-xs font-bold text-gray-300">
                               Google
                             </span>
                           </button>
@@ -2590,7 +2591,7 @@ export const ProfilePage: React.FC = () => {
                           <div
                             className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all relative overflow-hidden group ${profile.photoUrl !== user?.photoURL
                               ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] ring-1 ring-[var(--lt-accent)]"
-                              : "bg-[var(--lt-bg-deep)] border-[var(--lt-border)] hover:border-[var(--lt-accent-border)]"
+                              : "bg-black/20 border-white/10 hover:border-white/30"
                               } ${dragActive ? "border-dashed border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)]" : ""}`}
                             onDragEnter={handleDrag}
                             onDragLeave={handleDrag}
@@ -2618,7 +2619,7 @@ export const ProfilePage: React.FC = () => {
                               </div>
                             ) : null}
 
-                            <div className="w-10 h-10 rounded-full overflow-hidden border border-[var(--lt-border)] grayscale group-hover:grayscale-0 transition-all">
+                            <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 grayscale group-hover:grayscale-0 transition-all">
                               <ProgressiveImage
                                 src={profileAvatarSrc}
                                 alt="Custom"
@@ -2627,17 +2628,17 @@ export const ProfilePage: React.FC = () => {
                                 fallback={<img src={profileFallbackAvatar} alt="Custom" className="w-full h-full object-cover" />}
                               />
                             </div>
-                            <span className="text-xs font-bold text-[var(--lt-text-muted)]">
+                            <span className="text-xs font-bold text-gray-300">
                               {dragActive ? "Suelta aqui" : "Personal"}
                             </span>
                           </div>
                         </div>
 
                         <div className="space-y-2">
-                          <label className="text-[var(--lt-text-muted)] text-xs uppercase font-bold">
+                          <label className="text-gray-400 text-xs uppercase font-bold">
                             O arrastra tu imagen aqui
                           </label>
-                          <p className="text-[10px] text-[var(--lt-text-muted)] opacity-85">
+                          <p className="text-[10px] text-gray-500">
                             Haz clic en "Personal" o arrastra una imagen para
                             subirla. Max 5MB.
                           </p>
@@ -2650,19 +2651,19 @@ export const ProfilePage: React.FC = () => {
                 {preferencesTab === "search" && (
                   <div className="space-y-6">
                     <div>
-                      <h4 className="text-[var(--lt-text)] font-bold mb-4 flex items-center gap-2">
+                      <h4 className="text-white font-bold mb-4 flex items-center gap-2">
                         <Settings className="w-4 h-4 text-[var(--lt-accent)]" />{" "}
                         Preferencias de busqueda
                       </h4>
                       <div className="flex flex-col gap-2 max-w-sm">
-                        <label className="text-[var(--lt-text-muted)] text-xs uppercase font-bold">
+                        <label className="text-gray-400 text-xs uppercase font-bold">
                           Rango de distancia por defecto
                         </label>
                         <div className="flex items-center gap-3">
                           <select
                             value={editRange}
                             onChange={(e) => setEditRange(e.target.value)}
-                            className="bg-[var(--lt-bg-deep)] border border-[var(--lt-border)] rounded-lg text-[var(--lt-text)] px-3 py-2 outline-none focus:border-[var(--lt-accent-border)] w-full lt-theme-select-input"
+                            className="bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)] w-full"
                           >
                             <option value="1">1 km</option>
                             <option value="2">2 km</option>
@@ -2674,7 +2675,7 @@ export const ProfilePage: React.FC = () => {
                             <option value="999999">Sin limite</option>
                           </select>
                         </div>
-                        <p className="text-[10px] text-[var(--lt-text-muted)] opacity-85 mt-1">
+                        <p className="text-[10px] text-gray-500 mt-1">
                           Este rango se aplicara automaticamente cuando inicies
                           nueva sesión.
                         </p>
@@ -2682,7 +2683,7 @@ export const ProfilePage: React.FC = () => {
                     </div>
 
                     <div>
-                      <h4 className="text-[var(--lt-text)] font-bold mb-3 flex items-center gap-2">
+                      <h4 className="text-white font-bold mb-3 flex items-center gap-2">
                         <MapPinIcon className="w-4 h-4 text-[var(--lt-accent)]" /> Capa de mapa preferida
                       </h4>
                       <div className="grid grid-cols-2 gap-2 max-w-sm">
@@ -2698,7 +2699,7 @@ export const ProfilePage: React.FC = () => {
                             onClick={() => setEditMapLayer(layer.id)}
                             className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${editMapLayer === layer.id
                               ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white'
-                              : 'bg-[var(--lt-bg-deep)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)]'
+                              : 'bg-black/20 border-white/10 text-gray-300 hover:border-[var(--lt-accent-border)] hover:text-white'
                               }`}
                           >
                             <span className="text-base">{layer.emoji}</span>
@@ -2706,7 +2707,7 @@ export const ProfilePage: React.FC = () => {
                           </button>
                         ))}
                       </div>
-                      <p className="text-[10px] text-[var(--lt-text-muted)] opacity-85 mt-2">
+                      <p className="text-[10px] text-gray-500 mt-2">
                         Se aplicará automáticamente cada vez que abras el mapa.
                       </p>
                     </div>
@@ -2715,7 +2716,7 @@ export const ProfilePage: React.FC = () => {
 
                 {preferencesTab === "notifications" && (
                   <div className="space-y-3">
-                    <p className="text-xs text-[var(--lt-text-muted)]">Elige qué notificaciones quieres recibir.</p>
+                    <p className="text-xs text-gray-500">Elige qué notificaciones quieres recibir.</p>
                     {[
                       { key: "new_message", label: "Mensajes nuevos" },
                       { key: "new_follower", label: "Nuevos seguidores" },
@@ -2725,13 +2726,13 @@ export const ProfilePage: React.FC = () => {
                       { key: "level_up", label: "Subidas de nivel" },
                       { key: "badge_earned", label: "Medallas desbloqueadas" },
                     ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between py-2 border-b border-[var(--lt-border)]">
-                        <span className="text-sm text-[var(--lt-text)]">{label}</span>
+                      <div key={key} className="flex items-center justify-between py-2 border-b border-white/5">
+                        <span className="text-sm text-gray-300">{label}</span>
                         <button
                           type="button"
                           onClick={() => setNotifPrefs(prev => ({ ...prev, [key]: !prev[key] }))}
-                          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border border-transparent transition-colors ${
-                            notifPrefs[key] !== false ? "bg-[var(--lt-accent)] border-transparent" : "bg-[var(--lt-bg-deep)] border-[var(--lt-border)]"
+                          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${
+                            notifPrefs[key] !== false ? "bg-[var(--lt-accent)]" : "bg-white/10"
                           }`}
                         >
                           <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
@@ -2746,11 +2747,11 @@ export const ProfilePage: React.FC = () => {
                 {preferencesTab === "appearance" && (
                   <div className="space-y-5">
                     <div>
-                      <h4 className="text-[var(--lt-text)] font-bold mb-2 flex items-center gap-2">
+                      <h4 className="text-white font-bold mb-2 flex items-center gap-2">
                         <Palette className="w-4 h-4 text-[var(--lt-accent)]" />
                         Tema de la interfaz
                       </h4>
-                      <p className="text-xs text-[var(--lt-text-muted)] opacity-85 mb-4 leading-relaxed">
+                      <p className="text-xs text-gray-400 mb-4 leading-relaxed">
                         Cambia la paleta de colores de toda la aplicación. Se aplica al instante y se sincroniza entre tus dispositivos.
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -2764,7 +2765,7 @@ export const ProfilePage: React.FC = () => {
                               aria-pressed={isActive}
                               className={`relative group rounded-2xl overflow-hidden border text-left transition-all duration-200 ${isActive
                                 ? "border-[var(--lt-accent-border)] ring-2 ring-[var(--lt-accent)]"
-                                : "border-[var(--lt-border)] hover:border-[var(--lt-accent-border)]"
+                                : "border-white/10 hover:border-white/30"
                                 }`}
                             >
                               {/* Preview strip */}
@@ -2820,12 +2821,12 @@ export const ProfilePage: React.FC = () => {
                               {/* Label */}
                               <div className="px-3 py-2.5 bg-[var(--lt-bg-deep)]">
                                 <div className="flex items-baseline justify-between gap-2">
-                                  <span className="text-[var(--lt-text)] text-sm font-bold">{t.label}</span>
-                                  <span className="text-[9px] uppercase tracking-wider text-[var(--lt-text-muted)] opacity-75 truncate">
+                                  <span className="text-white text-sm font-bold">{t.label}</span>
+                                  <span className="text-[9px] uppercase tracking-wider text-gray-500 truncate">
                                     {t.mood}
                                   </span>
                                 </div>
-                                <p className="text-[11px] text-[var(--lt-text-muted)] opacity-85 mt-1 leading-snug line-clamp-2">
+                                <p className="text-[11px] text-gray-400 mt-1 leading-snug line-clamp-2">
                                   {t.description}
                                 </p>
                               </div>
@@ -2833,7 +2834,7 @@ export const ProfilePage: React.FC = () => {
                           );
                         })}
                       </div>
-                      <p className="text-[10px] text-[var(--lt-text-muted)] opacity-75 mt-4">
+                      <p className="text-[10px] text-gray-500 mt-4">
                         Tu preferencia se guarda en tu cuenta: la verás igual al entrar desde otro dispositivo.
                       </p>
                     </div>
@@ -2843,14 +2844,14 @@ export const ProfilePage: React.FC = () => {
                 {preferencesTab === "delete" && (
                   <div className="space-y-5">
                     <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
-                      <p className="text-red-500 dark:text-red-300 text-sm leading-relaxed">
-                        <span className="font-bold text-[var(--lt-text)]">Esta acción es irreversible.</span> Tu cuenta y todos tus datos serán eliminados permanentemente. Revisa las opciones antes de continuar.
+                      <p className="text-red-300 text-sm leading-relaxed">
+                        <span className="font-bold text-white">Esta acción es irreversible.</span> Tu cuenta y todos tus datos serán eliminados permanentemente. Revisa las opciones antes de continuar.
                       </p>
                     </div>
 
                     {/* Razón */}
                     <div>
-                      <label className="text-[var(--lt-text-muted)] text-xs uppercase font-bold block mb-2">¿Por qué te vas?</label>
+                      <label className="text-gray-400 text-xs uppercase font-bold block mb-2">¿Por qué te vas?</label>
                       <div className="space-y-2">
                         {[
                           "Ya no uso la app",
@@ -2865,8 +2866,8 @@ export const ProfilePage: React.FC = () => {
                             type="button"
                             onClick={() => setDeleteReason(reason)}
                             className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-colors ${deleteReason === reason
-                              ? "bg-red-500/20 border-red-500/50 text-red-500 dark:text-white font-medium"
-                              : "bg-[var(--lt-bg-deep)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)]"
+                              ? "bg-red-600/20 border-red-500/50 text-white"
+                              : "bg-black/20 border-white/10 text-gray-300 hover:border-white/20 hover:text-white"
                               }`}
                           >
                             {reason}
@@ -2877,8 +2878,8 @@ export const ProfilePage: React.FC = () => {
 
                     {/* Reseñas */}
                     <div>
-                      <label className="text-[var(--lt-text-muted)] text-xs uppercase font-bold block mb-1">¿Mantener tus reseñas de forma anónima?</label>
-                      <p className="text-[var(--lt-text-muted)] opacity-75 text-xs mb-2">Si dices que sí, tus reseñas quedarán en la app sin asociarse a ningún usuario.</p>
+                      <label className="text-gray-400 text-xs uppercase font-bold block mb-1">¿Mantener tus reseñas de forma anónima?</label>
+                      <p className="text-gray-500 text-xs mb-2">Si dices que sí, tus reseñas quedarán en la app sin asociarse a ningún usuario.</p>
                       <div className="flex gap-2">
                         {([true, false] as const).map((val) => (
                           <button
@@ -2886,8 +2887,8 @@ export const ProfilePage: React.FC = () => {
                             type="button"
                             onClick={() => setDeleteKeepReviews(val)}
                             className={`flex-1 py-2 rounded-xl border text-sm font-bold transition-colors ${deleteKeepReviews === val
-                              ? val ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-text)]" : "bg-red-500/20 border-red-500/50 text-red-500 dark:text-white"
-                              : "bg-[var(--lt-bg-deep)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)]"
+                              ? val ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-white" : "bg-red-600/20 border-red-500/50 text-white"
+                              : "bg-black/20 border-white/10 text-gray-400 hover:border-white/20 hover:text-white"
                               }`}
                           >
                             {val ? "Sí, mantenerlas" : "No, eliminarlas"}
@@ -2898,8 +2899,8 @@ export const ProfilePage: React.FC = () => {
 
                     {/* Sublistas */}
                     <div>
-                      <label className="text-[var(--lt-text-muted)] text-xs uppercase font-bold block mb-1">¿Mantener tus sublistas?</label>
-                      <p className="text-[var(--lt-text-muted)] opacity-75 text-xs mb-2">Si dices que sí, tus sublistas quedarán en la app sin autor.</p>
+                      <label className="text-gray-400 text-xs uppercase font-bold block mb-1">¿Mantener tus sublistas?</label>
+                      <p className="text-gray-500 text-xs mb-2">Si dices que sí, tus sublistas quedarán en la app sin autor.</p>
                       <div className="flex gap-2">
                         {([true, false] as const).map((val) => (
                           <button
@@ -2907,8 +2908,8 @@ export const ProfilePage: React.FC = () => {
                             type="button"
                             onClick={() => setDeleteKeepSublists(val)}
                             className={`flex-1 py-2 rounded-xl border text-sm font-bold transition-colors ${deleteKeepSublists === val
-                              ? val ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-text)]" : "bg-red-500/20 border-red-500/50 text-red-500 dark:text-white"
-                              : "bg-[var(--lt-bg-deep)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)]"
+                              ? val ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-white" : "bg-red-600/20 border-red-500/50 text-white"
+                              : "bg-black/20 border-white/10 text-gray-400 hover:border-white/20 hover:text-white"
                               }`}
                           >
                             {val ? "Sí, mantenerlas" : "No, eliminarlas"}
@@ -2919,18 +2920,18 @@ export const ProfilePage: React.FC = () => {
 
                     {/* Confirmación */}
                     <div>
-                      <label className="text-[var(--lt-text-muted)] text-xs uppercase font-bold block mb-2">Escribe ELIMINAR para confirmar</label>
+                      <label className="text-gray-400 text-xs uppercase font-bold block mb-2">Escribe ELIMINAR para confirmar</label>
                       <input
                         type="text"
                         value={deleteConfirmText}
                         onChange={(e) => setDeleteConfirmText(e.target.value)}
                         placeholder="ELIMINAR"
-                        className="w-full bg-[var(--lt-bg-deep)] border border-red-500/30 rounded-lg text-[var(--lt-text)] px-3 py-2 outline-none focus:border-red-500 placeholder:text-[var(--lt-text-muted)]/50"
+                        className="w-full bg-black/20 border border-red-500/30 rounded-lg text-white px-3 py-2 outline-none focus:border-red-500 placeholder:text-gray-600"
                       />
                     </div>
 
                     {deleteError && (
-                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[11px] text-red-500 dark:text-red-200">
+                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[11px] text-red-200">
                         {deleteError}
                       </div>
                     )}
@@ -2938,9 +2939,9 @@ export const ProfilePage: React.FC = () => {
                 )}
               </div>
 
-              <div className="px-4 md:px-5 py-4 border-t border-[var(--lt-border)] bg-[var(--lt-bg-deep)] space-y-3">
+              <div className="px-4 md:px-5 py-4 border-t border-white/10 bg-[var(--lt-card-strong)] space-y-3">
                 {preferencesTab !== "delete" && preferencesError && (
-                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[11px] text-red-500 dark:text-red-200">
+                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[11px] text-red-200">
                     {preferencesError}
                   </div>
                 )}
@@ -2949,7 +2950,7 @@ export const ProfilePage: React.FC = () => {
                     type="button"
                     onClick={() => !savingPreferences && !deletingAccount && setIsEditing(false)}
                     disabled={savingPreferences || deletingAccount}
-                    className="px-3 py-2 text-xs font-bold rounded-lg bg-[var(--lt-glass)] border border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-[var(--lt-border)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                    className="px-3 py-2 text-xs font-bold rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancelar
                   </button>
@@ -2972,7 +2973,7 @@ export const ProfilePage: React.FC = () => {
                       Eliminar mi cuenta
                     </button>
                   ) : preferencesTab === "appearance" ? (
-                    <span className="text-[11px] text-[var(--lt-text-muted)] italic">
+                    <span className="text-[11px] text-gray-500 italic">
                       Los cambios de tema se aplican al instante.
                     </span>
                   ) : (
