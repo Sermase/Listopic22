@@ -1317,7 +1317,7 @@ export const ProfilePage: React.FC = () => {
   const displayedReviewsCount =
     statsLoadedUserId === targetUserId
       ? advancedStats.totalReviews
-      : profile?.reviewsCount || 0;
+      : profile?.reviewsCount || profile?.reviewCount || 0;
 
   const profileStatCards = useMemo(
     () => [
