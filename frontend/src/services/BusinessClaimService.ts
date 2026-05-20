@@ -106,6 +106,16 @@ export const createBusinessClaim = async (input: CreateBusinessClaimInput): Prom
     }
 
     const docRef = doc(db, 'businessClaims', claimDocId(input.userId, input.placeId));
+    const existing = await getDoc(docRef).catch(() => null);
+    if (existing?.exists()) {
+        const current = existing.data() as Partial<BusinessClaim>;
+        if (current.status === 'pending') {
+            throw new Error('Ya tienes una solicitud pendiente para este negocio. Espera a que la revisemos antes de enviar otra.');
+        }
+        if (current.status === 'approved') {
+            throw new Error('Este negocio ya está aprobado para tu cuenta.');
+        }
+    }
 
     const uploadedProofs: BusinessClaimProof[] = [];
     for (const file of files) {
@@ -158,7 +168,14 @@ export const createBusinessClaim = async (input: CreateBusinessClaimInput): Prom
         if (code === 'permission-denied') {
             const existing = await getDoc(docRef).catch(() => null);
             if (existing?.exists()) {
-                throw new Error('Ya existe una solicitud para este negocio. Si la ves como borrada, revisa en Firestore que no quede el documento businessClaims con este usuario y lugar.');
+                const current = existing.data() as Partial<BusinessClaim>;
+                if (current.status === 'pending') {
+                    throw new Error('Ya tienes una solicitud pendiente para este negocio. Espera a que la revisemos antes de enviar otra.');
+                }
+                if (current.status === 'approved') {
+                    throw new Error('Este negocio ya está aprobado para tu cuenta.');
+                }
+                throw new Error('No se pudo reenviar la solicitud. Despliega las Firestore Rules nuevas para permitir reenviar solicitudes rechazadas.');
             }
             throw new Error('No se pudo crear la solicitud por permisos. Despliega las Firestore Rules nuevas y vuelve a intentarlo.');
         }

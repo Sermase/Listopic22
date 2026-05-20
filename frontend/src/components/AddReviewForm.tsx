@@ -520,7 +520,12 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     }
 
                     if (data.availableTags && Array.isArray(data.availableTags)) {
-                        setListAvailableTags(data.availableTags);
+                        setListAvailableTags(Array.from(new Set(
+                            data.availableTags
+                                .filter((tag): tag is string => typeof tag === 'string')
+                                .map((tag) => tag.trim())
+                                .filter(Boolean)
+                        )));
                     }
                 }
             } catch (e) {

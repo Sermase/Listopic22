@@ -13,14 +13,17 @@ import {
     CreditCard,
     Ear,
     Eye,
+    Image as ImageIcon,
     Info,
     Loader2,
+    Megaphone,
     Music,
     PawPrint,
     Plus,
     Save,
     Smartphone,
     Sparkles,
+    Tags,
     Trash2,
     Utensils,
     Wallet,
@@ -33,7 +36,6 @@ import {
     updateBusinessInfoSection,
     type BusinessInfoSectionsResponse,
 } from '../services/BusinessInfoService';
-import { createBusinessProCheckoutSession } from '../services/BusinessBillingService';
 import type {
     BusinessAccessibilityInfo,
     BusinessCommercialInfo,
@@ -65,6 +67,7 @@ type PlaceHeader = {
 };
 
 type Message = { type: 'success' | 'error'; text: string } | null;
+type BusinessManageTab = 'general' | 'visual' | 'items' | 'sponsored';
 
 const weekdays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const emptySections: Record<BusinessInfoSection, BusinessInfoDocument> = {
@@ -199,10 +202,10 @@ export const BusinessManagePage: React.FC = () => {
     const { placeId } = useParams<{ placeId: string }>();
     const [place, setPlace] = useState<PlaceHeader | null>(null);
     const [sections, setSections] = useState<Record<BusinessInfoSection, BusinessInfoDocument>>(emptySections);
+    const [activeBusinessTab, setActiveBusinessTab] = useState<BusinessManageTab>('general');
     const [activeSection, setActiveSection] = useState<BusinessInfoSection>('identity');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState<BusinessInfoSection | null>(null);
-    const [startingCheckout, setStartingCheckout] = useState(false);
     const [message, setMessage] = useState<Message>(null);
 
     useEffect(() => {
@@ -300,21 +303,19 @@ export const BusinessManagePage: React.FC = () => {
         }
     };
 
-    const startBusinessProCheckout = async () => {
-        if (!placeId) return;
-        setStartingCheckout(true);
-        setMessage(null);
-        try {
-            const session = await createBusinessProCheckoutSession(placeId);
-            if (!session.url) throw new Error('Stripe no devolvió una URL de pago.');
-            window.location.assign(session.url);
-        } catch (error) {
-            console.error('BusinessManagePage: checkout failed', error);
-            setMessage({ type: 'error', text: getErrorMessage(error) });
-        } finally {
-            setStartingCheckout(false);
-        }
+    const showBusinessProMessage = () => {
+        setMessage({
+            type: 'error',
+            text: 'No se puede acceder a Business Pro todavía porque este local no es Negocio Pro. Las pestañas Pro están abiertas en modo pruebas para prepararlas.',
+        });
     };
+
+    const businessTabs = useMemo(() => ([
+        { id: 'general', label: 'Datos generales', icon: Info, pro: false },
+        { id: 'visual', label: 'Imagen', icon: ImageIcon, pro: true },
+        { id: 'items', label: 'Elementos y carta', icon: Tags, pro: true },
+        { id: 'sponsored', label: 'Patrocinado', icon: Megaphone, pro: true },
+    ] as const), []);
 
     const navItems = useMemo(() => ([
         ['identity', 'Identidad'],
@@ -371,12 +372,11 @@ export const BusinessManagePage: React.FC = () => {
                             {!hasBusinessPro && (
                                 <button
                                     type="button"
-                                    onClick={startBusinessProCheckout}
-                                    disabled={startingCheckout}
+                                    onClick={showBusinessProMessage}
                                     className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2.5 text-sm font-black text-white shadow-lg disabled:opacity-60"
                                 >
-                                    {startingCheckout ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                                    Activar Business Pro
+                                    <Sparkles className="h-4 w-4" />
+                                    Business Pro
                                 </button>
                             )}
                         </div>
@@ -399,104 +399,143 @@ export const BusinessManagePage: React.FC = () => {
                         Cargando datos...
                     </div>
                 ) : (
-                    <div className="mt-6 grid gap-5 lg:grid-cols-[240px,1fr]">
-                        <aside className="h-fit rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-2">
-                            {navItems.map(([id, label]) => (
-                                <button
-                                    key={id}
-                                    type="button"
-                                    onClick={() => setActiveSection(id)}
-                                    className={`w-full rounded-xl px-4 py-3 text-left text-sm font-bold transition-colors ${
-                                        activeSection === id
-                                            ? 'bg-[var(--lt-accent)] text-white'
-                                            : 'text-[var(--lt-text-muted)] hover:bg-white/5 hover:text-[var(--lt-text)]'
-                                    }`}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </aside>
-
-                        <section className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-5">
-                            {activeSection === 'identity' && (
-                                <IdentityForm
-                                    doc={sections.identity as BusinessInfoDocument<'identity'>}
-                                    onChange={(data) => updateData('identity', data)}
-                                />
-                            )}
-                            {activeSection === 'contact' && (
-                                <ContactForm
-                                    doc={sections.contact as BusinessInfoDocument<'contact'>}
-                                    onChange={(data) => updateData('contact', data)}
-                                    onHiddenChange={(field, checked) => updateHidden('contact', field, checked)}
-                                />
-                            )}
-                            {activeSection === 'commercial' && (
-                                <CommercialForm
-                                    doc={sections.commercial as BusinessInfoDocument<'commercial'>}
-                                    onChange={(data) => updateData('commercial', data)}
-                                />
-                            )}
-                            {activeSection === 'accessibility' && (
-                                <AccessibilityForm
-                                    doc={sections.accessibility as BusinessInfoDocument<'accessibility'>}
-                                    onChange={(data) => updateData('accessibility', data)}
-                                />
-                            )}
-                            {activeSection === 'family' && (
-                                <FamilyForm
-                                    doc={sections.family as BusinessInfoDocument<'family'>}
-                                    onChange={(data) => updateData('family', data)}
-                                />
-                            )}
-                            {activeSection === 'pets' && (
-                                <PetsForm
-                                    doc={sections.pets as BusinessInfoDocument<'pets'>}
-                                    onChange={(data) => updateData('pets', data)}
-                                />
-                            )}
-                            {activeSection === 'dietary' && (
-                                <DietaryForm
-                                    doc={sections.dietary as BusinessInfoDocument<'dietary'>}
-                                    onChange={(data) => updateData('dietary', data)}
-                                />
-                            )}
-                            {activeSection === 'hours' && (
-                                <HoursForm
-                                    doc={sections.hours as BusinessInfoDocument<'hours'>}
-                                    onChange={(data) => updateData('hours', data)}
-                                />
-                            )}
-                            {activeSection === 'reservations' && (
-                                <ReservationsForm
-                                    doc={sections.reservations as BusinessInfoDocument<'reservations'>}
-                                    onChange={(data) => updateData('reservations', data)}
-                                />
-                            )}
-                            {activeSection === 'deliveries' && (
-                                <DeliveriesForm
-                                    doc={sections.deliveries as BusinessInfoDocument<'deliveries'>}
-                                    onChange={(data) => updateData('deliveries', data)}
-                                />
-                            )}
-
-                            <div className="mt-6 flex justify-end border-t border-white/10 pt-5">
-                                <div className="flex w-full flex-col gap-3 sm:max-w-xl sm:items-end">
-                                    <p className="text-xs leading-relaxed text-[var(--lt-text-muted)] sm:text-right">
-                                        Al guardar confirmas que estos datos son correctos, actuales y útiles para informar a los usuarios de Listopic.
-                                    </p>
-                                    <button
-                                        type="button"
-                                        onClick={() => saveSection(activeSection)}
-                                        disabled={saving === activeSection}
-                                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--lt-accent)] px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-[var(--lt-accent-shadow)] disabled:opacity-60"
+                    <div className="mt-6 space-y-5">
+                        <div className="grid gap-2 rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-2 sm:grid-cols-2 lg:grid-cols-4">
+                            {businessTabs.map((tab) => {
+                                const Icon = tab.icon;
+                                const isActive = activeBusinessTab === tab.id;
+                                return (
+                                    <div
+                                        key={tab.id}
+                                        className={`flex items-center rounded-xl border transition-colors ${
+                                            isActive
+                                                ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)]'
+                                                : 'border-transparent bg-white/[0.03] hover:bg-white/[0.06]'
+                                        }`}
                                     >
-                                        {saving === activeSection ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                                        Guardar
-                                    </button>
-                                </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveBusinessTab(tab.id)}
+                                            className={`flex min-h-12 flex-1 items-center gap-2 px-3 py-2 text-left text-sm font-black ${
+                                                isActive ? 'text-[var(--lt-text)]' : 'text-[var(--lt-text-muted)]'
+                                            }`}
+                                        >
+                                            <Icon className="h-4 w-4 shrink-0 text-[var(--lt-accent)]" />
+                                            <span className="min-w-0 truncate">{tab.label}</span>
+                                        </button>
+                                        {tab.pro && (
+                                            <ProBadge onClick={showBusinessProMessage} />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {activeBusinessTab === 'general' && (
+                            <div className="grid gap-5 lg:grid-cols-[240px,1fr]">
+                                <aside className="h-fit rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-2">
+                                    {navItems.map(([id, label]) => (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => setActiveSection(id)}
+                                            className={`w-full rounded-xl px-4 py-3 text-left text-sm font-bold transition-colors ${
+                                                activeSection === id
+                                                    ? 'bg-[var(--lt-accent)] text-white'
+                                                    : 'text-[var(--lt-text-muted)] hover:bg-white/5 hover:text-[var(--lt-text)]'
+                                            }`}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </aside>
+
+                                <section className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-5">
+                                    {activeSection === 'identity' && (
+                                        <IdentityForm
+                                            doc={sections.identity as BusinessInfoDocument<'identity'>}
+                                            onChange={(data) => updateData('identity', data)}
+                                        />
+                                    )}
+                                    {activeSection === 'contact' && (
+                                        <ContactForm
+                                            doc={sections.contact as BusinessInfoDocument<'contact'>}
+                                            onChange={(data) => updateData('contact', data)}
+                                            onHiddenChange={(field, checked) => updateHidden('contact', field, checked)}
+                                        />
+                                    )}
+                                    {activeSection === 'commercial' && (
+                                        <CommercialForm
+                                            doc={sections.commercial as BusinessInfoDocument<'commercial'>}
+                                            onChange={(data) => updateData('commercial', data)}
+                                        />
+                                    )}
+                                    {activeSection === 'accessibility' && (
+                                        <AccessibilityForm
+                                            doc={sections.accessibility as BusinessInfoDocument<'accessibility'>}
+                                            onChange={(data) => updateData('accessibility', data)}
+                                        />
+                                    )}
+                                    {activeSection === 'family' && (
+                                        <FamilyForm
+                                            doc={sections.family as BusinessInfoDocument<'family'>}
+                                            onChange={(data) => updateData('family', data)}
+                                        />
+                                    )}
+                                    {activeSection === 'pets' && (
+                                        <PetsForm
+                                            doc={sections.pets as BusinessInfoDocument<'pets'>}
+                                            onChange={(data) => updateData('pets', data)}
+                                        />
+                                    )}
+                                    {activeSection === 'dietary' && (
+                                        <DietaryForm
+                                            doc={sections.dietary as BusinessInfoDocument<'dietary'>}
+                                            onChange={(data) => updateData('dietary', data)}
+                                        />
+                                    )}
+                                    {activeSection === 'hours' && (
+                                        <HoursForm
+                                            doc={sections.hours as BusinessInfoDocument<'hours'>}
+                                            onChange={(data) => updateData('hours', data)}
+                                        />
+                                    )}
+                                    {activeSection === 'reservations' && (
+                                        <ReservationsForm
+                                            doc={sections.reservations as BusinessInfoDocument<'reservations'>}
+                                            onChange={(data) => updateData('reservations', data)}
+                                        />
+                                    )}
+                                    {activeSection === 'deliveries' && (
+                                        <DeliveriesForm
+                                            doc={sections.deliveries as BusinessInfoDocument<'deliveries'>}
+                                            onChange={(data) => updateData('deliveries', data)}
+                                        />
+                                    )}
+
+                                    <div className="mt-6 flex justify-end border-t border-white/10 pt-5">
+                                        <div className="flex w-full flex-col gap-3 sm:max-w-xl sm:items-end">
+                                            <p className="text-xs leading-relaxed text-[var(--lt-text-muted)] sm:text-right">
+                                                Al guardar confirmas que estos datos son correctos, actuales y útiles para informar a los usuarios de Listopic.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => saveSection(activeSection)}
+                                                disabled={saving === activeSection}
+                                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--lt-accent)] px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-[var(--lt-accent-shadow)] disabled:opacity-60"
+                                            >
+                                                {saving === activeSection ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                                Guardar
+                                            </button>
+                                        </div>
+                                    </div>
+                                </section>
                             </div>
-                        </section>
+                        )}
+
+                        {activeBusinessTab === 'visual' && <BusinessVisualPrototype />}
+                        {activeBusinessTab === 'items' && <BusinessItemsPrototype />}
+                        {activeBusinessTab === 'sponsored' && <BusinessSponsoredPrototype />}
                     </div>
                 )}
             </div>
@@ -518,6 +557,188 @@ function normalizeSections(info: BusinessInfoSectionsResponse): Record<BusinessI
         deliveries: { ...emptySections.deliveries, ...(info.sections?.deliveries || {}) },
     };
 }
+
+const ProBadge: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        className="mr-2 inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-300/40 bg-gradient-to-r from-amber-300/25 via-fuchsia-300/20 to-cyan-300/20 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-amber-100 shadow-[0_0_18px_rgba(251,191,36,0.22)]"
+        title="Función Business Pro"
+    >
+        <Sparkles className="h-3 w-3" />
+        Pro
+    </button>
+);
+
+const PrototypeShell: React.FC<{
+    title: string;
+    text: string;
+    icon: React.ElementType;
+    children: React.ReactNode;
+}> = ({ title, text, icon: Icon, children }) => (
+    <section className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-5">
+        <div className="mb-5 flex flex-col gap-3 border-b border-white/10 pb-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-3">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                    <Icon className="h-5 w-5" />
+                </div>
+                <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-xl font-black text-[var(--lt-text)]">{title}</h2>
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-amber-200">
+                            <Sparkles className="h-3 w-3" />
+                            Pro
+                        </span>
+                    </div>
+                    <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--lt-text-muted)]">{text}</p>
+                </div>
+            </div>
+            <span className="rounded-full border border-cyan-300/25 bg-cyan-400/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-cyan-200">
+                Modo pruebas
+            </span>
+        </div>
+        {children}
+    </section>
+);
+
+const BusinessVisualPrototype: React.FC = () => (
+    <PrototypeShell
+        title="Imagen y página del negocio"
+        text="Personalización visual del perfil público: hero, fondos, galería destacada, tarjetas y tono visual del local. Más adelante se bloqueará detrás de Business Pro."
+        icon={ImageIcon}
+    >
+        <div className="grid gap-5 lg:grid-cols-[1.1fr,0.9fr]">
+            <div className="space-y-4">
+                <Field label="Imagen principal / fondo">
+                    <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.04] p-5 text-center">
+                        <ImageIcon className="mx-auto h-8 w-8 text-[var(--lt-accent)]" />
+                        <p className="mt-2 text-sm font-bold text-[var(--lt-text)]">Subir o elegir fondo del negocio</p>
+                        <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Pensado para hero, portada de carta y tarjetas compartibles.</p>
+                    </div>
+                </Field>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Color de acento">
+                        <input className={inputClass} defaultValue="#6d5dfc" />
+                    </Field>
+                    <Field label="Estilo visual">
+                        <select className={inputClass} defaultValue="editorial">
+                            <option value="editorial">Editorial</option>
+                            <option value="clean">Limpio</option>
+                            <option value="warm">Cálido</option>
+                            <option value="night">Noche</option>
+                        </select>
+                    </Field>
+                </div>
+                <Field label="Texto destacado de portada">
+                    <textarea className={`${inputClass} min-h-24`} placeholder="Ej. Cocina honesta, producto local y brunch de fin de semana." />
+                </Field>
+            </div>
+            <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--lt-bg-deep)]">
+                <div className="h-40 bg-gradient-to-br from-indigo-600 via-purple-600 to-cyan-500" />
+                <div className="p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--lt-accent)]">Preview</p>
+                    <h3 className="mt-2 text-2xl font-black text-[var(--lt-text)]">Tu negocio</h3>
+                    <p className="mt-2 text-sm text-[var(--lt-text-muted)]">Así se podría ver la cabecera pública cuando activemos personalización avanzada.</p>
+                </div>
+            </div>
+        </div>
+    </PrototypeShell>
+);
+
+const BusinessItemsPrototype: React.FC = () => (
+    <PrototypeShell
+        title="Elementos, carta y grupos"
+        text="Gestión de productos, platos o servicios del lugar: fotos, precios, descuentos, ingredientes, descripción, grupos y vínculos con listas."
+        icon={Tags}
+    >
+        <div className="grid gap-5 lg:grid-cols-[0.9fr,1.1fr]">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-black text-[var(--lt-text)]">Grupos de carta</h3>
+                    <button type="button" className="inline-flex items-center gap-1 rounded-lg bg-[var(--lt-accent)] px-3 py-2 text-xs font-black text-white">
+                        <Plus className="h-3.5 w-3.5" />
+                        Grupo
+                    </button>
+                </div>
+                <div className="space-y-2">
+                    {['Entrantes', 'Principales', 'Postres', 'Bebidas'].map((group) => (
+                        <button key={group} type="button" className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-left text-sm font-bold text-[var(--lt-text)]">
+                            {group}
+                            <span className="text-xs text-[var(--lt-text-muted)]">0 elementos</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex items-center justify-between gap-3">
+                    <div>
+                        <h3 className="text-sm font-black text-[var(--lt-text)]">Nuevo elemento</h3>
+                        <p className="text-xs text-[var(--lt-text-muted)]">Prototipo de edición rápida.</p>
+                    </div>
+                    <button type="button" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-[var(--lt-text)]">
+                        <ImageIcon className="h-3.5 w-3.5" />
+                        Foto
+                    </button>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Nombre">
+                        <input className={inputClass} placeholder="Tarta de queso" />
+                    </Field>
+                    <Field label="Grupo">
+                        <select className={inputClass}>
+                            <option>Postres</option>
+                            <option>Entrantes</option>
+                            <option>Principales</option>
+                            <option>Bebidas</option>
+                        </select>
+                    </Field>
+                    <Field label="Precio">
+                        <input className={inputClass} placeholder="6,50 EUR" />
+                    </Field>
+                    <Field label="Descuento">
+                        <input className={inputClass} placeholder="2x1, -20%, happy hour..." />
+                    </Field>
+                </div>
+                <Field label="Ingredientes">
+                    <input className={inputClass} placeholder="Queso crema, galleta, frutos rojos..." />
+                </Field>
+                <Field label="Descripción">
+                    <textarea className={`${inputClass} min-h-24`} placeholder="Descripción corta para la ficha del elemento." />
+                </Field>
+                <Field label="Vincular a listas">
+                    <input className={inputClass} placeholder="Brunch, postres, sin gluten..." />
+                </Field>
+            </div>
+        </div>
+    </PrototypeShell>
+);
+
+const BusinessSponsoredPrototype: React.FC = () => (
+    <PrototypeShell
+        title="Contenido patrocinado"
+        text="Promociones y piezas destacadas del local, siempre marcadas como patrocinadas y separadas de rankings orgánicos."
+        icon={Megaphone}
+    >
+        <div className="grid gap-4 lg:grid-cols-3">
+            {[
+                ['Oferta destacada', 'Título, fechas, foto, CTA y condiciones visibles.'],
+                ['Lugar destacado', 'Impulso por categoría, barrio o radio con etiqueta de promocionado.'],
+                ['Lista patrocinada', 'Selección editorial del negocio sin alterar valoraciones ni ranking.'],
+            ].map(([title, text]) => (
+                <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="mb-4 grid h-10 w-10 place-items-center rounded-xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                        <Megaphone className="h-5 w-5" />
+                    </div>
+                    <h3 className="text-base font-black text-[var(--lt-text)]">{title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-[var(--lt-text-muted)]">{text}</p>
+                    <button type="button" className="mt-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-[var(--lt-text)]">
+                        Crear borrador
+                    </button>
+                </div>
+            ))}
+        </div>
+    </PrototypeShell>
+);
 
 const IdentityForm: React.FC<{
     doc: BusinessInfoDocument<'identity'>;

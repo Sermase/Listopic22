@@ -146,6 +146,12 @@ service cloud.firestore {
              && request.resource.data.truthDeclarationText is string;
     }
 
+    function businessClaimResubmitIsValid(claimId) {
+      return resource.data.userId == request.auth.uid
+             && resource.data.status == 'rejected'
+             && businessClaimCreateIsValid(claimId);
+    }
+
     function isFollowingUser(targetUserId) {
       return request.auth != null &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)/following/$(targetUserId)).data != null;
@@ -687,10 +693,11 @@ service cloud.firestore {
         resource.data.userId == request.auth.uid || isJefe(request.auth.uid)
       );
       allow create: if request.auth != null && businessClaimCreateIsValid(claimId);
-      allow update: if request.auth != null && isJefe(request.auth.uid);
+      allow update: if request.auth != null && (
+        isJefe(request.auth.uid) || businessClaimResubmitIsValid(claimId)
+      );
       allow delete: if false;
     }
   }
 }
-
 

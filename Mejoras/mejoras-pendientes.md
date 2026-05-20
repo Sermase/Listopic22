@@ -141,6 +141,16 @@ Objetivo: que reclamar un lugar ya aporte valor aunque no haya suscripcion.
 
 Rango orientativo: 8-15 EUR/mes por local.
 
+- La pantalla de edicion del negocio debe organizarse por pestanas principales:
+  - **Datos generales**: lo que ya existe en Business Free (identidad, contacto, comercial, accesibilidad, familias, mascotas, alergenos, horarios, reservas y delivery).
+  - **Imagen**: personalizacion visual de la pagina del negocio, fondos, imagen principal, galeria destacada, estilo visual, tarjetas y branding. Funcionalidad Pro.
+  - **Elementos y carta**: gestion de menu/productos/servicios del lugar; crear elementos, asignar grupo, fotos, precio, descuentos, ingredientes, descripcion, mas cartas y vinculacion con listas. Funcionalidad Pro.
+  - **Patrocinado**: ofertas, contenido promocionado, lugar destacado y listas patrocinadas, siempre con etiqueta visible de promocionado. Funcionalidad Pro.
+- Durante la fase de prototipo estas pestanas Pro pueden estar abiertas como si fueran gratis para probar UX y modelo de datos.
+- Cada pestana Pro debe mostrar un chip pequeno y brillante "Pro".
+- Al pulsar el chip/boton Pro en un negocio que aun no sea Pro, mostrar un aviso tipo: "No se puede acceder porque este local no es Negocio Pro"; mientras estemos en modo pruebas, aclarar que la zona esta abierta temporalmente.
+- Cuando se active el capado real, centralizarlo con un helper/hook tipo `RequireBusinessPlan` o `useBusinessPlan(placeId)` para no desperdigar checks por toda la UI.
+
 - Estadisticas del lugar: visitas al perfil, notas en el tiempo, terminos mas mencionados y comparativa anonima de zona/categoria.
 - Equipo con roles: propietario, manager, responder. Un empleado puede responder resenas sin tocar configuracion.
 - Plantillas de respuesta rapida y tono.

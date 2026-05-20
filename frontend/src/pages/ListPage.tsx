@@ -893,7 +893,7 @@ export const ListPage: React.FC = () => {
                 className="h-[40vh] min-h-[300px] transition-all duration-700"
                 fallback={(
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 via-[var(--lt-bg)] to-[var(--lt-bg)]">
-                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.12),transparent_26%),radial-gradient(circle_at_80%_30%,rgba(255,255,255,0.08),transparent_24%)] opacity-60"></div>
                     </div>
                 )}
                 topSlot={list.parentListId ? (
