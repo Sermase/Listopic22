@@ -2365,11 +2365,11 @@ export const ProfilePage: React.FC = () => {
         {/* Preferences Modal */}
         {isEditing && isOwnProfile && createPortal(
           <div
-            className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-stretch md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
+            className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-start md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
             onClick={() => !savingPreferences && setIsEditing(false)}
           >
             <div
-              className="w-full h-full md:h-[88vh] md:max-h-[88vh] md:max-w-3xl rounded-none md:rounded-2xl border-0 md:border border-white/10 bg-[var(--lt-card-strong)] shadow-none md:shadow-2xl overflow-hidden flex flex-col"
+              className="w-full h-[100dvh] md:h-[88vh] md:max-h-[88vh] md:max-w-3xl rounded-none md:rounded-2xl border-0 md:border border-white/10 bg-[var(--lt-card-strong)] shadow-none md:shadow-2xl overflow-hidden flex flex-col"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="sticky top-0 z-20 px-4 md:px-5 py-3 md:py-4 border-b border-white/10 bg-[var(--lt-card-strong)] flex items-center justify-between" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
