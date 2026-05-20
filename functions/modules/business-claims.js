@@ -650,6 +650,16 @@ const updateBusinessTeamMember = onCall(async (request) => {
     }, { notificationId: `business_assigned_${placeId}` });
   }
 
+  await writeAuditLog(uid, "businessTeam.updateMember", {
+    placeId,
+    action,
+    targetUserId: targetUid,
+    makeOwner,
+    previousOwnerUserId: place.businessOwnerUserId || null,
+    nextOwnerUserId: action === "add" && makeOwner ? targetUid : place.businessOwnerUserId || null,
+    previousManagerIds: Array.isArray(place.businessManagerIds) ? place.businessManagerIds : [],
+  });
+
   logger.info("businessClaims: equipo de negocio actualizado", { placeId, actorUid: uid, targetUid, action });
   return { ok: true, user: publicUser(targetUserDoc), action };
 });

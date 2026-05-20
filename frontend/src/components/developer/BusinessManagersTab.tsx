@@ -9,7 +9,7 @@ import {
     query,
     where,
 } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
+import { httpsCallable, type HttpsCallable } from 'firebase/functions';
 import { Building2, Crown, ExternalLink, Loader2, RefreshCw, Search, ShieldCheck, UserMinus, UserPlus, X } from 'lucide-react';
 import { db, functions } from '../../firebase';
 
@@ -31,6 +31,20 @@ interface ManagedUser {
     displayName?: string;
     email?: string;
     photoUrl?: string;
+}
+
+interface UpdateBusinessTeamMemberInput {
+    placeId: string;
+    action: 'add' | 'remove';
+    userSearch?: string;
+    targetUserId?: string;
+    makeOwner?: boolean;
+}
+
+interface UpdateBusinessTeamMemberResult {
+    ok: boolean;
+    user: ManagedUser;
+    action: 'add' | 'remove';
 }
 
 const asString = (value: unknown): string => typeof value === 'string' ? value.trim() : '';
@@ -55,7 +69,15 @@ const userSubtitle = (user?: ManagedUser): string => {
         .join(' / ');
 };
 
-const updateBusinessTeamMember = httpsCallable(functions, 'updateBusinessTeamMember');
+const getErrorMessage = (error: unknown, fallback: string) => {
+    if (error && typeof error === 'object' && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
+        return (error as { message: string }).message;
+    }
+    return fallback;
+};
+
+const updateBusinessTeamMember: HttpsCallable<UpdateBusinessTeamMemberInput, UpdateBusinessTeamMemberResult> =
+    httpsCallable(functions, 'updateBusinessTeamMember');
 
 export const BusinessManagersTab: React.FC = () => {
     const [places, setPlaces] = useState<BusinessPlace[]>([]);
@@ -235,7 +257,7 @@ export const BusinessManagersTab: React.FC = () => {
             setMessage({ type: 'success', text: `${userLabel(selectedUser)} asignado a ${place.name || place.id}.` });
         } catch (error) {
             console.error('BusinessManagersTab: add manager failed', error);
-            setMessage({ type: 'error', text: 'No se pudo asignar el usuario.' });
+            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo asignar el usuario.') });
         } finally {
             setUpdatingPlaceId(null);
         }
@@ -261,7 +283,7 @@ export const BusinessManagersTab: React.FC = () => {
             setMessage({ type: 'success', text: 'Usuario eliminado del negocio.' });
         } catch (error) {
             console.error('BusinessManagersTab: remove manager failed', error);
-            setMessage({ type: 'error', text: 'No se pudo quitar el usuario.' });
+            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo quitar el usuario.') });
         } finally {
             setUpdatingPlaceId(null);
         }
@@ -285,7 +307,7 @@ export const BusinessManagersTab: React.FC = () => {
             setMessage({ type: 'success', text: 'Propietario actualizado.' });
         } catch (error) {
             console.error('BusinessManagersTab: set owner failed', error);
-            setMessage({ type: 'error', text: 'No se pudo cambiar el propietario.' });
+            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo cambiar el propietario.') });
         } finally {
             setUpdatingPlaceId(null);
         }

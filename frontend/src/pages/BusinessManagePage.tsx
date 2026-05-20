@@ -33,6 +33,7 @@ import {
     updateBusinessInfoSection,
     type BusinessInfoSectionsResponse,
 } from '../services/BusinessInfoService';
+import { createBusinessProCheckoutSession } from '../services/BusinessBillingService';
 import type {
     BusinessAccessibilityInfo,
     BusinessCommercialInfo,
@@ -58,6 +59,9 @@ type PlaceHeader = {
     address?: string;
     mainImageUrl?: string;
     userPhotoUrl?: string;
+    businessTier?: string;
+    businessProActive?: boolean;
+    businessBillingStatus?: string;
 };
 
 type Message = { type: 'success' | 'error'; text: string } | null;
@@ -198,6 +202,7 @@ export const BusinessManagePage: React.FC = () => {
     const [activeSection, setActiveSection] = useState<BusinessInfoSection>('identity');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState<BusinessInfoSection | null>(null);
+    const [startingCheckout, setStartingCheckout] = useState(false);
     const [message, setMessage] = useState<Message>(null);
 
     useEffect(() => {
@@ -219,6 +224,9 @@ export const BusinessManagePage: React.FC = () => {
                     address: typeof data.address === 'string' ? data.address : typeof data.formattedAddress === 'string' ? data.formattedAddress : undefined,
                     mainImageUrl: typeof data.mainImageUrl === 'string' ? data.mainImageUrl : undefined,
                     userPhotoUrl: typeof data.userPhotoUrl === 'string' ? data.userPhotoUrl : undefined,
+                    businessTier: typeof data.businessTier === 'string' ? data.businessTier : undefined,
+                    businessProActive: data.businessProActive === true,
+                    businessBillingStatus: typeof data.businessBillingStatus === 'string' ? data.businessBillingStatus : undefined,
                 });
                 setSections(normalizeSections(info));
             } catch (error) {
@@ -236,6 +244,7 @@ export const BusinessManagePage: React.FC = () => {
     }, [placeId]);
 
     const photoUrl = place?.userPhotoUrl || place?.mainImageUrl || '';
+    const hasBusinessPro = place?.businessProActive || place?.businessTier === 'pro';
 
     const updateData = <S extends BusinessInfoSection>(section: S, data: Partial<BusinessInfoDocument<S>['data']>) => {
         setSections((prev) => ({
@@ -291,6 +300,22 @@ export const BusinessManagePage: React.FC = () => {
         }
     };
 
+    const startBusinessProCheckout = async () => {
+        if (!placeId) return;
+        setStartingCheckout(true);
+        setMessage(null);
+        try {
+            const session = await createBusinessProCheckoutSession(placeId);
+            if (!session.url) throw new Error('Stripe no devolvió una URL de pago.');
+            window.location.assign(session.url);
+        } catch (error) {
+            console.error('BusinessManagePage: checkout failed', error);
+            setMessage({ type: 'error', text: getErrorMessage(error) });
+        } finally {
+            setStartingCheckout(false);
+        }
+    };
+
     const navItems = useMemo(() => ([
         ['identity', 'Identidad'],
         ['contact', 'Contacto'],
@@ -326,15 +351,34 @@ export const BusinessManagePage: React.FC = () => {
                             )}
                         </div>
                         <div className="flex-1 p-6">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-xs font-bold uppercase text-emerald-300">
-                                <Check className="h-3.5 w-3.5" />
-                                Negocio verificado
+                            <div className="flex flex-wrap gap-2">
+                                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-xs font-bold uppercase text-emerald-300">
+                                    <Check className="h-3.5 w-3.5" />
+                                    Negocio verificado
+                                </div>
+                                {hasBusinessPro && (
+                                    <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-bold uppercase text-amber-300">
+                                        <Sparkles className="h-3.5 w-3.5" />
+                                        Business Pro
+                                    </div>
+                                )}
                             </div>
                             <h1 className="mt-3 text-2xl font-black tracking-tight sm:text-4xl">{place?.name || 'Gestionar negocio'}</h1>
                             {place?.address && <p className="mt-2 text-sm text-[var(--lt-text-muted)]">{place.address}</p>}
                             <p className="mt-4 max-w-2xl text-sm text-[var(--lt-text-muted)]">
                                 Estos datos tienen prioridad sobre Google cuando estén activos. Los metadatos internos del plan no se muestran públicamente.
                             </p>
+                            {!hasBusinessPro && (
+                                <button
+                                    type="button"
+                                    onClick={startBusinessProCheckout}
+                                    disabled={startingCheckout}
+                                    className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-2.5 text-sm font-black text-white shadow-lg disabled:opacity-60"
+                                >
+                                    {startingCheckout ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                                    Activar Business Pro
+                                </button>
+                            )}
                         </div>
                     </div>
                 </header>
