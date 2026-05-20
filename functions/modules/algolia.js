@@ -104,6 +104,12 @@ const REPLICA_SETTINGS = {
     grouped_items_by_reviews: { customRanking: ["desc(reviewCount)", "desc(avgGeneralScore)", "desc(rankingScore)"] }
 };
 
+
+function isTooManyIndicesError(error) {
+    const message = (error && (error.message || error.msg || String(error))) || "";
+    return /too many indices/i.test(message);
+}
+
 async function getIndexWithSettings(indexName) {
     const index = getIndex(indexName);
     if (!index) {
@@ -125,13 +131,25 @@ async function ensureIndexSettings(indexName, index) {
     try {
         await index.setSettings(settings);
         if (Array.isArray(settings.replicas)) {
-            await Promise.all(settings.replicas.map(async (replicaName) => {
-                const replicaIndex = getIndex(replicaName);
-                const replicaSettings = REPLICA_SETTINGS[replicaName];
-                if (replicaIndex && replicaSettings) {
-                    await replicaIndex.setSettings(replicaSettings);
+            try {
+                await Promise.all(settings.replicas.map(async (replicaName) => {
+                    const replicaIndex = getIndex(replicaName);
+                    const replicaSettings = REPLICA_SETTINGS[replicaName];
+                    if (replicaIndex && replicaSettings) {
+                        await replicaIndex.setSettings(replicaSettings);
+                    }
+                }));
+            } catch (error) {
+                if (isTooManyIndicesError(error)) {
+                    logger.warn(`Algolia: skipping replica settings for ${indexName} because index quota was reached.`, {
+                        indexName,
+                        replicas: settings.replicas,
+                        error: error.message || String(error)
+                    });
+                } else {
+                    throw error;
                 }
-            }));
+            }
         }
         ensuredSettings.add(indexName);
     } catch (error) {
