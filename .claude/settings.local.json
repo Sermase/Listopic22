@@ -47,7 +47,19 @@
       "Bash(node -c /home/sermase/Documentos/GitHub/Listopic22/functions/modules/social.js)",
       "Bash(firebase functions:list)",
       "Bash(python3 -m json.tool)",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(list\\(d.keys\\(\\)\\), indent=2\\)\\); print\\('project_info:', json.dumps\\(d.get\\('project_info',{}\\), indent=2\\)\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(list\\(d.keys\\(\\)\\), indent=2\\)\\); print\\('project_info:', json.dumps\\(d.get\\('project_info',{}\\), indent=2\\)\\)\")",
+      "Bash(firebase functions:log --only onMessageCreate --limit 20)",
+      "Bash(firebase functions:log --only onMessageCreate)",
+      "Bash(./gradlew assembleDebug)",
+      "Bash(java -version)",
+      "Read(//usr/lib/jvm/**)",
+      "Read(//usr/local/lib/**)",
+      "Bash(sudo apt-get:*)",
+      "Read(//home/sermase/**)",
+      "Read(//home/sermase/.local/share/**)",
+      "Bash(ls /opt/android-studio*)",
+      "Bash(/home/sermase/Descargas/android-studio/jbr/bin/java -version)",
+      "Bash(JAVA_HOME=/home/sermase/Descargas/android-studio/jbr ./gradlew assembleDebug)"
     ]
   }
 }
