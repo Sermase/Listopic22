@@ -150,6 +150,11 @@ Rango orientativo: 8-15 EUR/mes por local.
 - Cada pestana Pro debe mostrar un chip pequeno y brillante "Pro".
 - Al pulsar el chip/boton Pro en un negocio que aun no sea Pro, mostrar un aviso tipo: "No se puede acceder porque este local no es Negocio Pro"; mientras estemos en modo pruebas, aclarar que la zona esta abierta temporalmente.
 - Cuando se active el capado real, centralizarlo con un helper/hook tipo `RequireBusinessPlan` o `useBusinessPlan(placeId)` para no desperdigar checks por toda la UI.
+- Para carta/elementos, crear una capa persistente `places/{placeId}/items/{itemId}`. El item canonico no sustituye la reseña: agrupa nombres/aliases y guarda datos oficiales del negocio.
+- Las reseñas deben tender a tener `canonicalItemId`, pero el nombre escrito por el usuario se conserva (`itemName`/`itemNameOriginal`) por trazabilidad.
+- Las estadisticas del item se calculan con suma y contador (`ratingTotal / ratingCount`), nunca como media entre la media anterior y la nueva reseña.
+- Si un item aparece en varias listas, los criterios se separan por lista en `items/{itemId}/listStats/{listId}`. La vista global solo debe mezclar datos simples como media general, conteo y fotos.
+- Los merges/renombres sensibles deben proponerse y pasar por aprobacion admin. Al aprobar, se actualiza la entidad canonica y se recalculan stats; no se borra el nombre original de las reseñas.
 
 - Estadisticas del lugar: visitas al perfil, notas en el tiempo, terminos mas mencionados y comparativa anonima de zona/categoria.
 - Equipo con roles: propietario, manager, responder. Un empleado puede responder resenas sin tocar configuracion.

@@ -36,6 +36,7 @@ import {
     updateBusinessInfoSection,
     type BusinessInfoSectionsResponse,
 } from '../services/BusinessInfoService';
+import { getCanonicalPlaceItems, type CanonicalPlaceItem } from '../services/CanonicalItemService';
 import type {
     BusinessAccessibilityInfo,
     BusinessCommercialInfo,
@@ -534,7 +535,7 @@ export const BusinessManagePage: React.FC = () => {
                         )}
 
                         {activeBusinessTab === 'visual' && <BusinessVisualPrototype />}
-                        {activeBusinessTab === 'items' && <BusinessItemsPrototype />}
+                        {activeBusinessTab === 'items' && <BusinessItemsPrototype placeId={placeId} />}
                         {activeBusinessTab === 'sponsored' && <BusinessSponsoredPrototype />}
                     </div>
                 )}
@@ -645,73 +646,135 @@ const BusinessVisualPrototype: React.FC = () => (
     </PrototypeShell>
 );
 
-const BusinessItemsPrototype: React.FC = () => (
-    <PrototypeShell
-        title="Elementos, carta y grupos"
-        text="Gestión de productos, platos o servicios del lugar: fotos, precios, descuentos, ingredientes, descripción, grupos y vínculos con listas."
-        icon={Tags}
-    >
-        <div className="grid gap-5 lg:grid-cols-[0.9fr,1.1fr]">
-            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-black text-[var(--lt-text)]">Grupos de carta</h3>
-                    <button type="button" className="inline-flex items-center gap-1 rounded-lg bg-[var(--lt-accent)] px-3 py-2 text-xs font-black text-white">
-                        <Plus className="h-3.5 w-3.5" />
-                        Grupo
-                    </button>
-                </div>
-                <div className="space-y-2">
-                    {['Entrantes', 'Principales', 'Postres', 'Bebidas'].map((group) => (
-                        <button key={group} type="button" className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-left text-sm font-bold text-[var(--lt-text)]">
-                            {group}
-                            <span className="text-xs text-[var(--lt-text-muted)]">0 elementos</span>
+const BusinessItemsPrototype: React.FC<{ placeId: string }> = ({ placeId }) => {
+    const [items, setItems] = useState<CanonicalPlaceItem[]>([]);
+    const [loadingItems, setLoadingItems] = useState(false);
+
+    useEffect(() => {
+        let cancelled = false;
+        const loadItems = async () => {
+            setLoadingItems(true);
+            try {
+                const rows = await getCanonicalPlaceItems(placeId);
+                if (!cancelled) setItems(rows);
+            } catch (error) {
+                console.error('BusinessManagePage: failed loading canonical items', error);
+                if (!cancelled) setItems([]);
+            } finally {
+                if (!cancelled) setLoadingItems(false);
+            }
+        };
+        void loadItems();
+        return () => {
+            cancelled = true;
+        };
+    }, [placeId]);
+
+    return (
+        <PrototypeShell
+            title="Elementos, carta y grupos"
+            text="Gestión de productos, platos o servicios del lugar. La base son los elementos valorados por la comunidad; el negocio puede enriquecerlos y proponer merges, pero no borrar memoria histórica."
+            icon={Tags}
+        >
+            <div className="grid gap-5 lg:grid-cols-[1fr,1.1fr]">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                        <div>
+                            <h3 className="text-sm font-black text-[var(--lt-text)]">Elementos comunitarios</h3>
+                            <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Persistidos en el lugar y recalculados desde reseñas.</p>
+                        </div>
+                        <button type="button" className="inline-flex items-center gap-1 rounded-lg bg-[var(--lt-accent)] px-3 py-2 text-xs font-black text-white">
+                            <Plus className="h-3.5 w-3.5" />
+                            Proponer
                         </button>
-                    ))}
-                </div>
-            </div>
-            <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="flex items-center justify-between gap-3">
-                    <div>
-                        <h3 className="text-sm font-black text-[var(--lt-text)]">Nuevo elemento</h3>
-                        <p className="text-xs text-[var(--lt-text-muted)]">Prototipo de edición rápida.</p>
                     </div>
-                    <button type="button" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-[var(--lt-text)]">
-                        <ImageIcon className="h-3.5 w-3.5" />
-                        Foto
-                    </button>
+
+                    {loadingItems ? (
+                        <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-6 text-center text-sm text-[var(--lt-text-muted)]">
+                            <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-[var(--lt-accent)]" />
+                            Cargando elementos...
+                        </div>
+                    ) : items.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-white/10 bg-white/5 px-3 py-6 text-center text-sm text-[var(--lt-text-muted)]">
+                            Todavía no hay elementos canónicos persistidos. Se generarán al reconstruir el lugar o cuando entren nuevas reseñas.
+                        </div>
+                    ) : (
+                        <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
+                            {items.map((item) => (
+                                <div key={item.id} className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <h4 className="truncate text-sm font-black text-[var(--lt-text)]">{item.canonicalName || item.id}</h4>
+                                            <p className="mt-1 text-xs text-[var(--lt-text-muted)]">
+                                                {(item.stats?.reviewCount || 0)} reseñas
+                                                {typeof item.stats?.averageRating === 'number' ? ` · ${item.stats.averageRating.toFixed(2)}` : ''}
+                                            </p>
+                                        </div>
+                                        <span className="rounded-full border border-white/10 bg-black/10 px-2 py-1 text-[10px] font-black uppercase text-[var(--lt-text-muted)]">
+                                            {item.linkedListIds?.length || 0} listas
+                                        </span>
+                                    </div>
+                                    {item.sourceNames?.length ? (
+                                        <div className="mt-3 flex flex-wrap gap-1.5">
+                                            {item.sourceNames.slice(0, 4).map((source) => (
+                                                <span key={`${item.id}-${source.name}`} className="rounded-full border border-white/10 bg-black/10 px-2 py-1 text-[10px] font-bold text-[var(--lt-text-muted)]">
+                                                    {source.name} ({source.count})
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Nombre">
-                        <input className={inputClass} placeholder="Tarta de queso" />
+
+                <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                        <div>
+                            <h3 className="text-sm font-black text-[var(--lt-text)]">Ficha oficial del elemento</h3>
+                            <p className="text-xs text-[var(--lt-text-muted)]">Prototipo de enriquecimiento Business Pro.</p>
+                        </div>
+                        <button type="button" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-[var(--lt-text)]">
+                            <ImageIcon className="h-3.5 w-3.5" />
+                            Foto
+                        </button>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Nombre canónico">
+                            <input className={inputClass} placeholder="Tarta de queso" />
+                        </Field>
+                        <Field label="Grupo de carta">
+                            <select className={inputClass}>
+                                <option>Postres</option>
+                                <option>Entrantes</option>
+                                <option>Principales</option>
+                                <option>Bebidas</option>
+                            </select>
+                        </Field>
+                        <Field label="Precio">
+                            <input className={inputClass} placeholder="6,50 EUR" />
+                        </Field>
+                        <Field label="Descuento">
+                            <input className={inputClass} placeholder="2x1, -20%, happy hour..." />
+                        </Field>
+                    </div>
+                    <Field label="Ingredientes">
+                        <input className={inputClass} placeholder="Queso crema, galleta, frutos rojos..." />
                     </Field>
-                    <Field label="Grupo">
-                        <select className={inputClass}>
-                            <option>Postres</option>
-                            <option>Entrantes</option>
-                            <option>Principales</option>
-                            <option>Bebidas</option>
-                        </select>
+                    <Field label="Descripción">
+                        <textarea className={`${inputClass} min-h-24`} placeholder="Descripción corta para la ficha del elemento." />
                     </Field>
-                    <Field label="Precio">
-                        <input className={inputClass} placeholder="6,50 EUR" />
-                    </Field>
-                    <Field label="Descuento">
-                        <input className={inputClass} placeholder="2x1, -20%, happy hour..." />
+                    <Field label="Acción sensible">
+                        <button type="button" className="rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs font-black text-amber-200">
+                            Proponer merge o cambio de identidad
+                        </button>
                     </Field>
                 </div>
-                <Field label="Ingredientes">
-                    <input className={inputClass} placeholder="Queso crema, galleta, frutos rojos..." />
-                </Field>
-                <Field label="Descripción">
-                    <textarea className={`${inputClass} min-h-24`} placeholder="Descripción corta para la ficha del elemento." />
-                </Field>
-                <Field label="Vincular a listas">
-                    <input className={inputClass} placeholder="Brunch, postres, sin gluten..." />
-                </Field>
             </div>
-        </div>
-    </PrototypeShell>
-);
+        </PrototypeShell>
+    );
+};
 
 const BusinessSponsoredPrototype: React.FC = () => (
     <PrototypeShell
