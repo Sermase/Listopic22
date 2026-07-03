@@ -5,7 +5,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { PlaceService } from '../services/PlaceService';
 import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
-import { collection, query, where, getDocs, doc, getDoc, getDocFromServer, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, collectionGroup, query, where, getDocs, doc, getDoc, getDocFromServer, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion, onSnapshot, orderBy } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useQueryClient } from '@tanstack/react-query';
 import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown, ClipboardList, Activity, Building2 } from 'lucide-react';
@@ -533,10 +533,11 @@ export const DeveloperPage: React.FC = () => {
                         closedStatusUpdatedAt: new Date(),
                     });
 
-                    // Batch-update root reviews so ReviewCard shows closed status everywhere
+                    // Batch-update de las reseñas del lugar (lists/{listId}/reviews vía
+                    // collection group) para que ReviewCard muestre el estado de cierre.
                     try {
                         const reviewsSnap = await getDocs(
-                            query(collection(db, 'reviews'), where('placeId', '==', placeTargetId), firestoreLimit(400))
+                            query(collectionGroup(db, 'reviews'), where('placeId', '==', placeTargetId), firestoreLimit(100))
                         );
                         const batch = writeBatch(db);
                         reviewsSnap.docs.forEach(d => {

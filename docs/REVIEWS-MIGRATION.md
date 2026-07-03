@@ -84,18 +84,40 @@ La operación es **idempotente y reanudable**: relanzarla no duplica nada.
 5. Verificar: PlacePage de un lugar con reseñas legacy, ListPage, perfil del
    autor (contador), y `canonicalItemsCount` del lugar.
 
-## Después de la migración (limpieza pendiente, NO hecha aún)
+## Resultado en producción (2026-07-04)
 
-Cuando `adminCountRootReviews` devuelva 0 (salvo huérfanas conscientes):
+`adminCountRootReviews` devolvió **0** y la auditoría dry-run procesó 0
+documentos: la colección raíz ya estaba vacía en el proyecto `listopic`. No hizo
+falta ejecutar la migración ni el recuento. Todo el código de doble lectura era
+defensa contra datos inexistentes.
 
-- Simplificar `ReviewService.deleteReview` (hoy borra hasta 3 refs defensivas).
-- Quitar las queries a `collection(db, 'reviews')` root en `useListDetails`,
-  `EditListForm`, `GroupPage`, `DeveloperPage`, `ReviewsManagerTab`,
-  `UserDataExportTab` (o dejarlas: devuelven vacío, solo son lecturas extra).
-- Decidir qué hacer con las huérfanas marcadas (`rootMigration.status ==
-  'orphan'`): reasignarlas a una lista o archivarlas en `deleted_items`.
+## Limpieza post-migración (HECHA)
+
+- `ReviewService.deleteReview`: borra solo la ruta canónica (antes hasta 3 refs).
+- `useListDetails`: eliminadas las 2-3 queries root por carga de lista.
+- `EditListForm`: eliminadas las queries root en renombrado de tags y sync de
+  visibilidad.
+- `GroupPage`: eliminado el fan-out de ~80 queries + query root; ahora una sola
+  collectionGroup (mismo patrón que `usePlaceDetails`).
+- `DeveloperPage` (marcar lugar cerrado): el batch de `placeClosedStatus`
+  apuntaba a la root vacía Y la regla `reviewAllowedUpdateKeys` no permitía ese
+  campo (doblemente muerto). Ahora usa collectionGroup con `limit(100)` (tope de
+  las reglas) y `placeClosedStatus` se añadió a las claves permitidas.
+- Se conservan a propósito: el fallback root de `UserDataExportTab` y la
+  distinción root/subcolección de `ReviewsManagerTab` (diagnóstico admin, útil
+  para verificar que la root sigue vacía), y la rama `reviewPath 'reviews/'` de
+  `AddReviewForm` (coste cero, solo se activaría con datos legacy).
+
+## Pendiente
+
 - Actualizar `estructura de base de datos.txt` (capítulos 05/06/19) marcando la
   root como extinta, y añadir `places/{placeId}/items` y `businessSubscriptions`.
+- Desplegar de nuevo `firestore.rules` (clave `placeClosedStatus`) y el frontend
+  con esta limpieza.
+- Las funciones de migración (`adminConsolidateRootReviews`, etc.) pueden
+  retirarse en el futuro si la root sigue a 0; de momento sirven de red de
+  seguridad y el recuento (`adminRecountReviewCounters`) es útil por sí solo
+  para sanear contadores.
 
 ## Rollback
 

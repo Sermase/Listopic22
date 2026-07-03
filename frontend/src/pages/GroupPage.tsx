@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
-import { collection, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
+import { collection, collectionGroup, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, Flag, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp } from 'lucide-react';
@@ -128,36 +128,10 @@ export const GroupPage: React.FC = () => {
                 setUnavailableItems(placeData.unavailableItems || []);
             }
 
-            const [publicListsSnap, followingListsSnap, ownListsSnap] = await Promise.all([
-                getDocs(query(collection(db, 'lists'), where('isPublic', '==', true), limit(60))),
-                user ? getDocs(query(collection(db, 'users', user.uid, 'followingLists'), limit(60))) : Promise.resolve(null),
-                user ? getDocs(query(collection(db, 'lists'), where('userId', '==', user.uid), limit(40))) : Promise.resolve(null)
-            ]);
-
+            const ownListsSnap = user
+                ? await getDocs(query(collection(db, 'lists'), where('userId', '==', user.uid), limit(40)))
+                : null;
             const ownListSet = new Set(ownListsSnap ? ownListsSnap.docs.map((d) => d.id) : []);
-            const candidateListIds = Array.from(new Set([
-                ...publicListsSnap.docs.map((d) => d.id),
-                ...(followingListsSnap ? followingListsSnap.docs.map((d) => d.id) : []),
-                ...(ownListsSnap ? ownListsSnap.docs.map((d) => d.id) : [])
-            ])).slice(0, 80);
-
-            const reviewsByList = await Promise.all(candidateListIds.map(async (candidateListId) => {
-                try {
-                    const listReviewsSnap = await getDocs(
-                        query(collection(db, 'lists', candidateListId, 'reviews'), where('placeId', '==', placeId), limit(25))
-                    );
-                    return listReviewsSnap.docs.map((reviewDoc) => ({
-                        id: reviewDoc.id,
-                        ...(reviewDoc.data() as any),
-                        listId: candidateListId
-                    } as ReviewEntity));
-                } catch (error: any) {
-                    if (error?.code !== 'permission-denied') {
-                        console.warn(`Error loading group reviews for list ${candidateListId}`, error);
-                    }
-                    return [] as ReviewEntity[];
-                }
-            }));
 
             const canViewReview = (review: any) => {
                 if (review.visibility !== 'private') return true;
@@ -171,39 +145,27 @@ export const GroupPage: React.FC = () => {
                     || (reviewListId ? ownListSet.has(reviewListId) : false);
             };
 
-            let rootReviews: ReviewEntity[] = [];
-            try {
-                const rootSnap = await getDocs(
-                    query(collection(db, 'reviews'), where('placeId', '==', placeId), limit(120))
-                );
-                rootReviews = rootSnap.docs
-                    .map((reviewDoc) => ({
-                        id: reviewDoc.id,
-                        ...(reviewDoc.data() as any)
-                    } as ReviewEntity))
-                    .filter((review) => canViewReview(review));
-            } catch (error: any) {
-                if (error?.code !== 'permission-denied') {
-                    console.warn('Error loading root reviews for group page', error);
-                }
-            }
-
+            // Una sola query de collection group sobre lists/{listId}/reviews
+            // (las reglas exigen usuario autenticado y limit <= 100).
             const reviewMap = new Map<string, ReviewEntity>();
-            for (const review of rootReviews) {
-                const resolvedListId = review.listId || (review as any).parentListId || '';
-                reviewMap.set(`${resolvedListId || 'unknown'}:${review.id}`, {
-                    ...review,
-                    listId: resolvedListId
-                });
-            }
-            for (const listReviews of reviewsByList) {
-                for (const review of listReviews) {
-                    if (!canViewReview(review)) continue;
-                    const resolvedListId = review.listId || (review as any).parentListId || '';
-                    reviewMap.set(`${resolvedListId || 'unknown'}:${review.id}`, {
-                        ...review,
-                        listId: resolvedListId
+            if (user) {
+                try {
+                    const reviewsSnap = await getDocs(
+                        query(collectionGroup(db, 'reviews'), where('placeId', '==', placeId), limit(100))
+                    );
+                    reviewsSnap.docs.forEach((reviewDoc) => {
+                        const data = reviewDoc.data() as any;
+                        const pathParts = reviewDoc.ref.path.split('/');
+                        const resolvedListId = (pathParts[0] === 'lists' ? pathParts[1] : '')
+                            || data.listId || data.parentListId || '';
+                        const review = { id: reviewDoc.id, ...data, listId: resolvedListId } as ReviewEntity;
+                        if (!canViewReview(review)) return;
+                        reviewMap.set(reviewDoc.id, review);
                     });
+                } catch (error: any) {
+                    if (error?.code !== 'permission-denied') {
+                        console.warn('Error loading reviews for group page', error);
+                    }
                 }
             }
 
@@ -487,11 +449,7 @@ export const GroupPage: React.FC = () => {
                         || review.ownerId === user.uid;
                 };
 
-                const [nestedSnap, rootByListSnap, rootByParentSnap] = await Promise.all([
-                    getDocs(collection(db, 'lists', primaryId, 'reviews')).catch(() => null),
-                    getDocs(query(collection(db, 'reviews'), where('listId', '==', primaryId))).catch(() => null),
-                    getDocs(query(collection(db, 'reviews'), where('parentListId', '==', primaryId))).catch(() => null)
-                ]);
+                const nestedSnap = await getDocs(collection(db, 'lists', primaryId, 'reviews')).catch(() => null);
 
                 const reviewMap = new Map<string, ReviewEntity>();
                 const append = (snap: any) => {
@@ -508,8 +466,6 @@ export const GroupPage: React.FC = () => {
                     });
                 };
 
-                append(rootByListSnap);
-                append(rootByParentSnap);
                 append(nestedSnap);
                 const lReviews = Array.from(reviewMap.values());
 
