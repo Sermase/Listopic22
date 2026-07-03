@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { collection, query, where, getDocs, doc, getDoc, getDocFromServer, limit, orderBy } from 'firebase/firestore';
+import { collection, collectionGroup, query, where, getDocs, doc, getDoc, getDocFromServer, limit, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
@@ -200,51 +200,43 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     const { getAuth } = await import('firebase/auth');
     const currentUser = getAuth().currentUser;
 
-    const [publicListsSnap, followingListsSnap, ownListsSnap] = await Promise.all([
-        getDocs(query(collection(db, 'lists'), where('isPublic', '==', true), limit(60))),
-        currentUser ? getDocs(query(collection(db, 'users', currentUser.uid, 'followingLists'), limit(60))) : Promise.resolve(null),
-        currentUser ? getDocs(query(collection(db, 'lists'), where('userId', '==', currentUser.uid), limit(40))) : Promise.resolve(null),
-    ]);
+    // Una sola query de collection group cubre lists/{listId}/reviews y la
+    // colección raíz legacy reviews/ (todas las colecciones llamadas 'reviews').
+    // Las reglas exigen usuario autenticado y limit <= 100.
+    const reviewsSnap = currentUser ? await getDocs(
+        query(collectionGroup(db, 'reviews'), where('placeId', '==', placeId), limit(100))
+    ).catch((e: any) => {
+        if (e?.code !== 'permission-denied') console.warn('Failed to fetch reviews for place', e);
+        return null;
+    }) : null;
 
-    const candidateListIds = Array.from(new Set([
-        ...publicListsSnap.docs.map(d => d.id),
-        ...(followingListsSnap ? followingListsSnap.docs.map(d => d.id) : []),
-        ...(ownListsSnap ? ownListsSnap.docs.map(d => d.id) : []),
-    ])).slice(0, 80);
-
-    const reviewsByList = await Promise.all(candidateListIds.map(async (listId) => {
-        try {
-            const snap = await getDocs(query(collection(db, 'lists', listId, 'reviews'), where('placeId', '==', placeId), limit(20)));
-            return snap.docs.map(d => ({ id: d.id, ...(d.data() as Record<string, unknown>), listId } as ReviewEntity));
-        } catch (e: any) {
-            if (e?.code !== 'permission-denied') console.warn(`Failed loading place reviews for list ${listId}`, e);
-            return [] as ReviewEntity[];
-        }
-    }));
-
-    const globalReviewsSnap = await getDocs(
-        query(collection(db, 'reviews'), where('placeId', '==', placeId), limit(50))
-    ).catch(e => {
-        if (e?.code !== 'permission-denied') console.warn('Failed to fetch global reviews for place', e);
-        return { docs: [] };
-    });
     const placePhotosSnap = await placePhotosSnapPromise;
     const resolvedBusinessSnap = await resolvedBusinessSnapPromise;
     const resolvedBusiness = resolvedBusinessSnap?.exists() ? resolvedBusinessSnap.data() as ResolvedBusinessInfo : undefined;
     const hiddenFields = resolvedBusiness?.hiddenFields || {};
 
-    reviewsByList.push(
-        globalReviewsSnap.docs.map(d => ({ id: d.id, ...(d.data() as Record<string, unknown>) } as ReviewEntity))
-    );
-
+    // Mientras convivan copia root y anidada de una misma reseña comparten id;
+    // preferimos la anidada (canónica).
     const reviewMap = new Map<string, ReviewEntity>();
-    for (const listReviews of reviewsByList) {
-        for (const review of listReviews) {
-            reviewMap.set(`${review.listId || 'unknown'}:${review.id}`, review);
-        }
-    }
+    (reviewsSnap?.docs || []).forEach(d => {
+        const data = d.data() as Record<string, unknown>;
+        const pathParts = d.ref.path.split('/');
+        const isNested = pathParts[0] === 'lists';
+        if (!isNested && reviewMap.has(d.id)) return;
+        const listId = isNested ? pathParts[1] : (typeof data.listId === 'string' ? data.listId : undefined);
+        reviewMap.set(d.id, { id: d.id, ...data, listId } as ReviewEntity);
+    });
 
-    const reviews = Array.from(reviewMap.values()).sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+    const canViewReview = (review: ReviewEntity) => {
+        const r = review as ReviewEntity & { visibility?: string; userId?: string; authorId?: string };
+        if (r.visibility !== 'private') return true;
+        const uid = currentUser?.uid;
+        return !!uid && (r.userId === uid || r.authorId === uid);
+    };
+
+    const reviews = Array.from(reviewMap.values())
+        .filter(canViewReview)
+        .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
     const placePhotos = placePhotosSnap.docs
         .map((photoDoc): PlacePhoto | null => {
             const data = photoDoc.data() as Record<string, unknown>;

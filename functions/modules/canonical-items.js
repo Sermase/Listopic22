@@ -101,39 +101,24 @@ function chooseCanonicalName(existingItem, reviewNameCounts, fallbackName) {
   return first || String(fallbackName || 'Elemento sin nombre').trim();
 }
 
-async function fetchRootReviewsForPlace(placeId) {
-  const snap = await db.collection('reviews').where('placeId', '==', placeId).get();
-  return snap.docs.map((docSnap) => ({
-    id: docSnap.id,
-    refPath: docSnap.ref.path,
-    fallbackListId: docSnap.data().listId || null,
-    ...docSnap.data(),
-  }));
-}
-
-async function fetchNestedReviewsForPlace(placeId) {
+async function fetchReviewsForPlace(placeId) {
+  // collectionGroup('reviews') incluye también la colección raíz reviews/
+  // (legacy), así que una sola query cubre ambas ubicaciones. El Map dedupe
+  // por id las copias root+anidada de una misma reseña mientras convivan.
   const snap = await db.collectionGroup('reviews').where('placeId', '==', placeId).get();
-  return snap.docs.map((docSnap) => {
+  const byId = new Map();
+  snap.docs.forEach((docSnap) => {
     const path = docSnap.ref.path.split('/');
     const fallbackListId = path[0] === 'lists' ? path[1] : docSnap.data().listId || null;
-    return {
+    const review = {
       id: docSnap.id,
       refPath: docSnap.ref.path,
       fallbackListId,
       ...docSnap.data(),
     };
+    // Preferimos la copia anidada (canónica) si ya vimos la root.
+    if (!byId.has(review.id) || path[0] === 'lists') byId.set(review.id, review);
   });
-}
-
-async function fetchReviewsForPlace(placeId) {
-  const [rootReviews, nestedReviews] = await Promise.all([
-    fetchRootReviewsForPlace(placeId),
-    fetchNestedReviewsForPlace(placeId),
-  ]);
-
-  const byId = new Map();
-  rootReviews.forEach((review) => byId.set(review.id, review));
-  nestedReviews.forEach((review) => byId.set(review.id, review));
   return Array.from(byId.values());
 }
 
