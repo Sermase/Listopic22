@@ -277,13 +277,12 @@ Los negocios pagan por visibilidad extra dentro de la app.
 
 ---
 
-## CONSOLIDACIÓN DE RESEÑAS (root → listas) — CÓDIGO LISTO, MIGRACIÓN PENDIENTE DE EJECUTAR
+## CONSOLIDACIÓN DE RESEÑAS (root → listas) — COMPLETADA
 
 Ver `docs/REVIEWS-MIGRATION.md`. Resumen:
-- Canónica: `lists/{listId}/reviews`. La colección raíz `reviews/` es legacy y se migra hacia dentro.
-- Hecho en esta rama: callables de auditoría/migración/recuento (`functions/modules/reviews-consolidation.js`), tarjeta en Developer → Mantenimiento, `usePlaceDetails` con una sola query de collection group (antes ~80 queries por lugar), `canonical-items.js` sin query root redundante, índice CG de `reviews.placeId` en `firestore.indexes.json`.
-- Pendiente (manual): desplegar índices + functions + frontend y ejecutar en Developer el flujo Auditar → Migrar → Recontar.
-- Pendiente (código, post-migración): simplificar `ReviewService.deleteReview` y retirar las queries root de `useListDetails`/`GroupPage`/`EditListForm`; decidir destino de reseñas huérfanas.
+- Canónica: `lists/{listId}/reviews`. La colección raíz `reviews/` resultó estar **vacía en producción** (auditoría 2026-07-04: 0 docs), así que no hubo migración de datos.
+- Hecho: callables de auditoría/migración/recuento + tarjeta en Developer → Mantenimiento (quedan como red de seguridad y para sanear contadores), `usePlaceDetails` y `GroupPage` con una sola query de collection group (antes ~80 queries por lugar cada uno), `useListDetails`/`EditListForm`/`deleteReview` sin rutas root, índice CG de `reviews.placeId`, fix del batch `placeClosedStatus` (regla + query).
+- Pendiente (manual): volver a desplegar `firestore.rules` y el frontend con la limpieza.
 
 ---
 

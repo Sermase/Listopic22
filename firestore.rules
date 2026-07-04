@@ -110,7 +110,7 @@ service cloud.firestore {
         'photoUrls', 'photoStoragePaths', 'photos', 'placeId',
         'placeName', 'placeAddress', 'placeLat', 'placeLng',
         'criteriaDefinition', 'createdAt', 'updatedAt', 'deletedAt',
-        'moderationStatus'
+        'moderationStatus', 'placeClosedStatus'
       ];
     }
 

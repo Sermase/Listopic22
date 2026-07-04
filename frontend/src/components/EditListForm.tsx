@@ -265,10 +265,8 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
                 const reviewSnapshots = await Promise.all([
                     safeQuery(() => getDocs(collection(db, 'lists', listId, 'reviews'))),
-                    safeQuery(() => getDocs(query(collection(db, 'reviews'), where('listId', '==', listId)))),
                     ...(parentListId ? [
-                        safeQuery(() => getDocs(query(collection(db, 'lists', parentListId, 'reviews'), where('sublistId', '==', listId)))),
-                        safeQuery(() => getDocs(query(collection(db, 'reviews'), where('sublistId', '==', listId))))
+                        safeQuery(() => getDocs(query(collection(db, 'lists', parentListId, 'reviews'), where('sublistId', '==', listId))))
                     ] : [])
                 ]);
 
@@ -311,15 +309,9 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             const snapshots = parentListId
                 ? await Promise.all([
                     safeGetDocs(() => getDocs(query(collection(db, 'lists', parentListId, 'reviews'), where('sublistId', '==', listId)))),
-                    safeGetDocs(() => getDocs(query(collection(db, 'reviews'), where('sublistId', '==', listId)))),
-                    safeGetDocs(() => getDocs(query(collection(db, 'reviews'), where('listId', '==', listId)))),
                     safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews')))
                 ])
-                : await Promise.all([
-                    safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews'))),
-                    safeGetDocs(() => getDocs(query(collection(db, 'reviews'), where('listId', '==', listId)))),
-                    safeGetDocs(() => getDocs(query(collection(db, 'reviews'), where('parentListId', '==', listId))))
-                ]);
+                : [await safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews')))];
 
             const reviewDocs = new Map<string, QueryDocumentSnapshot<DocumentData>>();
             snapshots.forEach(snap => {
