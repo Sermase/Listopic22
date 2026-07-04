@@ -16,14 +16,6 @@ const asReviewData = (value: unknown): Record<string, unknown> => {
     return value && typeof value === 'object' ? value as Record<string, unknown> : {};
 };
 
-const getFirebaseErrorCode = (error: unknown): string | undefined => {
-    if (error && typeof error === 'object') {
-        const maybeError = error as { code?: unknown };
-        return typeof maybeError.code === 'string' ? maybeError.code : undefined;
-    }
-    return undefined;
-};
-
 export const ReviewService = {
     /**
      * Deletes a review from a specific list.
@@ -36,55 +28,22 @@ export const ReviewService = {
         }
 
         try {
-            const refsToDelete: DocumentReference<DocumentData>[] = [];
-            let reviewData: Record<string, unknown> | null = null;
-
-            if (listId) {
-                const canonicalRef = doc(db, 'lists', listId, 'reviews', reviewId);
-                const canonicalSnap = await getDoc(canonicalRef);
-                if (canonicalSnap.exists()) {
-                    refsToDelete.push(canonicalRef);
-                    reviewData = asReviewData(canonicalSnap.data());
-                }
+            // Las reseñas viven únicamente en lists/{listId}/reviews
+            // (la colección raíz legacy está vacía — ver docs/REVIEWS-MIGRATION.md).
+            if (!listId) {
+                console.warn(`[deleteReview] Missing listId for review ${reviewId}, nothing to delete.`);
+                return;
             }
 
-            // Root collection may not be readable for legacy reviews with only authorId.
-            // Wrap in try-catch to gracefully skip if permissions fail.
-            try {
-                const rootRef = doc(db, 'reviews', reviewId);
-                const rootSnap = await getDoc(rootRef);
-                if (rootSnap.exists()) {
-                    refsToDelete.push(rootRef);
-                    if (!reviewData) reviewData = asReviewData(rootSnap.data());
-
-                    const rootListId = rootSnap.data().listId;
-                    if (rootListId && (!listId || rootListId !== listId)) {
-                        if (typeof rootListId === 'string') {
-                            const movedCanonicalRef = doc(db, 'lists', rootListId, 'reviews', reviewId);
-                            const movedCanonicalSnap = await getDoc(movedCanonicalRef);
-                            if (movedCanonicalSnap.exists()) {
-                                refsToDelete.push(movedCanonicalRef);
-                                reviewData = asReviewData(movedCanonicalSnap.data());
-                            }
-                        }
-                    }
-                }
-            } catch (readErr: unknown) {
-                if (getFirebaseErrorCode(readErr) === 'permission-denied') {
-                    console.warn(`[deleteReview] No read access to root reviews/${reviewId}, skipping root path.`);
-                } else {
-                    throw readErr;
-                }
-            }
-
-            if (refsToDelete.length === 0) {
+            const canonicalRef: DocumentReference<DocumentData> = doc(db, 'lists', listId, 'reviews', reviewId);
+            const canonicalSnap = await getDoc(canonicalRef);
+            if (!canonicalSnap.exists()) {
                 console.warn(`Review ${reviewId} not found for deletion.`);
                 return;
             }
 
-            const uniqueRefs = Array.from(new Map(refsToDelete.map((ref) => [ref.path, ref])).values());
-            await Promise.all(uniqueRefs.map((ref) => deleteDoc(ref)));
-            const resolvedReviewData = reviewData || {};
+            const resolvedReviewData = asReviewData(canonicalSnap.data());
+            await deleteDoc(canonicalRef);
 
             // Update Counters (Best effort)
             const updates = [];

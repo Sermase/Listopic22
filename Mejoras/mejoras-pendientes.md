@@ -19,7 +19,7 @@ Ultima actualizacion: 2026-05-08 (negocios, premium y monetizacion).
 | 5 | Adelgazar `package.json` raíz (eliminar mongoose, bcrypt, jwt, firebase v11 duplicado) | Build + superficie de ataque | Hecho | `package.json` |
 | 6 | Split de `core.js` (4100+ LOC) en submódulos | Mantenibilidad | Parcial: extraído `lib/geo.js` + `lib/auth.js` + `lib/secrets.js`; documentado roadmap en cabecera | `functions/modules/core.js` (header), `functions/modules/lib/*` |
 | 7 | Refactor ProfilePage (3052), HomePage (1255), ListPage (1254) + quitar `any` | Mantenibilidad | Parcial: extraído `ProfileStatsTab` como sample pattern (-98 LOC en ProfilePage). Resto pendiente | `frontend/src/components/profile/ProfileStatsTab.tsx` |
-| 8 | Migrar a TanStack Query o endurecer `queryCache.ts` | Fiabilidad datos | Pendiente | — |
+| 8 | Migrar a TanStack Query o endurecer `queryCache.ts` | Fiabilidad datos | Hecho (los hooks/servicios usan `@tanstack/react-query`) | `frontend/src/hooks/*`, `frontend/src/services/*` |
 | 9 | ErrorBoundary + Sentry + eliminar `console.log` en prod | Observabilidad | Hecho (ErrorBoundary + esbuild.drop + Sentry SDK integrado, espera DSN en `VITE_SENTRY_DSN`) | `frontend/src/components/ErrorBoundary.tsx`, `frontend/src/main.tsx`, `frontend/src/lib/sentry.ts`, `frontend/vite.config.ts`, `docs/SECURITY-SETUP.md` |
 | 10 | Roles admin granulares + audit log + userType reactivo en DeveloperPage | Seguridad + UX | Hecho (`isJefe` reactivo, `adminAuditLog` + `writeAuditLog` en **todas** las funciones admin). Roles granulares (moderator/admin/superadmin) = pendiente | `frontend/src/context/AuthContext.tsx`, `frontend/src/pages/DeveloperPage.tsx`, `functions/modules/lib/auth.js`, `functions/modules/core.js` |
 
@@ -150,6 +150,11 @@ Rango orientativo: 8-15 EUR/mes por local.
 - Cada pestana Pro debe mostrar un chip pequeno y brillante "Pro".
 - Al pulsar el chip/boton Pro en un negocio que aun no sea Pro, mostrar un aviso tipo: "No se puede acceder porque este local no es Negocio Pro"; mientras estemos en modo pruebas, aclarar que la zona esta abierta temporalmente.
 - Cuando se active el capado real, centralizarlo con un helper/hook tipo `RequireBusinessPlan` o `useBusinessPlan(placeId)` para no desperdigar checks por toda la UI.
+- Para carta/elementos, crear una capa persistente `places/{placeId}/items/{itemId}`. El item canonico no sustituye la reseña: agrupa nombres/aliases y guarda datos oficiales del negocio.
+- Las reseñas deben tender a tener `canonicalItemId`, pero el nombre escrito por el usuario se conserva (`itemName`/`itemNameOriginal`) por trazabilidad.
+- Las estadisticas del item se calculan con suma y contador (`ratingTotal / ratingCount`), nunca como media entre la media anterior y la nueva reseña.
+- Si un item aparece en varias listas, los criterios se separan por lista en `items/{itemId}/listStats/{listId}`. La vista global solo debe mezclar datos simples como media general, conteo y fotos.
+- Los merges/renombres sensibles deben proponerse y pasar por aprobacion admin. Al aprobar, se actualiza la entidad canonica y se recalculan stats; no se borra el nombre original de las reseñas.
 
 - Estadisticas del lugar: visitas al perfil, notas en el tiempo, terminos mas mencionados y comparativa anonima de zona/categoria.
 - Equipo con roles: propietario, manager, responder. Un empleado puede responder resenas sin tocar configuracion.
@@ -272,6 +277,15 @@ Los negocios pagan por visibilidad extra dentro de la app.
 
 ---
 
+## CONSOLIDACIÓN DE RESEÑAS (root → listas) — COMPLETADA
+
+Ver `docs/REVIEWS-MIGRATION.md`. Resumen:
+- Canónica: `lists/{listId}/reviews`. La colección raíz `reviews/` resultó estar **vacía en producción** (auditoría 2026-07-04: 0 docs), así que no hubo migración de datos.
+- Hecho: callables de auditoría/migración/recuento + tarjeta en Developer → Mantenimiento (quedan como red de seguridad y para sanear contadores), `usePlaceDetails` y `GroupPage` con una sola query de collection group (antes ~80 queries por lugar cada uno), `useListDetails`/`EditListForm`/`deleteReview` sin rutas root, índice CG de `reviews.placeId`, fix del batch `placeClosedStatus` (regla + query).
+- Pendiente (manual): volver a desplegar `firestore.rules` y el frontend con la limpieza.
+
+---
+
 ## OTRAS MEJORAS PENDIENTES
 
 ### Exportación de datos (RGPD) — DeveloperPage
@@ -317,7 +331,7 @@ Los negocios pagan por visibilidad extra dentro de la app.
 **Experiencia de usuario:**
 - Modo offline: guardar listas para consultar sin conexión
 - Lista "quiero ir" con recordatorio
-- Check-in: marcar visita desde el móvil con geolocalización
+- Check-in: marcar visita desde el móvil con geolocalización. IMPORTANTE: nunca automático (si pasas por el local de al lado no cuenta como visita); la geolocalización solo habilita/valida el botón ("Estás a <100 m de X, ¿confirmar visita?") y el usuario confirma manualmente. Mueve el item de WANT_TO_GO a ALREADY_WENT en Archives.
 - Compartir reseña individual como imagen (para Instagram/WhatsApp)
 - Galeria de imagenes de perfil: permitir guardar hasta 3 fotos por usuario, elegir una como principal, decidir si se muestran publicamente solo la principal o las 3, sustituir una foto al superar el limite, y ver/deslizar las fotos publicas desde el modal del avatar del perfil.
 

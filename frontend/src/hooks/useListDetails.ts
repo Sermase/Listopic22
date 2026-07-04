@@ -106,26 +106,18 @@ async function fetchListDetails(listId: string): Promise<{ list: ListEntity; rev
         return review.userId === currentUser.uid || review.authorId === currentUser.uid;
     };
 
+    // Las reseñas viven solo en lists/{listId}/reviews (la colección raíz
+    // legacy reviews/ está vacía y ya no se consulta — ver docs/REVIEWS-MIGRATION.md).
     if (listData?.parentListId) {
         const parentListId = listData.parentListId;
-        const [rootBySublist, rootByList, nestedParent, nestedLegacyOwn] = await Promise.all([
-            safeGetDocs(() => getDocs(query(collection(db, 'reviews'), where('sublistId', '==', listId)))),
-            safeGetDocs(() => getDocs(query(collection(db, 'reviews'), where('listId', '==', listId)))),
+        const [nestedParent, nestedLegacyOwn] = await Promise.all([
             safeGetDocs(() => getDocs(query(collection(db, 'lists', parentListId, 'reviews'), where('sublistId', '==', listId)))),
             safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews'))),
         ]);
-        appendSnapshot(rootBySublist, parentListId);
-        appendSnapshot(rootByList, parentListId);
         appendSnapshot(nestedLegacyOwn, listId);
         appendSnapshot(nestedParent, parentListId);
     } else {
-        const [rootByList, rootByParentList, nestedMain] = await Promise.all([
-            safeGetDocs(() => getDocs(query(collection(db, 'reviews'), where('listId', '==', listId)))),
-            safeGetDocs(() => getDocs(query(collection(db, 'reviews'), where('parentListId', '==', listId)))),
-            safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews'))),
-        ]);
-        appendSnapshot(rootByList, listId);
-        appendSnapshot(rootByParentList, listId);
+        const nestedMain = await safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews')));
         appendSnapshot(nestedMain, listId);
     }
 

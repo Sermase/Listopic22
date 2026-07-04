@@ -110,7 +110,7 @@ service cloud.firestore {
         'photoUrls', 'photoStoragePaths', 'photos', 'placeId',
         'placeName', 'placeAddress', 'placeLat', 'placeLng',
         'criteriaDefinition', 'createdAt', 'updatedAt', 'deletedAt',
-        'moderationStatus'
+        'moderationStatus', 'placeClosedStatus'
       ];
     }
 
@@ -566,6 +566,18 @@ service cloud.firestore {
         match /businessInfoMeta/{sectionId} {
           allow read, write: if false;
         }
+
+        // Items canónicos persistentes del lugar. Los genera Cloud Functions
+        // desde las reseñas; el cliente puede leerlos para carta/estadísticas.
+        match /items/{itemId} {
+          allow read: if true;
+          allow write: if false;
+
+          match /listStats/{listId} {
+            allow read: if true;
+            allow write: if false;
+          }
+        }
     }
     
     match /badges/{badgeId} {
@@ -700,4 +712,3 @@ service cloud.firestore {
     }
   }
 }
-
