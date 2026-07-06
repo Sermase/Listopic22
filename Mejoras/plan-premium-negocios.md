@@ -13,6 +13,14 @@ Implementado (Fase A):
 - Developer → pestaña **Planes** (`PlansManagerTab`): conceder/quitar Business Pro por local y premium por usuario, con duración (indefinida/1m/3m/fecha) y notas; accesible también con `?tab=plans`.
 - Requiere desplegar functions (`firebase deploy --only functions`) para que existan las callables y la scheduled.
 
+Implementado además (inicio de Fase C — pestañas Pro funcionales):
+- **Capado real activado**: `BUSINESS_PRO_ENFORCED = true`. Los locales sin Pro ven el paywall; el Pro se concede en Developer → Planes.
+- `functions/modules/business-pro.js`: callables `updateBusinessVisual`, `updateCanonicalItemBusinessData`, `saveBusinessOffer`, `deleteBusinessOffer` (gestor + plan Pro activo, jefe siempre puede; sanitización, rate limit 100/día por local, audit log).
+- Datos: `places/{id}/businessPro/visual` (portada URL, color de acento, estilo, texto destacado), `places/{id}/items/{itemId}.businessData` (grupo, precio, descuento, ingredientes, descripción, disponible), `places/{id}/offers/{offerId}` (título, descripción, condiciones, fechas, estado borrador/activa, máx. 20).
+- Reglas Firestore: `businessPro` y `offers` legibles públicamente, escritura solo por Cloud Functions. **Desplegar también** `firebase deploy --only firestore:rules`.
+- UI: `components/business/BusinessProSections.tsx` sustituye a los prototipos con formularios reales y botones de guardar; eliminado el chip "Modo pruebas".
+- Pendiente de Fase C: mostrar estos datos en `PlacePage` (portada personalizada, carta oficial, ofertas activas), subida de imagen de portada a Storage, limpieza automática de ofertas caducadas, merges de items con aprobación admin y estadísticas.
+
 ---
 
 ## 1. Diagnóstico del estado actual

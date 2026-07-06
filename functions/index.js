@@ -23,6 +23,7 @@ module.exports = {
     ...require('./modules/reports'),
     ...require('./modules/business-claims'),
     ...require('./modules/stripe-business'),
+    ...require('./modules/business-pro'),
     ...require('./modules/canonical-items'),
     ...require('./modules/reviews-consolidation'),
     ...require('./modules/media'),
