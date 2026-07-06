@@ -37,6 +37,34 @@ async function getItemOrThrow(placeId, itemId) {
   return { id: snap.id, ...snap.data() };
 }
 
+// Reconstruye los items canónicos de un lugar a petición de su gestor. Sirve
+// para "curar" lugares con reseñas anteriores al sistema de items persistidos
+// (sin esto, la gestión Pro no vería los elementos de la comunidad). No exige
+// plan Pro: es mantenimiento de datos comunitarios, no una función de pago.
+const rebuildPlaceItemsForManager = onCall({ invoker: "public", timeoutSeconds: 300 }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  const placeId = asString(request.data?.placeId, 300);
+  if (!placeId) throw new HttpsError("invalid-argument", "Falta placeId.");
+
+  const placeSnap = await db.collection("places").doc(placeId).get();
+  if (!placeSnap.exists) throw new HttpsError("not-found", "El negocio no existe.");
+  const place = placeSnap.data() || {};
+  const managerIds = Array.isArray(place.businessManagerIds) ? place.businessManagerIds : [];
+  let isAdmin = false;
+  try {
+    await assertJefeAccess(uid);
+    isAdmin = true;
+  } catch (_) { /* no-op */ }
+  if (place.businessOwnerUserId !== uid && !managerIds.includes(uid) && !isAdmin) {
+    throw new HttpsError("permission-denied", "No puedes gestionar este negocio.");
+  }
+
+  const result = await rebuildCanonicalItemsForPlace(placeId);
+  logger.info("businessItems: rebuild manual de items", { placeId, actorUid: uid, ...result });
+  return { ok: true, ...result };
+});
+
 const createBusinessItem = onCall({ invoker: "public" }, async (request) => {
   const uid = request.auth?.uid;
   const placeId = asString(request.data?.placeId, 300);
@@ -57,6 +85,10 @@ const createBusinessItem = onCall({ invoker: "public" }, async (request) => {
     updatedBy: uid,
     updatedAt: FieldValue.serverTimestamp(),
   };
+
+  await placeRef.set({
+    businessMenuUpdatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
 
   await itemRef.set({
     canonicalName: name,
@@ -295,4 +327,5 @@ module.exports = {
   createBusinessItem,
   submitItemProposal,
   reviewItemProposal,
+  rebuildPlaceItemsForManager,
 };

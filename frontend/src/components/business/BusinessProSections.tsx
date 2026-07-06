@@ -18,6 +18,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getCanonicalPlaceItems, type CanonicalPlaceItem } from '../../services/CanonicalItemService';
 import {
     ALLERGEN_OPTIONS,
+    allergenLabel,
     computeSpotlightUnitPrice,
     createBusinessItem,
     DEFAULT_SPOTLIGHT_PRICING,
@@ -34,6 +35,7 @@ import {
     getPlaceReviewsForManager,
     getPlaceSponsoredPlacements,
     getSpotlightPricing,
+    rebuildPlaceItems,
     requestItemSpotlight,
     requestSponsoredPlacement,
     saveBusinessOffer,
@@ -294,6 +296,7 @@ const formatReviewDate = (ms: number): string => {
 
 export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId }) => {
     const { user } = useAuth();
+    const rebuildAttempted = React.useRef(false);
     const [items, setItems] = useState<CanonicalPlaceItem[]>([]);
     const [reviews, setReviews] = useState<ManagerPlaceReview[]>([]);
     const [proposals, setProposals] = useState<ItemProposal[]>([]);
@@ -311,6 +314,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
     const [savingSections, setSavingSections] = useState(false);
     const [sectionsDirty, setSectionsDirty] = useState(false);
 
+    const [showPreview, setShowPreview] = useState(false);
     const [mergeTargetId, setMergeTargetId] = useState('');
     const [renameValue, setRenameValue] = useState('');
     const [proposalNote, setProposalNote] = useState('');
@@ -335,6 +339,21 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
             setProposals(proposalRows);
             setSections(sectionRows);
             setSectionsDirty(false);
+
+            // Autocuración: si hay reseñas cuyo elemento no está persistido
+            // (lugares con reseñas anteriores al sistema de items), se
+            // reconstruyen los items del lugar una sola vez y se recarga.
+            const knownIds = new Set(itemRows.map((item) => item.id));
+            const hasOrphanReviews = reviewRows.some((review) => review.itemName && !knownIds.has(review.itemId));
+            if (hasOrphanReviews && !rebuildAttempted.current) {
+                rebuildAttempted.current = true;
+                try {
+                    await rebuildPlaceItems(placeId);
+                    setItems(await getCanonicalPlaceItems(placeId));
+                } catch (error) {
+                    console.warn('BusinessItemsSection: rebuild failed', error);
+                }
+            }
         } catch (error) {
             console.error('BusinessItemsSection: load failed', error);
         } finally {
@@ -360,6 +379,35 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
     const selectedItem = items.find((item) => item.id === selectedId) || null;
     const selectedReviews = selectedId ? (reviewsByItem.get(selectedId) || []) : [];
     const otherItems = items.filter((item) => item.id !== selectedId);
+
+    // Vista previa de la carta tal y como se verá en la página pública.
+    const menuPreview = useMemo(() => {
+        const rows = items.map((item) => {
+            const raw = (item.businessData || {}) as Record<string, unknown>;
+            return {
+                id: item.id,
+                name: item.canonicalName || item.id,
+                group: typeof raw.group === 'string' ? raw.group : '',
+                price: typeof raw.price === 'string' ? raw.price : '',
+                discount: typeof raw.discount === 'string' ? raw.discount : '',
+                description: typeof raw.description === 'string' ? raw.description : '',
+                allergens: Array.isArray(raw.allergens) ? raw.allergens.filter((entry): entry is string => typeof entry === 'string') : [],
+                available: raw.available !== false,
+                rating: typeof item.stats?.averageRating === 'number' ? item.stats.averageRating : null,
+                reviewCount: item.stats?.reviewCount || 0,
+            };
+        });
+        const byName = (a: { rating: number | null; name: string }, b: { rating: number | null; name: string }) =>
+            (b.rating ?? -1) - (a.rating ?? -1) || a.name.localeCompare(b.name, 'es');
+        const sectionNames = sections.map((section) => section.name);
+        const groups = sectionNames.map((name) => ({
+            name,
+            items: rows.filter((row) => row.group === name).sort(byName),
+        })).filter((group) => group.items.length > 0);
+        const leftovers = rows.filter((row) => !row.group || !sectionNames.includes(row.group)).sort(byName);
+        if (leftovers.length > 0) groups.push({ name: sectionNames.length > 0 ? 'Otros' : '', items: leftovers });
+        return groups;
+    }, [items, sections]);
 
     const selectItem = (item: CanonicalPlaceItem) => {
         setSelectedId(item.id);
@@ -484,6 +532,79 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
             text="La base son los elementos valorados por la comunidad. Enriquécelos con la ficha oficial, añade platos nuevos y propone correcciones (fusiones de duplicados por erratas, renombres o mover reseñas mal asignadas): los cambios sensibles pasan por revisión admin."
             icon={Tags}
         >
+            <div className="mb-4 flex justify-end">
+                <button
+                    type="button"
+                    onClick={() => setShowPreview((prev) => !prev)}
+                    className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-bold transition-colors ${
+                        showPreview
+                            ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-text)]'
+                            : 'border-white/10 bg-white/5 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'
+                    }`}
+                >
+                    <ImageIcon className="h-4 w-4" />
+                    {showPreview ? 'Cerrar vista previa' : 'Vista previa de la carta'}
+                </button>
+            </div>
+
+            {showPreview && (
+                <div className="mb-5 overflow-hidden rounded-2xl border border-white/10 bg-[var(--lt-bg-deep)]">
+                    <div className="flex items-center gap-3 border-b border-white/10 px-5 py-4">
+                        <span className="text-sm font-black uppercase tracking-wide text-[var(--lt-text)]">La Carta</span>
+                        <span className="ml-auto text-[10px] font-bold uppercase text-emerald-300">Así se verá en tu página</span>
+                    </div>
+                    {menuPreview.length === 0 ? (
+                        <p className="px-5 py-8 text-center text-sm text-[var(--lt-text-muted)]">
+                            Aún no hay elementos. Añade platos y secciones para verlos aquí.
+                        </p>
+                    ) : (
+                        menuPreview.map((group) => (
+                            <div key={group.name || 'general'}>
+                                {group.name && (
+                                    <div className="border-b border-white/5 bg-white/[0.03] px-5 py-2">
+                                        <h4 className="text-xs font-black uppercase tracking-[0.18em] text-[var(--lt-accent)]">{group.name}</h4>
+                                    </div>
+                                )}
+                                <div className="divide-y divide-white/5">
+                                    {group.items.map((item) => (
+                                        <div key={item.id} className={`flex items-start gap-3 px-5 py-3 ${item.available ? '' : 'opacity-50'}`}>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="text-sm font-semibold text-[var(--lt-text)]">{item.name}</span>
+                                                    {item.discount && (
+                                                        <span className="rounded border border-emerald-500/25 bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold text-emerald-300">{item.discount}</span>
+                                                    )}
+                                                    {!item.available && (
+                                                        <span className="rounded border border-red-500/25 bg-red-500/15 px-1.5 py-0.5 text-[10px] font-bold text-red-300">No disponible</span>
+                                                    )}
+                                                </div>
+                                                {item.description && (
+                                                    <p className="mt-0.5 text-xs leading-snug text-[var(--lt-text-muted)] line-clamp-2">{item.description}</p>
+                                                )}
+                                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                                    {item.reviewCount > 0 && item.rating !== null && (
+                                                        <span className="font-mono text-xs font-black text-emerald-400">
+                                                            ★ {item.rating.toFixed(1)}
+                                                            <span className="ml-1 font-normal text-[var(--lt-text-muted)]">({item.reviewCount})</span>
+                                                        </span>
+                                                    )}
+                                                    {item.allergens.map((allergen) => (
+                                                        <span key={allergen} className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-[var(--lt-text-muted)]">
+                                                            {allergenLabel(allergen)}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            {item.price && <span className="shrink-0 text-sm font-black text-[var(--lt-text)]">{item.price}</span>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            )}
+
             <div className="grid gap-5 lg:grid-cols-[1fr,1.2fr]">
                 {/* Columna izquierda: lista de elementos + crear */}
                 <div className="space-y-4">

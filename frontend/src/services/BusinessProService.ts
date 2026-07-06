@@ -306,6 +306,13 @@ export const getPendingItemProposals = async (): Promise<ItemProposal[]> => {
         .sort((a, b) => a.createdAtMs - b.createdAtMs);
 };
 
+// Reconstruye los items canónicos del lugar desde sus reseñas (cura lugares
+// con reseñas anteriores al sistema de items persistidos). Solo gestores.
+export const rebuildPlaceItems = async (placeId: string): Promise<void> => {
+    const callable = httpsCallable(functions, 'rebuildPlaceItemsForManager');
+    await callable({ placeId });
+};
+
 export const createBusinessItem = async (
     placeId: string,
     name: string,

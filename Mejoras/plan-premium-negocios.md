@@ -42,6 +42,14 @@ Implementado además (inicio de Fase C — pestañas Pro funcionales):
 
 Pendiente de Fase C: subida de imagen de portada a Storage, limpieza automática de ofertas caducadas, destacado en búsquedas (la solicitud existe; falta pintarlo en SearchPage), contadores de visitas al perfil del lugar, y cobro real de las unidades de patrocinio vía Stripe (ahora el precio queda registrado en la solicitud y la activación es manual).
 
+**Cruce carta comunitaria ↔ oficial y correcciones permanentes (fixes):**
+
+- `rebuildPlaceItemsForManager`: los gestores (sin necesidad de Pro) pueden reconstruir los items canónicos de su lugar; la pestaña Elementos lo hace sola una vez si detecta reseñas huérfanas (lugares con reseñas anteriores al sistema de items). Con esto los platos de la comunidad aparecen en la gestión Pro.
+- La carta pública por secciones ya no exige tener secciones definidas, e incluye también los platos comunitarios sin documento de item — los elementos Pro y los de usuarios se cruzan siempre.
+- **Las correcciones aprobadas son permanentes aunque se retire el plan** (son datos comunitarios, "oro"): la página del lugar agrupa ahora por `canonicalItemId`/`canonicalItemName` en vez de por el texto escrito, así las fusiones y renombres se reflejan con o sin suscripción. Lo único que se oculta al perder el plan sigue siendo el contenido comercial (precios, secciones, alérgenos, portada, ofertas).
+- `businessMenuUpdatedAt` en el lugar: la carta pública muestra "Actualizada el {fecha}"; se sella al guardar fichas, secciones o crear elementos.
+- Vista previa de la carta ("así se verá en tu página") dentro de la pestaña Elementos.
+
 **Regla de expiración de contenido Pro (invariante del producto):** al cancelar
 o caducar el plan, los datos Pro NUNCA se borran — solo dejan de mostrarse.
 Ninguna vía de degradación (revocación manual, scheduled de caducidad, webhook

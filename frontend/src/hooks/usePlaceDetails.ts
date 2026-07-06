@@ -131,6 +131,8 @@ export interface PlaceDetails {
     officialItemData?: Record<string, PlaceOfficialItemData>;
     menuSections?: string[];
     officialItems?: PlaceOfficialMenuItem[];
+    /** Última actualización de la carta oficial por el negocio (ms). */
+    menuUpdatedAtMs?: number | null;
 }
 
 const toMillis = (value: any): number => {
@@ -558,6 +560,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         officialItemData,
         menuSections,
         officialItems,
+        menuUpdatedAtMs: toMillis(placeData?.businessMenuUpdatedAt) || null,
     };
 }
 

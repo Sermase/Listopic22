@@ -157,6 +157,10 @@ const updateCanonicalItemBusinessData = onCall({ invoker: "public" }, async (req
     },
   }, { merge: true });
 
+  await placeRef.set({
+    businessMenuUpdatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+
   await writeAuditLog(uid, "businessPro.itemDataUpdated", {
     placeId,
     placeName: place.name || null,
@@ -191,6 +195,10 @@ const updateBusinessMenuSections = onCall({ invoker: "public" }, async (request)
     updatedBy: uid,
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: false });
+
+  await placeRef.set({
+    businessMenuUpdatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
 
   await writeAuditLog(uid, "businessPro.menuSectionsUpdated", {
     placeId,
