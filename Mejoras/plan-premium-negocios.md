@@ -21,6 +21,14 @@ Implementado además (inicio de Fase C — pestañas Pro funcionales):
 - UI: `components/business/BusinessProSections.tsx` sustituye a los prototipos con formularios reales y botones de guardar; eliminado el chip "Modo pruebas".
 - Pendiente de Fase C: mostrar estos datos en `PlacePage` (portada personalizada, carta oficial, ofertas activas), subida de imagen de portada a Storage, limpieza automática de ofertas caducadas, merges de items con aprobación admin y estadísticas.
 
+**Regla de expiración de contenido Pro (invariante del producto):** al cancelar
+o caducar el plan, los datos Pro NUNCA se borran — solo dejan de mostrarse.
+Ninguna vía de degradación (revocación manual, scheduled de caducidad, webhook
+de Stripe) toca `businessPro/`, `items/*.businessData` ni `offers/`; únicamente
+cambian los campos de plan del lugar. Cuando `PlacePage` pinte contenido Pro,
+debe capar SIEMPRE por `getBusinessPlanFromPlace(place).isPro`, de modo que al
+reactivar el plan todo el contenido reaparezca tal cual quedó.
+
 ---
 
 ## 1. Diagnóstico del estado actual

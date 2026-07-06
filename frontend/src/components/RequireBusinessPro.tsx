@@ -65,6 +65,9 @@ export const BusinessProUpsellCard: React.FC<{ placeId: string }> = ({ placeId }
                     {error}
                 </p>
             )}
+            <p className="mx-auto mt-4 max-w-md text-xs text-[var(--lt-text-muted)]">
+                Si este local tuvo Business Pro, sus datos siguen guardados: al reactivar el plan volverán a estar disponibles tal y como quedaron.
+            </p>
         </div>
     );
 };
