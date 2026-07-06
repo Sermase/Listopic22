@@ -26,6 +26,7 @@ import { BusinessClaimModal } from '../components/BusinessClaimModal';
 import type { BusinessClaim } from '../services/BusinessClaimService';
 import { CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_LABELS, PET_POLICY_LABELS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { allergenLabel } from '../services/BusinessProService';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
@@ -372,6 +373,37 @@ export const PlacePage: React.FC = () => {
         })).sort((a, b) => b.avg - a.avg);
     }, [place?.reviews]);
 
+
+    // Carta por secciones (Business Pro): items oficiales agrupados por las
+    // secciones definidas por el negocio, con foto y nota de la comunidad.
+    const sectionedMenu = useMemo(() => {
+        if (!place?.hasBusinessPro) return null;
+        const officialItems = (place.officialItems || []).filter((item) => item.available !== false || item.price || item.description);
+        const sections = place.menuSections || [];
+        if (officialItems.length === 0 || sections.length === 0) return null;
+
+        const photoByKey = new Map<string, string>();
+        dishes.forEach((dish) => {
+            if (dish.photo) photoByKey.set(dish.name.trim().toLowerCase(), dish.photo);
+        });
+        const withPhoto = officialItems.map((item) => ({
+            ...item,
+            photo: item.keys.map((key) => photoByKey.get(key)).find(Boolean),
+        }));
+
+        const byName = (a: { rating: number | null; name: string }, b: { rating: number | null; name: string }) =>
+            (b.rating ?? -1) - (a.rating ?? -1) || a.name.localeCompare(b.name, 'es');
+
+        const groups = sections.map((sectionName) => ({
+            name: sectionName,
+            items: withPhoto.filter((item) => item.group === sectionName).sort(byName),
+        })).filter((group) => group.items.length > 0);
+
+        const others = withPhoto.filter((item) => !item.group || !sections.includes(item.group)).sort(byName);
+        if (others.length > 0) groups.push({ name: 'Otros', items: others });
+
+        return groups.length > 0 ? groups : null;
+    }, [place?.hasBusinessPro, place?.officialItems, place?.menuSections, dishes]);
 
     // Aggregate Photos for Gallery
     const galleryItems = useMemo<GalleryPhotoItem[]>(() => {
@@ -1635,7 +1667,99 @@ export const PlacePage: React.FC = () => {
                         </div>
                     )}
 
-                    {activeTab === 'dishes' && (
+                    {activeTab === 'dishes' && sectionedMenu && (
+                        <div className="animate-fade-in">
+                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+                                <div className="px-5 py-4 border-b border-white/10 flex items-center gap-3">
+                                    <Utensils className="w-5 h-5 text-[var(--lt-accent)]" />
+                                    <span className="font-bold text-white tracking-wide text-sm uppercase">La Carta</span>
+                                    <span className="ml-auto flex items-center gap-1 text-[10px] font-bold uppercase text-emerald-300">
+                                        <Check className="w-3 h-3" />
+                                        Carta oficial del negocio
+                                    </span>
+                                </div>
+                                {sectionedMenu.map((section) => (
+                                    <div key={section.name}>
+                                        <div className="px-5 py-2.5 bg-white/[0.03] border-b border-white/5">
+                                            <h3 className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: proAccent || 'var(--lt-accent)' }}>
+                                                {section.name}
+                                            </h3>
+                                        </div>
+                                        <div className="divide-y divide-white/5">
+                                            {section.items.map((item) => {
+                                                const unavailable = item.available === false;
+                                                const scoreColor = (item.rating ?? 0) >= 8 ? 'text-emerald-400' : (item.rating ?? 0) >= 6 ? 'text-amber-400' : 'text-red-400';
+                                                const content = (
+                                                    <>
+                                                        <div className={`w-11 h-11 rounded-lg bg-gray-800 overflow-hidden shrink-0 ${unavailable ? 'opacity-40' : ''}`}>
+                                                            {item.photo ? (
+                                                                <ProgressiveImage
+                                                                    src={item.photo}
+                                                                    alt={item.name}
+                                                                    containerClassName="w-full h-full"
+                                                                    className="w-full h-full object-cover"
+                                                                    fallback={<div className="w-full h-full flex items-center justify-center"><Utensils className="w-4 h-4 text-gray-600" /></div>}
+                                                                />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center">
+                                                                    <Utensils className="w-4 h-4 text-gray-600" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className={`flex-1 min-w-0 ${unavailable ? 'opacity-50' : ''}`}>
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className="font-semibold text-white text-sm sm:text-base">{item.name}</span>
+                                                                {item.discount && (
+                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">{item.discount}</span>
+                                                                )}
+                                                                {unavailable && (
+                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/25">No disponible</span>
+                                                                )}
+                                                            </div>
+                                                            {item.description && (
+                                                                <p className="mt-0.5 text-xs leading-snug text-gray-400 line-clamp-2">{item.description}</p>
+                                                            )}
+                                                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                                                {item.reviewCount > 0 && item.rating !== null && (
+                                                                    <span className={`text-xs font-black font-mono ${scoreColor}`}>
+                                                                        ★ {item.rating.toFixed(1)}
+                                                                        <span className="ml-1 font-normal text-gray-500">({item.reviewCount})</span>
+                                                                    </span>
+                                                                )}
+                                                                {item.allergens.map((allergen) => (
+                                                                    <span key={allergen} className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400" title={allergenLabel(allergen)}>
+                                                                        {allergenLabel(allergen)}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        {item.price && (
+                                                            <span className={`shrink-0 text-sm sm:text-base font-black text-gray-100 ${unavailable ? 'opacity-50' : ''}`}>{item.price}</span>
+                                                        )}
+                                                    </>
+                                                );
+                                                return item.reviewCount > 0 ? (
+                                                    <Link
+                                                        key={item.id}
+                                                        to={`/group/${placeId}/${encodeURIComponent(item.name)}`}
+                                                        className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 hover:bg-white/5 transition-colors"
+                                                    >
+                                                        {content}
+                                                    </Link>
+                                                ) : (
+                                                    <div key={item.id} className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3">
+                                                        {content}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'dishes' && !sectionedMenu && (
                         <div className="animate-fade-in">
                             {dishes && dishes.length > 0 ? (
                                 <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl overflow-hidden shadow-xl">

@@ -14,7 +14,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { assertJefeAccess, writeAuditLog } = require("./lib/auth");
-const { assertBusinessProAccess } = require("./business-pro");
+const { assertBusinessProAccess, sanitizeItemBusinessData } = require("./business-pro");
 const {
   rebuildCanonicalItemsForPlace,
   fetchReviewsForPlace,
@@ -52,14 +52,8 @@ const createBusinessItem = onCall({ invoker: "public" }, async (request) => {
     throw new HttpsError("already-exists", `Ya existe un elemento equivalente: "${existing.data()?.canonicalName || itemId}".`);
   }
 
-  const raw = request.data?.businessData || {};
   const businessData = {
-    group: asString(raw.group, 60),
-    price: asString(raw.price, 40),
-    discount: asString(raw.discount, 80),
-    ingredients: asString(raw.ingredients, 300).replace(/[<>]/g, ""),
-    description: asString(raw.description, 500).replace(/[<>]/g, ""),
-    available: raw.available !== false,
+    ...sanitizeItemBusinessData(request.data?.businessData),
     updatedBy: uid,
     updatedAt: FieldValue.serverTimestamp(),
   };

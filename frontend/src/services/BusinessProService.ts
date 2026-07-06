@@ -27,6 +27,7 @@ export interface ItemBusinessData {
     discount: string;
     ingredients: string;
     description: string;
+    allergens: string[];
     available: boolean;
 }
 
@@ -36,7 +37,54 @@ export const EMPTY_ITEM_BUSINESS_DATA: ItemBusinessData = {
     discount: '',
     ingredients: '',
     description: '',
+    allergens: [],
     available: true,
+};
+
+// Los 14 alérgenos de declaración obligatoria en la UE (mismos ids que valida el backend).
+export const ALLERGEN_OPTIONS: Array<{ value: string; label: string; emoji: string }> = [
+    { value: 'gluten', label: 'Gluten', emoji: '🌾' },
+    { value: 'crustaceos', label: 'Crustáceos', emoji: '🦐' },
+    { value: 'huevo', label: 'Huevo', emoji: '🥚' },
+    { value: 'pescado', label: 'Pescado', emoji: '🐟' },
+    { value: 'cacahuetes', label: 'Cacahuetes', emoji: '🥜' },
+    { value: 'soja', label: 'Soja', emoji: '🌱' },
+    { value: 'lacteos', label: 'Lácteos', emoji: '🥛' },
+    { value: 'frutos_secos', label: 'Frutos secos', emoji: '🌰' },
+    { value: 'apio', label: 'Apio', emoji: '🥬' },
+    { value: 'mostaza', label: 'Mostaza', emoji: '🟡' },
+    { value: 'sesamo', label: 'Sésamo', emoji: '⚪' },
+    { value: 'sulfitos', label: 'Sulfitos', emoji: '🍷' },
+    { value: 'altramuces', label: 'Altramuces', emoji: '🫘' },
+    { value: 'moluscos', label: 'Moluscos', emoji: '🦪' },
+];
+
+export const allergenLabel = (value: string): string => {
+    const option = ALLERGEN_OPTIONS.find((entry) => entry.value === value);
+    return option ? `${option.emoji} ${option.label}` : value;
+};
+
+export interface MenuSection {
+    name: string;
+    order: number;
+}
+
+export const getBusinessMenuSections = async (placeId: string): Promise<MenuSection[]> => {
+    const snap = await getDoc(doc(db, 'places', placeId, 'businessPro', 'menu'));
+    if (!snap.exists()) return [];
+    const data = snap.data() as { sections?: Array<{ name?: unknown; order?: unknown }> };
+    return (Array.isArray(data.sections) ? data.sections : [])
+        .map((section, index) => ({
+            name: typeof section.name === 'string' ? section.name : '',
+            order: typeof section.order === 'number' ? section.order : index,
+        }))
+        .filter((section) => section.name)
+        .sort((a, b) => a.order - b.order);
+};
+
+export const updateBusinessMenuSections = async (placeId: string, sections: string[]): Promise<void> => {
+    const callable = httpsCallable(functions, 'updateBusinessMenuSections');
+    await callable({ placeId, sections });
 };
 
 export type BusinessOfferStatus = 'draft' | 'active';
@@ -381,4 +429,172 @@ export const reviewSponsoredPlacement = async (
 ): Promise<void> => {
     const callable = httpsCallable(functions, 'reviewSponsoredPlacement');
     await callable({ placementId, decision, adminNotes });
+};
+
+// ── Platos destacados por radio (sorteo ponderado por unidades) ─────────────
+
+export interface SpotlightPricing {
+    baseRadiusKm: number;
+    basePricePerUnit: number;
+    pricePerExtraKm: number;
+    maxRadiusKm: number;
+    maxUnitsPerCampaign: number;
+}
+
+export const DEFAULT_SPOTLIGHT_PRICING: SpotlightPricing = {
+    baseRadiusKm: 1,
+    basePricePerUnit: 2,
+    pricePerExtraKm: 2,
+    maxRadiusKm: 20,
+    maxUnitsPerCampaign: 10,
+};
+
+export const getSpotlightPricing = async (): Promise<SpotlightPricing> => {
+    const snap = await getDoc(doc(db, 'config', 'sponsoredPricing')).catch(() => null);
+    const data = snap?.exists() ? snap.data() as Record<string, unknown> : {};
+    const merged = { ...DEFAULT_SPOTLIGHT_PRICING };
+    (Object.keys(DEFAULT_SPOTLIGHT_PRICING) as Array<keyof SpotlightPricing>).forEach((key) => {
+        const value = data[key];
+        if (typeof value === 'number' && Number.isFinite(value) && value > 0) merged[key] = value;
+    });
+    return merged;
+};
+
+// Precio por unidad: base + extra por cada km por encima del radio base.
+export const computeSpotlightUnitPrice = (pricing: SpotlightPricing, radiusKm: number): number => {
+    const extraKm = Math.max(0, radiusKm - pricing.baseRadiusKm);
+    return Number((pricing.basePricePerUnit + pricing.pricePerExtraKm * extraKm).toFixed(2));
+};
+
+export type ItemSpotlightStatus = 'requested' | 'active' | 'rejected' | 'ended';
+
+export interface ItemSpotlight {
+    id: string;
+    placeId: string;
+    placeName?: string;
+    placePhotoUrl?: string;
+    itemId: string;
+    itemName: string;
+    linkedListIds: string[];
+    itemAverageRating: number | null;
+    itemReviewCount: number;
+    center: { lat: number; lng: number } | null;
+    radiusKm: number;
+    units: number;
+    unitPriceEur?: number;
+    totalPriceEur?: number;
+    startsAt?: string;
+    endsAt?: string;
+    status: ItemSpotlightStatus;
+    adminNotes?: string;
+    createdAtMs: number;
+}
+
+const mapSpotlight = (id: string, data: Record<string, unknown>): ItemSpotlight => {
+    const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
+    const center = data.center as { lat?: unknown; lng?: unknown } | undefined;
+    return {
+        id,
+        placeId: typeof data.placeId === 'string' ? data.placeId : '',
+        placeName: typeof data.placeName === 'string' ? data.placeName : undefined,
+        placePhotoUrl: typeof data.placePhotoUrl === 'string' ? data.placePhotoUrl : undefined,
+        itemId: typeof data.itemId === 'string' ? data.itemId : '',
+        itemName: typeof data.itemName === 'string' ? data.itemName : '',
+        linkedListIds: Array.isArray(data.linkedListIds)
+            ? data.linkedListIds.filter((entry): entry is string => typeof entry === 'string')
+            : [],
+        itemAverageRating: typeof data.itemAverageRating === 'number' ? data.itemAverageRating : null,
+        itemReviewCount: typeof data.itemReviewCount === 'number' ? data.itemReviewCount : 0,
+        center: center && typeof center.lat === 'number' && typeof center.lng === 'number'
+            ? { lat: center.lat, lng: center.lng }
+            : null,
+        radiusKm: typeof data.radiusKm === 'number' ? data.radiusKm : 0,
+        units: typeof data.units === 'number' && data.units > 0 ? data.units : 1,
+        unitPriceEur: typeof data.unitPriceEur === 'number' ? data.unitPriceEur : undefined,
+        totalPriceEur: typeof data.totalPriceEur === 'number' ? data.totalPriceEur : undefined,
+        startsAt: typeof data.startsAt === 'string' ? data.startsAt : undefined,
+        endsAt: typeof data.endsAt === 'string' ? data.endsAt : undefined,
+        status: (['requested', 'active', 'rejected', 'ended'].includes(String(data.status)) ? data.status : 'requested') as ItemSpotlightStatus,
+        adminNotes: typeof data.adminNotes === 'string' ? data.adminNotes : undefined,
+        createdAtMs: typeof createdAt?.toMillis === 'function' ? createdAt.toMillis() : 0,
+    };
+};
+
+export const requestItemSpotlight = async (input: {
+    placeId: string;
+    itemId: string;
+    units: number;
+    radiusKm: number;
+    startsAt?: string;
+    endsAt?: string;
+}): Promise<{ spotlightId: string; totalPriceEur: number }> => {
+    const callable = httpsCallable<unknown, { spotlightId: string; totalPriceEur: number }>(functions, 'requestItemSpotlight');
+    const result = await callable(input);
+    return result.data;
+};
+
+export const getPlaceItemSpotlights = async (placeId: string): Promise<ItemSpotlight[]> => {
+    const snap = await getDocs(query(
+        collection(db, 'sponsoredItemSpotlights'),
+        where('placeId', '==', placeId),
+        limit(50),
+    ));
+    return snap.docs
+        .map((spotlightDoc) => mapSpotlight(spotlightDoc.id, spotlightDoc.data() as Record<string, unknown>))
+        .sort((a, b) => b.createdAtMs - a.createdAtMs);
+};
+
+export const getOpenItemSpotlights = async (): Promise<ItemSpotlight[]> => {
+    const snap = await getDocs(query(
+        collection(db, 'sponsoredItemSpotlights'),
+        where('status', 'in', ['requested', 'active']),
+        limit(100),
+    ));
+    return snap.docs
+        .map((spotlightDoc) => mapSpotlight(spotlightDoc.id, spotlightDoc.data() as Record<string, unknown>))
+        .sort((a, b) => a.createdAtMs - b.createdAtMs);
+};
+
+export const getActiveItemSpotlights = async (): Promise<ItemSpotlight[]> => {
+    const today = new Date().toISOString().slice(0, 10);
+    const snap = await getDocs(query(
+        collection(db, 'sponsoredItemSpotlights'),
+        where('status', '==', 'active'),
+        limit(100),
+    ));
+    return snap.docs
+        .map((spotlightDoc) => mapSpotlight(spotlightDoc.id, spotlightDoc.data() as Record<string, unknown>))
+        .filter((spotlight) => (!spotlight.startsAt || spotlight.startsAt <= today)
+            && (!spotlight.endsAt || spotlight.endsAt >= today));
+};
+
+export const reviewItemSpotlight = async (
+    spotlightId: string,
+    decision: 'activate' | 'reject' | 'end',
+    adminNotes?: string,
+): Promise<void> => {
+    const callable = httpsCallable(functions, 'reviewItemSpotlight');
+    await callable({ spotlightId, decision, adminNotes });
+};
+
+// Sorteo ponderado sin reemplazo: cada campaña entra con peso = unidades, así
+// que comprar 2 unidades duplica la probabilidad frente a quien compra 1.
+export const weightedSampleSpotlights = (candidates: ItemSpotlight[], count: number): ItemSpotlight[] => {
+    const pool = [...candidates];
+    const picked: ItemSpotlight[] = [];
+    while (pool.length > 0 && picked.length < count) {
+        const totalWeight = pool.reduce((sum, spotlight) => sum + spotlight.units, 0);
+        let ticket = Math.random() * totalWeight;
+        let index = 0;
+        for (let i = 0; i < pool.length; i += 1) {
+            ticket -= pool[i].units;
+            if (ticket <= 0) {
+                index = i;
+                break;
+            }
+        }
+        picked.push(pool[index]);
+        pool.splice(index, 1);
+    }
+    return picked;
 };

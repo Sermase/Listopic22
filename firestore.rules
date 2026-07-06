@@ -611,6 +611,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Platos destacados por radio (sorteo ponderado por unidades). Lectura
+    // pública para el carrusel; escritura solo vía Cloud Functions.
+    match /sponsoredItemSpotlights/{spotlightId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /badges/{badgeId} {
       allow read: if true;
       allow list, write: if request.auth != null && isJefe(request.auth.uid);

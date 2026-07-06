@@ -34,7 +34,13 @@ Implementado además (inicio de Fase C — pestañas Pro funcionales):
 - **Developer → "Propuestas Pro"** (`ProProposalsTab`): revisión de propuestas de carta (aprobar aplica y reconstruye) y de campañas patrocinadas, con notas que llegan al negocio.
 - Reglas nuevas: `itemProposals` (lee jefe o el autor), `sponsoredPlacements` (lectura pública, escritura solo CF).
 
-Pendiente de Fase C: subida de imagen de portada a Storage, limpieza automática de ofertas caducadas, destacado en búsquedas (la solicitud existe; falta pintarlo en SearchPage), y contadores de visitas al perfil del lugar.
+**Platos destacados por radio + carta por secciones — hecho:**
+
+- **Platos destacados con sorteo ponderado** (`sponsoredItemSpotlights`): el negocio compra *unidades* para destacar un plato en un radio de X km. Precio por unidad = base + extra × (km − radio base); la fórmula (`config/sponsoredPricing`: precio base, radio base, €/km extra, radio máx., unidades máx.) se edita en Developer → Propuestas Pro. El backend calcula y congela el precio en cada solicitud; el admin activa/rechaza/finaliza. En el carrusel (`SponsoredItemsCarousel`, montado en Home y en cada lista con filtro por `linkedListIds`), los candidatos son campañas activas cuyo radio cubre la posición real del usuario, y se sortean con peso = unidades (2 unidades → doble probabilidad), sin reemplazo. Sin ubicación del usuario no se muestra nada (se paga por proximidad real).
+- **Carta por secciones personalizadas**: editor en la pestaña Elementos (crear/ordenar/borrar secciones, guardadas en `businessPro/menu` vía `updateBusinessMenuSections`); cada item se asigna a sección desde su ficha. La ficha añade **alérgenos** (los 14 UE, chips con emoji, validados en backend).
+- **Carta pública bonita**: en `PlacePage`, si el local es Pro y tiene secciones, "La Carta" se muestra agrupada por secciones (con el color de acento del negocio), con foto, descripción, precio, descuento, alérgenos, chip de no disponible y la **nota de la comunidad** por plato. Sin secciones o sin Pro, se mantiene la lista clásica.
+
+Pendiente de Fase C: subida de imagen de portada a Storage, limpieza automática de ofertas caducadas, destacado en búsquedas (la solicitud existe; falta pintarlo en SearchPage), contadores de visitas al perfil del lugar, y cobro real de las unidades de patrocinio vía Stripe (ahora el precio queda registrado en la solicitud y la activación es manual).
 
 **Regla de expiración de contenido Pro (invariante del producto):** al cancelar
 o caducar el plan, los datos Pro NUNCA se borran — solo dejan de mostrarse.

@@ -10,6 +10,7 @@ import { ProgressiveImage } from '../components/ProgressiveImage';
 import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
 import { SponsoredHomeSpotlight } from '../components/business/SponsoredHomeSpotlight';
+import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
 import { MapView } from '../components/MapView';
 import { UserAvatar } from '../components/UserAvatar';
 import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, Flame, TrendingUp, Gem, HeartHandshake, Rows3 } from 'lucide-react';
@@ -1269,6 +1270,7 @@ export const HomePage: React.FC = () => {
 
                     {/* Destacados patrocinados (Business Pro, aprobados por admin) */}
                     {activeTab === 'explore' && <SponsoredHomeSpotlight />}
+                    {activeTab === 'explore' && <SponsoredItemsCarousel className="mx-auto mt-6 w-full max-w-4xl" />}
 
                     {/* Filter Chips (Categories) */}
                     {activeTab === 'explore' && (

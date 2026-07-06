@@ -17,20 +17,28 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { getCanonicalPlaceItems, type CanonicalPlaceItem } from '../../services/CanonicalItemService';
 import {
+    ALLERGEN_OPTIONS,
+    computeSpotlightUnitPrice,
     createBusinessItem,
+    DEFAULT_SPOTLIGHT_PRICING,
     deleteBusinessOffer,
     describeProposal,
     EMPTY_ITEM_BUSINESS_DATA,
     EMPTY_OFFER_DATA,
     EMPTY_VISUAL_DATA,
+    getBusinessMenuSections,
     getBusinessOffers,
     getBusinessVisual,
     getMyItemProposals,
+    getPlaceItemSpotlights,
     getPlaceReviewsForManager,
     getPlaceSponsoredPlacements,
+    getSpotlightPricing,
+    requestItemSpotlight,
     requestSponsoredPlacement,
     saveBusinessOffer,
     submitItemProposal,
+    updateBusinessMenuSections,
     updateBusinessVisual,
     updateCanonicalItemBusinessData,
     type BusinessOffer,
@@ -39,8 +47,11 @@ import {
     type BusinessVisualStyle,
     type ItemBusinessData,
     type ItemProposal,
+    type ItemSpotlight,
     type ManagerPlaceReview,
+    type MenuSection,
     type SponsoredPlacement,
+    type SpotlightPricing,
 } from '../../services/BusinessProService';
 
 type Message = { type: 'success' | 'error'; text: string } | null;
@@ -269,6 +280,9 @@ const itemBusinessDataFrom = (item: CanonicalPlaceItem | null): ItemBusinessData
         discount: typeof raw.discount === 'string' ? raw.discount : '',
         ingredients: typeof raw.ingredients === 'string' ? raw.ingredients : '',
         description: typeof raw.description === 'string' ? raw.description : '',
+        allergens: Array.isArray(raw.allergens)
+            ? raw.allergens.filter((entry): entry is string => typeof entry === 'string')
+            : [],
         available: raw.available !== false,
     };
 };
@@ -292,6 +306,11 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
     const [newItemName, setNewItemName] = useState('');
     const [creatingItem, setCreatingItem] = useState(false);
 
+    const [sections, setSections] = useState<MenuSection[]>([]);
+    const [sectionDraft, setSectionDraft] = useState('');
+    const [savingSections, setSavingSections] = useState(false);
+    const [sectionsDirty, setSectionsDirty] = useState(false);
+
     const [mergeTargetId, setMergeTargetId] = useState('');
     const [renameValue, setRenameValue] = useState('');
     const [proposalNote, setProposalNote] = useState('');
@@ -302,17 +321,20 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
     const load = async () => {
         setLoading(true);
         try {
-            const [itemRows, reviewRows, proposalRows] = await Promise.all([
+            const [itemRows, reviewRows, proposalRows, sectionRows] = await Promise.all([
                 getCanonicalPlaceItems(placeId),
                 getPlaceReviewsForManager(placeId).catch((error) => {
                     console.error('BusinessItemsSection: reviews load failed', error);
                     return [] as ManagerPlaceReview[];
                 }),
                 user ? getMyItemProposals(placeId, user.uid).catch(() => [] as ItemProposal[]) : Promise.resolve([] as ItemProposal[]),
+                getBusinessMenuSections(placeId).catch(() => [] as MenuSection[]),
             ]);
             setItems(itemRows);
             setReviews(reviewRows);
             setProposals(proposalRows);
+            setSections(sectionRows);
+            setSectionsDirty(false);
         } catch (error) {
             console.error('BusinessItemsSection: load failed', error);
         } finally {
@@ -364,6 +386,54 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
         } finally {
             setSaving(false);
         }
+    };
+
+    const addSection = () => {
+        const name = sectionDraft.trim().slice(0, 40);
+        if (!name || sections.some((section) => section.name.toLowerCase() === name.toLowerCase())) return;
+        setSections((prev) => [...prev, { name, order: prev.length }]);
+        setSectionDraft('');
+        setSectionsDirty(true);
+    };
+
+    const moveSection = (index: number, direction: -1 | 1) => {
+        setSections((prev) => {
+            const target = index + direction;
+            if (target < 0 || target >= prev.length) return prev;
+            const next = [...prev];
+            [next[index], next[target]] = [next[target], next[index]];
+            return next.map((section, order) => ({ ...section, order }));
+        });
+        setSectionsDirty(true);
+    };
+
+    const removeSection = (index: number) => {
+        setSections((prev) => prev.filter((_, i) => i !== index).map((section, order) => ({ ...section, order })));
+        setSectionsDirty(true);
+    };
+
+    const saveSections = async () => {
+        setSavingSections(true);
+        setMessage(null);
+        try {
+            await updateBusinessMenuSections(placeId, sections.map((section) => section.name));
+            setSectionsDirty(false);
+            setMessage({ type: 'success', text: 'Secciones de la carta guardadas.' });
+        } catch (error) {
+            console.error('BusinessItemsSection: save sections failed', error);
+            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudieron guardar las secciones.') });
+        } finally {
+            setSavingSections(false);
+        }
+    };
+
+    const toggleAllergen = (value: string) => {
+        setForm((prev) => ({
+            ...prev,
+            allergens: prev.allergens.includes(value)
+                ? prev.allergens.filter((entry) => entry !== value)
+                : [...prev.allergens, value],
+        }));
     };
 
     const addItem = async () => {
@@ -440,6 +510,58 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                                 Añadir
                             </button>
                         </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="mb-3 flex items-center justify-between gap-2">
+                            <div>
+                                <h3 className="text-sm font-black text-[var(--lt-text)]">Secciones de la carta</h3>
+                                <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Entrantes, primeros, postres... el orden aquí es el orden público.</p>
+                            </div>
+                            {sectionsDirty && (
+                                <button
+                                    type="button"
+                                    onClick={saveSections}
+                                    disabled={savingSections}
+                                    className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-[var(--lt-accent)] px-3 py-2 text-xs font-black text-white disabled:opacity-50"
+                                >
+                                    {savingSections ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                                    Guardar
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex gap-2">
+                            <input
+                                className={inputClass}
+                                value={sectionDraft}
+                                onChange={(event) => setSectionDraft(event.target.value)}
+                                onKeyDown={(event) => { if (event.key === 'Enter') addSection(); }}
+                                placeholder="Nueva sección (ej. Entrantes)"
+                            />
+                            <button
+                                type="button"
+                                onClick={addSection}
+                                disabled={!sectionDraft.trim()}
+                                className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-[var(--lt-text)] disabled:opacity-50"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                            </button>
+                        </div>
+                        {sections.length > 0 && (
+                            <div className="mt-3 space-y-1.5">
+                                {sections.map((section, index) => (
+                                    <div key={section.name} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                                        <span className="w-4 text-right font-mono text-[11px] text-[var(--lt-text-muted)]">{index + 1}</span>
+                                        <span className="min-w-0 flex-1 truncate text-sm font-bold text-[var(--lt-text)]">{section.name}</span>
+                                        <button type="button" onClick={() => moveSection(index, -1)} disabled={index === 0} className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] disabled:opacity-30" title="Subir">↑</button>
+                                        <button type="button" onClick={() => moveSection(index, 1)} disabled={index === sections.length - 1} className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] disabled:opacity-30" title="Bajar">↓</button>
+                                        <button type="button" onClick={() => removeSection(index)} className="text-red-300/70 hover:text-red-300" title="Eliminar">
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -536,17 +658,35 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                         {selectedItem ? (
                             <>
                                 <div className="grid gap-4 sm:grid-cols-2">
-                                    <Field label="Grupo de carta">
-                                        <input
-                                            className={inputClass}
-                                            list="business-item-groups"
-                                            value={form.group}
-                                            onChange={(event) => setForm({ ...form, group: event.target.value })}
-                                            placeholder="Postres, Entrantes..."
-                                        />
-                                        <datalist id="business-item-groups">
-                                            {ITEM_GROUP_SUGGESTIONS.map((group) => <option key={group} value={group} />)}
-                                        </datalist>
+                                    <Field label="Sección de la carta">
+                                        {sections.length > 0 ? (
+                                            <select
+                                                className={inputClass}
+                                                value={form.group}
+                                                onChange={(event) => setForm({ ...form, group: event.target.value })}
+                                            >
+                                                <option value="">Sin sección</option>
+                                                {sections.map((section) => (
+                                                    <option key={section.name} value={section.name}>{section.name}</option>
+                                                ))}
+                                                {form.group && !sections.some((section) => section.name === form.group) && (
+                                                    <option value={form.group}>{form.group}</option>
+                                                )}
+                                            </select>
+                                        ) : (
+                                            <>
+                                                <input
+                                                    className={inputClass}
+                                                    list="business-item-groups"
+                                                    value={form.group}
+                                                    onChange={(event) => setForm({ ...form, group: event.target.value })}
+                                                    placeholder="Postres, Entrantes..."
+                                                />
+                                                <datalist id="business-item-groups">
+                                                    {ITEM_GROUP_SUGGESTIONS.map((group) => <option key={group} value={group} />)}
+                                                </datalist>
+                                            </>
+                                        )}
                                     </Field>
                                     <Field label="Precio">
                                         <input
@@ -582,6 +722,27 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                                         onChange={(event) => setForm({ ...form, description: event.target.value })}
                                         placeholder="Descripción corta para la ficha del elemento."
                                     />
+                                </Field>
+                                <Field label="Alérgenos" hint="Los 14 de declaración obligatoria. Marca los que contiene el plato.">
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {ALLERGEN_OPTIONS.map((option) => {
+                                            const active = form.allergens.includes(option.value);
+                                            return (
+                                                <button
+                                                    key={option.value}
+                                                    type="button"
+                                                    onClick={() => toggleAllergen(option.value)}
+                                                    className={`rounded-full border px-2.5 py-1 text-[11px] font-bold transition-colors ${
+                                                        active
+                                                            ? 'border-amber-400/40 bg-amber-400/15 text-amber-200'
+                                                            : 'border-white/10 bg-white/5 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'
+                                                    }`}
+                                                >
+                                                    {option.emoji} {option.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </Field>
                                 <label className="flex items-center gap-2 text-sm text-[var(--lt-text)]">
                                     <input
@@ -780,18 +941,33 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
     const [placementEndsAt, setPlacementEndsAt] = useState('');
     const [requestingPlacement, setRequestingPlacement] = useState(false);
 
+    const [items, setItems] = useState<CanonicalPlaceItem[]>([]);
+    const [spotlights, setSpotlights] = useState<ItemSpotlight[]>([]);
+    const [pricing, setPricing] = useState<SpotlightPricing>(DEFAULT_SPOTLIGHT_PRICING);
+    const [spotlightItemId, setSpotlightItemId] = useState('');
+    const [spotlightUnits, setSpotlightUnits] = useState(1);
+    const [spotlightRadius, setSpotlightRadius] = useState(5);
+    const [spotlightEndsAt, setSpotlightEndsAt] = useState('');
+    const [requestingSpotlight, setRequestingSpotlight] = useState(false);
+
     useEffect(() => {
         let cancelled = false;
         const load = async () => {
             setLoading(true);
             try {
-                const [offerRows, placementRows] = await Promise.all([
+                const [offerRows, placementRows, itemRows, spotlightRows, pricingConfig] = await Promise.all([
                     getBusinessOffers(placeId),
                     getPlaceSponsoredPlacements(placeId).catch(() => [] as SponsoredPlacement[]),
+                    getCanonicalPlaceItems(placeId).catch(() => [] as CanonicalPlaceItem[]),
+                    getPlaceItemSpotlights(placeId).catch(() => [] as ItemSpotlight[]),
+                    getSpotlightPricing().catch(() => DEFAULT_SPOTLIGHT_PRICING),
                 ]);
                 if (!cancelled) {
                     setOffers(offerRows);
                     setPlacements(placementRows);
+                    setItems(itemRows);
+                    setSpotlights(spotlightRows);
+                    setPricing(pricingConfig);
                 }
             } catch (error) {
                 console.error('BusinessSponsoredSection: load failed', error);
@@ -804,6 +980,37 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
             cancelled = true;
         };
     }, [placeId]);
+
+    const spotlightUnitPrice = computeSpotlightUnitPrice(pricing, spotlightRadius);
+    const spotlightTotal = Number((spotlightUnitPrice * spotlightUnits).toFixed(2));
+
+    const requestSpotlight = async () => {
+        if (!spotlightItemId) {
+            setMessage({ type: 'error', text: 'Elige el plato que quieres destacar.' });
+            return;
+        }
+        setRequestingSpotlight(true);
+        setMessage(null);
+        try {
+            await requestItemSpotlight({
+                placeId,
+                itemId: spotlightItemId,
+                units: spotlightUnits,
+                radiusKm: spotlightRadius,
+                endsAt: spotlightEndsAt || undefined,
+            });
+            setSpotlightItemId('');
+            setSpotlightUnits(1);
+            setSpotlightEndsAt('');
+            setSpotlights(await getPlaceItemSpotlights(placeId).catch(() => spotlights));
+            setMessage({ type: 'success', text: `Solicitud enviada (${spotlightTotal.toFixed(2)} €). Un administrador la activará.` });
+        } catch (error) {
+            console.error('BusinessSponsoredSection: spotlight request failed', error);
+            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo solicitar el plato destacado.') });
+        } finally {
+            setRequestingSpotlight(false);
+        }
+    };
 
     const resetForm = () => {
         setForm(EMPTY_OFFER_DATA);
@@ -1042,6 +1249,92 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                 </div>
 
                 <div className="space-y-4">
+                    <div className="space-y-3 rounded-2xl border border-amber-500/20 bg-white/[0.03] p-4">
+                        <div>
+                            <h3 className="text-sm font-black text-[var(--lt-text)]">Destacar un plato por cercanía</h3>
+                            <p className="text-xs text-[var(--lt-text-muted)]">
+                                Compra unidades para que tu plato entre en el sorteo del carrusel de destacados
+                                cuando el usuario esté dentro del radio. Cada unidad extra duplica tu peso en el sorteo.
+                            </p>
+                        </div>
+                        <Field label="Plato">
+                            <select
+                                className={inputClass}
+                                value={spotlightItemId}
+                                onChange={(event) => setSpotlightItemId(event.target.value)}
+                            >
+                                <option value="">Elige un elemento de tu carta...</option>
+                                {items.map((item) => (
+                                    <option key={item.id} value={item.id}>{item.canonicalName || item.id}</option>
+                                ))}
+                            </select>
+                        </Field>
+                        <div className="grid gap-4 sm:grid-cols-3">
+                            <Field label="Unidades">
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={pricing.maxUnitsPerCampaign}
+                                    className={inputClass}
+                                    value={spotlightUnits}
+                                    onChange={(event) => setSpotlightUnits(Math.max(1, Math.min(pricing.maxUnitsPerCampaign, Number(event.target.value) || 1)))}
+                                />
+                            </Field>
+                            <Field label={`Radio: ${spotlightRadius} km`}>
+                                <input
+                                    type="range"
+                                    min={1}
+                                    max={pricing.maxRadiusKm}
+                                    step={1}
+                                    value={spotlightRadius}
+                                    onChange={(event) => setSpotlightRadius(Number(event.target.value))}
+                                    className="mt-3 w-full accent-[var(--lt-accent)]"
+                                />
+                            </Field>
+                            <Field label="Hasta (opcional)">
+                                <input type="date" className={inputClass} value={spotlightEndsAt} onChange={(event) => setSpotlightEndsAt(event.target.value)} />
+                            </Field>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/10 px-3 py-2.5">
+                            <p className="text-xs text-[var(--lt-text-muted)]">
+                                {spotlightUnits} ud. × {spotlightUnitPrice.toFixed(2)} €/ud ({spotlightRadius} km)
+                            </p>
+                            <p className="text-lg font-black text-[var(--lt-text)]">{spotlightTotal.toFixed(2)} €</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={requestSpotlight}
+                            disabled={requestingSpotlight || !spotlightItemId}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2.5 text-sm font-black text-white shadow-lg disabled:opacity-60"
+                        >
+                            {requestingSpotlight ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                            Solicitar plato destacado
+                        </button>
+                        {spotlights.length > 0 && (
+                            <div className="max-h-[220px] space-y-2 overflow-y-auto pr-1">
+                                {spotlights.map((spotlight) => {
+                                    const meta = PLACEMENT_STATUS_META[spotlight.status];
+                                    return (
+                                        <div key={spotlight.id} className="flex items-start justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+                                            <div className="min-w-0">
+                                                <p className="truncate text-xs font-bold text-[var(--lt-text)]">{spotlight.itemName}</p>
+                                                <p className="text-[11px] text-[var(--lt-text-muted)]">
+                                                    {spotlight.units} ud. · {spotlight.radiusKm} km
+                                                    {typeof spotlight.totalPriceEur === 'number' ? ` · ${spotlight.totalPriceEur.toFixed(2)} €` : ''}
+                                                    {spotlight.endsAt ? ` · hasta ${spotlight.endsAt}` : ''}
+                                                </p>
+                                                {spotlight.adminNotes && <p className="text-[11px] text-[var(--lt-text-muted)]">Admin: {spotlight.adminNotes}</p>}
+                                            </div>
+                                            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${meta.className}`}>
+                                                {meta.label}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+
                     <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                         <div>
                             <h3 className="text-sm font-black text-[var(--lt-text)]">Solicitar campaña patrocinada</h3>
