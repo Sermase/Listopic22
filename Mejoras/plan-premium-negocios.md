@@ -19,7 +19,8 @@ Implementado además (inicio de Fase C — pestañas Pro funcionales):
 - Datos: `places/{id}/businessPro/visual` (portada URL, color de acento, estilo, texto destacado), `places/{id}/items/{itemId}.businessData` (grupo, precio, descuento, ingredientes, descripción, disponible), `places/{id}/offers/{offerId}` (título, descripción, condiciones, fechas, estado borrador/activa, máx. 20).
 - Reglas Firestore: `businessPro` y `offers` legibles públicamente, escritura solo por Cloud Functions. **Desplegar también** `firebase deploy --only firestore:rules`.
 - UI: `components/business/BusinessProSections.tsx` sustituye a los prototipos con formularios reales y botones de guardar; eliminado el chip "Modo pruebas".
-- Pendiente de Fase C: mostrar estos datos en `PlacePage` (portada personalizada, carta oficial, ofertas activas), subida de imagen de portada a Storage, limpieza automática de ofertas caducadas, merges de items con aprobación admin y estadísticas.
+- **Visualización pública en `PlacePage` (hecho)**: portada personalizada + texto destacado en el hero (con color de acento), tarjeta "Ofertas" en la barra lateral con etiqueta Patrocinado (solo ofertas activas y dentro de fechas), y en "La Carta" precio oficial, grupo, descuento, descripción y chip de "No disponible" por item. Todo capado en `usePlaceDetails` por plan activo: si el plan caduca, deja de consultarse y mostrarse.
+- Pendiente de Fase C: subida de imagen de portada a Storage, limpieza automática de ofertas caducadas, merges de items con aprobación admin y estadísticas.
 
 **Regla de expiración de contenido Pro (invariante del producto):** al cancelar
 o caducar el plan, los datos Pro NUNCA se borran — solo dejan de mostrarse.

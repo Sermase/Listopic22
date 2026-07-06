@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby, Megaphone
 } from 'lucide-react';
 import { ShareModal } from '../components/ShareModal';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -674,11 +674,19 @@ export const PlacePage: React.FC = () => {
         : [];
     const hasFamilyInfo = activeFamilyEntries.length > 0 || Boolean(familyInfo?.notes);
 
+    // Contenido Business Pro (usePlaceDetails ya lo capa por plan activo).
+    const proVisual = place.hasBusinessPro ? place.businessProVisual : undefined;
+    const heroImageUrl = proVisual?.heroImageUrl || place.photoUrl;
+    const activeOffers = place.hasBusinessPro ? (place.businessOffers || []) : [];
+    const proAccent = proVisual?.accentColor && /^#[0-9a-fA-F]{6}$/.test(proVisual.accentColor)
+        ? proVisual.accentColor
+        : undefined;
+
     return (
         <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
             {/* Hero */}
             <EntityHero
-                imageUrl={place.photoUrl}
+                imageUrl={heroImageUrl}
                 alt={place.name}
                 ready={heroReady}
                 onImageLoad={() => setHeroReady(true)}
@@ -703,6 +711,14 @@ export const PlacePage: React.FC = () => {
                                 <p className="text-gray-200 flex items-center gap-2 text-sm sm:text-lg max-w-2xl font-light line-clamp-1">
                                     <MapPin className="w-4 h-4 text-[var(--lt-accent)] shrink-0" />
                                     {place.address}
+                                </p>
+                            )}
+                            {proVisual?.heroText && (
+                                <p
+                                    className="mt-3 max-w-2xl border-l-2 pl-3 text-sm italic leading-relaxed text-gray-100 sm:text-base line-clamp-2"
+                                    style={{ borderColor: proAccent || 'var(--lt-accent)' }}
+                                >
+                                    {proVisual.heroText}
                                 </p>
                             )}
                         </div>
@@ -796,6 +812,53 @@ export const PlacePage: React.FC = () => {
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Reportar</span>
                         </button>
                     </div>
+
+                    {/* Ofertas Business Pro (solo con plan activo, siempre etiquetadas) */}
+                    {activeOffers.length > 0 && (
+                        <div className="glass-card rounded-2xl p-5 shadow-lg border border-amber-500/20">
+                            <div className="mb-3 flex items-center gap-2">
+                                <Megaphone className="w-4 h-4 text-amber-400" />
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-white">Ofertas</h3>
+                                <span className="ml-auto rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">
+                                    Patrocinado
+                                </span>
+                            </div>
+                            <div className="space-y-3">
+                                {activeOffers.map((offer) => (
+                                    <div key={offer.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                                        <p className="text-sm font-bold text-white">{offer.title}</p>
+                                        {offer.description && (
+                                            <p className="mt-1 text-xs leading-relaxed text-gray-300">{offer.description}</p>
+                                        )}
+                                        {(offer.startsAt || offer.endsAt) && (
+                                            <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-400">
+                                                <Clock className="w-3 h-3" />
+                                                {offer.startsAt && offer.endsAt
+                                                    ? `Del ${offer.startsAt} al ${offer.endsAt}`
+                                                    : offer.endsAt
+                                                        ? `Hasta el ${offer.endsAt}`
+                                                        : `Desde el ${offer.startsAt}`}
+                                            </p>
+                                        )}
+                                        {offer.conditions && (
+                                            <p className="mt-1 text-[11px] text-gray-500">{offer.conditions}</p>
+                                        )}
+                                        {offer.ctaUrl && (
+                                            <a
+                                                href={offer.ctaUrl}
+                                                target="_blank"
+                                                rel="noopener noreferrer sponsored"
+                                                className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[var(--lt-accent)] hover:underline"
+                                            >
+                                                <ExternalLink className="w-3 h-3" />
+                                                Más información
+                                            </a>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* 2. Map */}
                     {place.coords && (
@@ -1586,6 +1649,9 @@ export const PlacePage: React.FC = () => {
                                         {dishes.map((dish, idx) => {
                                             const isTop = dish.avg >= 8.5 && idx < 3;
                                             const scoreColor = dish.avg >= 8 ? 'text-emerald-400' : dish.avg >= 6 ? 'text-amber-400' : 'text-red-400';
+                                            const official = place.hasBusinessPro
+                                                ? place.officialItemData?.[dish.name.trim().toLowerCase()]
+                                                : undefined;
                                             return (
                                                 <Link
                                                     key={idx}
@@ -1623,9 +1689,28 @@ export const PlacePage: React.FC = () => {
                                                             {isTop && (
                                                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">★ Top</span>
                                                             )}
+                                                            {official && official.available === false && (
+                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/25 shrink-0">No disponible</span>
+                                                            )}
                                                         </div>
-                                                        <span className="text-xs text-gray-500">{dish.count} {dish.count === 1 ? 'opinión' : 'opiniones'}</span>
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="text-xs text-gray-500">{dish.count} {dish.count === 1 ? 'opinión' : 'opiniones'}</span>
+                                                            {official?.group && (
+                                                                <span className="text-[11px] text-gray-400">· {official.group}</span>
+                                                            )}
+                                                            {official?.discount && (
+                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">{official.discount}</span>
+                                                            )}
+                                                        </div>
+                                                        {official?.description && (
+                                                            <p className="mt-0.5 text-[11px] leading-snug text-gray-500 line-clamp-1">{official.description}</p>
+                                                        )}
                                                     </div>
+
+                                                    {/* Precio oficial (ficha del negocio) */}
+                                                    {official?.price && (
+                                                        <span className="shrink-0 text-xs sm:text-sm font-bold text-gray-200">{official.price}</span>
+                                                    )}
 
                                                     {/* Score */}
                                                     <span className={`text-base sm:text-lg font-black font-mono ${scoreColor} shrink-0`}>{dish.avg.toFixed(1)}</span>
