@@ -567,6 +567,20 @@ service cloud.firestore {
           allow read, write: if false;
         }
 
+        // Personalización visual Business Pro. La escribe Cloud Functions
+        // (updateBusinessVisual) tras validar gestor + plan Pro activo.
+        match /businessPro/{docId} {
+          allow read: if true;
+          allow write: if false;
+        }
+
+        // Ofertas Business Pro. Las escribe Cloud Functions
+        // (saveBusinessOffer/deleteBusinessOffer) tras validar gestor + plan Pro.
+        match /offers/{offerId} {
+          allow read: if true;
+          allow write: if false;
+        }
+
         // Items canónicos persistentes del lugar. Los genera Cloud Functions
         // desde las reseñas; el cliente puede leerlos para carta/estadísticas.
         match /items/{itemId} {

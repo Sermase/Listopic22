@@ -31,12 +31,25 @@ import {
     Wine,
 } from 'lucide-react';
 import { db } from '../firebase';
+import { BUSINESS_PRO_ENFORCED } from '../config/features';
+import { RequireBusinessPro } from '../components/RequireBusinessPro';
+import {
+    FREE_BUSINESS_PLAN,
+    formatPlanExpiry,
+    getBusinessPlanFromPlace,
+    PLAN_SOURCE_LABELS,
+    type BusinessPlan,
+} from '../utils/businessPlan';
 import {
     getBusinessInfoForManager,
     updateBusinessInfoSection,
     type BusinessInfoSectionsResponse,
 } from '../services/BusinessInfoService';
-import { getCanonicalPlaceItems, type CanonicalPlaceItem } from '../services/CanonicalItemService';
+import {
+    BusinessItemsSection,
+    BusinessSponsoredSection,
+    BusinessVisualSection,
+} from '../components/business/BusinessProSections';
 import type {
     BusinessAccessibilityInfo,
     BusinessCommercialInfo,
@@ -202,6 +215,7 @@ const BUSINESS_SERVICE_GROUPS: OptionGroup[] = [
 export const BusinessManagePage: React.FC = () => {
     const { placeId } = useParams<{ placeId: string }>();
     const [place, setPlace] = useState<PlaceHeader | null>(null);
+    const [plan, setPlan] = useState<BusinessPlan>(FREE_BUSINESS_PLAN);
     const [sections, setSections] = useState<Record<BusinessInfoSection, BusinessInfoDocument>>(emptySections);
     const [activeBusinessTab, setActiveBusinessTab] = useState<BusinessManageTab>('general');
     const [activeSection, setActiveSection] = useState<BusinessInfoSection>('identity');
@@ -232,6 +246,7 @@ export const BusinessManagePage: React.FC = () => {
                     businessProActive: data.businessProActive === true,
                     businessBillingStatus: typeof data.businessBillingStatus === 'string' ? data.businessBillingStatus : undefined,
                 });
+                setPlan(getBusinessPlanFromPlace(data));
                 setSections(normalizeSections(info));
             } catch (error) {
                 console.error('BusinessManagePage: load failed', error);
@@ -248,7 +263,8 @@ export const BusinessManagePage: React.FC = () => {
     }, [placeId]);
 
     const photoUrl = place?.userPhotoUrl || place?.mainImageUrl || '';
-    const hasBusinessPro = place?.businessProActive || place?.businessTier === 'pro';
+    const hasBusinessPro = plan.isPro;
+    const planExpiryLabel = formatPlanExpiry(plan.expiresAt);
 
     const updateData = <S extends BusinessInfoSection>(section: S, data: Partial<BusinessInfoDocument<S>['data']>) => {
         setSections((prev) => ({
@@ -305,6 +321,11 @@ export const BusinessManagePage: React.FC = () => {
     };
 
     const showBusinessProMessage = () => {
+        if (BUSINESS_PRO_ENFORCED) {
+            // Con el capado activo, el aviso sobra: llevamos al usuario al paywall.
+            setActiveBusinessTab('visual');
+            return;
+        }
         setMessage({
             type: 'error',
             text: 'No se puede acceder a Business Pro todavía porque este local no es Negocio Pro. Las pestañas Pro están abiertas en modo pruebas para prepararlas.',
@@ -362,6 +383,12 @@ export const BusinessManagePage: React.FC = () => {
                                     <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-bold uppercase text-amber-300">
                                         <Sparkles className="h-3.5 w-3.5" />
                                         Business Pro
+                                    </div>
+                                )}
+                                {hasBusinessPro && plan.source && plan.source !== 'stripe' && (
+                                    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-bold uppercase text-[var(--lt-text-muted)]">
+                                        {PLAN_SOURCE_LABELS[plan.source]}
+                                        {planExpiryLabel ? ` · hasta ${planExpiryLabel}` : ''}
                                     </div>
                                 )}
                             </div>
@@ -534,9 +561,21 @@ export const BusinessManagePage: React.FC = () => {
                             </div>
                         )}
 
-                        {activeBusinessTab === 'visual' && <BusinessVisualPrototype />}
-                        {activeBusinessTab === 'items' && <BusinessItemsPrototype placeId={placeId} />}
-                        {activeBusinessTab === 'sponsored' && <BusinessSponsoredPrototype />}
+                        {activeBusinessTab === 'visual' && (
+                            <RequireBusinessPro placeId={placeId} plan={plan}>
+                                <BusinessVisualSection placeId={placeId} placeName={place?.name} />
+                            </RequireBusinessPro>
+                        )}
+                        {activeBusinessTab === 'items' && (
+                            <RequireBusinessPro placeId={placeId} plan={plan}>
+                                <BusinessItemsSection placeId={placeId} />
+                            </RequireBusinessPro>
+                        )}
+                        {activeBusinessTab === 'sponsored' && (
+                            <RequireBusinessPro placeId={placeId} plan={plan}>
+                                <BusinessSponsoredSection placeId={placeId} />
+                            </RequireBusinessPro>
+                        )}
                     </div>
                 )}
             </div>
@@ -569,238 +608,6 @@ const ProBadge: React.FC<{ onClick: () => void }> = ({ onClick }) => (
         <Sparkles className="h-3 w-3" />
         Pro
     </button>
-);
-
-const PrototypeShell: React.FC<{
-    title: string;
-    text: string;
-    icon: React.ElementType;
-    children: React.ReactNode;
-}> = ({ title, text, icon: Icon, children }) => (
-    <section className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-5">
-        <div className="mb-5 flex flex-col gap-3 border-b border-white/10 pb-5 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-start gap-3">
-                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
-                    <Icon className="h-5 w-5" />
-                </div>
-                <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-xl font-black text-[var(--lt-text)]">{title}</h2>
-                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/30 bg-amber-400/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-amber-200">
-                            <Sparkles className="h-3 w-3" />
-                            Pro
-                        </span>
-                    </div>
-                    <p className="mt-1 max-w-3xl text-sm leading-relaxed text-[var(--lt-text-muted)]">{text}</p>
-                </div>
-            </div>
-            <span className="rounded-full border border-cyan-300/25 bg-cyan-400/10 px-3 py-1 text-xs font-black uppercase tracking-[0.12em] text-cyan-200">
-                Modo pruebas
-            </span>
-        </div>
-        {children}
-    </section>
-);
-
-const BusinessVisualPrototype: React.FC = () => (
-    <PrototypeShell
-        title="Imagen y página del negocio"
-        text="Personalización visual del perfil público: hero, fondos, galería destacada, tarjetas y tono visual del local. Más adelante se bloqueará detrás de Business Pro."
-        icon={ImageIcon}
-    >
-        <div className="grid gap-5 lg:grid-cols-[1.1fr,0.9fr]">
-            <div className="space-y-4">
-                <Field label="Imagen principal / fondo">
-                    <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.04] p-5 text-center">
-                        <ImageIcon className="mx-auto h-8 w-8 text-[var(--lt-accent)]" />
-                        <p className="mt-2 text-sm font-bold text-[var(--lt-text)]">Subir o elegir fondo del negocio</p>
-                        <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Pensado para hero, portada de carta y tarjetas compartibles.</p>
-                    </div>
-                </Field>
-                <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Color de acento">
-                        <input className={inputClass} defaultValue="#6d5dfc" />
-                    </Field>
-                    <Field label="Estilo visual">
-                        <select className={inputClass} defaultValue="editorial">
-                            <option value="editorial">Editorial</option>
-                            <option value="clean">Limpio</option>
-                            <option value="warm">Cálido</option>
-                            <option value="night">Noche</option>
-                        </select>
-                    </Field>
-                </div>
-                <Field label="Texto destacado de portada">
-                    <textarea className={`${inputClass} min-h-24`} placeholder="Ej. Cocina honesta, producto local y brunch de fin de semana." />
-                </Field>
-            </div>
-            <div className="overflow-hidden rounded-2xl border border-white/10 bg-[var(--lt-bg-deep)]">
-                <div className="h-40 bg-gradient-to-br from-indigo-600 via-purple-600 to-cyan-500" />
-                <div className="p-4">
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-[var(--lt-accent)]">Preview</p>
-                    <h3 className="mt-2 text-2xl font-black text-[var(--lt-text)]">Tu negocio</h3>
-                    <p className="mt-2 text-sm text-[var(--lt-text-muted)]">Así se podría ver la cabecera pública cuando activemos personalización avanzada.</p>
-                </div>
-            </div>
-        </div>
-    </PrototypeShell>
-);
-
-const BusinessItemsPrototype: React.FC<{ placeId: string }> = ({ placeId }) => {
-    const [items, setItems] = useState<CanonicalPlaceItem[]>([]);
-    const [loadingItems, setLoadingItems] = useState(false);
-
-    useEffect(() => {
-        let cancelled = false;
-        const loadItems = async () => {
-            setLoadingItems(true);
-            try {
-                const rows = await getCanonicalPlaceItems(placeId);
-                if (!cancelled) setItems(rows);
-            } catch (error) {
-                console.error('BusinessManagePage: failed loading canonical items', error);
-                if (!cancelled) setItems([]);
-            } finally {
-                if (!cancelled) setLoadingItems(false);
-            }
-        };
-        void loadItems();
-        return () => {
-            cancelled = true;
-        };
-    }, [placeId]);
-
-    return (
-        <PrototypeShell
-            title="Elementos, carta y grupos"
-            text="Gestión de productos, platos o servicios del lugar. La base son los elementos valorados por la comunidad; el negocio puede enriquecerlos y proponer merges, pero no borrar memoria histórica."
-            icon={Tags}
-        >
-            <div className="grid gap-5 lg:grid-cols-[1fr,1.1fr]">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                        <div>
-                            <h3 className="text-sm font-black text-[var(--lt-text)]">Elementos comunitarios</h3>
-                            <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Persistidos en el lugar y recalculados desde reseñas.</p>
-                        </div>
-                        <button type="button" className="inline-flex items-center gap-1 rounded-lg bg-[var(--lt-accent)] px-3 py-2 text-xs font-black text-white">
-                            <Plus className="h-3.5 w-3.5" />
-                            Proponer
-                        </button>
-                    </div>
-
-                    {loadingItems ? (
-                        <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-6 text-center text-sm text-[var(--lt-text-muted)]">
-                            <Loader2 className="mx-auto mb-2 h-5 w-5 animate-spin text-[var(--lt-accent)]" />
-                            Cargando elementos...
-                        </div>
-                    ) : items.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-white/10 bg-white/5 px-3 py-6 text-center text-sm text-[var(--lt-text-muted)]">
-                            Todavía no hay elementos canónicos persistidos. Se generarán al reconstruir el lugar o cuando entren nuevas reseñas.
-                        </div>
-                    ) : (
-                        <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
-                            {items.map((item) => (
-                                <div key={item.id} className="rounded-xl border border-white/10 bg-white/5 px-3 py-3">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <h4 className="truncate text-sm font-black text-[var(--lt-text)]">{item.canonicalName || item.id}</h4>
-                                            <p className="mt-1 text-xs text-[var(--lt-text-muted)]">
-                                                {(item.stats?.reviewCount || 0)} reseñas
-                                                {typeof item.stats?.averageRating === 'number' ? ` · ${item.stats.averageRating.toFixed(2)}` : ''}
-                                            </p>
-                                        </div>
-                                        <span className="rounded-full border border-white/10 bg-black/10 px-2 py-1 text-[10px] font-black uppercase text-[var(--lt-text-muted)]">
-                                            {item.linkedListIds?.length || 0} listas
-                                        </span>
-                                    </div>
-                                    {item.sourceNames?.length ? (
-                                        <div className="mt-3 flex flex-wrap gap-1.5">
-                                            {item.sourceNames.slice(0, 4).map((source) => (
-                                                <span key={`${item.id}-${source.name}`} className="rounded-full border border-white/10 bg-black/10 px-2 py-1 text-[10px] font-bold text-[var(--lt-text-muted)]">
-                                                    {source.name} ({source.count})
-                                                </span>
-                                            ))}
-                                        </div>
-                                    ) : null}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                        <div>
-                            <h3 className="text-sm font-black text-[var(--lt-text)]">Ficha oficial del elemento</h3>
-                            <p className="text-xs text-[var(--lt-text-muted)]">Prototipo de enriquecimiento Business Pro.</p>
-                        </div>
-                        <button type="button" className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-[var(--lt-text)]">
-                            <ImageIcon className="h-3.5 w-3.5" />
-                            Foto
-                        </button>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <Field label="Nombre canónico">
-                            <input className={inputClass} placeholder="Tarta de queso" />
-                        </Field>
-                        <Field label="Grupo de carta">
-                            <select className={inputClass}>
-                                <option>Postres</option>
-                                <option>Entrantes</option>
-                                <option>Principales</option>
-                                <option>Bebidas</option>
-                            </select>
-                        </Field>
-                        <Field label="Precio">
-                            <input className={inputClass} placeholder="6,50 EUR" />
-                        </Field>
-                        <Field label="Descuento">
-                            <input className={inputClass} placeholder="2x1, -20%, happy hour..." />
-                        </Field>
-                    </div>
-                    <Field label="Ingredientes">
-                        <input className={inputClass} placeholder="Queso crema, galleta, frutos rojos..." />
-                    </Field>
-                    <Field label="Descripción">
-                        <textarea className={`${inputClass} min-h-24`} placeholder="Descripción corta para la ficha del elemento." />
-                    </Field>
-                    <Field label="Acción sensible">
-                        <button type="button" className="rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-xs font-black text-amber-200">
-                            Proponer merge o cambio de identidad
-                        </button>
-                    </Field>
-                </div>
-            </div>
-        </PrototypeShell>
-    );
-};
-
-const BusinessSponsoredPrototype: React.FC = () => (
-    <PrototypeShell
-        title="Contenido patrocinado"
-        text="Promociones y piezas destacadas del local, siempre marcadas como patrocinadas y separadas de rankings orgánicos."
-        icon={Megaphone}
-    >
-        <div className="grid gap-4 lg:grid-cols-3">
-            {[
-                ['Oferta destacada', 'Título, fechas, foto, CTA y condiciones visibles.'],
-                ['Lugar destacado', 'Impulso por categoría, barrio o radio con etiqueta de promocionado.'],
-                ['Lista patrocinada', 'Selección editorial del negocio sin alterar valoraciones ni ranking.'],
-            ].map(([title, text]) => (
-                <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <div className="mb-4 grid h-10 w-10 place-items-center rounded-xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
-                        <Megaphone className="h-5 w-5" />
-                    </div>
-                    <h3 className="text-base font-black text-[var(--lt-text)]">{title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-[var(--lt-text-muted)]">{text}</p>
-                    <button type="button" className="mt-4 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-[var(--lt-text)]">
-                        Crear borrador
-                    </button>
-                </div>
-            ))}
-        </div>
-    </PrototypeShell>
 );
 
 const IdentityForm: React.FC<{
@@ -1013,31 +820,6 @@ const GroupedOptionGrid: React.FC<{
                     </div>
                 </div>
             )}
-        </div>
-    );
-};
-
-const OptionGrid: React.FC<{
-    options: string[];
-    value: string[];
-    onChange: (items: string[]) => void;
-}> = ({ options, value, onChange }) => {
-    const selected = new Set(value);
-    const toggle = (option: string) => {
-        const next = selected.has(option)
-            ? value.filter((item) => item !== option)
-            : [...value, option];
-        onChange(next);
-    };
-
-    return (
-        <div className="grid gap-2 sm:grid-cols-2">
-            {options.map((option) => (
-                <label key={option} className="flex min-h-11 items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-[var(--lt-text)]">
-                    <input type="checkbox" checked={selected.has(option)} onChange={() => toggle(option)} />
-                    <span>{option}</span>
-                </label>
-            ))}
         </div>
     );
 };

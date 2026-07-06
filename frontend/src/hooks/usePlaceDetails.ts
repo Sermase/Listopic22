@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
 import { getCachedDocs } from '../lib/queryCache';
+import { getBusinessPlanFromPlace } from '../utils/businessPlan';
 import type { BusinessHoursInfo, BusinessWeeklyHours, ResolvedBusinessInfo } from '../types/businessInfo';
 
 export interface PlacePhoto {
@@ -15,6 +16,24 @@ export interface PlacePhoto {
     userName?: string;
     userPhoto?: string;
     createdAt?: unknown;
+}
+
+export interface PlaceBusinessOffer {
+    id: string;
+    title: string;
+    description?: string;
+    conditions?: string;
+    ctaUrl?: string;
+    startsAt?: string;
+    endsAt?: string;
+}
+
+export interface PlaceOfficialItemData {
+    price?: string;
+    group?: string;
+    discount?: string;
+    description?: string;
+    available?: boolean;
 }
 
 export interface PlaceDetails {
@@ -83,6 +102,17 @@ export interface PlaceDetails {
     businessOwnerUserId?: string;
     businessManagerIds?: string[];
     placePhotos?: PlacePhoto[];
+    // Contenido Business Pro: solo se rellena si el plan está activo. Al
+    // caducar/cancelar el plan, los datos siguen en Firestore pero dejan de
+    // exponerse aquí (invariante de expiración de contenido Pro).
+    hasBusinessPro?: boolean;
+    businessProVisual?: {
+        accentColor?: string;
+        heroText?: string;
+        heroImageUrl?: string;
+    };
+    businessOffers?: PlaceBusinessOffer[];
+    officialItemData?: Record<string, PlaceOfficialItemData>;
 }
 
 const toMillis = (value: any): number => {
@@ -190,6 +220,17 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         if (e?.code !== 'permission-denied') console.warn('Failed to fetch resolved business info', e);
         return null;
     });
+
+    // Contenido Business Pro: solo se consulta si el plan está activo, para que
+    // al caducar/cancelar deje de mostrarse sin borrar nada.
+    const businessPlan = getBusinessPlanFromPlace(placeData);
+    const businessProPromise = businessPlan.isPro
+        ? Promise.all([
+            getDoc(doc(db, 'places', placeId, 'businessPro', 'visual')).catch(() => null),
+            getDocs(collection(db, 'places', placeId, 'offers')).catch(() => null),
+            getDocs(collection(db, 'places', placeId, 'items')).catch(() => null),
+        ])
+        : null;
     const placePhotosSnapPromise = getDocs(
         query(collection(db, 'places', placeId, 'photos'), orderBy('createdAt', 'desc'), limit(40))
     ).catch(e => {
@@ -214,6 +255,67 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     const resolvedBusinessSnap = await resolvedBusinessSnapPromise;
     const resolvedBusiness = resolvedBusinessSnap?.exists() ? resolvedBusinessSnap.data() as ResolvedBusinessInfo : undefined;
     const hiddenFields = resolvedBusiness?.hiddenFields || {};
+
+    const [visualSnap, offersSnap, itemsSnap] = businessProPromise ? await businessProPromise : [null, null, null];
+
+    const visualData = visualSnap?.exists() ? visualSnap.data() as Record<string, unknown> : null;
+    const businessProVisual = visualData ? {
+        accentColor: typeof visualData.accentColor === 'string' ? visualData.accentColor : undefined,
+        heroText: typeof visualData.heroText === 'string' ? visualData.heroText : undefined,
+        heroImageUrl: typeof visualData.heroImageUrl === 'string' ? visualData.heroImageUrl : undefined,
+    } : undefined;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const businessOffers: PlaceBusinessOffer[] = (offersSnap?.docs || [])
+        .map((offerDoc): PlaceBusinessOffer | null => {
+            const data = offerDoc.data() as Record<string, unknown>;
+            if (data.status !== 'active') return null;
+            const startsAt = typeof data.startsAt === 'string' ? data.startsAt : '';
+            const endsAt = typeof data.endsAt === 'string' ? data.endsAt : '';
+            if (startsAt && startsAt > today) return null;
+            if (endsAt && endsAt < today) return null;
+            const title = typeof data.title === 'string' ? data.title : '';
+            if (!title) return null;
+            return {
+                id: offerDoc.id,
+                title,
+                description: typeof data.description === 'string' ? data.description : undefined,
+                conditions: typeof data.conditions === 'string' ? data.conditions : undefined,
+                ctaUrl: typeof data.ctaUrl === 'string' ? data.ctaUrl : undefined,
+                startsAt: startsAt || undefined,
+                endsAt: endsAt || undefined,
+            };
+        })
+        .filter((offer): offer is PlaceBusinessOffer => offer !== null);
+
+    // Índice de fichas oficiales de items por nombre normalizado (nombre
+    // canónico, aliases y nombres de origen) para enriquecer "La Carta".
+    const officialItemData: Record<string, PlaceOfficialItemData> = {};
+    (itemsSnap?.docs || []).forEach(itemDoc => {
+        const data = itemDoc.data() as Record<string, unknown>;
+        const businessData = data.businessData as Record<string, unknown> | undefined;
+        if (!businessData) return;
+        const entry: PlaceOfficialItemData = {
+            price: typeof businessData.price === 'string' && businessData.price ? businessData.price : undefined,
+            group: typeof businessData.group === 'string' && businessData.group ? businessData.group : undefined,
+            discount: typeof businessData.discount === 'string' && businessData.discount ? businessData.discount : undefined,
+            description: typeof businessData.description === 'string' && businessData.description ? businessData.description : undefined,
+            available: businessData.available !== false,
+        };
+        if (!entry.price && !entry.group && !entry.discount && !entry.description) return;
+        const keys = new Set<string>();
+        if (typeof data.canonicalName === 'string') keys.add(data.canonicalName.trim().toLowerCase());
+        (Array.isArray(data.aliasesNormalized) ? data.aliasesNormalized : []).forEach((alias) => {
+            if (typeof alias === 'string') keys.add(alias.trim().toLowerCase());
+        });
+        (Array.isArray(data.sourceNames) ? data.sourceNames : []).forEach((source: unknown) => {
+            const name = (source as { name?: unknown })?.name;
+            if (typeof name === 'string') keys.add(name.trim().toLowerCase());
+        });
+        keys.forEach((key) => {
+            if (key) officialItemData[key] = entry;
+        });
+    });
 
     // Mientras convivan copia root y anidada de una misma reseña comparten id;
     // preferimos la anidada (canónica).
@@ -397,6 +499,10 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         businessOwnerUserId: typeof placeData?.businessOwnerUserId === 'string' ? placeData.businessOwnerUserId : undefined,
         businessManagerIds: Array.isArray(placeData?.businessManagerIds) ? placeData.businessManagerIds.filter((id: unknown) => typeof id === 'string') : undefined,
         placePhotos,
+        hasBusinessPro: businessPlan.isPro,
+        businessProVisual,
+        businessOffers,
+        officialItemData,
     };
 }
 
