@@ -246,4 +246,6 @@ module.exports = {
   updateCanonicalItemBusinessData,
   saveBusinessOffer,
   deleteBusinessOffer,
+  // Helper compartido con business-items.js y sponsored.js.
+  assertBusinessProAccess,
 };

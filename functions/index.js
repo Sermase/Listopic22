@@ -24,6 +24,8 @@ module.exports = {
     ...require('./modules/business-claims'),
     ...require('./modules/stripe-business'),
     ...require('./modules/business-pro'),
+    ...require('./modules/business-items'),
+    ...require('./modules/sponsored'),
     ...require('./modules/canonical-items'),
     ...require('./modules/reviews-consolidation'),
     ...require('./modules/media'),

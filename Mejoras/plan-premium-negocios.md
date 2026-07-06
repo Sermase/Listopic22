@@ -20,7 +20,21 @@ Implementado además (inicio de Fase C — pestañas Pro funcionales):
 - Reglas Firestore: `businessPro` y `offers` legibles públicamente, escritura solo por Cloud Functions. **Desplegar también** `firebase deploy --only firestore:rules`.
 - UI: `components/business/BusinessProSections.tsx` sustituye a los prototipos con formularios reales y botones de guardar; eliminado el chip "Modo pruebas".
 - **Visualización pública en `PlacePage` (hecho)**: portada personalizada + texto destacado en el hero (con color de acento), tarjeta "Ofertas" en la barra lateral con etiqueta Patrocinado (solo ofertas activas y dentro de fechas), y en "La Carta" precio oficial, grupo, descuento, descripción y chip de "No disponible" por item. Todo capado en `usePlaceDetails` por plan activo: si el plan caduca, deja de consultarse y mostrarse.
-- Pendiente de Fase C: subida de imagen de portada a Storage, limpieza automática de ofertas caducadas, merges de items con aprobación admin y estadísticas.
+**Fase C ampliada (gestión de carta, propuestas, patrocinios y estadísticas) — hecho:**
+
+- **Añadir elementos a la carta** (`createBusinessItem`): el negocio crea platos oficiales sin reseñas (`source: 'business'`); el rebuild de items canónicos no los desactiva.
+- **Reseñas por elemento en la gestión**: la pestaña "Elementos y carta" muestra las reseñas asignadas a cada elemento (mismo agrupado que el backend: `canonicalItemId` o slug del nombre).
+- **Propuestas con aprobación admin** (`itemProposals` + `submitItemProposal`/`reviewItemProposal`):
+  - *Fusión* de elementos duplicados por erratas (ej. "reggina rosa" / "regina rossa"): al aprobar, se escribe `canonicalItemId` en las reseñas del origen, el item origen queda `inactive` con `mergedInto`, y se reconstruyen items. Los nombres escritos por los usuarios nunca se tocan.
+  - *Renombre* del nombre canónico.
+  - *Mover una reseña concreta* a otro elemento.
+  - El negocio ve el estado de sus propuestas y recibe notificación al resolverse.
+- **Campañas patrocinadas** (`sponsoredPlacements` + `requestSponsoredPlacement`/`reviewSponsoredPlacement`): el negocio solicita destacado en home o búsquedas con fechas y mensaje; el admin activa/rechaza/finaliza; los destacados activos de tipo home se muestran en la HomePage (`SponsoredHomeSpotlight`) con etiqueta "Patrocinado" y sin tocar rankings.
+- **Pestaña Estadísticas** en la gestión del negocio: reseñas totales, nota media, reseñas y nota por mes (últimos 6 meses) y elementos más reseñados. Calculado en cliente desde las reseñas del lugar.
+- **Developer → "Propuestas Pro"** (`ProProposalsTab`): revisión de propuestas de carta (aprobar aplica y reconstruye) y de campañas patrocinadas, con notas que llegan al negocio.
+- Reglas nuevas: `itemProposals` (lee jefe o el autor), `sponsoredPlacements` (lectura pública, escritura solo CF).
+
+Pendiente de Fase C: subida de imagen de portada a Storage, limpieza automática de ofertas caducadas, destacado en búsquedas (la solicitud existe; falta pintarlo en SearchPage), y contadores de visitas al perfil del lugar.
 
 **Regla de expiración de contenido Pro (invariante del producto):** al cancelar
 o caducar el plan, los datos Pro NUNCA se borran — solo dejan de mostrarse.

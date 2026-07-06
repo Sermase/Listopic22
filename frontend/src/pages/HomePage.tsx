@@ -9,6 +9,7 @@ import { ReviewCardList } from '../components/ReviewCardList';
 import { ProgressiveImage } from '../components/ProgressiveImage';
 import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
+import { SponsoredHomeSpotlight } from '../components/business/SponsoredHomeSpotlight';
 import { MapView } from '../components/MapView';
 import { UserAvatar } from '../components/UserAvatar';
 import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, Flame, TrendingUp, Gem, HeartHandshake, Rows3 } from 'lucide-react';
@@ -1265,6 +1266,9 @@ export const HomePage: React.FC = () => {
                             </div>
                         </div>
                     )}
+
+                    {/* Destacados patrocinados (Business Pro, aprobados por admin) */}
+                    {activeTab === 'explore' && <SponsoredHomeSpotlight />}
 
                     {/* Filter Chips (Categories) */}
                     {activeTab === 'explore' && (

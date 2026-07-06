@@ -25,9 +25,10 @@ const ApiUsageTab = React.lazy(() => import('../components/developer/ApiUsageTab
 const BusinessClaimsManagerTab = React.lazy(() => import('../components/developer/BusinessClaimsManagerTab').then(module => ({ default: module.BusinessClaimsManagerTab })));
 const BusinessManagersTab = React.lazy(() => import('../components/developer/BusinessManagersTab').then(module => ({ default: module.BusinessManagersTab })));
 const PlansManagerTab = React.lazy(() => import('../components/developer/PlansManagerTab').then(module => ({ default: module.PlansManagerTab })));
+const ProProposalsTab = React.lazy(() => import('../components/developer/ProProposalsTab').then(module => ({ default: module.ProProposalsTab })));
 const ReviewsConsolidationCard = React.lazy(() => import('../components/developer/ReviewsConsolidationCard').then(module => ({ default: module.ReviewsConsolidationCard })));
 
-type DeveloperActiveTab = 'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'businessClaims' | 'businessManagers' | 'plans' | 'branding' | 'others' | 'proyectos' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit' | 'apiusage';
+type DeveloperActiveTab = 'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'businessClaims' | 'businessManagers' | 'plans' | 'proProposals' | 'branding' | 'others' | 'proyectos' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit' | 'apiusage';
 
 const DeveloperTabFallback: React.FC = () => (
     <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/60 p-8 text-center text-sm text-gray-400">
@@ -770,6 +771,12 @@ export const DeveloperPage: React.FC = () => {
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'plans' ? 'border-amber-500 bg-amber-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <Sparkles className="w-5 h-5" /> Planes
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('proProposals'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'proProposals' ? 'border-indigo-400 bg-indigo-400/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <ClipboardList className="w-5 h-5" /> Propuestas Pro
                         </button>
                         <button
                             onClick={() => { setActiveTab('branding'); setIsSidebarOpen(false); }}
@@ -2204,6 +2211,12 @@ export const DeveloperPage: React.FC = () => {
                         {activeTab === 'plans' && (
                             <DeveloperLazyPanel>
                                 <PlansManagerTab />
+                            </DeveloperLazyPanel>
+                        )}
+
+                        {activeTab === 'proProposals' && (
+                            <DeveloperLazyPanel>
+                                <ProProposalsTab />
                             </DeveloperLazyPanel>
                         )}
 

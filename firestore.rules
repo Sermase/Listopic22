@@ -594,6 +594,23 @@ service cloud.firestore {
         }
     }
     
+    // Propuestas de carta Business Pro (fusiones, renombres, reasignación de
+    // reseñas). Las crea y resuelve Cloud Functions; el negocio lee las suyas
+    // (query con createdBy == uid) y el jefe todas.
+    match /itemProposals/{proposalId} {
+      allow read: if request.auth != null && (
+        isJefe(request.auth.uid) || resource.data.createdBy == request.auth.uid
+      );
+      allow write: if false;
+    }
+
+    // Emplazamientos patrocinados (home/búsqueda). Lectura pública (es
+    // publicidad etiquetada); escritura solo vía Cloud Functions.
+    match /sponsoredPlacements/{placementId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /badges/{badgeId} {
       allow read: if true;
       allow list, write: if request.auth != null && isJefe(request.auth.uid);
