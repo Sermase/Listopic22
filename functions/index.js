@@ -30,5 +30,6 @@ module.exports = {
     ...require('./modules/admin/admin-users'),
     ...require('./modules/admin/admin-misc'),
     ...require('./modules/admin/admin-lists'),
+    ...require('./modules/admin/admin-plans'),
 };
 // Force redeploy

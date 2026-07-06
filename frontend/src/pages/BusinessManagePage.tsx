@@ -31,6 +31,15 @@ import {
     Wine,
 } from 'lucide-react';
 import { db } from '../firebase';
+import { BUSINESS_PRO_ENFORCED } from '../config/features';
+import { RequireBusinessPro } from '../components/RequireBusinessPro';
+import {
+    FREE_BUSINESS_PLAN,
+    formatPlanExpiry,
+    getBusinessPlanFromPlace,
+    PLAN_SOURCE_LABELS,
+    type BusinessPlan,
+} from '../utils/businessPlan';
 import {
     getBusinessInfoForManager,
     updateBusinessInfoSection,
@@ -202,6 +211,7 @@ const BUSINESS_SERVICE_GROUPS: OptionGroup[] = [
 export const BusinessManagePage: React.FC = () => {
     const { placeId } = useParams<{ placeId: string }>();
     const [place, setPlace] = useState<PlaceHeader | null>(null);
+    const [plan, setPlan] = useState<BusinessPlan>(FREE_BUSINESS_PLAN);
     const [sections, setSections] = useState<Record<BusinessInfoSection, BusinessInfoDocument>>(emptySections);
     const [activeBusinessTab, setActiveBusinessTab] = useState<BusinessManageTab>('general');
     const [activeSection, setActiveSection] = useState<BusinessInfoSection>('identity');
@@ -232,6 +242,7 @@ export const BusinessManagePage: React.FC = () => {
                     businessProActive: data.businessProActive === true,
                     businessBillingStatus: typeof data.businessBillingStatus === 'string' ? data.businessBillingStatus : undefined,
                 });
+                setPlan(getBusinessPlanFromPlace(data));
                 setSections(normalizeSections(info));
             } catch (error) {
                 console.error('BusinessManagePage: load failed', error);
@@ -248,7 +259,8 @@ export const BusinessManagePage: React.FC = () => {
     }, [placeId]);
 
     const photoUrl = place?.userPhotoUrl || place?.mainImageUrl || '';
-    const hasBusinessPro = place?.businessProActive || place?.businessTier === 'pro';
+    const hasBusinessPro = plan.isPro;
+    const planExpiryLabel = formatPlanExpiry(plan.expiresAt);
 
     const updateData = <S extends BusinessInfoSection>(section: S, data: Partial<BusinessInfoDocument<S>['data']>) => {
         setSections((prev) => ({
@@ -305,6 +317,11 @@ export const BusinessManagePage: React.FC = () => {
     };
 
     const showBusinessProMessage = () => {
+        if (BUSINESS_PRO_ENFORCED) {
+            // Con el capado activo, el aviso sobra: llevamos al usuario al paywall.
+            setActiveBusinessTab('visual');
+            return;
+        }
         setMessage({
             type: 'error',
             text: 'No se puede acceder a Business Pro todavía porque este local no es Negocio Pro. Las pestañas Pro están abiertas en modo pruebas para prepararlas.',
@@ -362,6 +379,12 @@ export const BusinessManagePage: React.FC = () => {
                                     <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-bold uppercase text-amber-300">
                                         <Sparkles className="h-3.5 w-3.5" />
                                         Business Pro
+                                    </div>
+                                )}
+                                {hasBusinessPro && plan.source && plan.source !== 'stripe' && (
+                                    <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-bold uppercase text-[var(--lt-text-muted)]">
+                                        {PLAN_SOURCE_LABELS[plan.source]}
+                                        {planExpiryLabel ? ` · hasta ${planExpiryLabel}` : ''}
                                     </div>
                                 )}
                             </div>
@@ -534,9 +557,21 @@ export const BusinessManagePage: React.FC = () => {
                             </div>
                         )}
 
-                        {activeBusinessTab === 'visual' && <BusinessVisualPrototype />}
-                        {activeBusinessTab === 'items' && <BusinessItemsPrototype placeId={placeId} />}
-                        {activeBusinessTab === 'sponsored' && <BusinessSponsoredPrototype />}
+                        {activeBusinessTab === 'visual' && (
+                            <RequireBusinessPro placeId={placeId} plan={plan}>
+                                <BusinessVisualPrototype />
+                            </RequireBusinessPro>
+                        )}
+                        {activeBusinessTab === 'items' && (
+                            <RequireBusinessPro placeId={placeId} plan={plan}>
+                                <BusinessItemsPrototype placeId={placeId} />
+                            </RequireBusinessPro>
+                        )}
+                        {activeBusinessTab === 'sponsored' && (
+                            <RequireBusinessPro placeId={placeId} plan={plan}>
+                                <BusinessSponsoredPrototype />
+                            </RequireBusinessPro>
+                        )}
                     </div>
                 )}
             </div>

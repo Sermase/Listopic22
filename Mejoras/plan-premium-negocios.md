@@ -2,7 +2,16 @@
 
 Fecha: 2026-07-06
 Rama: `claude/premium-business-version-r18qeh`
-Estado: propuesta para revisar antes de implementar.
+Estado: **Fase A implementada** en esta rama (entitlements + gestión manual + capado central con flag desactivado). Fases B y C pendientes.
+
+Implementado (Fase A):
+- `functions/modules/lib/business-plan.js` — helpers de plan compartidos.
+- `functions/modules/admin/admin-plans.js` — `adminSetBusinessPlan`, `adminSetUserPlan`, scheduled `expireManualPlans` (diaria 03:30 Europe/Madrid).
+- Guard en `stripe-business.js`: el webhook no degrada planes con `businessPlanSource` manual/trial; al activar por Stripe, `source` pasa a `'stripe'`.
+- `frontend/src/utils/businessPlan.ts`, `hooks/useBusinessPlan.ts`, `components/RequireBusinessPro.tsx` (paywall con checkout), `config/features.ts` (`BUSINESS_PRO_ENFORCED = false`).
+- `BusinessManagePage`: pestañas Pro envueltas en `RequireBusinessPro`, chip de procedencia/caducidad del plan.
+- Developer → pestaña **Planes** (`PlansManagerTab`): conceder/quitar Business Pro por local y premium por usuario, con duración (indefinida/1m/3m/fecha) y notas; accesible también con `?tab=plans`.
+- Requiere desplegar functions (`firebase deploy --only functions`) para que existan las callables y la scheduled.
 
 ---
 

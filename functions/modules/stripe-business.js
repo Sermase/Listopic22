@@ -5,6 +5,7 @@ const logger = require("firebase-functions/logger");
 const fetch = require("node-fetch");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { writeAuditLog } = require("./lib/auth");
+const { isManualBusinessPlan } = require("./lib/business-plan");
 
 const db = getFirestore();
 
@@ -151,6 +152,11 @@ async function applyBusinessProSubscription(event) {
     || object.status === "canceled"
     || object.status === "unpaid";
 
+  const placeRef = db.collection("places").doc(placeId);
+  const placeSnap = await placeRef.get();
+  const currentPlace = placeSnap.exists ? placeSnap.data() || {} : {};
+  const manualPlan = isManualBusinessPlan(currentPlace);
+
   const placePatch = {
     stripeCustomerId: customerId || FieldValue.delete(),
     stripeSubscriptionId: subscriptionId || FieldValue.delete(),
@@ -161,15 +167,29 @@ async function applyBusinessProSubscription(event) {
   };
 
   if (isActive) {
+    // Pagar siempre gana: el plan pasa a ser de Stripe y pierde caducidad manual.
     placePatch.businessTier = "pro";
     placePatch.businessProActive = true;
+    placePatch.businessPlanSource = "stripe";
+    placePatch.businessPlanExpiresAt = FieldValue.delete();
   }
   if (isEnded) {
-    placePatch.businessTier = "free";
-    placePatch.businessProActive = false;
+    if (manualPlan) {
+      // El plan vigente fue concedido a mano desde Developer: Stripe no lo degrada.
+      logger.info("stripeBusiness: fin de suscripción ignorado por plan manual", {
+        placeId,
+        eventId: event.id,
+        planSource: currentPlace.businessPlanSource,
+      });
+    } else {
+      placePatch.businessTier = "free";
+      placePatch.businessProActive = false;
+      placePatch.businessPlanSource = FieldValue.delete();
+      placePatch.businessPlanExpiresAt = FieldValue.delete();
+    }
   }
 
-  await db.collection("places").doc(placeId).set(placePatch, { merge: true });
+  await placeRef.set(placePatch, { merge: true });
 
   if (subscriptionId) {
     await db.collection("businessSubscriptions").doc(subscriptionId).set({
