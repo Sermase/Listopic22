@@ -82,7 +82,9 @@ async function assertBusinessProAccess(placeId, uid) {
   return { placeRef, place };
 }
 
-const updateBusinessVisual = onCall(async (request) => {
+// invoker: 'public' fuerza la invocación no autenticada a nivel de Cloud Run;
+// la autorización real la hacen Firebase Auth + assertBusinessProAccess.
+const updateBusinessVisual = onCall({ invoker: "public" }, async (request) => {
   const uid = request.auth?.uid;
   const placeId = asString(request.data?.placeId, 300);
   const { placeRef, place } = await assertBusinessProAccess(placeId, uid);
@@ -110,7 +112,7 @@ const updateBusinessVisual = onCall(async (request) => {
   return { ok: true, data };
 });
 
-const updateCanonicalItemBusinessData = onCall(async (request) => {
+const updateCanonicalItemBusinessData = onCall({ invoker: "public" }, async (request) => {
   const uid = request.auth?.uid;
   const placeId = asString(request.data?.placeId, 300);
   const itemId = asString(request.data?.itemId, 300);
@@ -150,7 +152,7 @@ const updateCanonicalItemBusinessData = onCall(async (request) => {
   return { ok: true, itemId, data: businessData };
 });
 
-const saveBusinessOffer = onCall(async (request) => {
+const saveBusinessOffer = onCall({ invoker: "public" }, async (request) => {
   const uid = request.auth?.uid;
   const placeId = asString(request.data?.placeId, 300);
   const offerId = asString(request.data?.offerId, 300);
@@ -214,7 +216,7 @@ const saveBusinessOffer = onCall(async (request) => {
   return { ok: true, offerId: targetRef.id, data };
 });
 
-const deleteBusinessOffer = onCall(async (request) => {
+const deleteBusinessOffer = onCall({ invoker: "public" }, async (request) => {
   const uid = request.auth?.uid;
   const placeId = asString(request.data?.placeId, 300);
   const offerId = asString(request.data?.offerId, 300);

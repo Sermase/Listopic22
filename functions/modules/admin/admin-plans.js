@@ -42,7 +42,10 @@ function hasActiveStripeSubscription(placeData = {}) {
     && ACTIVE_STRIPE_STATUSES.has(placeData.businessBillingStatus);
 }
 
-const adminSetBusinessPlan = onCall(async (request) => {
+// invoker: 'public' fuerza el permiso de invocación no autenticada en Cloud Run
+// (la autorización real la hace Firebase Auth + assertJefeAccess). Sin esto, el
+// despliegue puede dejar la función devolviendo 401 antes de llegar al código.
+const adminSetBusinessPlan = onCall({ invoker: "public" }, async (request) => {
   const actorUid = request.auth?.uid;
   await assertJefeAccess(actorUid);
 
@@ -107,7 +110,7 @@ const adminSetBusinessPlan = onCall(async (request) => {
   };
 });
 
-const adminSetUserPlan = onCall(async (request) => {
+const adminSetUserPlan = onCall({ invoker: "public" }, async (request) => {
   const actorUid = request.auth?.uid;
   await assertJefeAccess(actorUid);
 
