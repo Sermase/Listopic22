@@ -127,20 +127,22 @@ const reviewSponsoredPlacement = onCall({ invoker: "public" }, async (request) =
   return { ok: true, placementId, status: nextStatus };
 });
 
-// ── Platos destacados por radio (sorteo ponderado por unidades) ─────────────
+// ── Impulsos: platos destacados por radio y tiempo ──────────────────────────
 //
-// El negocio compra "unidades" para destacar un plato en un radio de X km.
-// Precio por unidad = basePricePerUnit + pricePerExtraKm * max(0, radio - baseRadiusKm),
-// con la fórmula editable en Developer (config/sponsoredPricing). En el
-// carrusel, cada plato candidato (activo y cuyo radio cubre al usuario) entra
-// en un sorteo con peso = unidades: comprar 2 unidades dobla la probabilidad.
+// El negocio compra "impulsos" para destacar un plato en un radio de X km
+// durante N semanas. Precio por impulso = €/km·semana × radio × semanas
+// (fórmula editable en Developer, config/sponsoredPricing; pensada barata:
+// 0,40 €/km·semana ≈ 0,20 € por semana y medio km). Quien quiera más
+// visibilidad no paga tarifas más caras: compra más impulsos, que son pesos
+// en el sorteo del carrusel — 2 impulsos = doble probabilidad que 1.
+// El reloj de la campaña arranca cuando el admin la activa.
 
 const DEFAULT_SPOTLIGHT_PRICING = {
-  baseRadiusKm: 1,
-  basePricePerUnit: 2,
-  pricePerExtraKm: 2,
+  pricePerKmPerWeek: 0.4,
+  minRadiusKm: 0.5,
   maxRadiusKm: 20,
   maxUnitsPerCampaign: 10,
+  maxWeeks: 8,
 };
 
 async function getSpotlightPricing() {
@@ -153,9 +155,15 @@ async function getSpotlightPricing() {
   return merged;
 }
 
-function computeSpotlightUnitPrice(pricing, radiusKm) {
-  const extraKm = Math.max(0, radiusKm - pricing.baseRadiusKm);
-  return Number((pricing.basePricePerUnit + pricing.pricePerExtraKm * extraKm).toFixed(2));
+function computeSpotlightUnitPrice(pricing, radiusKm, weeks) {
+  const effectiveRadius = Math.max(pricing.minRadiusKm, radiusKm);
+  return Number((pricing.pricePerKmPerWeek * effectiveRadius * weeks).toFixed(2));
+}
+
+function isoDatePlusDays(days) {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 const MAX_OPEN_SPOTLIGHTS_PER_PLACE = 10;
@@ -166,20 +174,19 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
   const itemId = asString(request.data?.itemId, 300);
   const units = Number(request.data?.units);
   const radiusKm = Number(request.data?.radiusKm);
-  const startsAt = sanitizeDateString(request.data?.startsAt);
-  const endsAt = sanitizeDateString(request.data?.endsAt);
+  const weeks = Number(request.data?.weeks);
 
   if (!itemId) throw new HttpsError("invalid-argument", "Falta el elemento a destacar.");
-  if (startsAt && endsAt && endsAt < startsAt) {
-    throw new HttpsError("invalid-argument", "La fecha de fin no puede ser anterior a la de inicio.");
-  }
 
   const pricing = await getSpotlightPricing();
   if (!Number.isInteger(units) || units < 1 || units > pricing.maxUnitsPerCampaign) {
-    throw new HttpsError("invalid-argument", `Las unidades deben estar entre 1 y ${pricing.maxUnitsPerCampaign}.`);
+    throw new HttpsError("invalid-argument", `Los impulsos deben estar entre 1 y ${pricing.maxUnitsPerCampaign}.`);
   }
-  if (!Number.isFinite(radiusKm) || radiusKm < 1 || radiusKm > pricing.maxRadiusKm) {
-    throw new HttpsError("invalid-argument", `El radio debe estar entre 1 y ${pricing.maxRadiusKm} km.`);
+  if (!Number.isFinite(radiusKm) || radiusKm < pricing.minRadiusKm || radiusKm > pricing.maxRadiusKm) {
+    throw new HttpsError("invalid-argument", `El radio debe estar entre ${pricing.minRadiusKm} y ${pricing.maxRadiusKm} km.`);
+  }
+  if (!Number.isInteger(weeks) || weeks < 1 || weeks > pricing.maxWeeks) {
+    throw new HttpsError("invalid-argument", `La duración debe estar entre 1 y ${pricing.maxWeeks} semanas.`);
   }
 
   const { placeRef, place } = await assertBusinessProAccess(placeId, uid);
@@ -205,7 +212,7 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     throw new HttpsError("resource-exhausted", "Ya hay demasiadas campañas de platos abiertas para este negocio.");
   }
 
-  const unitPriceEur = computeSpotlightUnitPrice(pricing, radiusKm);
+  const unitPriceEur = computeSpotlightUnitPrice(pricing, radiusKm, weeks);
   const totalPriceEur = Number((unitPriceEur * units).toFixed(2));
 
   const spotlightRef = db.collection("sponsoredItemSpotlights").doc();
@@ -221,11 +228,13 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     center,
     radiusKm,
     units,
+    weeks,
     unitPriceEur,
     totalPriceEur,
     pricingSnapshot: pricing,
-    startsAt: startsAt || null,
-    endsAt: endsAt || null,
+    // El reloj arranca al activar: reviewItemSpotlight fija startsAt/endsAt.
+    startsAt: null,
+    endsAt: null,
     status: "requested",
     createdBy: uid,
     createdAt: FieldValue.serverTimestamp(),
@@ -239,6 +248,7 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     itemName: item.canonicalName || itemId,
     units,
     radiusKm,
+    weeks,
     totalPriceEur,
   });
 
@@ -263,12 +273,19 @@ const reviewItemSpotlight = onCall({ invoker: "public" }, async (request) => {
   const spotlight = spotlightSnap.data() || {};
 
   const nextStatus = decision === "activate" ? "active" : decision === "reject" ? "rejected" : "ended";
-  await spotlightRef.set({
+  const patch = {
     status: nextStatus,
     adminNotes: adminNotes || null,
     reviewedBy: uid,
     reviewedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
+  };
+  if (decision === "activate") {
+    // El periodo contratado (semanas) empieza a contar al activar.
+    const weeks = Number(spotlight.weeks) >= 1 ? Number(spotlight.weeks) : 1;
+    patch.startsAt = isoDatePlusDays(0);
+    patch.endsAt = isoDatePlusDays(weeks * 7);
+  }
+  await spotlightRef.set(patch, { merge: true });
 
   await writeAuditLog(uid, "sponsored.itemSpotlightReviewed", {
     spotlightId,

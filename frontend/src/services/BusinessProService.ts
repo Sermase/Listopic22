@@ -440,20 +440,25 @@ export const reviewSponsoredPlacement = async (
 
 // ── Platos destacados por radio (sorteo ponderado por unidades) ─────────────
 
+// Nombre comercial de las unidades de patrocinio: cada "impulso" es un peso
+// en el sorteo del carrusel (2 impulsos = doble probabilidad que 1).
+export const SPOTLIGHT_UNIT_SINGULAR = 'impulso';
+export const SPOTLIGHT_UNIT_PLURAL = 'impulsos';
+
 export interface SpotlightPricing {
-    baseRadiusKm: number;
-    basePricePerUnit: number;
-    pricePerExtraKm: number;
+    pricePerKmPerWeek: number;
+    minRadiusKm: number;
     maxRadiusKm: number;
     maxUnitsPerCampaign: number;
+    maxWeeks: number;
 }
 
 export const DEFAULT_SPOTLIGHT_PRICING: SpotlightPricing = {
-    baseRadiusKm: 1,
-    basePricePerUnit: 2,
-    pricePerExtraKm: 2,
+    pricePerKmPerWeek: 0.4,
+    minRadiusKm: 0.5,
     maxRadiusKm: 20,
     maxUnitsPerCampaign: 10,
+    maxWeeks: 8,
 };
 
 export const getSpotlightPricing = async (): Promise<SpotlightPricing> => {
@@ -467,10 +472,11 @@ export const getSpotlightPricing = async (): Promise<SpotlightPricing> => {
     return merged;
 };
 
-// Precio por unidad: base + extra por cada km por encima del radio base.
-export const computeSpotlightUnitPrice = (pricing: SpotlightPricing, radiusKm: number): number => {
-    const extraKm = Math.max(0, radiusKm - pricing.baseRadiusKm);
-    return Number((pricing.basePricePerUnit + pricing.pricePerExtraKm * extraKm).toFixed(2));
+// Precio por impulso = €/km·semana × radio × semanas. Barato a propósito:
+// la visibilidad extra se compra con más impulsos, no con tarifas más caras.
+export const computeSpotlightUnitPrice = (pricing: SpotlightPricing, radiusKm: number, weeks: number): number => {
+    const effectiveRadius = Math.max(pricing.minRadiusKm, radiusKm);
+    return Number((pricing.pricePerKmPerWeek * effectiveRadius * weeks).toFixed(2));
 };
 
 export type ItemSpotlightStatus = 'requested' | 'active' | 'rejected' | 'ended';
@@ -488,6 +494,7 @@ export interface ItemSpotlight {
     center: { lat: number; lng: number } | null;
     radiusKm: number;
     units: number;
+    weeks?: number;
     unitPriceEur?: number;
     totalPriceEur?: number;
     startsAt?: string;
@@ -517,6 +524,7 @@ const mapSpotlight = (id: string, data: Record<string, unknown>): ItemSpotlight 
             : null,
         radiusKm: typeof data.radiusKm === 'number' ? data.radiusKm : 0,
         units: typeof data.units === 'number' && data.units > 0 ? data.units : 1,
+        weeks: typeof data.weeks === 'number' && data.weeks > 0 ? data.weeks : undefined,
         unitPriceEur: typeof data.unitPriceEur === 'number' ? data.unitPriceEur : undefined,
         totalPriceEur: typeof data.totalPriceEur === 'number' ? data.totalPriceEur : undefined,
         startsAt: typeof data.startsAt === 'string' ? data.startsAt : undefined,
@@ -532,8 +540,7 @@ export const requestItemSpotlight = async (input: {
     itemId: string;
     units: number;
     radiusKm: number;
-    startsAt?: string;
-    endsAt?: string;
+    weeks: number;
 }): Promise<{ spotlightId: string; totalPriceEur: number }> => {
     const callable = httpsCallable<unknown, { spotlightId: string; totalPriceEur: number }>(functions, 'requestItemSpotlight');
     const result = await callable(input);
@@ -582,6 +589,38 @@ export const reviewItemSpotlight = async (
 ): Promise<void> => {
     const callable = httpsCallable(functions, 'reviewItemSpotlight');
     await callable({ spotlightId, decision, adminNotes });
+};
+
+// Lugares con publicidad activa (emplazamientos o impulsos de platos), para
+// marcarlos en los mapas con la chincheta dorada. Cache en memoria de 5 min
+// para no repetir lecturas en cada mapa que se monta.
+let sponsoredPlaceIdsCache: { ids: Set<string>; fetchedAt: number } | null = null;
+
+export const getSponsoredPlaceIds = async (): Promise<Set<string>> => {
+    if (sponsoredPlaceIdsCache && Date.now() - sponsoredPlaceIdsCache.fetchedAt < 5 * 60 * 1000) {
+        return sponsoredPlaceIdsCache.ids;
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const inDateWindow = (row: { startsAt?: string; endsAt?: string }) =>
+        (!row.startsAt || row.startsAt <= today) && (!row.endsAt || row.endsAt >= today);
+
+    const [placementsSnap, spotlightsSnap] = await Promise.all([
+        getDocs(query(collection(db, 'sponsoredPlacements'), where('status', '==', 'active'), limit(100))).catch(() => null),
+        getDocs(query(collection(db, 'sponsoredItemSpotlights'), where('status', '==', 'active'), limit(100))).catch(() => null),
+    ]);
+
+    const ids = new Set<string>();
+    (placementsSnap?.docs || []).forEach((placementDoc) => {
+        const row = mapPlacement(placementDoc.id, placementDoc.data() as Record<string, unknown>);
+        if (row.placeId && inDateWindow(row)) ids.add(row.placeId);
+    });
+    (spotlightsSnap?.docs || []).forEach((spotlightDoc) => {
+        const row = mapSpotlight(spotlightDoc.id, spotlightDoc.data() as Record<string, unknown>);
+        if (row.placeId && inDateWindow(row)) ids.add(row.placeId);
+    });
+
+    sponsoredPlaceIdsCache = { ids, fetchedAt: Date.now() };
+    return ids;
 };
 
 // Sorteo ponderado sin reemplazo: cada campaña entra con peso = unidades, así

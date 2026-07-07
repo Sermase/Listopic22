@@ -70,7 +70,7 @@ export const SponsoredItemsCarousel: React.FC<{ listId?: string; className?: str
                         to={`/group/${spotlight.placeId}/${encodeURIComponent(spotlight.itemName)}`}
                         className="group w-44 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] shadow-lg transition-transform hover:scale-[1.02]"
                     >
-                        <div className="h-24 w-full overflow-hidden bg-white/5">
+                        <div className="relative h-24 w-full overflow-hidden bg-white/5">
                             {spotlight.placePhotoUrl ? (
                                 <img
                                     src={spotlight.placePhotoUrl}
@@ -83,6 +83,10 @@ export const SponsoredItemsCarousel: React.FC<{ listId?: string; className?: str
                                     <UtensilsCrossed className="h-7 w-7" />
                                 </div>
                             )}
+                            {/* Cartelito por tarjeta: cada elemento marca que es patrocinado */}
+                            <span className="absolute right-1.5 top-1.5 rounded-full border border-amber-400/50 bg-black/55 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-300 backdrop-blur-sm">
+                                Patrocinado
+                            </span>
                         </div>
                         <div className="p-3">
                             <p className="truncate text-sm font-black text-[var(--lt-text)] group-hover:text-[var(--lt-accent)]">

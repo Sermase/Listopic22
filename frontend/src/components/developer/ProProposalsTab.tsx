@@ -369,9 +369,10 @@ export const ProProposalsTab: React.FC = () => {
                                         <span className="text-xs text-gray-400">· {spotlight.placeName || spotlight.placeId}</span>
                                     </div>
                                     <p className="mt-1 text-xs text-gray-500">
-                                        {spotlight.units} unidad{spotlight.units === 1 ? '' : 'es'} · radio {spotlight.radiusKm} km
+                                        {spotlight.units} impulso{spotlight.units === 1 ? '' : 's'} · radio {spotlight.radiusKm} km
+                                        {spotlight.weeks ? ` · ${spotlight.weeks} semana${spotlight.weeks === 1 ? '' : 's'}` : ''}
                                         {typeof spotlight.totalPriceEur === 'number' ? ` · ${spotlight.totalPriceEur.toFixed(2)} €` : ''}
-                                        {spotlight.endsAt ? ` · hasta ${spotlight.endsAt}` : ''}
+                                        {spotlight.endsAt ? ` · activa hasta ${spotlight.endsAt}` : ' · el periodo empieza al activarla'}
                                     </p>
                                 </div>
                                 <div className="flex shrink-0 gap-2">
@@ -420,23 +421,25 @@ export const ProProposalsTab: React.FC = () => {
                     Fórmula de precios de platos destacados
                 </h3>
                 <p className="mt-1 text-sm text-gray-400">
-                    Precio por unidad = base + (extra × km por encima del radio base). Ejemplo con los valores por
-                    defecto: 5 km → {`${(DEFAULT_SPOTLIGHT_PRICING.basePricePerUnit + DEFAULT_SPOTLIGHT_PRICING.pricePerExtraKm * 4).toFixed(2)}`} €/unidad.
+                    Precio por <strong>impulso</strong> = €/km·semana × radio × semanas. Ejemplo con los valores por
+                    defecto: 5 km × 1 semana → {`${(DEFAULT_SPOTLIGHT_PRICING.pricePerKmPerWeek * 5).toFixed(2)}`} €/impulso.
+                    Barato a propósito: quien quiera más visibilidad compra más impulsos (más papeletas en el sorteo),
+                    no tarifas más caras.
                 </p>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                     {([
-                        ['basePricePerUnit', 'Precio base (€/ud)'],
-                        ['baseRadiusKm', 'Radio base (km)'],
-                        ['pricePerExtraKm', 'Extra por km (€)'],
+                        ['pricePerKmPerWeek', '€ por km·semana'],
+                        ['minRadiusKm', 'Radio mínimo (km)'],
                         ['maxRadiusKm', 'Radio máximo (km)'],
-                        ['maxUnitsPerCampaign', 'Unidades máx.'],
+                        ['maxUnitsPerCampaign', 'Impulsos máx.'],
+                        ['maxWeeks', 'Semanas máx.'],
                     ] as Array<[keyof SpotlightPricing, string]>).map(([key, label]) => (
                         <label key={key} className="block">
                             <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-500">{label}</span>
                             <input
                                 type="number"
                                 min={0}
-                                step={key === 'basePricePerUnit' || key === 'pricePerExtraKm' ? 0.5 : 1}
+                                step={key === 'pricePerKmPerWeek' ? 0.05 : key === 'minRadiusKm' ? 0.5 : 1}
                                 value={pricing[key]}
                                 onChange={(event) => setPricing((prev) => ({ ...prev, [key]: Number(event.target.value) || 0 }))}
                                 className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"

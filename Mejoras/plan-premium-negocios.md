@@ -34,6 +34,14 @@ Implementado además (inicio de Fase C — pestañas Pro funcionales):
 - **Developer → "Propuestas Pro"** (`ProProposalsTab`): revisión de propuestas de carta (aprobar aplica y reconstruye) y de campañas patrocinadas, con notas que llegan al negocio.
 - Reglas nuevas: `itemProposals` (lee jefe o el autor), `sponsoredPlacements` (lectura pública, escritura solo CF).
 
+**Modelo "Impulsos" (revisión del pricing) + marcado visual de patrocinados — hecho:**
+
+- Las unidades de patrocinio se llaman **impulsos**. Se cobra por **tiempo y radio**, barato a propósito: precio por impulso = €/km·semana × radio × semanas (defecto **0,40 €/km·semana** ≈ 0,20 € por semana y medio km → 5 km × 1 semana = 2 €/impulso). La visibilidad extra se compra con más impulsos (más papeletas en el sorteo), no con tarifas más caras.
+- Fórmula editable en Developer → Propuestas Pro: €/km·semana, radio mín/máx, impulsos máx., semanas máx. (`config/sponsoredPricing`).
+- El **reloj de la campaña arranca al activarla el admin** (startsAt/endsAt = activación + semanas contratadas) y el scheduled diario finaliza automáticamente las campañas (impulsos y emplazamientos) vencidas.
+- **Chincheta dorada con "P"** en todos los mapas (`createSponsoredMarkerIcon` + `getSponsoredPlaceIds` con cache de 5 min, integrado en `MapView`, que usan Home, listas, búsqueda, archivo y perfil): mismo lollipop con la nota comunitaria, borde dorado e insignia P pequeña.
+- Cartelito **"Patrocinado" en cada tarjeta** del carrusel de platos (además de la etiqueta de cabecera) y en los destacados de la home.
+
 **Platos destacados por radio + carta por secciones — hecho:**
 
 - **Platos destacados con sorteo ponderado** (`sponsoredItemSpotlights`): el negocio compra *unidades* para destacar un plato en un radio de X km. Precio por unidad = base + extra × (km − radio base); la fórmula (`config/sponsoredPricing`: precio base, radio base, €/km extra, radio máx., unidades máx.) se edita en Developer → Propuestas Pro. El backend calcula y congela el precio en cada solicitud; el admin activa/rechaza/finaliza. En el carrusel (`SponsoredItemsCarousel`, montado en Home y en cada lista con filtro por `linkedListIds`), los candidatos son campañas activas cuyo radio cubre la posición real del usuario, y se sortean con peso = unidades (2 unidades → doble probabilidad), sin reemplazo. Sin ubicación del usuario no se muestra nada (se paga por proximidad real).

@@ -1067,8 +1067,8 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
     const [pricing, setPricing] = useState<SpotlightPricing>(DEFAULT_SPOTLIGHT_PRICING);
     const [spotlightItemId, setSpotlightItemId] = useState('');
     const [spotlightUnits, setSpotlightUnits] = useState(1);
-    const [spotlightRadius, setSpotlightRadius] = useState(5);
-    const [spotlightEndsAt, setSpotlightEndsAt] = useState('');
+    const [spotlightRadius, setSpotlightRadius] = useState(2);
+    const [spotlightWeeks, setSpotlightWeeks] = useState(2);
     const [requestingSpotlight, setRequestingSpotlight] = useState(false);
 
     useEffect(() => {
@@ -1102,7 +1102,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
         };
     }, [placeId]);
 
-    const spotlightUnitPrice = computeSpotlightUnitPrice(pricing, spotlightRadius);
+    const spotlightUnitPrice = computeSpotlightUnitPrice(pricing, spotlightRadius, spotlightWeeks);
     const spotlightTotal = Number((spotlightUnitPrice * spotlightUnits).toFixed(2));
 
     const requestSpotlight = async () => {
@@ -1118,11 +1118,10 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                 itemId: spotlightItemId,
                 units: spotlightUnits,
                 radiusKm: spotlightRadius,
-                endsAt: spotlightEndsAt || undefined,
+                weeks: spotlightWeeks,
             });
             setSpotlightItemId('');
             setSpotlightUnits(1);
-            setSpotlightEndsAt('');
             setSpotlights(await getPlaceItemSpotlights(placeId).catch(() => spotlights));
             setMessage({ type: 'success', text: `Solicitud enviada (${spotlightTotal.toFixed(2)} €). Un administrador la activará.` });
         } catch (error) {
@@ -1374,8 +1373,9 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                         <div>
                             <h3 className="text-sm font-black text-[var(--lt-text)]">Destacar un plato por cercanía</h3>
                             <p className="text-xs text-[var(--lt-text-muted)]">
-                                Compra unidades para que tu plato entre en el sorteo del carrusel de destacados
-                                cuando el usuario esté dentro del radio. Cada unidad extra duplica tu peso en el sorteo.
+                                Compra <strong>impulsos</strong> para que tu plato entre en el sorteo del carrusel de
+                                destacados cuando el usuario esté dentro del radio, durante las semanas que elijas.
+                                Cada impulso es una papeleta: 2 impulsos = doble probabilidad que 1.
                             </p>
                         </div>
                         <Field label="Plato">
@@ -1391,7 +1391,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                             </select>
                         </Field>
                         <div className="grid gap-4 sm:grid-cols-3">
-                            <Field label="Unidades">
+                            <Field label="Impulsos">
                                 <input
                                     type="number"
                                     min={1}
@@ -1404,21 +1404,30 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                             <Field label={`Radio: ${spotlightRadius} km`}>
                                 <input
                                     type="range"
-                                    min={1}
+                                    min={pricing.minRadiusKm}
                                     max={pricing.maxRadiusKm}
-                                    step={1}
+                                    step={0.5}
                                     value={spotlightRadius}
                                     onChange={(event) => setSpotlightRadius(Number(event.target.value))}
                                     className="mt-3 w-full accent-[var(--lt-accent)]"
                                 />
                             </Field>
-                            <Field label="Hasta (opcional)">
-                                <input type="date" className={inputClass} value={spotlightEndsAt} onChange={(event) => setSpotlightEndsAt(event.target.value)} />
+                            <Field label="Duración">
+                                <select
+                                    className={inputClass}
+                                    value={spotlightWeeks}
+                                    onChange={(event) => setSpotlightWeeks(Number(event.target.value) || 1)}
+                                >
+                                    {Array.from({ length: pricing.maxWeeks }, (_, i) => i + 1).map((weeks) => (
+                                        <option key={weeks} value={weeks}>{weeks} semana{weeks === 1 ? '' : 's'}</option>
+                                    ))}
+                                </select>
                             </Field>
                         </div>
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/10 px-3 py-2.5">
                             <p className="text-xs text-[var(--lt-text-muted)]">
-                                {spotlightUnits} ud. × {spotlightUnitPrice.toFixed(2)} €/ud ({spotlightRadius} km)
+                                {spotlightUnits} impulso{spotlightUnits === 1 ? '' : 's'} × {spotlightUnitPrice.toFixed(2)} €
+                                <span className="block text-[10px]">({pricing.pricePerKmPerWeek.toFixed(2)} €/km·semana × {spotlightRadius} km × {spotlightWeeks} sem.)</span>
                             </p>
                             <p className="text-lg font-black text-[var(--lt-text)]">{spotlightTotal.toFixed(2)} €</p>
                         </div>
@@ -1440,7 +1449,8 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                                             <div className="min-w-0">
                                                 <p className="truncate text-xs font-bold text-[var(--lt-text)]">{spotlight.itemName}</p>
                                                 <p className="text-[11px] text-[var(--lt-text-muted)]">
-                                                    {spotlight.units} ud. · {spotlight.radiusKm} km
+                                                    {spotlight.units} impulso{spotlight.units === 1 ? '' : 's'} · {spotlight.radiusKm} km
+                                                    {spotlight.weeks ? ` · ${spotlight.weeks} sem.` : ''}
                                                     {typeof spotlight.totalPriceEur === 'number' ? ` · ${spotlight.totalPriceEur.toFixed(2)} €` : ''}
                                                     {spotlight.endsAt ? ` · hasta ${spotlight.endsAt}` : ''}
                                                 </p>
