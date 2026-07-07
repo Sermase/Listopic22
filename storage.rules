@@ -32,6 +32,12 @@ service firebase.storage {
              request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif|heic|heif)');
     }
 
+    // --- Copias de seguridad de Firestore (las crea Cloud Functions). Solo jefes. ---
+    match /backups/{allPaths=**} {
+      allow read, list: if isJefe();
+      allow write: if false;
+    }
+
     // --- Reseñas: el dueño del uid del path puede escribir; no se listan publicamente. ---
     match /reviews/{userId}/{allPaths=**} {
       allow get: if true;

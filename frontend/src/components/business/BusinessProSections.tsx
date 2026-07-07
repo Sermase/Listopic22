@@ -34,6 +34,7 @@ import {
     getPlaceItemSpotlights,
     getPlaceReviewsForManager,
     getPlaceSponsoredPlacements,
+    getPlaceSpotlightCredits,
     getSpotlightPricing,
     rebuildPlaceItems,
     requestItemSpotlight,
@@ -1069,6 +1070,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
     const [spotlightUnits, setSpotlightUnits] = useState(1);
     const [spotlightRadius, setSpotlightRadius] = useState(2);
     const [spotlightWeeks, setSpotlightWeeks] = useState(2);
+    const [spotlightCredits, setSpotlightCredits] = useState(0);
     const [requestingSpotlight, setRequestingSpotlight] = useState(false);
 
     useEffect(() => {
@@ -1076,12 +1078,13 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
         const load = async () => {
             setLoading(true);
             try {
-                const [offerRows, placementRows, itemRows, spotlightRows, pricingConfig] = await Promise.all([
+                const [offerRows, placementRows, itemRows, spotlightRows, pricingConfig, creditsBalance] = await Promise.all([
                     getBusinessOffers(placeId),
                     getPlaceSponsoredPlacements(placeId).catch(() => [] as SponsoredPlacement[]),
                     getCanonicalPlaceItems(placeId).catch(() => [] as CanonicalPlaceItem[]),
                     getPlaceItemSpotlights(placeId).catch(() => [] as ItemSpotlight[]),
                     getSpotlightPricing().catch(() => DEFAULT_SPOTLIGHT_PRICING),
+                    getPlaceSpotlightCredits(placeId).catch(() => 0),
                 ]);
                 if (!cancelled) {
                     setOffers(offerRows);
@@ -1089,6 +1092,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                     setItems(itemRows);
                     setSpotlights(spotlightRows);
                     setPricing(pricingConfig);
+                    setSpotlightCredits(creditsBalance);
                 }
             } catch (error) {
                 console.error('BusinessSponsoredSection: load failed', error);
@@ -1103,7 +1107,9 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
     }, [placeId]);
 
     const spotlightUnitPrice = computeSpotlightUnitPrice(pricing, spotlightRadius, spotlightWeeks);
-    const spotlightTotal = Number((spotlightUnitPrice * spotlightUnits).toFixed(2));
+    const spotlightCreditsUsed = Math.min(spotlightCredits, spotlightUnits);
+    const spotlightBilledUnits = spotlightUnits - spotlightCreditsUsed;
+    const spotlightTotal = Number((spotlightUnitPrice * spotlightBilledUnits).toFixed(2));
 
     const requestSpotlight = async () => {
         if (!spotlightItemId) {
@@ -1123,7 +1129,13 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
             setSpotlightItemId('');
             setSpotlightUnits(1);
             setSpotlights(await getPlaceItemSpotlights(placeId).catch(() => spotlights));
-            setMessage({ type: 'success', text: `Solicitud enviada (${spotlightTotal.toFixed(2)} €). Un administrador la activará.` });
+            setSpotlightCredits(await getPlaceSpotlightCredits(placeId).catch(() => Math.max(0, spotlightCredits - spotlightCreditsUsed)));
+            setMessage({
+                type: 'success',
+                text: spotlightCreditsUsed > 0
+                    ? `Solicitud enviada usando ${spotlightCreditsUsed} impulso${spotlightCreditsUsed === 1 ? '' : 's'} de regalo (a pagar: ${spotlightTotal.toFixed(2)} €). Un administrador la activará.`
+                    : `Solicitud enviada (${spotlightTotal.toFixed(2)} €). Un administrador la activará.`,
+            });
         } catch (error) {
             console.error('BusinessSponsoredSection: spotlight request failed', error);
             setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo solicitar el plato destacado.') });
@@ -1424,10 +1436,18 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                                 </select>
                             </Field>
                         </div>
+                        {spotlightCredits > 0 && (
+                            <p className="rounded-xl border border-yellow-500/25 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-200">
+                                🎁 Tienes {spotlightCredits} impulso{spotlightCredits === 1 ? '' : 's'} de regalo: se usan automáticamente antes de cobrar.
+                            </p>
+                        )}
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/10 px-3 py-2.5">
                             <p className="text-xs text-[var(--lt-text-muted)]">
                                 {spotlightUnits} impulso{spotlightUnits === 1 ? '' : 's'} × {spotlightUnitPrice.toFixed(2)} €
                                 <span className="block text-[10px]">({pricing.pricePerKmPerWeek.toFixed(2)} €/km·semana × {spotlightRadius} km × {spotlightWeeks} sem.)</span>
+                                {spotlightCreditsUsed > 0 && (
+                                    <span className="block text-[10px] text-yellow-200">− {spotlightCreditsUsed} de regalo → pagas {spotlightBilledUnits}</span>
+                                )}
                             </p>
                             <p className="text-lg font-black text-[var(--lt-text)]">{spotlightTotal.toFixed(2)} €</p>
                         </div>

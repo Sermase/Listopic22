@@ -582,6 +582,24 @@ export const getActiveItemSpotlights = async (): Promise<ItemSpotlight[]> => {
             && (!spotlight.endsAt || spotlight.endsAt >= today));
 };
 
+// Saldo de impulsos de regalo del lugar (otorgados desde Developer). Se
+// consumen automáticamente al solicitar campañas, antes de cobrar nada.
+export const getPlaceSpotlightCredits = async (placeId: string): Promise<number> => {
+    const snap = await getDoc(doc(db, 'places', placeId));
+    const value = snap.exists() ? (snap.data() as Record<string, unknown>).spotlightCredits : 0;
+    return typeof value === 'number' && value > 0 ? Math.floor(value) : 0;
+};
+
+export const adminGrantSpotlightCredits = async (
+    placeId: string,
+    credits: number,
+    notes?: string,
+): Promise<{ balance: number }> => {
+    const callable = httpsCallable<unknown, { balance: number }>(functions, 'adminGrantSpotlightCredits');
+    const result = await callable({ placeId, credits, notes });
+    return result.data;
+};
+
 export const reviewItemSpotlight = async (
     spotlightId: string,
     decision: 'activate' | 'reject' | 'end',

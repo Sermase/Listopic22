@@ -213,7 +213,20 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
   }
 
   const unitPriceEur = computeSpotlightUnitPrice(pricing, radiusKm, weeks);
-  const totalPriceEur = Number((unitPriceEur * units).toFixed(2));
+
+  // Impulsos de regalo (otorgados desde Developer): se consumen antes de
+  // cobrar. Cuando haya micropagos, solo se facturarán los impulsos restantes.
+  const availableCredits = Number(place.spotlightCredits) > 0 ? Math.floor(Number(place.spotlightCredits)) : 0;
+  const creditsUsed = Math.min(availableCredits, units);
+  const billedUnits = units - creditsUsed;
+  const totalPriceEur = Number((unitPriceEur * billedUnits).toFixed(2));
+
+  if (creditsUsed > 0) {
+    await placeRef.set({
+      spotlightCredits: FieldValue.increment(-creditsUsed),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  }
 
   const spotlightRef = db.collection("sponsoredItemSpotlights").doc();
   await spotlightRef.set({
@@ -230,6 +243,8 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     units,
     weeks,
     unitPriceEur,
+    creditsUsed,
+    billedUnits,
     totalPriceEur,
     pricingSnapshot: pricing,
     // El reloj arranca al activar: reviewItemSpotlight fija startsAt/endsAt.
@@ -249,10 +264,50 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     units,
     radiusKm,
     weeks,
+    creditsUsed,
     totalPriceEur,
   });
 
-  return { ok: true, spotlightId: spotlightRef.id, unitPriceEur, totalPriceEur };
+  return { ok: true, spotlightId: spotlightRef.id, unitPriceEur, creditsUsed, totalPriceEur };
+});
+
+// Regala impulsos a un negocio desde Developer: se acumulan en el lugar y se
+// consumen automáticamente al solicitar campañas (antes de cobrar nada).
+// Sirve para probar el sistema y para invitar a negocios concretos.
+const adminGrantSpotlightCredits = onCall({ invoker: "public" }, async (request) => {
+  const uid = request.auth?.uid;
+  await assertJefeAccess(uid, "Solo un administrador puede regalar impulsos.");
+
+  const placeId = asString(request.data?.placeId, 300);
+  const credits = Number(request.data?.credits);
+  const notes = asString(request.data?.notes, 300).replace(/[<>]/g, "");
+  if (!placeId) throw new HttpsError("invalid-argument", "Falta placeId.");
+  if (!Number.isInteger(credits) || credits === 0 || Math.abs(credits) > 500) {
+    throw new HttpsError("invalid-argument", "Los impulsos deben ser un entero entre -500 y 500 (negativo para retirar).");
+  }
+
+  const placeRef = db.collection("places").doc(placeId);
+  const placeSnap = await placeRef.get();
+  if (!placeSnap.exists) throw new HttpsError("not-found", "El negocio no existe.");
+  const place = placeSnap.data() || {};
+  const current = Number(place.spotlightCredits) > 0 ? Math.floor(Number(place.spotlightCredits)) : 0;
+  const next = Math.max(0, current + credits);
+
+  await placeRef.set({
+    spotlightCredits: next,
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  await writeAuditLog(uid, "sponsored.creditsGranted", {
+    placeId,
+    placeName: place.name || null,
+    credits,
+    previousBalance: current,
+    newBalance: next,
+    notes: notes || null,
+  });
+
+  return { ok: true, placeId, balance: next };
 });
 
 const reviewItemSpotlight = onCall({ invoker: "public" }, async (request) => {
@@ -317,4 +372,5 @@ module.exports = {
   reviewSponsoredPlacement,
   requestItemSpotlight,
   reviewItemSpotlight,
+  adminGrantSpotlightCredits,
 };
