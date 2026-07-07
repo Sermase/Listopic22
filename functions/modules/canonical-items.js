@@ -274,6 +274,9 @@ async function rebuildCanonicalItemsForPlace(placeId) {
 
   for (const [itemId, existingItem] of existingItems.entries()) {
     if (activeIds.has(itemId)) continue;
+    // Los items creados por el negocio (carta oficial) pueden no tener reseñas
+    // todavía: no se desactivan en el rebuild.
+    if (existingItem.source === 'business') continue;
     const itemRef = placeRef.collection('items').doc(itemId);
     queueSet(batchState, itemRef, {
       status: existingItem.status === 'unavailable' ? 'unavailable' : 'inactive',
@@ -333,4 +336,10 @@ module.exports = {
   adminRebuildCanonicalItemsForPlace,
   syncCanonicalItemsOnListReviewWrite,
   syncCanonicalItemsOnRootReviewWrite,
+  // Helpers internos reutilizados por business-items.js (propuestas de carta).
+  rebuildCanonicalItemsForPlace,
+  fetchReviewsForPlace,
+  normalizeItemName,
+  itemDocIdFromName,
+  getReviewItemId,
 };

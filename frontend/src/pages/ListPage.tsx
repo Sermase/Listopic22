@@ -23,6 +23,7 @@ import { db } from '../firebase';
 import { buildCriteriaStats } from '../utils/shareCriteria';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
+import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
 
 export interface FilterState {
     minRating: number;
@@ -1135,6 +1136,9 @@ export const ListPage: React.FC = () => {
 
             {/* Content List */}
             <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-8">
+
+                {/* Platos destacados de esta lista (Business Pro, sorteo por unidades) */}
+                <SponsoredItemsCarousel listId={listId} className="mb-6" />
 
                 {/* Modern Toolbar */}
                 <div className="sticky top-20 z-30 mb-8 mx-auto max-w-4xl">

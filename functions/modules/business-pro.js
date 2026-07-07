@@ -24,6 +24,29 @@ const asString = (value, maxLength = 500) => (typeof value === "string" ? value.
 const VALID_VISUAL_STYLES = new Set(["editorial", "clean", "warm", "night"]);
 const VALID_OFFER_STATUSES = new Set(["draft", "active"]);
 const MAX_OFFERS = 20;
+const MAX_MENU_SECTIONS = 20;
+
+// Los 14 alérgenos de declaración obligatoria en la UE.
+const VALID_ALLERGENS = new Set([
+  "gluten", "crustaceos", "huevo", "pescado", "cacahuetes", "soja", "lacteos",
+  "frutos_secos", "apio", "mostaza", "sesamo", "sulfitos", "altramuces", "moluscos",
+]);
+
+// Sanitización compartida de la ficha oficial de un item (también la usa
+// business-items.js al crear elementos nuevos).
+function sanitizeItemBusinessData(raw = {}) {
+  return {
+    group: asString(raw.group, 60),
+    price: asString(raw.price, 40),
+    discount: asString(raw.discount, 80),
+    ingredients: asString(raw.ingredients, 300).replace(/[<>]/g, ""),
+    description: asString(raw.description, 500).replace(/[<>]/g, ""),
+    allergens: Array.isArray(raw.allergens)
+      ? Array.from(new Set(raw.allergens.map((entry) => asString(entry, 20)).filter((entry) => VALID_ALLERGENS.has(entry)))).slice(0, 14)
+      : [],
+    available: raw.available !== false,
+  };
+}
 
 const sanitizeHexColor = (value) => {
   const raw = asString(value, 9);
@@ -124,15 +147,7 @@ const updateCanonicalItemBusinessData = onCall({ invoker: "public" }, async (req
   const itemSnap = await itemRef.get();
   if (!itemSnap.exists) throw new HttpsError("not-found", "El elemento no existe.");
 
-  const raw = request.data?.data || {};
-  const businessData = {
-    group: asString(raw.group, 60),
-    price: asString(raw.price, 40),
-    discount: asString(raw.discount, 80),
-    ingredients: asString(raw.ingredients, 300).replace(/[<>]/g, ""),
-    description: asString(raw.description, 500).replace(/[<>]/g, ""),
-    available: raw.available !== false,
-  };
+  const businessData = sanitizeItemBusinessData(request.data?.data);
 
   await itemRef.set({
     businessData: {
@@ -140,6 +155,10 @@ const updateCanonicalItemBusinessData = onCall({ invoker: "public" }, async (req
       updatedBy: uid,
       updatedAt: FieldValue.serverTimestamp(),
     },
+  }, { merge: true });
+
+  await placeRef.set({
+    businessMenuUpdatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
 
   await writeAuditLog(uid, "businessPro.itemDataUpdated", {
@@ -150,6 +169,44 @@ const updateCanonicalItemBusinessData = onCall({ invoker: "public" }, async (req
   });
 
   return { ok: true, itemId, data: businessData };
+});
+
+// Secciones personalizadas de la carta (Entrantes, Primeros...). Se guardan en
+// places/{placeId}/businessPro/menu y los items se asignan por businessData.group.
+const updateBusinessMenuSections = onCall({ invoker: "public" }, async (request) => {
+  const uid = request.auth?.uid;
+  const placeId = asString(request.data?.placeId, 300);
+  const { placeRef, place } = await assertBusinessProAccess(placeId, uid);
+
+  const rawSections = Array.isArray(request.data?.sections) ? request.data.sections : [];
+  const seen = new Set();
+  const sections = [];
+  for (const entry of rawSections.slice(0, MAX_MENU_SECTIONS)) {
+    const name = asString(typeof entry === "string" ? entry : entry?.name, 40).replace(/[<>]/g, "");
+    if (!name) continue;
+    const key = name.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    sections.push({ name, order: sections.length });
+  }
+
+  await placeRef.collection("businessPro").doc("menu").set({
+    sections,
+    updatedBy: uid,
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: false });
+
+  await placeRef.set({
+    businessMenuUpdatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  await writeAuditLog(uid, "businessPro.menuSectionsUpdated", {
+    placeId,
+    placeName: place.name || null,
+    sections: sections.map((section) => section.name),
+  });
+
+  return { ok: true, sections };
 });
 
 const saveBusinessOffer = onCall({ invoker: "public" }, async (request) => {
@@ -244,6 +301,10 @@ const deleteBusinessOffer = onCall({ invoker: "public" }, async (request) => {
 module.exports = {
   updateBusinessVisual,
   updateCanonicalItemBusinessData,
+  updateBusinessMenuSections,
   saveBusinessOffer,
   deleteBusinessOffer,
+  // Helpers compartidos con business-items.js y sponsored.js.
+  assertBusinessProAccess,
+  sanitizeItemBusinessData,
 };

@@ -20,6 +20,8 @@ export interface AppConfig {
     showProfileAffinity: boolean;
     homeReviewsMonths: number; // 0 = sin límite de tiempo, >0 = meses hacia atrás
     showLab: boolean;
+    showWeeklyDuel: boolean;
+    showTastePassport: boolean;
 }
 
 interface AppConfigContextValue {
@@ -39,6 +41,8 @@ const defaultConfig: AppConfig = {
     showProfileAffinity: true,
     homeReviewsMonths: 12,
     showLab: false,
+    showWeeklyDuel: false,
+    showTastePassport: false,
 };
 
 const AppConfigContext = createContext<AppConfigContextValue>({
@@ -77,6 +81,12 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     showLab: typeof data.showLab === 'boolean'
                         ? data.showLab
                         : defaultConfig.showLab,
+                    showWeeklyDuel: typeof data.showWeeklyDuel === 'boolean'
+                        ? data.showWeeklyDuel
+                        : defaultConfig.showWeeklyDuel,
+                    showTastePassport: typeof data.showTastePassport === 'boolean'
+                        ? data.showTastePassport
+                        : defaultConfig.showTastePassport,
                 } as AppConfig);
             }
             setIsConfigLoading(false);

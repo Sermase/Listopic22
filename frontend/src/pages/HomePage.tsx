@@ -9,6 +9,10 @@ import { ReviewCardList } from '../components/ReviewCardList';
 import { ProgressiveImage } from '../components/ProgressiveImage';
 import { ReviewCarouselItem } from '../components/ReviewCarouselItem';
 import { CardCarousel } from '../components/CardCarousel';
+import { SponsoredHomeSpotlight } from '../components/business/SponsoredHomeSpotlight';
+import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
+import { computeTasteMatch } from '../utils/tasteMatch';
+import { WeeklyDuelBanner } from '../components/WeeklyDuelBanner';
 import { MapView } from '../components/MapView';
 import { UserAvatar } from '../components/UserAvatar';
 import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, Flame, TrendingUp, Gem, HeartHandshake, Rows3 } from 'lucide-react';
@@ -849,117 +853,55 @@ export const HomePage: React.FC = () => {
 
     }, [botUserIds, reviewsInRange, topUsers, range]);
 
+    // Match de sabor: solo usuarios con lugares valorados en común contigo.
+    // Sin coincidencias reales no hay porcentaje (computeTasteMatch → null),
+    // así que alguien muy activo pero sin sitios compartidos ya no aparece.
     const affinityUsers = useMemo(() => {
-        const listById = new Map(lists.map((list: any) => [list.id, list]));
         const userById = new Map(topUsers.map((topUser: any) => [topUser.uid, topUser]));
         const getReviewUserId = (review: any) => review.userId || review.authorId || '';
-        const getReviewCategory = (review: any) => {
-            const list = review.listId ? listById.get(review.listId) : null;
-            return String(
-                review.listCategoryId ||
-                review.listCategoryName ||
-                review.listCategory ||
-                review.categoryId ||
-                review.category ||
-                list?.categoryId ||
-                list?.categoryName ||
-                ''
-            ).trim().toLowerCase();
-        };
 
         const ownTasteSource = ownTasteReviews.length > 0
             ? ownTasteReviews
             : reviewsInRange.filter((review: any) => getReviewUserId(review) === user?.uid);
+        if (ownTasteSource.length === 0) return [];
 
-        const ownFavorites = ownTasteSource.filter((review: any) => toSafeNumber(review.overallRating) >= FAVORITE_REVIEW_MIN_RATING);
-        const tasteSource = ownFavorites.length > 0 ? ownFavorites : ownTasteSource;
-        const ownListIds = new Set(tasteSource.map((review: any) => review.listId).filter(Boolean));
-        const ownPlaceIds = new Set(tasteSource.map((review: any) => review.placeId).filter(Boolean));
-        const ownCategories = new Set(tasteSource.map(getReviewCategory).filter(Boolean));
-        const ownPlaceRatings = new Map<string, number>();
-        tasteSource.forEach((review: any) => {
-            if (review.placeId) ownPlaceRatings.set(review.placeId, toSafeNumber(review.overallRating));
-        });
-
-        const hasTasteProfile = ownListIds.size > 0 || ownPlaceIds.size > 0 || ownCategories.size > 0;
-        const stats = new Map<string, {
-            user: any;
-            reviewCount: number;
-            sharedLists: Set<string>;
-            sharedPlaces: Set<string>;
-            sharedCategories: Set<string>;
-            similarRatings: number;
-            scoreTotal: number;
-        }>();
-
+        const reviewsByUser = new Map<string, { meta: any; reviews: any[] }>();
         reviewsInRange.forEach((review: any) => {
             const uid = getReviewUserId(review);
             if (!uid || uid === user?.uid || botUserIds.has(uid)) return;
-
-            const meta = userById.get(uid) || {
-                uid,
-                displayName: review.authorName || 'Usuario',
-                photoUrl: review.authorPhoto,
-                username: 'user',
-                followersCount: 0,
-                reviewsCount: 0,
-            };
-            if (!stats.has(uid)) {
-                stats.set(uid, {
-                    user: meta,
-                    reviewCount: 0,
-                    sharedLists: new Set(),
-                    sharedPlaces: new Set(),
-                    sharedCategories: new Set(),
-                    similarRatings: 0,
-                    scoreTotal: 0,
+            if (!reviewsByUser.has(uid)) {
+                reviewsByUser.set(uid, {
+                    meta: userById.get(uid) || {
+                        uid,
+                        displayName: review.authorName || 'Usuario',
+                        photoUrl: review.authorPhoto,
+                        username: 'user',
+                        followersCount: 0,
+                        reviewsCount: 0,
+                    },
+                    reviews: [],
                 });
             }
-
-            const entry = stats.get(uid)!;
-            entry.reviewCount += 1;
-            if (!entry.user.photoUrl && review.authorPhoto) entry.user.photoUrl = review.authorPhoto;
-
-            const category = getReviewCategory(review);
-            const rating = toSafeNumber(review.overallRating);
-            if (review.listId && ownListIds.has(review.listId)) entry.sharedLists.add(review.listId);
-            if (review.placeId && ownPlaceIds.has(review.placeId)) entry.sharedPlaces.add(review.placeId);
-            if (category && ownCategories.has(category)) entry.sharedCategories.add(category);
-            if (review.placeId && ownPlaceRatings.has(review.placeId)) {
-                const diff = Math.abs(rating - (ownPlaceRatings.get(review.placeId) || 0));
-                if (diff <= 1.5) entry.similarRatings += 1;
-            }
+            const entry = reviewsByUser.get(uid)!;
+            entry.reviews.push(review);
+            if (!entry.meta.photoUrl && review.authorPhoto) entry.meta.photoUrl = review.authorPhoto;
         });
 
-        return Array.from(stats.values())
-            .map(entry => {
-                const followers = toSafeNumber(entry.user.followersCount);
-                const score = hasTasteProfile
-                    ? entry.sharedLists.size * 28 +
-                    entry.sharedPlaces.size * 22 +
-                    entry.sharedCategories.size * 12 +
-                    entry.similarRatings * 16 +
-                    Math.log1p(entry.reviewCount) * 8 +
-                    Math.log1p(followers) * 3
-                    : entry.reviewCount * 8 + Math.log1p(followers) * 5;
-                const reasons = [
-                    entry.sharedLists.size > 0 ? `${entry.sharedLists.size} lista${entry.sharedLists.size === 1 ? '' : 's'} en común` : '',
-                    entry.sharedCategories.size > 0 ? `${entry.sharedCategories.size} categoría${entry.sharedCategories.size === 1 ? '' : 's'} compartida${entry.sharedCategories.size === 1 ? '' : 's'}` : '',
-                    entry.sharedPlaces.size > 0 ? `${entry.sharedPlaces.size} sitio${entry.sharedPlaces.size === 1 ? '' : 's'} favorito${entry.sharedPlaces.size === 1 ? '' : 's'}` : '',
-                    entry.similarRatings > 0 ? 'notas parecidas' : '',
-                ].filter(Boolean);
-
+        return Array.from(reviewsByUser.values())
+            .map((entry) => {
+                const match = computeTasteMatch(ownTasteSource, entry.reviews);
+                if (!match) return null;
                 return {
-                    ...entry.user,
-                    affinityScore: clampScore(score),
-                    affinityReason: reasons.length > 0 ? reasons.slice(0, 2).join(' · ') : `${entry.reviewCount} reseña${entry.reviewCount === 1 ? '' : 's'} en tu zona`,
-                    reviewsInRangeCount: entry.reviewCount,
+                    ...entry.meta,
+                    affinityScore: match.score,
+                    affinityReason: match.reason,
+                    reviewsInRangeCount: entry.reviews.length,
                 };
             })
-            .filter((candidate: any) => candidate.affinityScore > 0)
+            .filter((candidate): candidate is NonNullable<typeof candidate> => candidate !== null)
             .sort((a: any, b: any) => b.affinityScore - a.affinityScore)
             .slice(0, 12);
-    }, [botUserIds, lists, ownTasteReviews, reviewsInRange, topUsers, user?.uid]);
+    }, [botUserIds, ownTasteReviews, reviewsInRange, topUsers, user?.uid]);
 
     // 7. Lists with Range Stats
     const listsWithRangeStats = useMemo(() => {
@@ -1265,6 +1207,13 @@ export const HomePage: React.FC = () => {
                             </div>
                         </div>
                     )}
+
+                    {/* Duelo de la semana (flag en Developer → Otros) */}
+                    {activeTab === 'explore' && appConfig.showWeeklyDuel && <WeeklyDuelBanner />}
+
+                    {/* Destacados patrocinados (Business Pro, aprobados por admin) */}
+                    {activeTab === 'explore' && <SponsoredHomeSpotlight />}
+                    {activeTab === 'explore' && <SponsoredItemsCarousel className="mx-auto mt-6 w-full max-w-4xl" />}
 
                     {/* Filter Chips (Categories) */}
                     {activeTab === 'explore' && (

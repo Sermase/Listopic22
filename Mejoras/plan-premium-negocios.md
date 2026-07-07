@@ -20,7 +20,43 @@ Implementado además (inicio de Fase C — pestañas Pro funcionales):
 - Reglas Firestore: `businessPro` y `offers` legibles públicamente, escritura solo por Cloud Functions. **Desplegar también** `firebase deploy --only firestore:rules`.
 - UI: `components/business/BusinessProSections.tsx` sustituye a los prototipos con formularios reales y botones de guardar; eliminado el chip "Modo pruebas".
 - **Visualización pública en `PlacePage` (hecho)**: portada personalizada + texto destacado en el hero (con color de acento), tarjeta "Ofertas" en la barra lateral con etiqueta Patrocinado (solo ofertas activas y dentro de fechas), y en "La Carta" precio oficial, grupo, descuento, descripción y chip de "No disponible" por item. Todo capado en `usePlaceDetails` por plan activo: si el plan caduca, deja de consultarse y mostrarse.
-- Pendiente de Fase C: subida de imagen de portada a Storage, limpieza automática de ofertas caducadas, merges de items con aprobación admin y estadísticas.
+**Fase C ampliada (gestión de carta, propuestas, patrocinios y estadísticas) — hecho:**
+
+- **Añadir elementos a la carta** (`createBusinessItem`): el negocio crea platos oficiales sin reseñas (`source: 'business'`); el rebuild de items canónicos no los desactiva.
+- **Reseñas por elemento en la gestión**: la pestaña "Elementos y carta" muestra las reseñas asignadas a cada elemento (mismo agrupado que el backend: `canonicalItemId` o slug del nombre).
+- **Propuestas con aprobación admin** (`itemProposals` + `submitItemProposal`/`reviewItemProposal`):
+  - *Fusión* de elementos duplicados por erratas (ej. "reggina rosa" / "regina rossa"): al aprobar, se escribe `canonicalItemId` en las reseñas del origen, el item origen queda `inactive` con `mergedInto`, y se reconstruyen items. Los nombres escritos por los usuarios nunca se tocan.
+  - *Renombre* del nombre canónico.
+  - *Mover una reseña concreta* a otro elemento.
+  - El negocio ve el estado de sus propuestas y recibe notificación al resolverse.
+- **Campañas patrocinadas** (`sponsoredPlacements` + `requestSponsoredPlacement`/`reviewSponsoredPlacement`): el negocio solicita destacado en home o búsquedas con fechas y mensaje; el admin activa/rechaza/finaliza; los destacados activos de tipo home se muestran en la HomePage (`SponsoredHomeSpotlight`) con etiqueta "Patrocinado" y sin tocar rankings.
+- **Pestaña Estadísticas** en la gestión del negocio: reseñas totales, nota media, reseñas y nota por mes (últimos 6 meses) y elementos más reseñados. Calculado en cliente desde las reseñas del lugar.
+- **Developer → "Propuestas Pro"** (`ProProposalsTab`): revisión de propuestas de carta (aprobar aplica y reconstruye) y de campañas patrocinadas, con notas que llegan al negocio.
+- Reglas nuevas: `itemProposals` (lee jefe o el autor), `sponsoredPlacements` (lectura pública, escritura solo CF).
+
+**Modelo "Impulsos" (revisión del pricing) + marcado visual de patrocinados — hecho:**
+
+- Las unidades de patrocinio se llaman **impulsos**. Se cobra por **tiempo y radio**, barato a propósito: precio por impulso = €/km·semana × radio × semanas (defecto **0,40 €/km·semana** ≈ 0,20 € por semana y medio km → 5 km × 1 semana = 2 €/impulso). La visibilidad extra se compra con más impulsos (más papeletas en el sorteo), no con tarifas más caras.
+- Fórmula editable en Developer → Propuestas Pro: €/km·semana, radio mín/máx, impulsos máx., semanas máx. (`config/sponsoredPricing`).
+- El **reloj de la campaña arranca al activarla el admin** (startsAt/endsAt = activación + semanas contratadas) y el scheduled diario finaliza automáticamente las campañas (impulsos y emplazamientos) vencidas.
+- **Chincheta dorada con "P"** en todos los mapas (`createSponsoredMarkerIcon` + `getSponsoredPlaceIds` con cache de 5 min, integrado en `MapView`, que usan Home, listas, búsqueda, archivo y perfil): mismo lollipop con la nota comunitaria, borde dorado e insignia P pequeña.
+- Cartelito **"Patrocinado" en cada tarjeta** del carrusel de platos (además de la etiqueta de cabecera) y en los destacados de la home.
+
+**Platos destacados por radio + carta por secciones — hecho:**
+
+- **Platos destacados con sorteo ponderado** (`sponsoredItemSpotlights`): el negocio compra *unidades* para destacar un plato en un radio de X km. Precio por unidad = base + extra × (km − radio base); la fórmula (`config/sponsoredPricing`: precio base, radio base, €/km extra, radio máx., unidades máx.) se edita en Developer → Propuestas Pro. El backend calcula y congela el precio en cada solicitud; el admin activa/rechaza/finaliza. En el carrusel (`SponsoredItemsCarousel`, montado en Home y en cada lista con filtro por `linkedListIds`), los candidatos son campañas activas cuyo radio cubre la posición real del usuario, y se sortean con peso = unidades (2 unidades → doble probabilidad), sin reemplazo. Sin ubicación del usuario no se muestra nada (se paga por proximidad real).
+- **Carta por secciones personalizadas**: editor en la pestaña Elementos (crear/ordenar/borrar secciones, guardadas en `businessPro/menu` vía `updateBusinessMenuSections`); cada item se asigna a sección desde su ficha. La ficha añade **alérgenos** (los 14 UE, chips con emoji, validados en backend).
+- **Carta pública bonita**: en `PlacePage`, si el local es Pro y tiene secciones, "La Carta" se muestra agrupada por secciones (con el color de acento del negocio), con foto, descripción, precio, descuento, alérgenos, chip de no disponible y la **nota de la comunidad** por plato. Sin secciones o sin Pro, se mantiene la lista clásica.
+
+Pendiente de Fase C: subida de imagen de portada a Storage, limpieza automática de ofertas caducadas, destacado en búsquedas (la solicitud existe; falta pintarlo en SearchPage), contadores de visitas al perfil del lugar, y cobro real de las unidades de patrocinio vía Stripe (ahora el precio queda registrado en la solicitud y la activación es manual).
+
+**Cruce carta comunitaria ↔ oficial y correcciones permanentes (fixes):**
+
+- `rebuildPlaceItemsForManager`: los gestores (sin necesidad de Pro) pueden reconstruir los items canónicos de su lugar; la pestaña Elementos lo hace sola una vez si detecta reseñas huérfanas (lugares con reseñas anteriores al sistema de items). Con esto los platos de la comunidad aparecen en la gestión Pro.
+- La carta pública por secciones ya no exige tener secciones definidas, e incluye también los platos comunitarios sin documento de item — los elementos Pro y los de usuarios se cruzan siempre.
+- **Las correcciones aprobadas son permanentes aunque se retire el plan** (son datos comunitarios, "oro"): la página del lugar agrupa ahora por `canonicalItemId`/`canonicalItemName` en vez de por el texto escrito, así las fusiones y renombres se reflejan con o sin suscripción. Lo único que se oculta al perder el plan sigue siendo el contenido comercial (precios, secciones, alérgenos, portada, ofertas).
+- `businessMenuUpdatedAt` en el lugar: la carta pública muestra "Actualizada el {fecha}"; se sella al guardar fichas, secciones o crear elementos.
+- Vista previa de la carta ("así se verá en tu página") dentro de la pestaña Elementos.
 
 **Regla de expiración de contenido Pro (invariante del producto):** al cancelar
 o caducar el plan, los datos Pro NUNCA se borran — solo dejan de mostrarse.

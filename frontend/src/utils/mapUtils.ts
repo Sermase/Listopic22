@@ -116,6 +116,65 @@ export const createRatingMarkerIcon = (score: number): L.DivIcon => {
 export const createLegacyMarkerIcon = createRatingMarkerIcon;
 
 /**
+ * Variante patrocinada del marcador: mismo lollipop con borde dorado y una
+ * "P" pequeña arriba a la derecha. Discreta pero reconocible — la nota sigue
+ * siendo la comunitaria, solo cambia el marco.
+ */
+export const createSponsoredMarkerIcon = (score: number): L.DivIcon => {
+    const s = isNaN(score) ? 0 : score;
+    const { bg } = getRatingColor(s);
+    const gold = '#f59e0b';
+    const scoreText = s === 0 ? '?' : (s % 1 === 0 ? s.toFixed(0) : s.toFixed(1));
+
+    const r = 14;
+    const cx = 15;
+    const cy = 15;
+    const stemTop = cy + r + 1;
+    const stemBot = stemTop + 13;
+    const dotCy = stemBot + 2.5;
+    const totalW = 34;
+    const totalH = Math.ceil(dotCy + 3);
+    const fontSize = scoreText.length >= 3 ? 10 : 12;
+    const filterId = `smp-${scoreText.replace('.', '')}`;
+
+    const svgHtml = `
+<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" overflow="visible">
+  <defs>
+    <filter id="${filterId}" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="${gold}" flood-opacity="0.45"/>
+      <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="rgba(0,0,0,0.18)" flood-opacity="1"/>
+    </filter>
+  </defs>
+  <line x1="${cx}" y1="${stemTop}" x2="${cx}" y2="${stemBot}"
+        stroke="${gold}" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
+  <circle cx="${cx}" cy="${dotCy}" r="2.5" fill="${gold}" opacity="0.9"/>
+  <!-- Círculo con borde dorado -->
+  <circle cx="${cx}" cy="${cy}" r="${r}" fill="white" stroke="${gold}"
+          stroke-width="3" filter="url(#${filterId})"/>
+  <text x="${cx}" y="${cy + 1}"
+        dominant-baseline="middle" text-anchor="middle"
+        font-family="'Poppins','Inter',system-ui,sans-serif"
+        font-size="${fontSize}" font-weight="800" fill="${bg}">
+    ${scoreText}
+  </text>
+  <!-- Insignia "P" de patrocinado -->
+  <circle cx="${cx + r - 2}" cy="${cy - r + 2}" r="6" fill="${gold}" stroke="white" stroke-width="1.5"/>
+  <text x="${cx + r - 2}" y="${cy - r + 2.8}"
+        dominant-baseline="middle" text-anchor="middle"
+        font-family="'Poppins','Inter',system-ui,sans-serif"
+        font-size="7.5" font-weight="900" fill="white">P</text>
+</svg>`;
+
+    return L.divIcon({
+        html: svgHtml,
+        className: 'rating-marker rating-marker-sponsored',
+        iconSize: [totalW, totalH],
+        iconAnchor: [cx, totalH],
+        popupAnchor: [0, -(totalH + 4)]
+    });
+};
+
+/**
  * Marcador personalizado para colecciones que usa un emoji y un color.
  */
 export const createEmojiMarkerIcon = (emoji: string, color: string): L.DivIcon => {

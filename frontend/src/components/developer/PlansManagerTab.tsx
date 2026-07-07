@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
-import { Building2, CalendarClock, Crown, ExternalLink, Loader2, RefreshCw, Search, Sparkles, User, X } from 'lucide-react';
+import { Building2, CalendarClock, Crown, ExternalLink, Loader2, RefreshCw, Search, Sparkles, User, X, Zap } from 'lucide-react';
 import { db } from '../../firebase';
 import { adminSetBusinessPlan, adminSetUserPlan } from '../../services/PlanAdminService';
+import { adminGrantSpotlightCredits } from '../../services/BusinessProService';
 import { formatPlanExpiry, getBusinessPlanFromPlace, PLAN_SOURCE_LABELS, type BusinessPlan } from '../../utils/businessPlan';
 
 interface PlanPlace {
@@ -13,6 +14,7 @@ interface PlanPlace {
     userPhotoUrl?: string;
     businessVerified?: boolean;
     plan: BusinessPlan;
+    spotlightCredits: number;
 }
 
 interface PlanUser {
@@ -55,6 +57,9 @@ const mapPlace = (id: string, data: Record<string, unknown>): PlanPlace => ({
     userPhotoUrl: asString(data.userPhotoUrl),
     businessVerified: data.businessVerified === true,
     plan: getBusinessPlanFromPlace(data),
+    spotlightCredits: typeof data.spotlightCredits === 'number' && data.spotlightCredits > 0
+        ? Math.floor(data.spotlightCredits)
+        : 0,
 });
 
 const mapUser = (id: string, data: Record<string, unknown>): PlanUser => {
@@ -104,6 +109,7 @@ export const PlansManagerTab: React.FC = () => {
     const [duration, setDuration] = useState<Duration>('indefinite');
     const [customDate, setCustomDate] = useState('');
     const [notes, setNotes] = useState('');
+    const [creditsToGrant, setCreditsToGrant] = useState(5);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const [userSearch, setUserSearch] = useState('');
@@ -281,6 +287,27 @@ export const PlansManagerTab: React.FC = () => {
         }
     };
 
+    const grantCredits = async (place: PlanPlace) => {
+        if (!Number.isInteger(creditsToGrant) || creditsToGrant === 0) {
+            setMessage({ type: 'error', text: 'Indica cuántos impulsos regalar (negativo para retirar).' });
+            return;
+        }
+        setUpdatingId(place.id);
+        setMessage(null);
+        try {
+            const result = await adminGrantSpotlightCredits(place.id, creditsToGrant, notes.trim() || undefined);
+            setPlaces((prev) => prev.map((row) => row.id === place.id
+                ? { ...row, spotlightCredits: result.balance }
+                : row));
+            setMessage({ type: 'success', text: `${place.name || place.id} tiene ahora ${result.balance} impulso${result.balance === 1 ? '' : 's'} de regalo.` });
+        } catch (error) {
+            console.error('PlansManagerTab: grant credits failed', error);
+            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudieron regalar los impulsos.') });
+        } finally {
+            setUpdatingId(null);
+        }
+    };
+
     const isStripeManaged = (plan: BusinessPlan) =>
         plan.source === 'stripe' && ['active', 'trialing', 'past_due'].includes(plan.billingStatus || '');
 
@@ -333,13 +360,24 @@ export const PlansManagerTab: React.FC = () => {
                             />
                         </label>
                     )}
-                    <label className={`block ${duration === 'custom' ? '' : 'lg:col-span-2'}`}>
+                    <label className="block">
                         <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-500">Notas (motivo)</span>
                         <input
                             value={notes}
                             onChange={(event) => setNotes(event.target.value)}
                             className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
                             placeholder="Prueba interna, cortesía, prensa..."
+                        />
+                    </label>
+                    <label className="block">
+                        <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-500">Impulsos a regalar</span>
+                        <input
+                            type="number"
+                            min={-500}
+                            max={500}
+                            value={creditsToGrant}
+                            onChange={(event) => setCreditsToGrant(Number(event.target.value) || 0)}
+                            className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
                         />
                     </label>
                 </div>
@@ -468,6 +506,12 @@ export const PlansManagerTab: React.FC = () => {
                                         <div className="flex flex-wrap items-center gap-2">
                                             <span className="truncate font-bold text-white">{place.name || 'Negocio'}</span>
                                             <PlanChip plan={place.plan} />
+                                            {place.spotlightCredits > 0 && (
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/25 bg-yellow-500/10 px-2.5 py-1 text-[10px] font-bold uppercase text-yellow-200">
+                                                    <Zap className="h-3 w-3" />
+                                                    {place.spotlightCredits} impulso{place.spotlightCredits === 1 ? '' : 's'}
+                                                </span>
+                                            )}
                                             {stripeManaged && (
                                                 <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1 text-[10px] font-bold uppercase text-cyan-200">
                                                     <CalendarClock className="h-3 w-3" />
@@ -488,6 +532,16 @@ export const PlansManagerTab: React.FC = () => {
                                             <ExternalLink className="h-3.5 w-3.5" />
                                             Lugar
                                         </a>
+                                        <button
+                                            type="button"
+                                            onClick={() => grantCredits(place)}
+                                            disabled={updatingId === place.id}
+                                            title="Regala los impulsos indicados arriba (negativo para retirar)"
+                                            className="inline-flex items-center gap-1.5 rounded-lg border border-yellow-500/25 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-200 disabled:opacity-50"
+                                        >
+                                            <Zap className="h-3.5 w-3.5" />
+                                            Regalar impulsos
+                                        </button>
                                         {place.plan.isPro ? (
                                             <button
                                                 type="button"

@@ -4,6 +4,8 @@ import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
 import { useAuth } from "../context/AuthContext";
 import { useTheme, type ThemeId } from "../context/ThemeContext";
 import { useUserProfile, type UserProfileEntity } from "../hooks/useUserProfile";
+import { computeTasteMatch } from "../utils/tasteMatch";
+import { TastePassport } from "../components/profile/TastePassport";
 import { useLists } from "../hooks/useLists";
 import { useReviews } from "../hooks/useReviews";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
@@ -1440,69 +1442,23 @@ export const ProfilePage: React.FC = () => {
     return "#";
   }, [favoriteReview]);
 
+  // Match de sabor: solo hay porcentaje si ambos habéis valorado los mismos
+  // lugares (computeTasteMatch devuelve null sin coincidencias reales).
   const affinitySummary = useMemo(() => {
     if (!appConfig.showProfileAffinity || isOwnProfile || ownAffinityReviews.length === 0 || localReviews.length === 0) {
       return null;
     }
 
-    const normalizeCategory = (review: any) => String(
-      review.listCategoryId ||
-      review.listCategoryName ||
-      review.listCategory ||
-      review.categoryId ||
-      review.category ||
-      ""
-    ).trim().toLowerCase();
-
-    const ownFavorites = ownAffinityReviews.filter((review: any) => Number(review.overallRating || 0) >= 7.5);
-    const ownTaste = ownFavorites.length > 0 ? ownFavorites : ownAffinityReviews;
-    const ownListIds = new Set(ownTaste.map((review: any) => review.listId).filter(Boolean));
-    const ownPlaceIds = new Set(ownTaste.map((review: any) => review.placeId).filter(Boolean));
-    const ownCategories = new Set(ownTaste.map(normalizeCategory).filter(Boolean));
-    const ownPlaceRatings = new Map<string, number>();
-    ownTaste.forEach((review: any) => {
-      if (review.placeId) ownPlaceRatings.set(review.placeId, Number(review.overallRating || 0));
-    });
-
-    const sharedLists = new Set<string>();
-    const sharedPlaces = new Set<string>();
-    const sharedCategories = new Set<string>();
-    let similarRatings = 0;
-
-    localReviews.forEach((review: any) => {
-      const category = normalizeCategory(review);
-      if (review.listId && ownListIds.has(review.listId)) sharedLists.add(review.listId);
-      if (review.placeId && ownPlaceIds.has(review.placeId)) sharedPlaces.add(review.placeId);
-      if (category && ownCategories.has(category)) sharedCategories.add(category);
-      if (review.placeId && ownPlaceRatings.has(review.placeId)) {
-        const diff = Math.abs(Number(review.overallRating || 0) - (ownPlaceRatings.get(review.placeId) || 0));
-        if (diff <= 1.5) similarRatings += 1;
-      }
-    });
-
-    const score = Math.min(100, Math.round(
-      sharedLists.size * 28 +
-      sharedPlaces.size * 22 +
-      sharedCategories.size * 12 +
-      similarRatings * 16 +
-      Math.log1p(localReviews.length) * 5
-    ));
-    if (score <= 0) return null;
-
-    const reasons = [
-      sharedLists.size > 0 ? `${sharedLists.size} lista${sharedLists.size === 1 ? "" : "s"} en comun` : "",
-      sharedCategories.size > 0 ? `${sharedCategories.size} categoria${sharedCategories.size === 1 ? "" : "s"} compartida${sharedCategories.size === 1 ? "" : "s"}` : "",
-      sharedPlaces.size > 0 ? `${sharedPlaces.size} sitio${sharedPlaces.size === 1 ? "" : "s"} favorito${sharedPlaces.size === 1 ? "" : "s"}` : "",
-      similarRatings > 0 ? "notas parecidas" : "",
-    ].filter(Boolean);
+    const match = computeTasteMatch(ownAffinityReviews, localReviews);
+    if (!match) return null;
 
     return {
-      score,
-      reason: reasons.length > 0 ? reasons.slice(0, 2).join(" · ") : "gustos cercanos",
-      sharedListsCount: sharedLists.size,
-      sharedPlacesCount: sharedPlaces.size,
-      sharedCategoriesCount: sharedCategories.size,
-      similarRatings,
+      score: match.score,
+      reason: match.reason,
+      sharedListsCount: 0,
+      sharedPlacesCount: match.sharedPlaces,
+      sharedCategoriesCount: 0,
+      similarRatings: match.sharedItems,
     };
   }, [appConfig.showProfileAffinity, isOwnProfile, localReviews, ownAffinityReviews]);
 
@@ -3232,6 +3188,9 @@ export const ProfilePage: React.FC = () => {
               <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-[var(--lt-bg)] flex flex-col">
                 {detailsModalTab === "stats" && (
                   <>
+                    {appConfig.showTastePassport && isOwnProfile && (
+                      <TastePassport reviews={localReviews} />
+                    )}
                     {appConfig.showProfileAffinity && !isOwnProfile && affinitySummary && (
                       <div className="lt-affinity-card mb-4 rounded-2xl border border-pink-300/20 bg-gradient-to-r from-pink-500/10 via-fuchsia-500/10 to-indigo-500/10 p-4">
                         <div className="flex items-center justify-between gap-4">
@@ -3248,10 +3207,8 @@ export const ProfilePage: React.FC = () => {
                           </div>
                         </div>
                         <div className="lt-affinity-meta mt-3 grid grid-cols-2 gap-2 text-[11px] font-semibold text-gray-300 sm:grid-cols-4">
-                          <div className="lt-affinity-chip rounded-xl bg-black/20 px-3 py-2">{affinitySummary.sharedListsCount} listas</div>
-                          <div className="lt-affinity-chip rounded-xl bg-black/20 px-3 py-2">{affinitySummary.sharedCategoriesCount} categorias</div>
-                          <div className="lt-affinity-chip rounded-xl bg-black/20 px-3 py-2">{affinitySummary.sharedPlacesCount} sitios</div>
-                          <div className="lt-affinity-chip rounded-xl bg-black/20 px-3 py-2">{affinitySummary.similarRatings} notas</div>
+                          <div className="lt-affinity-chip rounded-xl bg-black/20 px-3 py-2">{affinitySummary.sharedPlacesCount} sitio{affinitySummary.sharedPlacesCount === 1 ? '' : 's'} en común</div>
+                          <div className="lt-affinity-chip rounded-xl bg-black/20 px-3 py-2">{affinitySummary.similarRatings} plato{affinitySummary.similarRatings === 1 ? '' : 's'} compartido{affinitySummary.similarRatings === 1 ? '' : 's'}</div>
                         </div>
                       </div>
                     )}

@@ -24,6 +24,9 @@ module.exports = {
     ...require('./modules/business-claims'),
     ...require('./modules/stripe-business'),
     ...require('./modules/business-pro'),
+    ...require('./modules/business-items'),
+    ...require('./modules/sponsored'),
+    ...require('./modules/ssr-meta'),
     ...require('./modules/canonical-items'),
     ...require('./modules/reviews-consolidation'),
     ...require('./modules/media'),
@@ -32,5 +35,6 @@ module.exports = {
     ...require('./modules/admin/admin-misc'),
     ...require('./modules/admin/admin-lists'),
     ...require('./modules/admin/admin-plans'),
+    ...require('./modules/admin/admin-backup'),
 };
 // Force redeploy

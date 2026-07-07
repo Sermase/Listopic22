@@ -5,6 +5,7 @@ import {
     Accessibility,
     ArrowLeft,
     Baby,
+    BarChart3,
     Banknote,
     Building2,
     Check,
@@ -48,6 +49,7 @@ import {
 import {
     BusinessItemsSection,
     BusinessSponsoredSection,
+    BusinessStatsSection,
     BusinessVisualSection,
 } from '../components/business/BusinessProSections';
 import type {
@@ -81,7 +83,7 @@ type PlaceHeader = {
 };
 
 type Message = { type: 'success' | 'error'; text: string } | null;
-type BusinessManageTab = 'general' | 'visual' | 'items' | 'sponsored';
+type BusinessManageTab = 'general' | 'visual' | 'items' | 'sponsored' | 'stats';
 
 const weekdays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const emptySections: Record<BusinessInfoSection, BusinessInfoDocument> = {
@@ -337,6 +339,7 @@ export const BusinessManagePage: React.FC = () => {
         { id: 'visual', label: 'Imagen', icon: ImageIcon, pro: true },
         { id: 'items', label: 'Elementos y carta', icon: Tags, pro: true },
         { id: 'sponsored', label: 'Patrocinado', icon: Megaphone, pro: true },
+        { id: 'stats', label: 'Estadísticas', icon: BarChart3, pro: true },
     ] as const), []);
 
     const navItems = useMemo(() => ([
@@ -574,6 +577,11 @@ export const BusinessManagePage: React.FC = () => {
                         {activeBusinessTab === 'sponsored' && (
                             <RequireBusinessPro placeId={placeId} plan={plan}>
                                 <BusinessSponsoredSection placeId={placeId} />
+                            </RequireBusinessPro>
+                        )}
+                        {activeBusinessTab === 'stats' && (
+                            <RequireBusinessPro placeId={placeId} plan={plan}>
+                                <BusinessStatsSection placeId={placeId} />
                             </RequireBusinessPro>
                         )}
                     </div>

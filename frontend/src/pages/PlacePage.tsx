@@ -26,6 +26,7 @@ import { BusinessClaimModal } from '../components/BusinessClaimModal';
 import type { BusinessClaim } from '../services/BusinessClaimService';
 import { CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_LABELS, PET_POLICY_LABELS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { allergenLabel, itemDocIdFromName } from '../services/BusinessProService';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
@@ -346,32 +347,99 @@ export const PlacePage: React.FC = () => {
     const dishes = useMemo(() => {
         if (!place?.reviews) return [];
 
-        const dishMap: Record<string, { total: number; count: number; name: string; photos: string[]; listId?: string }> = {};
+        // Agrupado por elemento canónico (canonicalItemId o slug del nombre),
+        // igual que el backend: así las fusiones y correcciones aprobadas
+        // ("reggina rosa" → "regina rossa") se reflejan SIEMPRE, con o sin plan
+        // Pro activo — las correcciones son datos comunitarios permanentes.
+        const dishMap: Record<string, {
+            total: number; count: number; photos: string[]; listId?: string;
+            canonicalName?: string; nameCounts: Record<string, number>;
+        }> = {};
 
         place.reviews.forEach(r => {
             if (!r.itemName) return;
+            const review = r as typeof r & { canonicalItemId?: string; canonicalItemName?: string };
             const name = r.itemName.trim();
-            const key = name.toLowerCase();
+            const key = (typeof review.canonicalItemId === 'string' && review.canonicalItemId)
+                ? review.canonicalItemId.replace(/\//g, '-')
+                : itemDocIdFromName(name);
 
             if (!dishMap[key]) {
-                dishMap[key] = { total: 0, count: 0, name: name, photos: [], listId: r.listId };
+                dishMap[key] = { total: 0, count: 0, photos: [], listId: r.listId, nameCounts: {} };
             }
-            dishMap[key].total += r.overallRating;
-            dishMap[key].count += 1;
-            if (r.photoUrl) dishMap[key].photos.push(r.photoUrl);
-            // Update listId fallback if missing
-            if (!dishMap[key].listId && r.listId) dishMap[key].listId = r.listId;
+            const dish = dishMap[key];
+            dish.total += r.overallRating;
+            dish.count += 1;
+            dish.nameCounts[name] = (dish.nameCounts[name] || 0) + 1;
+            if (typeof review.canonicalItemName === 'string' && review.canonicalItemName) {
+                dish.canonicalName = review.canonicalItemName;
+            }
+            if (r.photoUrl) dish.photos.push(r.photoUrl);
+            if (!dish.listId && r.listId) dish.listId = r.listId;
         });
 
-        return Object.values(dishMap).map(d => ({
-            name: d.name,
-            avg: d.total / d.count,
-            count: d.count,
-            photo: d.photos[0],
-            listId: d.listId
-        })).sort((a, b) => b.avg - a.avg);
+        return Object.values(dishMap).map(d => {
+            const mostFrequentName = Object.entries(d.nameCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
+            return {
+                name: d.canonicalName || mostFrequentName,
+                avg: d.total / d.count,
+                count: d.count,
+                photo: d.photos[0],
+                listId: d.listId,
+            };
+        }).sort((a, b) => b.avg - a.avg);
     }, [place?.reviews]);
 
+
+    // Carta por secciones (Business Pro): items oficiales agrupados por las
+    // secciones definidas por el negocio, con foto y nota de la comunidad.
+    const sectionedMenu = useMemo(() => {
+        if (!place?.hasBusinessPro) return null;
+        const officialItems = place.officialItems || [];
+        const sections = place.menuSections || [];
+        if (officialItems.length === 0) return null;
+
+        const photoByKey = new Map<string, string>();
+        dishes.forEach((dish) => {
+            if (dish.photo) photoByKey.set(dish.name.trim().toLowerCase(), dish.photo);
+        });
+        const withPhoto = officialItems.map((item) => ({
+            ...item,
+            photo: item.keys.map((key) => photoByKey.get(key)).find(Boolean),
+        }));
+
+        const byName = (a: { rating: number | null; name: string }, b: { rating: number | null; name: string }) =>
+            (b.rating ?? -1) - (a.rating ?? -1) || a.name.localeCompare(b.name, 'es');
+
+        const groups = sections.map((sectionName) => ({
+            name: sectionName,
+            items: withPhoto.filter((item) => item.group === sectionName).sort(byName),
+        })).filter((group) => group.items.length > 0);
+
+        const others = withPhoto.filter((item) => !item.group || !sections.includes(item.group)).sort(byName);
+
+        // Platos valorados por la comunidad que aún no tienen documento de item
+        // (reseñas antiguas sin reconstruir): también se muestran en la carta.
+        const knownKeys = new Set(withPhoto.flatMap((item) => [...item.keys, item.id]));
+        dishes.forEach((dish) => {
+            const dishKey = dish.name.trim().toLowerCase();
+            if (knownKeys.has(dishKey) || knownKeys.has(itemDocIdFromName(dish.name))) return;
+            others.push({
+                id: `dish-${dishKey}`,
+                name: dish.name,
+                allergens: [],
+                available: true,
+                rating: dish.avg,
+                reviewCount: dish.count,
+                keys: [dishKey],
+                photo: dish.photo,
+            });
+        });
+        others.sort(byName);
+        if (others.length > 0) groups.push({ name: groups.length > 0 ? 'Otros' : '', items: others });
+
+        return groups.length > 0 ? groups : null;
+    }, [place?.hasBusinessPro, place?.officialItems, place?.menuSections, dishes]);
 
     // Aggregate Photos for Gallery
     const galleryItems = useMemo<GalleryPhotoItem[]>(() => {
@@ -1635,7 +1703,108 @@ export const PlacePage: React.FC = () => {
                         </div>
                     )}
 
-                    {activeTab === 'dishes' && (
+                    {activeTab === 'dishes' && sectionedMenu && (
+                        <div className="animate-fade-in">
+                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+                                <div className="px-5 py-4 border-b border-white/10 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                    <Utensils className="w-5 h-5 text-[var(--lt-accent)]" />
+                                    <span className="font-bold text-white tracking-wide text-sm uppercase">La Carta</span>
+                                    <div className="ml-auto flex flex-col items-end">
+                                        <span className="flex items-center gap-1 text-[10px] font-bold uppercase text-emerald-300">
+                                            <Check className="w-3 h-3" />
+                                            Carta oficial del negocio
+                                        </span>
+                                        {place.menuUpdatedAtMs ? (
+                                            <span className="text-[10px] text-gray-500">
+                                                Actualizada el {new Date(place.menuUpdatedAtMs).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                </div>
+                                {sectionedMenu.map((section) => (
+                                    <div key={section.name || 'general'}>
+                                        {section.name && (
+                                            <div className="px-5 py-2.5 bg-white/[0.03] border-b border-white/5">
+                                                <h3 className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: proAccent || 'var(--lt-accent)' }}>
+                                                    {section.name}
+                                                </h3>
+                                            </div>
+                                        )}
+                                        <div className="divide-y divide-white/5">
+                                            {section.items.map((item) => {
+                                                const unavailable = item.available === false;
+                                                const scoreColor = (item.rating ?? 0) >= 8 ? 'text-emerald-400' : (item.rating ?? 0) >= 6 ? 'text-amber-400' : 'text-red-400';
+                                                const content = (
+                                                    <>
+                                                        <div className={`w-11 h-11 rounded-lg bg-gray-800 overflow-hidden shrink-0 ${unavailable ? 'opacity-40' : ''}`}>
+                                                            {item.photo ? (
+                                                                <ProgressiveImage
+                                                                    src={item.photo}
+                                                                    alt={item.name}
+                                                                    containerClassName="w-full h-full"
+                                                                    className="w-full h-full object-cover"
+                                                                    fallback={<div className="w-full h-full flex items-center justify-center"><Utensils className="w-4 h-4 text-gray-600" /></div>}
+                                                                />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center">
+                                                                    <Utensils className="w-4 h-4 text-gray-600" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className={`flex-1 min-w-0 ${unavailable ? 'opacity-50' : ''}`}>
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className="font-semibold text-white text-sm sm:text-base">{item.name}</span>
+                                                                {item.discount && (
+                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">{item.discount}</span>
+                                                                )}
+                                                                {unavailable && (
+                                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/25">No disponible</span>
+                                                                )}
+                                                            </div>
+                                                            {item.description && (
+                                                                <p className="mt-0.5 text-xs leading-snug text-gray-400 line-clamp-2">{item.description}</p>
+                                                            )}
+                                                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                                                {item.reviewCount > 0 && item.rating !== null && (
+                                                                    <span className={`text-xs font-black font-mono ${scoreColor}`}>
+                                                                        ★ {item.rating.toFixed(1)}
+                                                                        <span className="ml-1 font-normal text-gray-500">({item.reviewCount})</span>
+                                                                    </span>
+                                                                )}
+                                                                {item.allergens.map((allergen) => (
+                                                                    <span key={allergen} className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400" title={allergenLabel(allergen)}>
+                                                                        {allergenLabel(allergen)}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        {item.price && (
+                                                            <span className={`shrink-0 text-sm sm:text-base font-black text-gray-100 ${unavailable ? 'opacity-50' : ''}`}>{item.price}</span>
+                                                        )}
+                                                    </>
+                                                );
+                                                return item.reviewCount > 0 ? (
+                                                    <Link
+                                                        key={item.id}
+                                                        to={`/group/${placeId}/${encodeURIComponent(item.name)}`}
+                                                        className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 hover:bg-white/5 transition-colors"
+                                                    >
+                                                        {content}
+                                                    </Link>
+                                                ) : (
+                                                    <div key={item.id} className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3">
+                                                        {content}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'dishes' && !sectionedMenu && (
                         <div className="animate-fade-in">
                             {dishes && dishes.length > 0 ? (
                                 <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl overflow-hidden shadow-xl">

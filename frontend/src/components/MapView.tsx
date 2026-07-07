@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { createRatingMarkerIcon, createEmojiMarkerIcon, getRatingColor, MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
+import { createRatingMarkerIcon, createEmojiMarkerIcon, createSponsoredMarkerIcon, getRatingColor, MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
+import { getSponsoredPlaceIds } from '../services/BusinessProService';
 import type { MapLayerId } from '../utils/mapUtils';
 import { useLocation } from '../hooks/useLocation';
 import type { Location as UserLocation } from '../hooks/useLocation';
@@ -222,6 +223,23 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
         });
     }, [user]);
 
+    // Lugares con publicidad activa: chincheta dorada con "P" (con cache de
+    // 5 min en el servicio para no repetir lecturas por cada mapa).
+    const [sponsoredIds, setSponsoredIds] = useState<Set<string>>(new Set());
+    useEffect(() => {
+        let cancelled = false;
+        getSponsoredPlaceIds()
+            .then((ids) => {
+                if (!cancelled && ids.size > 0) setSponsoredIds(ids);
+            })
+            .catch(() => {
+                // Marcado patrocinado es best-effort: sin datos, pins normales.
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, []);
+
     const handleLayerChange = async (layerId: MapLayerId) => {
         setCurrentLayer(layerId);
         localStorage.setItem(MAP_LAYER_STORAGE_KEY, layerId);
@@ -284,11 +302,17 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                 <CustomLocateControl />
                 {showLayerControl && <LayerSelectorControl currentLayer={currentLayer} onLayerChange={handleLayerChange} />}
 
-                {validItems.map((item) => (
+                {validItems.map((item) => {
+                    const isSponsored = sponsoredIds.has(item.placeId || item.id);
+                    return (
                     <Marker
                         key={item.id}
                         position={[item.lat!, item.lng!]}
-                        icon={item.emoji || item.color ? createEmojiMarkerIcon(item.emoji || '📍', item.color || '#6366f1') : createRatingMarkerIcon(item.rating || 0)}
+                        icon={item.emoji || item.color
+                            ? createEmojiMarkerIcon(item.emoji || '📍', item.color || '#6366f1')
+                            : isSponsored
+                                ? createSponsoredMarkerIcon(item.rating || 0)
+                                : createRatingMarkerIcon(item.rating || 0)}
                     >
                         <Popup className="listopic-popup" closeButton={false} maxWidth={270} minWidth={250}>
                             {(() => {
@@ -355,7 +379,8 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                             })()}
                         </Popup>
                     </Marker>
-                ))}
+                    );
+                })}
             </MapContainer>
         </div>
     );

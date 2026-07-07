@@ -33,7 +33,23 @@ export interface PlaceOfficialItemData {
     group?: string;
     discount?: string;
     description?: string;
+    allergens?: string[];
     available?: boolean;
+}
+
+export interface PlaceOfficialMenuItem {
+    id: string;
+    name: string;
+    group?: string;
+    price?: string;
+    discount?: string;
+    description?: string;
+    allergens: string[];
+    available: boolean;
+    rating: number | null;
+    reviewCount: number;
+    /** Nombres normalizados (canónico, aliases y variantes escritas) para emparejar fotos/reseñas. */
+    keys: string[];
 }
 
 export interface PlaceDetails {
@@ -113,6 +129,10 @@ export interface PlaceDetails {
     };
     businessOffers?: PlaceBusinessOffer[];
     officialItemData?: Record<string, PlaceOfficialItemData>;
+    menuSections?: string[];
+    officialItems?: PlaceOfficialMenuItem[];
+    /** Última actualización de la carta oficial por el negocio (ms). */
+    menuUpdatedAtMs?: number | null;
 }
 
 const toMillis = (value: any): number => {
@@ -229,6 +249,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
             getDoc(doc(db, 'places', placeId, 'businessPro', 'visual')).catch(() => null),
             getDocs(collection(db, 'places', placeId, 'offers')).catch(() => null),
             getDocs(collection(db, 'places', placeId, 'items')).catch(() => null),
+            getDoc(doc(db, 'places', placeId, 'businessPro', 'menu')).catch(() => null),
         ])
         : null;
     const placePhotosSnapPromise = getDocs(
@@ -256,7 +277,17 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     const resolvedBusiness = resolvedBusinessSnap?.exists() ? resolvedBusinessSnap.data() as ResolvedBusinessInfo : undefined;
     const hiddenFields = resolvedBusiness?.hiddenFields || {};
 
-    const [visualSnap, offersSnap, itemsSnap] = businessProPromise ? await businessProPromise : [null, null, null];
+    const [visualSnap, offersSnap, itemsSnap, menuSnap] = businessProPromise ? await businessProPromise : [null, null, null, null];
+
+    const menuData = menuSnap?.exists() ? menuSnap.data() as { sections?: Array<{ name?: unknown; order?: unknown }> } : null;
+    const menuSections = (Array.isArray(menuData?.sections) ? menuData!.sections : [])
+        .map((section, index) => ({
+            name: typeof section.name === 'string' ? section.name : '',
+            order: typeof section.order === 'number' ? section.order : index,
+        }))
+        .filter((section) => section.name)
+        .sort((a, b) => a.order - b.order)
+        .map((section) => section.name);
 
     const visualData = visualSnap?.exists() ? visualSnap.data() as Record<string, unknown> : null;
     const businessProVisual = visualData ? {
@@ -289,20 +320,16 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         .filter((offer): offer is PlaceBusinessOffer => offer !== null);
 
     // Índice de fichas oficiales de items por nombre normalizado (nombre
-    // canónico, aliases y nombres de origen) para enriquecer "La Carta".
+    // canónico, aliases y nombres de origen) para enriquecer "La Carta", y
+    // listado de items oficiales para la carta por secciones.
     const officialItemData: Record<string, PlaceOfficialItemData> = {};
+    const officialItems: PlaceOfficialMenuItem[] = [];
     (itemsSnap?.docs || []).forEach(itemDoc => {
         const data = itemDoc.data() as Record<string, unknown>;
-        const businessData = data.businessData as Record<string, unknown> | undefined;
-        if (!businessData) return;
-        const entry: PlaceOfficialItemData = {
-            price: typeof businessData.price === 'string' && businessData.price ? businessData.price : undefined,
-            group: typeof businessData.group === 'string' && businessData.group ? businessData.group : undefined,
-            discount: typeof businessData.discount === 'string' && businessData.discount ? businessData.discount : undefined,
-            description: typeof businessData.description === 'string' && businessData.description ? businessData.description : undefined,
-            available: businessData.available !== false,
-        };
-        if (!entry.price && !entry.group && !entry.discount && !entry.description) return;
+        if (data.status === 'inactive') return;
+        const businessData = (data.businessData || {}) as Record<string, unknown>;
+        const stats = (data.stats || {}) as Record<string, unknown>;
+
         const keys = new Set<string>();
         if (typeof data.canonicalName === 'string') keys.add(data.canonicalName.trim().toLowerCase());
         (Array.isArray(data.aliasesNormalized) ? data.aliasesNormalized : []).forEach((alias) => {
@@ -312,6 +339,34 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
             const name = (source as { name?: unknown })?.name;
             if (typeof name === 'string') keys.add(name.trim().toLowerCase());
         });
+
+        officialItems.push({
+            id: itemDoc.id,
+            name: typeof data.canonicalName === 'string' ? data.canonicalName : itemDoc.id,
+            group: typeof businessData.group === 'string' && businessData.group ? businessData.group : undefined,
+            price: typeof businessData.price === 'string' && businessData.price ? businessData.price : undefined,
+            discount: typeof businessData.discount === 'string' && businessData.discount ? businessData.discount : undefined,
+            description: typeof businessData.description === 'string' && businessData.description ? businessData.description : undefined,
+            allergens: Array.isArray(businessData.allergens)
+                ? businessData.allergens.filter((entry): entry is string => typeof entry === 'string')
+                : [],
+            available: businessData.available !== false,
+            rating: typeof stats.averageRating === 'number' ? stats.averageRating : null,
+            reviewCount: typeof stats.reviewCount === 'number' ? stats.reviewCount : 0,
+            keys: Array.from(keys).filter(Boolean),
+        });
+
+        const entry: PlaceOfficialItemData = {
+            price: typeof businessData.price === 'string' && businessData.price ? businessData.price : undefined,
+            group: typeof businessData.group === 'string' && businessData.group ? businessData.group : undefined,
+            discount: typeof businessData.discount === 'string' && businessData.discount ? businessData.discount : undefined,
+            description: typeof businessData.description === 'string' && businessData.description ? businessData.description : undefined,
+            allergens: Array.isArray(businessData.allergens)
+                ? businessData.allergens.filter((allergen): allergen is string => typeof allergen === 'string')
+                : undefined,
+            available: businessData.available !== false,
+        };
+        if (!entry.price && !entry.group && !entry.discount && !entry.description && !entry.allergens?.length) return;
         keys.forEach((key) => {
             if (key) officialItemData[key] = entry;
         });
@@ -503,6 +558,9 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         businessProVisual,
         businessOffers,
         officialItemData,
+        menuSections,
+        officialItems,
+        menuUpdatedAtMs: toMillis(placeData?.businessMenuUpdatedAt) || null,
     };
 }
 
