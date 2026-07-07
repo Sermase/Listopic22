@@ -4,7 +4,7 @@ import { X, MessageSquare, Copy, Send, Search, Check, Share2 } from 'lucide-reac
 import { doc, getDoc } from 'firebase/firestore';
 
 import type { PlaceDetails } from '../hooks/usePlaceDetails';
-import { ShareCard, type ShareCardVariant } from './ShareCard';
+import { ShareCardModern, type ModernCardVariant } from './ShareCardModern';
 import type { ReviewEntity } from '../hooks/useListDetails';
 import { useAuth } from '../context/AuthContext';
 import { ChatService, type Chat } from '../services/ChatService';
@@ -12,7 +12,8 @@ import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 import type { ShareEntityPayload } from '../types/share';
 import { db } from '../firebase';
 import { buildCriteriaStats } from '../utils/shareCriteria';
-import { buildPublicUrl, getLocalRouteFromUrl } from '../utils/publicUrl';
+import { buildPublicUrl, buildShareRouteUrl, getLocalRouteFromUrl } from '../utils/publicUrl';
+import { buildShareText } from '../utils/shareTexts';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
 interface ShareModalProps {
@@ -64,56 +65,22 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
     const [statusTone, setStatusTone] = React.useState<'neutral' | 'success' | 'error'>('neutral');
     const [isCardStylePickerOpen, setIsCardStylePickerOpen] = React.useState(false);
-    const [selectedCardVariant, setSelectedCardVariant] = React.useState<ShareCardVariant | null>(null);
+    const [selectedCardVariant, setSelectedCardVariant] = React.useState<ModernCardVariant | null>(null);
     const closeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const cardVariantOptions: Array<{ id: ShareCardVariant; label: string; description: string; swatch: string }> = [
+    // Tarjetas v2: dos variantes dibujadas en canvas con layout determinista
+    // (sin html2canvas ni datos desencuadrados).
+    const cardVariantOptions: Array<{ id: ModernCardVariant; label: string; description: string; swatch: string }> = [
         {
             id: 'story',
             label: 'Story',
-            description: 'Imagen a pantalla completa con score grande. Ideal para Instagram Stories.',
-            swatch: 'linear-gradient(160deg, #0a0e1a 0%, #0f2040 55%, #1a3a6b 100%)',
+            description: 'Vertical 9:16 con la foto a sangre, nota gigante y criterios. Perfecta para Stories.',
+            swatch: 'linear-gradient(160deg, #0a0e1a 0%, #312e81 45%, #0e7490 100%)',
         },
         {
-            id: 'post',
+            id: 'square',
             label: 'Post',
-            description: 'Foto arriba, panel oscuro abajo con el score en tipografía dominante.',
-            swatch: 'linear-gradient(160deg, #0d1220 0%, #1a2a44 50%, #f97316 100%)',
-        },
-        {
-            id: 'editorial',
-            label: 'Editorial',
-            description: 'Foto a la izquierda, columna de criterios y score a la derecha.',
-            swatch: 'linear-gradient(160deg, #0f0f1a 0%, #2a1858 55%, #a78bfa 100%)',
-        },
-        {
-            id: 'clean',
-            label: 'Polaroid',
-            description: 'Fondo blanco, imagen centrada y datos limpios debajo.',
-            swatch: 'linear-gradient(160deg, #ffffff 0%, #f0ece4 55%, #d8d0c4 100%)',
-        },
-        {
-            id: 'neon',
-            label: 'Neon',
-            description: 'Poster vertical con foto intensa, nota luminosa y look social.',
-            swatch: 'linear-gradient(160deg, #050816 0%, #1d4ed8 48%, #ec4899 100%)',
-        },
-        {
-            id: 'signal',
-            label: 'Signal',
-            description: 'Tarjeta cuadrada limpia, moderna y muy legible para feed.',
-            swatch: 'linear-gradient(160deg, #f8fafc 0%, #dbeafe 48%, #14b8a6 100%)',
-        },
-        {
-            id: 'aura',
-            label: 'Aura',
-            description: 'Story premium con foto grande, vidrio oscuro y nota protagonista.',
-            swatch: 'radial-gradient(circle at 20% 20%, #f0abfc 0%, transparent 35%), radial-gradient(circle at 85% 35%, #67e8f9 0%, transparent 34%), #07070a',
-        },
-        {
-            id: 'metro',
-            label: 'Metro',
-            description: 'Poster grafico 4:5 con reticula editorial y mucho caracter.',
-            swatch: 'linear-gradient(135deg, #f4f1ea 0%, #f4f1ea 50%, #101014 50%, #e11d48 100%)',
+            description: 'Cuadrada 1:1 para feed y WhatsApp, con los mismos datos bien encuadrados.',
+            swatch: 'linear-gradient(135deg, #312e81 0%, #6d28d9 55%, #f59e0b 100%)',
         },
     ];
 
@@ -342,7 +309,9 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
     if (!isOpen) return null;
 
-    const shareTextForExternal = text ? `${text} ${fallbackUrl}` : fallbackUrl;
+    // URL /s/... con Open Graph real para bots + texto con gancho por entidad.
+    const externalShareUrl = buildShareRouteUrl(resolvedShareEntity.route) || fallbackUrl;
+    const shareTextForExternal = `${text || buildShareText(resolvedShareEntity)} ${externalShareUrl}`.trim();
 
     const handleShare = async (platform: 'whatsapp' | 'clipboard' | 'image' | 'chat') => {
         if (platform === 'whatsapp') {
@@ -487,10 +456,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
     const modalContent = (
         <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={handleRequestClose}>
-            <ShareCard
-                place={place}
-                review={review}
-                shareEntity={resolvedShareEntity}
+            <ShareCardModern
+                entity={resolvedShareEntity}
                 variant={selectedCardVariant || 'story'}
                 triggerRef={shareCardTriggerRef}
                 onRequestClose={handleRequestClose}

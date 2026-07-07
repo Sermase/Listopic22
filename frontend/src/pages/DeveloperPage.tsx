@@ -73,6 +73,8 @@ export const DeveloperPage: React.FC = () => {
         showProfileAffinity: true,
         homeReviewsMonths: 12,
         showLab: false,
+        showWeeklyDuel: false,
+        showTastePassport: false,
     });
     const [otherSettingsLoading, setOtherSettingsLoading] = useState(false);
     const [otherSettingsSaving, setOtherSettingsSaving] = useState(false);
@@ -632,6 +634,8 @@ export const DeveloperPage: React.FC = () => {
                 showProfileAffinity: typeof data.showProfileAffinity === 'boolean' ? data.showProfileAffinity : true,
                 homeReviewsMonths: typeof data.homeReviewsMonths === 'number' ? data.homeReviewsMonths : 12,
                 showLab: typeof data.showLab === 'boolean' ? data.showLab : false,
+                showWeeklyDuel: typeof data.showWeeklyDuel === 'boolean' ? data.showWeeklyDuel : false,
+                showTastePassport: typeof data.showTastePassport === 'boolean' ? data.showTastePassport : false,
             });
         } catch (error: any) {
             console.error('Error fetching other settings:', error);
@@ -652,6 +656,8 @@ export const DeveloperPage: React.FC = () => {
                 showProfileAffinity: otherSettings.showProfileAffinity,
                 homeReviewsMonths: otherSettings.homeReviewsMonths,
                 showLab: otherSettings.showLab,
+                showWeeklyDuel: otherSettings.showWeeklyDuel,
+                showTastePassport: otherSettings.showTastePassport,
                 updatedAt: new Date(),
             }, { merge: true });
             setOtherSettingsMessage({ type: 'success', text: 'Ajustes guardados correctamente.' });
@@ -1336,9 +1342,47 @@ export const DeveloperPage: React.FC = () => {
 
                                             <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-black/20">
                                                 <div>
-                                                    <div className="text-sm font-bold text-white">Carrusel Almas gemelas (Home)</div>
+                                                    <div className="text-sm font-bold text-white">Duelo de la semana (Home)</div>
                                                     <div className="text-xs text-gray-400">
-                                                        Muestra perfiles afines segun listas, categorias, sitios favoritos y notas parecidas.
+                                                        Banner con dos platos rivales y votación de la comunidad. Los duelos se crean en Propuestas Pro.
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOtherSettings((prev) => ({ ...prev, showWeeklyDuel: !prev.showWeeklyDuel }))}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${otherSettings.showWeeklyDuel
+                                                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                                        : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                                                        }`}
+                                                >
+                                                    {otherSettings.showWeeklyDuel ? 'ACTIVO' : 'INACTIVO'}
+                                                </button>
+                                            </div>
+
+                                            <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-black/20">
+                                                <div>
+                                                    <div className="text-sm font-bold text-white">Pasaporte de sabores (Perfil)</div>
+                                                    <div className="text-xs text-gray-400">
+                                                        Sellos por categoría según los sitios distintos reseñados. Solo en el perfil propio.
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOtherSettings((prev) => ({ ...prev, showTastePassport: !prev.showTastePassport }))}
+                                                    className={`px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${otherSettings.showTastePassport
+                                                        ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                                        : 'bg-gray-500/20 text-gray-300 border border-gray-500/30'
+                                                        }`}
+                                                >
+                                                    {otherSettings.showTastePassport ? 'ACTIVO' : 'INACTIVO'}
+                                                </button>
+                                            </div>
+
+                                            <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-black/20">
+                                                <div>
+                                                    <div className="text-sm font-bold text-white">Carrusel Match de sabor (Home)</div>
+                                                    <div className="text-xs text-gray-400">
+                                                        Muestra perfiles con sitios valorados en común y notas parecidas (sin coincidencias reales no hay porcentaje).
                                                     </div>
                                                 </div>
                                                 <button

@@ -1,6 +1,31 @@
 # Propuestas — Compartir en redes, Developer y Engagement
 
 Fecha: 2026-07-07 · Rama: `claude/premium-business-version-r18qeh`
+Estado: **la mayoría ya está implementada** (ver "IMPLEMENTADO" abajo). Quedan como propuestas de futuro los puntos marcados como pendientes.
+
+---
+
+## ✅ IMPLEMENTADO en esta tanda
+
+**Match de sabor (arreglado el bug del 39%).** Nuevo `frontend/src/utils/tasteMatch.ts` con tests: ahora **solo hay porcentaje si ambos habéis valorado los mismos lugares**. Sin sitios en común → sin match (antes contaba "categorías", seguidores y actividad, de ahí el 39% con una pizza que no probaste). La base es la similitud de notas en lo común, con confianza creciente según nº de coincidencias (1 solo sitio ≤ ~63%) y plus si coincidís en el MISMO plato. Se aplica en el carrusel de Home y en el % de los perfiles. Toggle en Developer → Otros.
+
+**Compartir en redes:**
+- **Open Graph dinámico** (`functions/modules/ssr-meta.js` + rewrite `/s/**` en `firebase.json`): al compartir un lugar/lista/plato la URL usa `/s/...`, que sirve a los bots de WhatsApp/Telegram/Twitter un HTML con título, foto y nota reales, y redirige al instante a la app para las personas. Fin del "Listopic — Comparte listas" genérico en todos los links.
+- **Textos con gancho por entidad** (`frontend/src/utils/shareTexts.ts`): reseña → "⭐ 8,7 · Tarta de queso en Casa Paca. Mi reseña en Listopic:"; lista → "📋 …, votada por la comunidad:"; etc.
+- **Tarjetas nuevas** (`frontend/src/components/ShareCardModern.tsx`): se acabaron las 8 variantes con html2canvas (1.900 líneas, datos desencuadrados). Ahora **2 variantes** (Story 9:16 y Post 1:1) dibujadas en `<canvas>` con layout determinista: foto a sangre, nota gigante en burbuja, título auto-ajustado a 2-3 líneas, barras de criterios y pie con autor + marca. Sin desencuadres.
+
+**Engagement:**
+- **Match de sabor** (arriba).
+- **Duelo de la semana** (`WeeklyDuelBanner` + colección `duels`): banner en Home con dos platos rivales y votación de la comunidad (un voto por usuario, cambiable). Se crea/finaliza en Developer → Propuestas Pro. Flag `showWeeklyDuel` en Developer → Otros.
+- **Pasaporte de sabores** (`components/profile/TastePassport.tsx`): sellos bronce/plata/oro por categoría según sitios distintos reseñados, en el perfil propio. Flag `showTastePassport` en Developer → Otros.
+
+**Backups:**
+- Manual (pestaña Developer → Backups) **y automático semanal** (`weeklyFirestoreBackup`, lunes 04:00, con retención de 8 copias).
+
+---
+
+## Estado inicial (referencia)
+
 Estado: propuestas para decidir. Los backups y los impulsos gratis ya están implementados (ver checklist al final).
 
 ---

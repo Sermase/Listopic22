@@ -26,6 +26,7 @@ module.exports = {
     ...require('./modules/business-pro'),
     ...require('./modules/business-items'),
     ...require('./modules/sponsored'),
+    ...require('./modules/ssr-meta'),
     ...require('./modules/canonical-items'),
     ...require('./modules/reviews-consolidation'),
     ...require('./modules/media'),

@@ -15,6 +15,13 @@
     ],
     "rewrites": [
       {
+        "source": "/s/**",
+        "function": {
+          "functionId": "ssrMeta",
+          "region": "europe-west1"
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

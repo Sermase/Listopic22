@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { doc, setDoc } from 'firebase/firestore';
-import { Check, Euro, ExternalLink, Inbox, Loader2, Megaphone, RefreshCw, Save, Tags, UtensilsCrossed, X } from 'lucide-react';
+import { addDoc, collection, doc, getDocs, limit, query, serverTimestamp, setDoc, where } from 'firebase/firestore';
+import { Check, Euro, ExternalLink, Inbox, Loader2, Megaphone, RefreshCw, Save, Swords, Tags, UtensilsCrossed, X } from 'lucide-react';
 import { db } from '../../firebase';
+import { mapDuel, type Duel } from '../../types/duel';
 import {
     DEFAULT_SPOTLIGHT_PRICING,
     describeProposal,
@@ -42,6 +43,13 @@ export const ProProposalsTab: React.FC = () => {
     const [spotlights, setSpotlights] = useState<ItemSpotlight[]>([]);
     const [pricing, setPricing] = useState<SpotlightPricing>(DEFAULT_SPOTLIGHT_PRICING);
     const [savingPricing, setSavingPricing] = useState(false);
+    const [activeDuel, setActiveDuel] = useState<Duel | null>(null);
+    const [duelForm, setDuelForm] = useState({
+        title: '',
+        aLabel: '', aSublabel: '', aImageUrl: '', aLink: '',
+        bLabel: '', bSublabel: '', bImageUrl: '', bLink: '',
+    });
+    const [savingDuel, setSavingDuel] = useState(false);
     const [loading, setLoading] = useState(false);
     const [workingId, setWorkingId] = useState<string | null>(null);
     const [notes, setNotes] = useState('');
@@ -61,6 +69,10 @@ export const ProProposalsTab: React.FC = () => {
             setPlacements(placementRows);
             setSpotlights(spotlightRows);
             setPricing(pricingConfig);
+            const duelSnap = await getDocs(query(collection(db, 'duels'), where('status', '==', 'active'), limit(1))).catch(() => null);
+            setActiveDuel(duelSnap && !duelSnap.empty
+                ? mapDuel(duelSnap.docs[0].id, duelSnap.docs[0].data() as Record<string, unknown>)
+                : null);
         } catch (error) {
             console.error('ProProposalsTab: load failed', error);
             setMessage({ type: 'error', text: 'No se pudieron cargar las propuestas.' });
@@ -81,6 +93,65 @@ export const ProProposalsTab: React.FC = () => {
             setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo guardar la fórmula de precios.') });
         } finally {
             setSavingPricing(false);
+        }
+    };
+
+    const createDuel = async () => {
+        if (!duelForm.aLabel.trim() || !duelForm.bLabel.trim()) {
+            setMessage({ type: 'error', text: 'El duelo necesita los dos contendientes.' });
+            return;
+        }
+        setSavingDuel(true);
+        setMessage(null);
+        try {
+            if (activeDuel) {
+                await setDoc(doc(db, 'duels', activeDuel.id), { status: 'ended', endedAt: serverTimestamp() }, { merge: true });
+            }
+            const ref = await addDoc(collection(db, 'duels'), {
+                title: duelForm.title.trim() || 'El Duelo de la semana',
+                status: 'active',
+                sideA: {
+                    label: duelForm.aLabel.trim(),
+                    sublabel: duelForm.aSublabel.trim() || null,
+                    imageUrl: duelForm.aImageUrl.trim() || null,
+                    link: duelForm.aLink.trim() || null,
+                },
+                sideB: {
+                    label: duelForm.bLabel.trim(),
+                    sublabel: duelForm.bSublabel.trim() || null,
+                    imageUrl: duelForm.bImageUrl.trim() || null,
+                    link: duelForm.bLink.trim() || null,
+                },
+                createdAt: serverTimestamp(),
+            });
+            setActiveDuel({
+                id: ref.id,
+                title: duelForm.title.trim() || 'El Duelo de la semana',
+                status: 'active',
+                sideA: { label: duelForm.aLabel.trim() },
+                sideB: { label: duelForm.bLabel.trim() },
+            });
+            setDuelForm({ title: '', aLabel: '', aSublabel: '', aImageUrl: '', aLink: '', bLabel: '', bSublabel: '', bImageUrl: '', bLink: '' });
+            setMessage({ type: 'success', text: 'Duelo activado. Recuerda tener encendido el flag en Otros.' });
+        } catch (error) {
+            console.error('ProProposalsTab: create duel failed', error);
+            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo crear el duelo.') });
+        } finally {
+            setSavingDuel(false);
+        }
+    };
+
+    const endDuel = async () => {
+        if (!activeDuel || !window.confirm(`¿Finalizar el duelo "${activeDuel.sideA.label} vs ${activeDuel.sideB.label}"?`)) return;
+        setSavingDuel(true);
+        try {
+            await setDoc(doc(db, 'duels', activeDuel.id), { status: 'ended', endedAt: serverTimestamp() }, { merge: true });
+            setActiveDuel(null);
+            setMessage({ type: 'success', text: 'Duelo finalizado.' });
+        } catch (error) {
+            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo finalizar el duelo.') });
+        } finally {
+            setSavingDuel(false);
         }
     };
 
@@ -413,6 +484,84 @@ export const ProProposalsTab: React.FC = () => {
                         ))}
                     </div>
                 )}
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-6">
+                <h3 className="flex items-center gap-2 text-lg font-bold text-white">
+                    <Swords className="h-5 w-5 text-amber-300" />
+                    Duelo de la semana
+                </h3>
+                <p className="mt-1 text-sm text-gray-400">
+                    Dos platos rivales, la comunidad vota. El banner se enciende con el flag "Duelo de la semana" en Otros.
+                </p>
+                {activeDuel ? (
+                    <div className="mt-4 flex flex-col gap-3 rounded-xl border border-amber-500/25 bg-amber-500/5 p-4 lg:flex-row lg:items-center">
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-white">{activeDuel.title || 'El Duelo de la semana'}</p>
+                            <p className="mt-1 text-xs text-gray-400">{activeDuel.sideA.label} 🆚 {activeDuel.sideB.label}</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={endDuel}
+                            disabled={savingDuel}
+                            className="shrink-0 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200 disabled:opacity-50"
+                        >
+                            Finalizar duelo
+                        </button>
+                    </div>
+                ) : (
+                    <p className="mt-4 rounded-lg border border-dashed border-white/10 bg-black/15 px-4 py-3 text-center text-sm text-gray-500">
+                        No hay duelo activo.
+                    </p>
+                )}
+                <div className="mt-4 grid gap-3">
+                    <input
+                        value={duelForm.title}
+                        onChange={(event) => setDuelForm({ ...duelForm, title: event.target.value })}
+                        className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
+                        placeholder="Título (opcional): El Duelo de la semana en Madrid"
+                    />
+                    <div className="grid gap-3 lg:grid-cols-2">
+                        {(['a', 'b'] as const).map((side) => (
+                            <div key={side} className="space-y-2 rounded-xl border border-white/10 bg-black/15 p-3">
+                                <p className="text-xs font-black uppercase tracking-wider text-amber-300">Contendiente {side.toUpperCase()}</p>
+                                <input
+                                    value={duelForm[`${side}Label`]}
+                                    onChange={(event) => setDuelForm({ ...duelForm, [`${side}Label`]: event.target.value })}
+                                    className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
+                                    placeholder="Plato (ej. Tarta de queso de Casa Paca)"
+                                />
+                                <input
+                                    value={duelForm[`${side}Sublabel`]}
+                                    onChange={(event) => setDuelForm({ ...duelForm, [`${side}Sublabel`]: event.target.value })}
+                                    className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
+                                    placeholder="Subtítulo (ej. nota 8,9 · 24 reseñas)"
+                                />
+                                <input
+                                    value={duelForm[`${side}ImageUrl`]}
+                                    onChange={(event) => setDuelForm({ ...duelForm, [`${side}ImageUrl`]: event.target.value })}
+                                    className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
+                                    placeholder="URL de foto"
+                                />
+                                <input
+                                    value={duelForm[`${side}Link`]}
+                                    onChange={(event) => setDuelForm({ ...duelForm, [`${side}Link`]: event.target.value })}
+                                    className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
+                                    placeholder="Enlace interno (ej. /group/{placeId}/{plato})"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                    <button
+                        type="button"
+                        onClick={createDuel}
+                        disabled={savingDuel}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-black text-white hover:bg-amber-500 disabled:opacity-50"
+                    >
+                        {savingDuel ? <Loader2 className="h-4 w-4 animate-spin" /> : <Swords className="h-4 w-4" />}
+                        {activeDuel ? 'Sustituir duelo activo' : 'Crear y activar duelo'}
+                    </button>
+                </div>
             </div>
 
             <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-6">

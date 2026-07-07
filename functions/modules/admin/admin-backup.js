@@ -11,12 +11,16 @@
 // anotado en el doc de mejoras.
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const logger = require('firebase-functions/logger');
 const { getFirestore, Timestamp, GeoPoint, DocumentReference } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
 const { assertJefeAccess, writeAuditLog } = require('../lib/auth');
 
 const db = getFirestore();
+
+// Cuántas copias automáticas conservar antes de ir borrando las más viejas.
+const BACKUP_RETENTION = 8;
 
 const MAX_DOCS = 100000;
 
@@ -67,20 +71,14 @@ async function dumpCollection(collectionRef, state) {
   return output;
 }
 
-const adminExportFirestoreBackup = onCall({
-  invoker: 'public',
-  timeoutSeconds: 540,
-  memory: '1GiB',
-}, async (request) => {
-  const uid = request.auth?.uid;
-  await assertJefeAccess(uid, 'Solo un administrador puede crear copias de seguridad.');
-
+// Núcleo compartido: recorre toda la base de datos y guarda el JSON en Storage.
+async function runFirestoreBackup(actorUid, prefix) {
   const startedAt = Date.now();
   const state = { docCount: 0 };
   const backup = {
     __meta: {
       exportedAt: new Date().toISOString(),
-      exportedBy: uid,
+      exportedBy: actorUid,
       format: 'listopic-firestore-json-v1',
     },
     collections: {},
@@ -93,26 +91,55 @@ const adminExportFirestoreBackup = onCall({
   }
 
   const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
-  const path = `backups/listopic-backup-${stamp}.json`;
+  const path = `backups/${prefix}-${stamp}.json`;
   const contents = JSON.stringify(backup);
-  const bucket = getStorage().bucket();
-  await bucket.file(path).save(contents, {
+  await getStorage().bucket().file(path).save(contents, {
     contentType: 'application/json',
     metadata: { cacheControl: 'no-store' },
   });
 
   const sizeBytes = Buffer.byteLength(contents, 'utf8');
-  await writeAuditLog(uid, 'backup.exported', {
-    path,
-    docCount: state.docCount,
-    sizeBytes,
-    durationMs: Date.now() - startedAt,
-  });
+  logger.info('runFirestoreBackup: copia creada', { path, docCount: state.docCount, sizeBytes });
+  return { path, docCount: state.docCount, sizeBytes, durationMs: Date.now() - startedAt };
+}
 
-  logger.info('adminExportFirestoreBackup: copia creada', { path, docCount: state.docCount, sizeBytes });
-  return { ok: true, path, docCount: state.docCount, sizeBytes };
+// Borra las copias automáticas más antiguas dejando solo las últimas `keep`.
+async function pruneAutomaticBackups(keep) {
+  const [files] = await getStorage().bucket().getFiles({ prefix: 'backups/auto-' });
+  if (files.length <= keep) return 0;
+  const sorted = files.sort((a, b) => a.name.localeCompare(b.name));
+  const toDelete = sorted.slice(0, sorted.length - keep);
+  await Promise.all(toDelete.map((file) => file.delete().catch(() => null)));
+  return toDelete.length;
+}
+
+const adminExportFirestoreBackup = onCall({
+  invoker: 'public',
+  timeoutSeconds: 540,
+  memory: '1GiB',
+}, async (request) => {
+  const uid = request.auth?.uid;
+  await assertJefeAccess(uid, 'Solo un administrador puede crear copias de seguridad.');
+
+  const result = await runFirestoreBackup(uid, 'listopic-backup');
+  await writeAuditLog(uid, 'backup.exported', result);
+  return { ok: true, ...result };
+});
+
+// Copia automática semanal (lunes 04:00 Europe/Madrid) con retención.
+const weeklyFirestoreBackup = onSchedule({
+  schedule: 'every monday 04:00',
+  timeZone: 'Europe/Madrid',
+  timeoutSeconds: 540,
+  memory: '1GiB',
+}, async () => {
+  const result = await runFirestoreBackup('system', 'auto');
+  const deleted = await pruneAutomaticBackups(BACKUP_RETENTION);
+  await writeAuditLog('system', 'backup.autoExported', { ...result, deletedOld: deleted });
+  logger.info('weeklyFirestoreBackup: completado', { ...result, deletedOld: deleted });
 });
 
 module.exports = {
   adminExportFirestoreBackup,
+  weeklyFirestoreBackup,
 };
