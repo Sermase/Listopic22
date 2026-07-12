@@ -48,7 +48,7 @@ Ultima actualizacion: 2026-05-08 (negocios, premium y monetizacion).
 - **Refactor de páginas enormes** (ProfilePage 2955 LOC tras primer corte, HomePage 1255, ListPage 1254): seguir extrayendo subcomponentes siguiendo el patrón de `ProfileStatsTab`. Eliminar `any`.
 - **Contadores de rate-limit** migrados de Firestore a Memorystore/Redis cuando haya tráfico masivo (~1 lectura + 1 escritura por petición actualmente).
 - **Rotación periódica de la Google Places API key** (cada 6-12 meses, o al menos documentar calendario).
-- **Pulido fino de los temas light/warm/cool**: el bulk replace cambió los fondos pero quedan textos/iconos con clases Tailwind sólidas (`text-white`, `text-gray-300/400`, `border-white/10`, degradados brand hardcoded) que en el tema claro pueden quedar con bajo contraste. Próximos pasos:
+- **Pulido fino de los temas light/warm/cool**: HECHO lo grueso (2026-07-07): capa de contraste en `index.css` scoped a `[data-theme='light']` que remapea `text-white`/`text-gray-3-600`/`bg-white/*`/`border-white/*`/`hover:*` (~2.500 usos) a tinta del tema, con excepciones para botones de acento, gradientes fuertes y overlays negros sobre fotos (verificado con capturas Playwright en ambos temas). Queda el pulido fino puntual:
   1. Auditar contraste en cada página con el tema `light` activo (especialmente modales, tarjetas, navbar).
   2. Migrar `text-white` → `text-[var(--lt-text)]` y `text-gray-*` → tokens `--lt-text-muted` en los puntos calientes.
   3. Revisar gradientes `from-indigo-500 to-purple-500` para variantes por tema (usar `var(--lt-accent-grad)` donde encaje).
