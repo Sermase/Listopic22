@@ -9,10 +9,11 @@
 // Colección global `sponsoredPlacements/{id}` (lectura pública, escritura solo
 // por estas funciones).
 
+const crypto = require("crypto");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-const { assertJefeAccess, writeAuditLog } = require("./lib/auth");
+const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
+const { assertJefeAccess, rateLimit, rateLimitKey, writeAuditLog } = require("./lib/auth");
 const { assertBusinessProAccess } = require("./business-pro");
 const { sendNotification } = require("./notifications");
 
@@ -94,6 +95,13 @@ const reviewSponsoredPlacement = onCall({ invoker: "public" }, async (request) =
   if (!placementSnap.exists) throw new HttpsError("not-found", "El emplazamiento no existe.");
   const placement = placementSnap.data() || {};
 
+  const allowedPlacementTransition = (decision === "activate" || decision === "reject")
+    ? placement.status === "requested"
+    : placement.status === "active";
+  if (!allowedPlacementTransition) {
+    throw new HttpsError("failed-precondition", "La campaña ya no está en un estado compatible con esa acción.");
+  }
+
   const nextStatus = decision === "activate" ? "active" : decision === "reject" ? "rejected" : "ended";
   await placementRef.set({
     status: nextStatus,
@@ -130,20 +138,22 @@ const reviewSponsoredPlacement = onCall({ invoker: "public" }, async (request) =
 // ── Impulsos: platos destacados por radio y tiempo ──────────────────────────
 //
 // El negocio compra "impulsos" para destacar un plato en un radio de X km
-// durante N semanas. Precio por impulso = €/km·semana × radio × semanas
-// (fórmula editable en Developer, config/sponsoredPricing; pensada barata:
-// 0,40 €/km·semana ≈ 0,20 € por semana y medio km). Quien quiera más
+// durante N semanas. El radio se vende en tramos de 0,2 km y el precio de
+// cada tramo es editable en Developer (config/sponsoredPricing). Quien quiera más
 // visibilidad no paga tarifas más caras: compra más impulsos, que son pesos
 // en el sorteo del carrusel — 2 impulsos = doble probabilidad que 1.
 // El reloj de la campaña arranca cuando el admin la activa.
 
+const SPOTLIGHT_RADIUS_STEP_KM = 0.2;
 const DEFAULT_SPOTLIGHT_PRICING = {
-  pricePerKmPerWeek: 0.4,
-  minRadiusKm: 0.5,
+  pricePerRadiusStepPerWeek: 0.08,
+  minRadiusKm: 0.2,
   maxRadiusKm: 20,
   maxUnitsPerCampaign: 10,
   maxWeeks: 8,
 };
+
+const roundRadius = (value) => Number(value.toFixed(1));
 
 async function getSpotlightPricing() {
   const snap = await db.collection("config").doc("sponsoredPricing").get().catch(() => null);
@@ -152,13 +162,84 @@ async function getSpotlightPricing() {
   Object.keys(DEFAULT_SPOTLIGHT_PRICING).forEach((key) => {
     if (typeof data[key] === "number" && Number.isFinite(data[key]) && data[key] > 0) merged[key] = data[key];
   });
+  // Compatibilidad con la fórmula anterior mientras existan documentos que
+  // solo tengan pricePerKmPerWeek.
+  if (!(typeof data.pricePerRadiusStepPerWeek === "number" && data.pricePerRadiusStepPerWeek > 0)
+      && typeof data.pricePerKmPerWeek === "number" && data.pricePerKmPerWeek > 0) {
+    merged.pricePerRadiusStepPerWeek = Number((data.pricePerKmPerWeek * SPOTLIGHT_RADIUS_STEP_KM).toFixed(2));
+  }
+  merged.minRadiusKm = roundRadius(Math.ceil(merged.minRadiusKm / SPOTLIGHT_RADIUS_STEP_KM) * SPOTLIGHT_RADIUS_STEP_KM);
+  merged.maxRadiusKm = roundRadius(Math.floor(merged.maxRadiusKm / SPOTLIGHT_RADIUS_STEP_KM) * SPOTLIGHT_RADIUS_STEP_KM);
+  if (merged.maxRadiusKm < merged.minRadiusKm) merged.maxRadiusKm = merged.minRadiusKm;
   return merged;
 }
 
 function computeSpotlightUnitPrice(pricing, radiusKm, weeks) {
   const effectiveRadius = Math.max(pricing.minRadiusKm, radiusKm);
-  return Number((pricing.pricePerKmPerWeek * effectiveRadius * weeks).toFixed(2));
+  const radiusSteps = Math.ceil((effectiveRadius / SPOTLIGHT_RADIUS_STEP_KM) - 1e-9);
+  return Number((pricing.pricePerRadiusStepPerWeek * radiusSteps * weeks).toFixed(2));
 }
+
+const adminUpdateSpotlightPricing = onCall({ invoker: "public" }, async (request) => {
+  const uid = request.auth?.uid;
+  await assertJefeAccess(uid, "Solo un administrador puede cambiar el precio de los impulsos.");
+
+  const pricePerRadiusStepPerWeek = Number(request.data?.pricePerRadiusStepPerWeek);
+  const minRadiusKm = Number(request.data?.minRadiusKm);
+  const maxRadiusKm = Number(request.data?.maxRadiusKm);
+  const maxUnitsPerCampaign = Number(request.data?.maxUnitsPerCampaign);
+  const maxWeeks = Number(request.data?.maxWeeks);
+
+  if (!Number.isFinite(pricePerRadiusStepPerWeek) || pricePerRadiusStepPerWeek < 0.01 || pricePerRadiusStepPerWeek > 100) {
+    throw new HttpsError("invalid-argument", "El precio por cada 0,2 km y semana debe estar entre 0,01 € y 100 €.");
+  }
+  const isRadiusStep = (value) => Number.isFinite(value)
+    && Math.abs((value / SPOTLIGHT_RADIUS_STEP_KM) - Math.round(value / SPOTLIGHT_RADIUS_STEP_KM)) < 1e-6;
+  if (!isRadiusStep(minRadiusKm) || minRadiusKm < SPOTLIGHT_RADIUS_STEP_KM || minRadiusKm > 100) {
+    throw new HttpsError("invalid-argument", "El radio mínimo debe ser un múltiplo de 0,2 km.");
+  }
+  if (!isRadiusStep(maxRadiusKm) || maxRadiusKm < minRadiusKm || maxRadiusKm > 100) {
+    throw new HttpsError("invalid-argument", "El radio máximo debe ser un múltiplo de 0,2 km y no puede ser menor que el mínimo.");
+  }
+  if (!Number.isInteger(maxUnitsPerCampaign) || maxUnitsPerCampaign < 1 || maxUnitsPerCampaign > 100) {
+    throw new HttpsError("invalid-argument", "El máximo de impulsos debe ser un entero entre 1 y 100.");
+  }
+  if (!Number.isInteger(maxWeeks) || maxWeeks < 1 || maxWeeks > 52) {
+    throw new HttpsError("invalid-argument", "El máximo de semanas debe ser un entero entre 1 y 52.");
+  }
+
+  const pricing = {
+    pricePerRadiusStepPerWeek: Number(pricePerRadiusStepPerWeek.toFixed(2)),
+    radiusStepKm: SPOTLIGHT_RADIUS_STEP_KM,
+    minRadiusKm: roundRadius(minRadiusKm),
+    maxRadiusKm: roundRadius(maxRadiusKm),
+    maxUnitsPerCampaign,
+    maxWeeks,
+    updatedBy: uid,
+    updatedAt: FieldValue.serverTimestamp(),
+    pricePerKmPerWeek: FieldValue.delete(),
+  };
+  await db.collection("config").doc("sponsoredPricing").set(pricing, { merge: true });
+  await writeAuditLog(uid, "sponsored.pricingUpdated", {
+    pricePerRadiusStepPerWeek: pricing.pricePerRadiusStepPerWeek,
+    radiusStepKm: SPOTLIGHT_RADIUS_STEP_KM,
+    minRadiusKm: pricing.minRadiusKm,
+    maxRadiusKm: pricing.maxRadiusKm,
+    maxUnitsPerCampaign,
+    maxWeeks,
+  });
+
+  return {
+    ok: true,
+    pricing: {
+      pricePerRadiusStepPerWeek: pricing.pricePerRadiusStepPerWeek,
+      minRadiusKm: pricing.minRadiusKm,
+      maxRadiusKm: pricing.maxRadiusKm,
+      maxUnitsPerCampaign,
+      maxWeeks,
+    },
+  };
+});
 
 function isoDatePlusDays(days) {
   const date = new Date();
@@ -167,6 +248,71 @@ function isoDatePlusDays(days) {
 }
 
 const MAX_OPEN_SPOTLIGHTS_PER_PLACE = 10;
+
+// Métricas deduplicadas por campaña, evento, sesión y día. Se cuenta una
+// impresión cuando la tarjeta entra realmente en el viewport, no solo al
+// descargar el documento de campaña.
+const recordSponsoredEvent = onCall({ invoker: "public" }, async (request) => {
+  const campaignType = asString(request.data?.campaignType, 20);
+  const campaignId = asString(request.data?.campaignId, 300);
+  const eventType = asString(request.data?.eventType, 20);
+  const sessionId = asString(request.data?.sessionId, 128);
+  if (!campaignId || !["placement", "spotlight"].includes(campaignType) || !["impression", "click"].includes(eventType)) {
+    throw new HttpsError("invalid-argument", "Evento patrocinado no válido.");
+  }
+  if (!/^[a-zA-Z0-9_-]{16,128}$/.test(sessionId)) {
+    throw new HttpsError("invalid-argument", "Sesión no válida.");
+  }
+
+  const rateKey = crypto.createHash("sha256")
+    .update(rateLimitKey(request.rawRequest, request.auth))
+    .digest("hex")
+    .slice(0, 40);
+  const rate = await rateLimit("sponsoredMetrics", rateKey, 180, 60);
+  if (!rate.allowed) throw new HttpsError("resource-exhausted", "Demasiados eventos patrocinados.");
+
+  const dateParts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date());
+  const dateValues = Object.fromEntries(dateParts.map((part) => [part.type, part.value]));
+  const date = `${dateValues.year}-${dateValues.month}-${dateValues.day}`;
+  const collectionName = campaignType === "placement" ? "sponsoredPlacements" : "sponsoredItemSpotlights";
+  const campaignRef = db.collection(collectionName).doc(campaignId);
+  const dailyRef = campaignRef.collection("metricsDaily").doc(date);
+  const markerId = crypto.createHash("sha256")
+    .update(`${date}|${campaignType}|${campaignId}|${eventType}|${sessionId}`)
+    .digest("hex");
+  const markerRef = db.collection("sponsoredEventMarkers").doc(markerId);
+  const metricField = eventType === "impression" ? "impressions" : "clicks";
+
+  const result = await db.runTransaction(async (tx) => {
+    const [campaignSnap, markerSnap] = await Promise.all([tx.get(campaignRef), tx.get(markerRef)]);
+    if (!campaignSnap.exists) throw new HttpsError("not-found", "La campaña no existe.");
+    const campaign = campaignSnap.data() || {};
+    if (campaign.status !== "active") return { counted: false, reason: "inactive" };
+    if ((campaign.startsAt && campaign.startsAt > date) || (campaign.endsAt && campaign.endsAt < date)) {
+      return { counted: false, reason: "outside_date_window" };
+    }
+    if (markerSnap.exists) return { counted: false, reason: "duplicate" };
+
+    tx.set(campaignRef, {
+      [`metrics.${metricField}`]: FieldValue.increment(1),
+      "metrics.updatedAt": FieldValue.serverTimestamp(),
+    }, { merge: true });
+    tx.set(dailyRef, {
+      date,
+      [metricField]: FieldValue.increment(1),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    tx.set(markerRef, {
+      date,
+      expiresAt: Timestamp.fromMillis(Date.now() + (40 * 24 * 60 * 60 * 1000)),
+    });
+    return { counted: true };
+  });
+
+  return { ok: true, ...result };
+});
 
 const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
   const uid = request.auth?.uid;
@@ -184,6 +330,9 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
   }
   if (!Number.isFinite(radiusKm) || radiusKm < pricing.minRadiusKm || radiusKm > pricing.maxRadiusKm) {
     throw new HttpsError("invalid-argument", `El radio debe estar entre ${pricing.minRadiusKm} y ${pricing.maxRadiusKm} km.`);
+  }
+  if (Math.abs((radiusKm / SPOTLIGHT_RADIUS_STEP_KM) - Math.round(radiusKm / SPOTLIGHT_RADIUS_STEP_KM)) >= 1e-6) {
+    throw new HttpsError("invalid-argument", "El radio debe avanzar en tramos de 0,2 km.");
   }
   if (!Number.isInteger(weeks) || weeks < 1 || weeks > pricing.maxWeeks) {
     throw new HttpsError("invalid-argument", `La duración debe estar entre 1 y ${pricing.maxWeeks} semanas.`);
@@ -213,47 +362,54 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
   }
 
   const unitPriceEur = computeSpotlightUnitPrice(pricing, radiusKm, weeks);
-
-  // Impulsos de regalo (otorgados desde Developer): se consumen antes de
-  // cobrar. Cuando haya micropagos, solo se facturarán los impulsos restantes.
-  const availableCredits = Number(place.spotlightCredits) > 0 ? Math.floor(Number(place.spotlightCredits)) : 0;
-  const creditsUsed = Math.min(availableCredits, units);
-  const billedUnits = units - creditsUsed;
-  const totalPriceEur = Number((unitPriceEur * billedUnits).toFixed(2));
-
-  if (creditsUsed > 0) {
-    await placeRef.set({
-      spotlightCredits: FieldValue.increment(-creditsUsed),
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
-  }
-
   const spotlightRef = db.collection("sponsoredItemSpotlights").doc();
-  await spotlightRef.set({
-    placeId,
-    placeName: place.name || null,
-    placePhotoUrl: place.userPhotoUrl || place.mainImageUrl || null,
-    itemId,
-    itemName: item.canonicalName || itemId,
-    linkedListIds: Array.isArray(item.linkedListIds) ? item.linkedListIds.slice(0, 40) : [],
-    itemAverageRating: typeof item.stats?.averageRating === "number" ? item.stats.averageRating : null,
-    itemReviewCount: typeof item.stats?.reviewCount === "number" ? item.stats.reviewCount : 0,
-    center,
-    radiusKm,
-    units,
-    weeks,
-    unitPriceEur,
-    creditsUsed,
-    billedUnits,
-    totalPriceEur,
-    pricingSnapshot: pricing,
-    // El reloj arranca al activar: reviewItemSpotlight fija startsAt/endsAt.
-    startsAt: null,
-    endsAt: null,
-    status: "requested",
-    createdBy: uid,
-    createdAt: FieldValue.serverTimestamp(),
+  // El saldo y la campaña se escriben en una sola transacción para que dos
+  // solicitudes simultáneas no puedan gastar los mismos impulsos regalo.
+  const billing = await db.runTransaction(async (tx) => {
+    const freshPlaceSnap = await tx.get(placeRef);
+    if (!freshPlaceSnap.exists) throw new HttpsError("not-found", "El negocio no existe.");
+    const freshPlace = freshPlaceSnap.data() || {};
+    const availableCredits = Number(freshPlace.spotlightCredits) > 0
+      ? Math.floor(Number(freshPlace.spotlightCredits))
+      : 0;
+    const creditsUsed = Math.min(availableCredits, units);
+    const billedUnits = units - creditsUsed;
+    const totalPriceEur = Number((unitPriceEur * billedUnits).toFixed(2));
+
+    if (creditsUsed > 0) {
+      tx.set(placeRef, {
+        spotlightCredits: FieldValue.increment(-creditsUsed),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+    tx.set(spotlightRef, {
+      placeId,
+      placeName: freshPlace.name || place.name || null,
+      placePhotoUrl: freshPlace.userPhotoUrl || freshPlace.mainImageUrl || place.userPhotoUrl || place.mainImageUrl || null,
+      itemId,
+      itemName: item.canonicalName || itemId,
+      linkedListIds: Array.isArray(item.linkedListIds) ? item.linkedListIds.slice(0, 40) : [],
+      itemAverageRating: typeof item.stats?.averageRating === "number" ? item.stats.averageRating : null,
+      itemReviewCount: typeof item.stats?.reviewCount === "number" ? item.stats.reviewCount : 0,
+      center,
+      radiusKm,
+      units,
+      weeks,
+      unitPriceEur,
+      creditsUsed,
+      billedUnits,
+      totalPriceEur,
+      pricingSnapshot: pricing,
+      startsAt: null,
+      endsAt: null,
+      status: "requested",
+      createdBy: uid,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+    return { creditsUsed, billedUnits, totalPriceEur };
   });
+
+  const { creditsUsed, totalPriceEur } = billing;
 
   await writeAuditLog(uid, "sponsored.itemSpotlightRequested", {
     spotlightId: spotlightRef.id,
@@ -327,6 +483,13 @@ const reviewItemSpotlight = onCall({ invoker: "public" }, async (request) => {
   if (!spotlightSnap.exists) throw new HttpsError("not-found", "La campaña no existe.");
   const spotlight = spotlightSnap.data() || {};
 
+  const allowedSpotlightTransition = (decision === "activate" || decision === "reject")
+    ? spotlight.status === "requested"
+    : spotlight.status === "active";
+  if (!allowedSpotlightTransition) {
+    throw new HttpsError("failed-precondition", "La campaña ya no está en un estado compatible con esa acción.");
+  }
+
   const nextStatus = decision === "activate" ? "active" : decision === "reject" ? "rejected" : "ended";
   const patch = {
     status: nextStatus,
@@ -340,7 +503,28 @@ const reviewItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     patch.startsAt = isoDatePlusDays(0);
     patch.endsAt = isoDatePlusDays(weeks * 7);
   }
-  await spotlightRef.set(patch, { merge: true });
+  if (decision === "reject" && Number(spotlight.creditsUsed) > 0 && spotlight.creditsRefunded !== true) {
+    const creditsToRefund = Math.floor(Number(spotlight.creditsUsed));
+    const placeRef = db.collection("places").doc(spotlight.placeId);
+    await db.runTransaction(async (tx) => {
+      const freshSpotlightSnap = await tx.get(spotlightRef);
+      const freshSpotlight = freshSpotlightSnap.data() || {};
+      if (!freshSpotlightSnap.exists || freshSpotlight.status !== "requested") {
+        throw new HttpsError("failed-precondition", "La campaña ya ha sido procesada.");
+      }
+      tx.set(placeRef, {
+        spotlightCredits: FieldValue.increment(creditsToRefund),
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+      tx.set(spotlightRef, {
+        ...patch,
+        creditsRefunded: true,
+        creditsRefundedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+    });
+  } else {
+    await spotlightRef.set(patch, { merge: true });
+  }
 
   await writeAuditLog(uid, "sponsored.itemSpotlightReviewed", {
     spotlightId,
@@ -373,4 +557,6 @@ module.exports = {
   requestItemSpotlight,
   reviewItemSpotlight,
   adminGrantSpotlightCredits,
+  adminUpdateSpotlightPricing,
+  recordSponsoredEvent,
 };

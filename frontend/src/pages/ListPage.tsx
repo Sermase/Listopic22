@@ -20,7 +20,7 @@ import { useLike } from '../hooks/useLike';
 import { useLocation } from '../hooks/useLocation';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { buildCriteriaStats } from '../utils/shareCriteria';
+import { buildShareCriteriaGroups } from '../utils/shareCriteria';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
 import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
@@ -884,6 +884,15 @@ export const ListPage: React.FC = () => {
         ? `${listTypeLabel} de ${parentListName}`
         : listTypeLabel;
     const listShareImage = list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl || undefined;
+    const listShareImages = Array.from(new Set([
+        listShareImage,
+        ...reviews.flatMap((review) => [
+            ...(review.photoUrls || []),
+            review.photoUrl,
+            review.placeMainImage,
+        ]),
+    ].filter((value): value is string => Boolean(value))));
+    const listShareCriteria = buildShareCriteriaGroups(list.criteriaAverages, list.criteriaDefinition);
 
     return (
         <div className="min-h-screen bg-[var(--lt-bg)] pb-20 transition-colors duration-300">
@@ -1420,10 +1429,13 @@ export const ListPage: React.FC = () => {
                     route: `/list/${list.id}`,
                     url: listShareUrl,
                     imageUrl: listShareImage,
+                    imageUrls: listShareImages,
                     score: list.averageRating || list.avgScore,
                     reviewCount: list.reviewCount,
+                    authorId: list.userId,
                     authorName: list.authorName,
-                    criteriaStats: buildCriteriaStats(list.criteriaAverages, list.criteriaDefinition),
+                    criteriaStats: listShareCriteria.ponderable,
+                    nonPonderableStats: listShareCriteria.nonPonderable,
                 }}
             />
 

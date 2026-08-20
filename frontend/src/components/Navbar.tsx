@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Archive, Bell, Building2, Dice5, Home, Info, Menu, MessageSquare, Plus, Search, User, X } from 'lucide-react';
+import { Archive, Bell, Building2, Dice5, Eye, Home, Info, Menu, MessageSquare, Plus, Search, User, X } from 'lucide-react';
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig, useAppConfigLoading } from '../context/AppConfigContext';
@@ -10,6 +10,8 @@ import { db } from '../firebase';
 import { Capacitor } from '@capacitor/core';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { NotificationModal } from './NotificationModal';
+import { PageAnalyticsModal } from './PageAnalyticsModal';
+import { isTrackableAnalyticsPath } from '../services/AnalyticsService';
 
 const FIREBASE_STORAGE_HOST = 'firebasestorage.googleapis.com';
 
@@ -51,7 +53,7 @@ const NavItem = ({ to, icon: Icon, label, badge, count, isActive }: { to: string
 };
 
 export const Navbar: React.FC = () => {
-    const { user } = useAuth();
+    const { user, isJefe } = useAuth();
     const config = useAppConfig();
     const isConfigLoading = useAppConfigLoading();
     const { theme } = useTheme();
@@ -70,6 +72,7 @@ export const Navbar: React.FC = () => {
     const [notificationPanelMode, setNotificationPanelMode] = useState<'desktop' | 'mobile'>('desktop');
     const bellRef = useRef<HTMLDivElement>(null);
     const [showHistory, setShowHistory] = useState(false);
+    const [showPageAnalytics, setShowPageAnalytics] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [unreadChatCount, setUnreadChatCount] = useState(0);
     const [managedBusinessCount, setManagedBusinessCount] = useState(0);
@@ -193,6 +196,7 @@ export const Navbar: React.FC = () => {
         const timeoutId = window.setTimeout(() => {
             setIsMenuOpen(false);
             setShowNotifications(false);
+            setShowPageAnalytics(false);
         }, 0);
         return () => window.clearTimeout(timeoutId);
     }, [location.pathname]);
@@ -290,6 +294,18 @@ export const Navbar: React.FC = () => {
                             <span>Crear Sublista</span>
                         </Link>
 
+                        {isJefe && isTrackableAnalyticsPath(location.pathname) && (
+                            <button
+                                type="button"
+                                onClick={() => setShowPageAnalytics(true)}
+                                className="rounded-full p-2.5 text-amber-300 transition-all hover:bg-amber-500/10 hover:text-amber-200"
+                                title="Ojo mágico: estadísticas de esta página"
+                                aria-label="Ver estadísticas de esta página"
+                            >
+                                <Eye className="h-5 w-5" />
+                            </button>
+                        )}
+
                         {user && (
                             <div className="relative" ref={bellRef}>
                                 <button
@@ -347,6 +363,16 @@ export const Navbar: React.FC = () => {
                     </div>
 
                     <div className="md:hidden flex items-center gap-3">
+                        {isJefe && isTrackableAnalyticsPath(location.pathname) && (
+                            <button
+                                type="button"
+                                onClick={() => setShowPageAnalytics(true)}
+                                className="rounded-full p-2 text-amber-300"
+                                aria-label="Ver estadísticas de esta página"
+                            >
+                                <Eye className="h-5 w-5" />
+                            </button>
+                        )}
                         {user && (
                             <Link to={`/profile/${user.uid}`} className="relative shrink-0 group">
                                 <div className="w-9 h-9 rounded-full p-[2px] transition-transform group-active:scale-95 shadow-md" style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 2px 8px var(--lt-accent-shadow)' }}>
@@ -443,6 +469,18 @@ export const Navbar: React.FC = () => {
                                     )}
                                 </button>
                             )}
+                            {isJefe && isTrackableAnalyticsPath(location.pathname) && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsMenuOpen(false);
+                                        setShowPageAnalytics(true);
+                                    }}
+                                    className="w-full flex items-center gap-3 p-4 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-200"
+                                >
+                                    <Eye className="w-5 h-5" /> Ojo mágico · Estadísticas
+                                </button>
+                            )}
                             <Link to="/archive" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
                                 <Archive className="w-5 h-5 text-[var(--lt-accent)]" /> Archivo
                             </Link>
@@ -499,6 +537,7 @@ export const Navbar: React.FC = () => {
             )}
 
             {showHistory && <NotificationHistoryModal onClose={() => setShowHistory(false)} />}
+            {showPageAnalytics && <PageAnalyticsModal pathname={location.pathname} onClose={() => setShowPageAnalytics(false)} />}
 
 
         </header>
