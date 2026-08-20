@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildCriteriaStats } from './shareCriteria';
+import { buildCriteriaStats, buildShareCriteriaGroups } from './shareCriteria';
 
 describe('buildCriteriaStats', () => {
     it('returns empty array when scores is undefined', () => {
@@ -63,5 +63,26 @@ describe('buildCriteriaStats', () => {
         const result = buildCriteriaStats({ bueno: NaN, malo: Infinity, ok: 5 });
         expect(result).toHaveLength(1);
         expect(result[0].key).toBe('ok');
+    });
+});
+
+describe('buildShareCriteriaGroups', () => {
+    it('separates ponderable criteria from circular extras', () => {
+        const definition = {
+            comida: { label: 'Comida', ponderable: true },
+            ruido: { label: 'Ruido', ponderable: false },
+            terraza: { label: 'Terraza', isPonderable: false },
+        };
+
+        const result = buildShareCriteriaGroups({ comida: 9, ruido: 4, terraza: 8 }, definition);
+
+        expect(result.ponderable.map((item) => item.key)).toEqual(['comida']);
+        expect(result.nonPonderable.map((item) => item.key)).toEqual(['ruido', 'terraza']);
+    });
+
+    it('treats criteria without an explicit flag as ponderable', () => {
+        const result = buildShareCriteriaGroups({ ambiente: 7 }, { ambiente: { label: 'Ambiente' } });
+        expect(result.ponderable).toHaveLength(1);
+        expect(result.nonPonderable).toEqual([]);
     });
 });

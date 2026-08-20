@@ -3,7 +3,6 @@ import React, { Suspense } from 'react';
 import { ToastProvider } from './context/ToastContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Navbar } from './components/Navbar';
-import { useLocation } from './hooks/useLocation';
 import { App as CapApp } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Capacitor } from '@capacitor/core';
@@ -15,6 +14,7 @@ import { useAuth } from './context/AuthContext';
 import { NotificationBannerProvider, useNotificationBanner } from './context/NotificationBannerContext';
 import { NotificationBanner } from './components/NotificationBanner';
 import ErrorBoundary from './components/ErrorBoundary';
+import { PageAnalyticsTracker } from './components/PageAnalyticsTracker';
 
 // Lazy Load Pages
 const HomePage = React.lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
@@ -41,12 +41,6 @@ const ChildSafetyPage = React.lazy(() => import('./pages/ChildSafetyPage').then(
 const IstariCorePage = React.lazy(() => import('./pages/IstariCorePage').then(m => ({ default: m.IstariCorePage })));
 const TermsPage = React.lazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const LabPage = React.lazy(() => import('./pages/LabPage').then(m => ({ default: m.LabPage })));
-
-// Activating location request globally
-const LocationActivator = () => {
-  useLocation();
-  return null;
-};
 
 // Hide Navbar on fullscreen routes like /lab
 const NavbarWrapper = () => {
@@ -262,10 +256,10 @@ const AppRoutes = () => {
 function App() {
   return (
     <ToastProvider>
-      <LocationActivator />
       <NotificationBannerProvider>
         <Router>
           <ScrollToTop />
+          <PageAnalyticsTracker />
           <div className="min-h-screen font-sans selection:bg-[var(--lt-accent-soft)]"
             style={{
               background: 'var(--lt-bg)',

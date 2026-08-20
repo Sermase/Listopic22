@@ -15,6 +15,12 @@ export interface ShareCriteriaStat {
     count?: number;
 }
 
+export interface ShareProfileStat {
+    key: string;
+    label: string;
+    value: number | string;
+}
+
 export interface ShareEntityPayload {
     type: ShareEntityType;
     id?: string;
@@ -24,16 +30,22 @@ export interface ShareEntityPayload {
     route?: string;
     url: string;
     imageUrl?: string;
+    /** Galería de imágenes entre las que se puede elegir al crear la tarjeta. */
+    imageUrls?: string[];
     badgeLabel?: string;
     score?: number;
     reviewCount?: number;
+    authorId?: string;
     authorName?: string;
     authorPhoto?: string;
     authorUserType?: string | string[];
     city?: string;
     criteriaStats?: ShareCriteriaStat[];
+    /** Criterios extra: se dibujan como indicadores circulares, no como barras. */
+    nonPonderableStats?: ShareCriteriaStat[];
     referenceCriteriaStats?: ShareCriteriaStat[];
     referenceLabel?: string;
+    profileStats?: ShareProfileStat[];
     tags?: string[];
 }
 

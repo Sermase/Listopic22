@@ -40,7 +40,7 @@ export const PrivacyPage: React.FC = () => {
                     </Link>
 
                     <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6 sm:p-8 mb-6">
-                        <p className="text-xs text-gray-500 mb-6">Última actualización: 12 de abril de 2026</p>
+                        <p className="text-xs text-gray-500 mb-6">Última actualización: 20 de agosto de 2026</p>
 
                         <p className="text-gray-300 text-sm leading-relaxed mb-8">
                             En Listopic nos tomamos muy en serio la privacidad de nuestros usuarios. Esta política explica qué datos recogemos, cómo los usamos y cuáles son tus derechos, de acuerdo con el Reglamento General de Protección de Datos (RGPD) de la Unión Europea y la legislación española aplicable.
@@ -54,8 +54,8 @@ export const PrivacyPage: React.FC = () => {
                         <Section title="2. Datos que recogemos">
                             <p><span className="text-white font-medium">Datos de cuenta:</span> nombre, dirección de correo electrónico y foto de perfil, obtenidos mediante Google Sign-In o registro manual con contraseña.</p>
                             <p><span className="text-white font-medium">Contenido generado por el usuario:</span> listas, reseñas, valoraciones, comentarios y fotografías que publicas en la app.</p>
-                            <p><span className="text-white font-medium">Datos de uso:</span> actividad dentro de la app (listas visitadas, reseñas realizadas, interacciones sociales).</p>
-                            <p><span className="text-white font-medium">Datos de ubicación:</span> únicamente si concedes permiso explícito, para mostrar lugares cercanos a tu posición.</p>
+                            <p><span className="text-white font-medium">Datos de uso:</span> actividad dentro de la app y analítica agregada de páginas (ruta visitada, origen general de la navegación, tipo de dispositivo, compartidos y si existe una sesión autenticada). No guardamos la IP ni un historial individual de navegación en este sistema de analítica.</p>
+                            <p><span className="text-white font-medium">Datos de ubicación:</span> únicamente si concedes permiso explícito, para mostrar lugares cercanos y elaborar estadísticas geográficas agregadas. Para la analítica, la coordenada se redondea en el dispositivo a una cuadrícula aproximada de 0,1 grados; el servidor no recibe ni almacena la posición precisa y solo muestra zonas que alcanzan un mínimo de sesiones.</p>
                             <p><span className="text-white font-medium">Datos técnicos:</span> identificador de instalación y sistema operativo, recogidos automáticamente por Firebase para el correcto funcionamiento del servicio.</p>
                         </Section>
 
@@ -102,7 +102,8 @@ export const PrivacyPage: React.FC = () => {
                         </Section>
 
                         <Section title="8. Uso de Cookies">
-                            <p>Listopic utiliza exclusivamente cookies técnicas y de sesión estrictamente necesarias para el funcionamiento de la aplicación, como mantener tu sesión de usuario activa y segura (gestionadas por Google Firebase). No utilizamos cookies de terceros para publicidad, rastreo ni análisis de comportamiento. Por ello, conforme a la normativa de protección de datos (RGPD/LSSI), no es necesario un banner de consentimiento expreso para cookies.</p>
+                            <p>Listopic utiliza exclusivamente cookies técnicas y de sesión necesarias para el funcionamiento de la aplicación, como mantener tu sesión de usuario activa y segura (gestionadas por Google Firebase). No utilizamos cookies de terceros para publicidad ni analítica.</p>
+                            <p>Para evitar contar varias veces una misma visita, nuestra analítica propia crea un identificador aleatorio en el almacenamiento de sesión del dispositivo. En el servidor solo se utiliza una huella no reversible y temporal, que caduca automáticamente; no se usa para publicidad, seguimiento entre sitios ni para identificar personalmente al usuario.</p>
                         </Section>
 
                         <Section title="9. Tus derechos">

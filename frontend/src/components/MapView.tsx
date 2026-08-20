@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { createRatingMarkerIcon, createEmojiMarkerIcon, createSponsoredMarkerIcon, getRatingColor, MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
-import { getSponsoredPlaceIds } from '../services/BusinessProService';
+import { getSponsoredSearchCampaigns, recordSponsoredEvent } from '../services/BusinessProService';
 import type { MapLayerId } from '../utils/mapUtils';
 import { useLocation } from '../hooks/useLocation';
 import type { Location as UserLocation } from '../hooks/useLocation';
@@ -201,7 +201,7 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
 export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center = [40.416, -3.703], range = null, showLayerControl = true }) => {
 
     const { location } = useLocation();
-    const { user } = useAuth();
+    const { user, isJefe } = useAuth();
 
     // Capa activa: lee localStorage primero (inmediato), luego Firestore (async)
     const [currentLayer, setCurrentLayer] = useState<MapLayerId>(() => {
@@ -225,12 +225,12 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
 
     // Lugares con publicidad activa: chincheta dorada con "P" (con cache de
     // 5 min en el servicio para no repetir lecturas por cada mapa).
-    const [sponsoredIds, setSponsoredIds] = useState<Set<string>>(new Set());
+    const [sponsoredCampaigns, setSponsoredCampaigns] = useState<Map<string, string[]>>(new Map());
     useEffect(() => {
         let cancelled = false;
-        getSponsoredPlaceIds()
-            .then((ids) => {
-                if (!cancelled && ids.size > 0) setSponsoredIds(ids);
+        getSponsoredSearchCampaigns()
+            .then((campaigns) => {
+                if (!cancelled && campaigns.size > 0) setSponsoredCampaigns(campaigns);
             })
             .catch(() => {
                 // Marcado patrocinado es best-effort: sin datos, pins normales.
@@ -303,16 +303,24 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                 {showLayerControl && <LayerSelectorControl currentLayer={currentLayer} onLayerChange={handleLayerChange} />}
 
                 {validItems.map((item) => {
-                    const isSponsored = sponsoredIds.has(item.placeId || item.id);
+                    const campaignIds = sponsoredCampaigns.get(item.placeId || item.id) || [];
+                    const isSponsored = campaignIds.length > 0;
                     return (
                     <Marker
                         key={item.id}
                         position={[item.lat!, item.lng!]}
-                        icon={item.emoji || item.color
-                            ? createEmojiMarkerIcon(item.emoji || '📍', item.color || '#6366f1')
-                            : isSponsored
-                                ? createSponsoredMarkerIcon(item.rating || 0)
+                        icon={isSponsored
+                            ? createSponsoredMarkerIcon(item.rating || 0)
+                            : item.emoji || item.color
+                                ? createEmojiMarkerIcon(item.emoji || '📍', item.color || '#6366f1')
                                 : createRatingMarkerIcon(item.rating || 0)}
+                        eventHandlers={{
+                            popupopen: () => {
+                                if (!isJefe) campaignIds.forEach((campaignId) => {
+                                    void recordSponsoredEvent('placement', campaignId, 'impression').catch(() => undefined);
+                                });
+                            },
+                        }}
                     >
                         <Popup className="listopic-popup" closeButton={false} maxWidth={270} minWidth={250}>
                             {(() => {
@@ -338,6 +346,11 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                                         </div>
 
                                         <div style={{ padding: '10px 14px 12px' }}>
+                                            {isSponsored && (
+                                                <div style={{ display: 'inline-flex', marginBottom: 6, padding: '2px 7px', borderRadius: 999, border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.12)', color: '#b45309', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                                                    Patrocinado
+                                                </div>
+                                            )}
                                             <div style={{ fontWeight: 700, fontSize: 14, color: '#111827', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                 {item.name}
                                             </div>
@@ -369,6 +382,14 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
 
                                             <Link
                                                 to={`/place/${item.placeId || item.id}`}
+                                                onClick={() => {
+                                                    if (!isJefe) campaignIds.forEach((campaignId) => {
+                                                        void Promise.all([
+                                                            recordSponsoredEvent('placement', campaignId, 'impression'),
+                                                            recordSponsoredEvent('placement', campaignId, 'click'),
+                                                        ]).catch(() => undefined);
+                                                    });
+                                                }}
                                                 style={{ display: 'block', width: '100%', padding: '8px 0', background: '#4f46e5', color: '#fff', textAlign: 'center', fontWeight: 700, fontSize: 13, borderRadius: 10, textDecoration: 'none', boxSizing: 'border-box' }}
                                             >
                                                 Ver detalles

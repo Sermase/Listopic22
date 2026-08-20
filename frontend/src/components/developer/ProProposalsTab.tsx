@@ -13,6 +13,8 @@ import {
     reviewItemProposal,
     reviewItemSpotlight,
     reviewSponsoredPlacement,
+    SPOTLIGHT_RADIUS_STEP_KM,
+    updateSpotlightPricing,
     type ItemProposal,
     type ItemSpotlight,
     type SponsoredPlacement,
@@ -85,9 +87,9 @@ export const ProProposalsTab: React.FC = () => {
         setSavingPricing(true);
         setMessage(null);
         try {
-            // config/{id} permite escritura directa de jefe según las reglas.
-            await setDoc(doc(db, 'config', 'sponsoredPricing'), pricing, { merge: true });
-            setMessage({ type: 'success', text: 'Fórmula de precios guardada.' });
+            const savedPricing = await updateSpotlightPricing(pricing);
+            setPricing(savedPricing);
+            setMessage({ type: 'success', text: 'Fórmula de precios guardada y validada en el servidor.' });
         } catch (error) {
             console.error('ProProposalsTab: save pricing failed', error);
             setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo guardar la fórmula de precios.') });
@@ -225,7 +227,7 @@ export const ProProposalsTab: React.FC = () => {
                     <div>
                         <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                             <Inbox className="w-6 h-6 text-indigo-300" />
-                            Propuestas Pro
+                            Gestión Pro y patrocinios
                         </h2>
                         <p className="mt-1 max-w-2xl text-sm text-gray-400">
                             Propuestas de carta de los negocios (fusiones de duplicados, renombres, mover reseñas)
@@ -365,6 +367,11 @@ export const ProProposalsTab: React.FC = () => {
                                             {placement.startsAt || '—'} → {placement.endsAt || 'sin fin'}
                                         </p>
                                     )}
+                                    {placement.status === 'active' && (
+                                        <p className="mt-1 text-xs text-cyan-200/80">
+                                            {placement.metrics.impressions} impresiones únicas · {placement.metrics.clicks} clics · CTR {placement.metrics.impressions > 0 ? ((placement.metrics.clicks / placement.metrics.impressions) * 100).toFixed(1) : '0,0'}%
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="flex shrink-0 gap-2">
                                     {placement.status === 'requested' && (
@@ -445,6 +452,11 @@ export const ProProposalsTab: React.FC = () => {
                                         {typeof spotlight.totalPriceEur === 'number' ? ` · ${spotlight.totalPriceEur.toFixed(2)} €` : ''}
                                         {spotlight.endsAt ? ` · activa hasta ${spotlight.endsAt}` : ' · el periodo empieza al activarla'}
                                     </p>
+                                    {spotlight.status === 'active' && (
+                                        <p className="mt-1 text-xs text-amber-200/80">
+                                            {spotlight.metrics.impressions} impresiones únicas · {spotlight.metrics.clicks} clics · CTR {spotlight.metrics.impressions > 0 ? ((spotlight.metrics.clicks / spotlight.metrics.impressions) * 100).toFixed(1) : '0,0'}%
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="flex shrink-0 gap-2">
                                     {spotlight.status === 'requested' && (
@@ -570,14 +582,14 @@ export const ProProposalsTab: React.FC = () => {
                     Fórmula de precios de platos destacados
                 </h3>
                 <p className="mt-1 text-sm text-gray-400">
-                    Precio por <strong>impulso</strong> = €/km·semana × radio × semanas. Ejemplo con los valores por
-                    defecto: 5 km × 1 semana → {`${(DEFAULT_SPOTLIGHT_PRICING.pricePerKmPerWeek * 5).toFixed(2)}`} €/impulso.
-                    Barato a propósito: quien quiera más visibilidad compra más impulsos (más papeletas en el sorteo),
+                    Precio por <strong>impulso</strong> = precio por tramo de 0,2 km × número de tramos × semanas. Con los valores por
+                    defecto: 1 km × 1 semana → {`${(DEFAULT_SPOTLIGHT_PRICING.pricePerRadiusStepPerWeek * (1 / SPOTLIGHT_RADIUS_STEP_KM)).toFixed(2)}`} €/impulso.
+                    Quien quiera más visibilidad compra más impulsos (más papeletas en el sorteo),
                     no tarifas más caras.
                 </p>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
                     {([
-                        ['pricePerKmPerWeek', '€ por km·semana'],
+                        ['pricePerRadiusStepPerWeek', '€ por cada 0,2 km · semana'],
                         ['minRadiusKm', 'Radio mínimo (km)'],
                         ['maxRadiusKm', 'Radio máximo (km)'],
                         ['maxUnitsPerCampaign', 'Impulsos máx.'],
@@ -588,7 +600,7 @@ export const ProProposalsTab: React.FC = () => {
                             <input
                                 type="number"
                                 min={0}
-                                step={key === 'pricePerKmPerWeek' ? 0.05 : key === 'minRadiusKm' ? 0.5 : 1}
+                                step={key === 'pricePerRadiusStepPerWeek' ? 0.01 : (key === 'minRadiusKm' || key === 'maxRadiusKm') ? SPOTLIGHT_RADIUS_STEP_KM : 1}
                                 value={pricing[key]}
                                 onChange={(event) => setPricing((prev) => ({ ...prev, [key]: Number(event.target.value) || 0 }))}
                                 className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
