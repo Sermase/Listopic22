@@ -92,6 +92,7 @@ import {
 } from "../utils/gamification";
 import { buildPublicRouteUrl } from "../utils/publicUrl";
 import { EntityHero } from "../components/EntityHero";
+import { useAuthPrompt } from "../context/AuthPromptContext";
 
 interface ListRatingStats {
   listId: string;
@@ -248,6 +249,7 @@ const cleanupPreviousProfileImages = async (userId: string, currentStoragePath: 
 
 export const ProfilePage: React.FC = () => {
   const { user } = useAuth();
+  const { openAuthPrompt } = useAuthPrompt();
   const { theme: activeTheme, setTheme: applyTheme, themes: availableThemes } = useTheme();
   const appConfig = useAppConfig();
   const navigate = useNavigate();
@@ -1730,7 +1732,11 @@ export const ProfilePage: React.FC = () => {
   };
 
   const handleMessage = async () => {
-    if (!user || !targetUserId) return;
+    if (!user) {
+      openAuthPrompt("enviar un mensaje");
+      return;
+    }
+    if (!targetUserId) return;
     try {
       const chatId = await ChatService.createPrivateChat(
         user.uid,
@@ -1743,7 +1749,11 @@ export const ProfilePage: React.FC = () => {
   };
 
   const handleFollowToggle = async () => {
-    if (!user || !targetUserId) return;
+    if (!user) {
+      openAuthPrompt("seguir este perfil");
+      return;
+    }
+    if (!targetUserId) return;
     setFollowLoading(true);
 
     // Optimistic update: cambia el estado antes de esperar Firestore
@@ -2030,7 +2040,8 @@ export const ProfilePage: React.FC = () => {
                             <button
                               onClick={() => {
                                 setIsMenuOpen(false);
-                                setShowReportModal(true);
+                                if (!user) openAuthPrompt("reportar este perfil");
+                                else setShowReportModal(true);
                               }}
                               className="lt-report-action w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
                             >
@@ -2224,7 +2235,8 @@ export const ProfilePage: React.FC = () => {
                       <button
                         onClick={() => {
                           setIsMenuOpen(false);
-                          setShowReportModal(true);
+                          if (!user) openAuthPrompt("reportar este perfil");
+                          else setShowReportModal(true);
                         }}
                         className="w-full text-left px-4 py-2.5 text-sm text-gray-300 flex items-center gap-2"
                       >

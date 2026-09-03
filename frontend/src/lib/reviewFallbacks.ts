@@ -1,4 +1,5 @@
 import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
+import { getAuth } from 'firebase/auth';
 import { db } from '../firebase';
 import type { ReviewEntity } from '../hooks/useListDetails';
 
@@ -14,13 +15,16 @@ const toMillis = (value: unknown): number => {
 };
 
 export async function fetchUserReviewsFromAccessibleLists(userId: string, maxReviews = 80): Promise<ReviewEntity[]> {
+    const isOwnUser = getAuth().currentUser?.uid === userId;
     const [ownListsSnap, publicListsSnap] = await Promise.all([
-        getDocs(query(collection(db, 'lists'), where('userId', '==', userId), limit(120))),
+        isOwnUser
+            ? getDocs(query(collection(db, 'lists'), where('userId', '==', userId), limit(120)))
+            : Promise.resolve(null),
         getDocs(query(collection(db, 'lists'), where('isPublic', '==', true), limit(220))),
     ]);
 
     const listIds = Array.from(new Set([
-        ...ownListsSnap.docs.map((docSnap) => docSnap.id),
+        ...(ownListsSnap?.docs ?? []).map((docSnap) => docSnap.id),
         ...publicListsSnap.docs.map((docSnap) => docSnap.id),
     ]));
 
@@ -34,6 +38,7 @@ export async function fetchUserReviewsFromAccessibleLists(userId: string, maxRev
                 const snap = await getDocs(query(
                     collection(db, 'lists', listId, 'reviews'),
                     where('userId', '==', userId),
+                    ...(isOwnUser ? [] : [where('visibility', '==', 'public')]),
                     orderBy('createdAt', 'desc'),
                     limit(30),
                 ));

@@ -429,6 +429,7 @@ export const ArchivePage: React.FC = () => {
             const snap = await getDocs(query(
                 collectionGroup(db, 'reviews'),
                 where('placeId', '==', placeId),
+                where('visibility', '==', 'public'),
                 limit(40),
             ));
             const wantedItemName = normalizeLabel(itemName);

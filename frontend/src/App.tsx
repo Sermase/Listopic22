@@ -15,6 +15,7 @@ import { useAuth } from './context/AuthContext';
 import { NotificationBannerProvider, useNotificationBanner } from './context/NotificationBannerContext';
 import { NotificationBanner } from './components/NotificationBanner';
 import ErrorBoundary from './components/ErrorBoundary';
+import { AuthPromptProvider } from './context/AuthPromptContext';
 
 // Lazy Load Pages
 const HomePage = React.lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
@@ -265,19 +266,21 @@ function App() {
       <LocationActivator />
       <NotificationBannerProvider>
         <Router>
-          <ScrollToTop />
-          <div className="min-h-screen font-sans selection:bg-[var(--lt-accent-soft)]"
-            style={{
-              background: 'var(--lt-bg)',
-              color: 'var(--lt-text)',
-              minHeight: '100dvh',
-              paddingBottom: 'env(safe-area-inset-bottom)',
-            }}>
-            <NavbarWrapper />
-            <NotificationBanner />
-            <AppRoutes />
-            <PushSetup />
-          </div>
+          <AuthPromptProvider>
+            <ScrollToTop />
+            <div className="min-h-screen font-sans selection:bg-[var(--lt-accent-soft)]"
+              style={{
+                background: 'var(--lt-bg)',
+                color: 'var(--lt-text)',
+                minHeight: '100dvh',
+                paddingBottom: 'env(safe-area-inset-bottom)',
+              }}>
+              <NavbarWrapper />
+              <NotificationBanner />
+              <AppRoutes />
+              <PushSetup />
+            </div>
+          </AuthPromptProvider>
         </Router>
       </NotificationBannerProvider>
     </ToastProvider>

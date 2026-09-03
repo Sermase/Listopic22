@@ -213,6 +213,7 @@ export const getPlaceReviewsForManager = async (placeId: string): Promise<Manage
     const snap = await getDocs(query(
         collectionGroup(db, 'reviews'),
         where('placeId', '==', placeId),
+        where('visibility', '==', 'public'),
         limit(100),
     ));
     const byId = new Map<string, ManagerPlaceReview>();

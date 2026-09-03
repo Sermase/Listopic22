@@ -71,6 +71,10 @@ async function fetchListDetails(listId: string): Promise<{ list: ListEntity; rev
     const { getAuth } = await import('firebase/auth');
     const currentUser = getAuth().currentUser;
     const isOwner = !!(currentUser && listData.userId === currentUser.uid);
+    const listReviewVisibility = listData.isPublic === true || listData.visibility === 'public'
+        ? 'public'
+        : 'private';
+    const listReviewConstraints = [where('visibility', '==', listReviewVisibility)];
 
     if (listData?.parentListId) {
         try {
@@ -111,13 +115,23 @@ async function fetchListDetails(listId: string): Promise<{ list: ListEntity; rev
     if (listData?.parentListId) {
         const parentListId = listData.parentListId;
         const [nestedParent, nestedLegacyOwn] = await Promise.all([
-            safeGetDocs(() => getDocs(query(collection(db, 'lists', parentListId, 'reviews'), where('sublistId', '==', listId)))),
-            safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews'))),
+            safeGetDocs(() => getDocs(query(
+                collection(db, 'lists', parentListId, 'reviews'),
+                where('sublistId', '==', listId),
+                ...listReviewConstraints,
+            ))),
+            safeGetDocs(() => getDocs(query(
+                collection(db, 'lists', listId, 'reviews'),
+                ...listReviewConstraints,
+            ))),
         ]);
         appendSnapshot(nestedLegacyOwn, listId);
         appendSnapshot(nestedParent, parentListId);
     } else {
-        const nestedMain = await safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews')));
+        const nestedMain = await safeGetDocs(() => getDocs(query(
+            collection(db, 'lists', listId, 'reviews'),
+            ...listReviewConstraints,
+        )));
         appendSnapshot(nestedMain, listId);
     }
 
@@ -144,7 +158,7 @@ async function fetchListDetails(listId: string): Promise<{ list: ListEntity; rev
 
     const [placesMap, usersMap] = await Promise.all([
         fetchDocsMap('places', placeIds),
-        fetchDocsMap('users', userIds),
+        fetchDocsMap('publicProfiles', userIds),
     ]);
 
     const enrichedReviews = rawReviews.map(review => {

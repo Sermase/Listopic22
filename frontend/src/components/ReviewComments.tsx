@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Send, Trash2 } from 'lucide-react';
+import { useAuthPrompt } from '../context/AuthPromptContext';
 
 interface Comment {
     id: string;
@@ -25,6 +26,7 @@ interface ReviewCommentsProps {
 
 export const ReviewComments: React.FC<ReviewCommentsProps> = ({ listId, reviewId, placeId, onClose, onCommentChange }) => {
     const { user } = useAuth();
+    const { openAuthPrompt } = useAuthPrompt();
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -139,7 +141,7 @@ export const ReviewComments: React.FC<ReviewCommentsProps> = ({ listId, reviewId
             </div>
 
             {/* Input */}
-            {user && (
+            {user ? (
                 <form onSubmit={handleSubmit} className="flex gap-2 relative">
                     <input
                         type="text"
@@ -157,6 +159,14 @@ export const ReviewComments: React.FC<ReviewCommentsProps> = ({ listId, reviewId
                         <Send className="w-4 h-4" />
                     </button>
                 </form>
+            ) : (
+                <button
+                    type="button"
+                    onClick={() => openAuthPrompt('comentar esta reseña')}
+                    className="w-full rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-4 py-2 text-sm font-bold text-[var(--lt-accent)] transition-colors hover:bg-[var(--lt-accent)]/20"
+                >
+                    Inicia sesión para comentar
+                </button>
             )}
         </div>
     );

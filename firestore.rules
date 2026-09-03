@@ -172,6 +172,7 @@ service cloud.firestore {
       let list = get(/databases/$(database)/documents/lists/$(listId)).data;
       return list != null && (
         list.isPublic == true ||
+        list.visibility == 'public' ||
         (
           request.auth != null &&
           (
@@ -185,6 +186,50 @@ service cloud.firestore {
           )
         )
       );
+    }
+
+    // Las reseñas públicas se pueden descubrir sin cuenta. Las privadas solo
+    // son visibles para su autor o para quien tenga acceso a la lista/sublista
+    // privada que las contiene.
+    function canReadReviewByListId(listId) {
+      let reviewVisibility = resource.data.get('visibility', 'private');
+      let sublistId = resource.data.get('sublistId', '');
+      return listId is string && (
+        (reviewVisibility == 'public' && canReadListById(listId)) ||
+        (
+          request.auth != null &&
+          (
+            resource.data.userId == request.auth.uid ||
+            resource.data.get('authorId', '') == request.auth.uid ||
+            isJefe(request.auth.uid) ||
+            (sublistId is string && sublistId != '' && canReadListById(sublistId)) ||
+            (sublistId == '' && canReadListById(listId))
+          )
+        )
+      );
+    }
+
+    // `visibility` se desnormaliza en la reseña para poder autorizar feeds de
+    // collectionGroup. Por eso no puede quedar a elección del cliente: debe
+    // reflejar siempre la lista o sublista real donde se creó.
+    function reviewVisibilityMatchesList(reviewData, listId) {
+      let sublistId = reviewData.get('sublistId', '');
+      let targetListId = sublistId is string && sublistId != '' ? sublistId : listId;
+      let targetList = get(/databases/$(database)/documents/lists/$(targetListId)).data;
+      let targetIsPublic = targetList != null && (
+        targetList.isPublic == true || targetList.visibility == 'public'
+      );
+      return targetList != null && (
+        (targetIsPublic && reviewData.get('visibility', '') == 'public') ||
+        (!targetIsPublic && reviewData.get('visibility', '') == 'private')
+      );
+    }
+
+    function reviewIdentityAndTargetDidNotChange() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'visibility', 'listId', 'parentListId', 'sublistId',
+        'userId', 'authorId', 'createdAt'
+      ]);
     }
 
     function isListOwner(listId) {
@@ -228,30 +273,21 @@ service cloud.firestore {
     // ===============================================
     // REGLA PARA COLLECTION GROUP 'reviews'
     // ===============================================
-    // Cualquier usuario autenticado puede leer reseñas (colección raíz y subcollections).
-    // Las reseñas son contenido social público; la privacidad se gestiona en el nivel de la lista.
+    // Las reseñas públicas son contenido navegable sin cuenta. Todas las queries
+    // de collectionGroup llevan un límite para acotar coste y abuso.
 
     match /{path=**}/reviews/{reviewId} {
-      allow get: if request.auth != null;
-      // Permitir collectionGroup queries para feeds (siguiendo, trending, perfil...)
-      // con un límite razonable para evitar abuso. La privacidad se gestiona en
-      // el nivel de la lista (canReadListById) — las reseñas son contenido social.
-      allow list: if request.auth != null && request.query.limit <= 100;
-      allow create: if request.auth != null
-                    && request.resource.data.userId == request.auth.uid
-                    && request.resource.data.listId is string
-                    && reviewCreateHasOnlyAllowedFields()
-                    && (canWriteToList(request.resource.data.listId) || canWriteToSublistOf(request.resource.data.listId));
-      allow update: if request.auth != null && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.authorId == request.auth.uid ||
-        isJefe(request.auth.uid)
-      ) && reviewUpdateChangesOnlyAllowedFields();
-      allow delete: if request.auth != null && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.authorId == request.auth.uid ||
-        isJefe(request.auth.uid)
-      );
+      allow get: if resource.data.listId is string && canReadReviewByListId(resource.data.listId);
+      allow list: if request.query.limit != null
+                  && request.query.limit <= 100
+                  && (
+                    resource.data.get('visibility', 'private') == 'public' ||
+                    (
+                      request.auth != null &&
+                      resource.data.listId is string &&
+                      canReadReviewByListId(resource.data.listId)
+                    )
+                  );
     }
 
     // Consulta de grupo para las fotos de lugar subidas por el usuario.
@@ -418,12 +454,14 @@ service cloud.firestore {
       ) && listUpdateChangesOnlyAllowedFields();
 
       match /reviews/{reviewId} {
-        allow read: if (request.auth != null && resource.data.userId == request.auth.uid) || canReadListById(listId);
+        allow read: if canReadReviewByListId(listId);
         // CREATE: Validar que tenga permiso de ESCRITURA en la lista,
         // o que tenga acceso de escritura en una sublista de esta lista
         allow create: if request.auth != null
                          && request.resource.data.userId == request.auth.uid
+                         && request.resource.data.listId == listId
                          && reviewCreateHasOnlyAllowedFields()
+                         && reviewVisibilityMatchesList(request.resource.data, listId)
                          && (canWriteToList(listId) || canWriteToSublistOf(listId));
         
         // UPDATE/DELETE: El autor o un jefe puede hacerlo.
@@ -431,7 +469,9 @@ service cloud.firestore {
                         resource.data.userId == request.auth.uid ||
                         isJefe(request.auth.uid) ||
                         (canReadListById(listId) && (isReactionCountUpdate() || isCommentsCountUpdate()))
-                      ) && reviewUpdateChangesOnlyAllowedFields();
+                      ) && reviewUpdateChangesOnlyAllowedFields()
+                        && request.resource.data.listId == listId
+                        && reviewIdentityAndTargetDidNotChange();
         allow delete: if request.auth != null && (
           resource.data.userId == request.auth.uid ||
           resource.data.authorId == request.auth.uid ||
@@ -479,22 +519,19 @@ service cloud.firestore {
     // lists/{listId}/reviews, pero estas reglas evitan que queries
     // collectionGroup('reviews') fallen por documentos antiguos.
     match /reviews/{reviewId} {
-      allow read: if request.auth != null && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.authorId == request.auth.uid ||
-        isJefe(request.auth.uid) ||
-        (resource.data.listId is string && canReadListById(resource.data.listId))
-      );
+      allow read: if resource.data.listId is string && canReadReviewByListId(resource.data.listId);
       allow create: if request.auth != null
                     && request.resource.data.userId == request.auth.uid
                     && request.resource.data.listId is string
                     && reviewCreateHasOnlyAllowedFields()
+                    && reviewVisibilityMatchesList(request.resource.data, request.resource.data.listId)
                     && canWriteToList(request.resource.data.listId);
       allow update: if request.auth != null && (
         resource.data.userId == request.auth.uid ||
         resource.data.authorId == request.auth.uid ||
         isJefe(request.auth.uid)
-      ) && reviewUpdateChangesOnlyAllowedFields();
+      ) && reviewUpdateChangesOnlyAllowedFields()
+        && reviewIdentityAndTargetDidNotChange();
       allow delete: if request.auth != null && (
         resource.data.userId == request.auth.uid ||
         resource.data.authorId == request.auth.uid ||
