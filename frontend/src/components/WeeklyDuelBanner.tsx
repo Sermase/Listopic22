@@ -5,12 +5,14 @@ import { Swords, UtensilsCrossed } from 'lucide-react';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { mapDuel, type Duel, type DuelSide } from '../types/duel';
+import { useAuthPrompt } from '../context/AuthPromptContext';
 
 // El Duelo de la semana: dos platos rivales, la comunidad vota. Se activa
 // desde Developer (flag showWeeklyDuel) y los duelos se gestionan en
 // Developer → Propuestas Pro.
 export const WeeklyDuelBanner: React.FC = () => {
     const { user } = useAuth();
+    const { openAuthPrompt } = useAuthPrompt();
     const [duel, setDuel] = useState<Duel | null>(null);
     const [votes, setVotes] = useState<{ a: number; b: number }>({ a: 0, b: 0 });
     const [myVote, setMyVote] = useState<'a' | 'b' | null>(null);
@@ -57,7 +59,11 @@ export const WeeklyDuelBanner: React.FC = () => {
     const percentB = total > 0 ? 100 - percentA : 50;
 
     const vote = async (side: 'a' | 'b') => {
-        if (!user || voting || myVote === side) return;
+        if (!user) {
+            openAuthPrompt('votar en el duelo semanal');
+            return;
+        }
+        if (voting || myVote === side) return;
         setVoting(true);
         try {
             await setDoc(doc(db, 'duels', duel.id, 'votes', user.uid), {
@@ -102,7 +108,7 @@ export const WeeklyDuelBanner: React.FC = () => {
                     <button
                         type="button"
                         onClick={(event) => { event.preventDefault(); void vote(id); }}
-                        disabled={!user || voting}
+                        disabled={voting}
                         className={`mt-2 w-full rounded-xl px-3 py-1.5 text-xs font-black transition-colors ${
                             chosen
                                 ? 'bg-amber-500 text-black'

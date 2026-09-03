@@ -100,7 +100,12 @@ const fetchPublicReviewsFromListSubcollections = async (
     const perListLimit = userId ? 30 : type === 'following' ? 10 : 4;
     const listReviewSnaps = await Promise.all(
         publicListIds.map(listId =>
-            getDocs(query(collection(db, 'lists', listId, 'reviews'), orderBy('createdAt', 'desc'), limit(perListLimit)))
+            getDocs(query(
+                collection(db, 'lists', listId, 'reviews'),
+                where('visibility', '==', 'public'),
+                orderBy('createdAt', 'desc'),
+                limit(perListLimit),
+            ))
                 .then(snapshot => ({ listId, snapshot }))
         )
     );
@@ -156,7 +161,11 @@ async function fetchReviewsPage(
 
             const reviewsGrpRef = collectionGroup(db, 'reviews');
             const snapshots = await Promise.all(chunks.map(chunk => {
-                const constraints: any[] = [where('userId', 'in', chunk), orderBy('createdAt', 'desc')];
+                const constraints: any[] = [
+                    where('visibility', '==', 'public'),
+                    where('userId', 'in', chunk),
+                    orderBy('createdAt', 'desc'),
+                ];
                 if (lastDoc) constraints.push(startAfter(lastDoc));
                 constraints.push(limit(customLimit || 10));
                 return getDocs(query(reviewsGrpRef, ...constraints));
@@ -182,12 +191,14 @@ async function fetchReviewsPage(
             hasMore = paged.length >= pageSize;
 
         } else if (!userId && !listId) {
-            const constraints: Parameters<typeof query>[1][] = [orderBy('createdAt', 'desc')];
+            const constraints: Parameters<typeof query>[1][] = [
+                where('visibility', '==', 'public'),
+                orderBy('createdAt', 'desc'),
+            ];
             if (sinceDate) {
                 constraints.push(where('createdAt', '>=', Timestamp.fromDate(sinceDate)));
-            } else {
-                constraints.push(limit(customLimit || 20));
             }
+            constraints.push(limit(Math.min(customLimit || (sinceDate ? 100 : 20), 100)));
             const snap = await getDocs(query(collectionGroup(db, 'reviews'), ...constraints));
             rawReviews = snap.docs.map(d => {
                 const data = d.data() as any;
@@ -214,7 +225,7 @@ async function fetchReviewsPage(
                 listId,
             } as ReviewEntity));
         } else {
-            const constraints: any[] = [];
+            const constraints: any[] = [where('visibility', '==', 'public')];
             if (userId) constraints.push(where('userId', '==', userId));
             if (listId) constraints.push(where('listId', '==', listId));
             constraints.push(orderBy('createdAt', 'desc'));

@@ -5,6 +5,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '../firebase';
 import { AlertTriangle, X, Send, MapPin, AlertCircle, FileText, List, Users, ShieldCheck, Loader2 } from 'lucide-react';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useAuthPrompt } from '../context/AuthPromptContext';
 
 export type ReportTargetType = 'place' | 'review' | 'list' | 'group' | 'user' | 'other';
 
@@ -20,6 +21,7 @@ interface ReportModalProps {
 
 export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targetId, targetName, targetType, targetOwnerId, itemName }) => {
     const { user } = useAuth();
+    const { openAuthPrompt } = useAuthPrompt();
     const { showToast } = useToast();
     const [issueType, setIssueType] = useState('inappropriate');
     const [description, setDescription] = useState('');
@@ -36,7 +38,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
         e.preventDefault();
 
         if (!user?.uid) {
-            showToast({ message: 'Inicia sesión para reportar contenido.', variant: 'error' });
+            onClose();
+            openAuthPrompt('reportar contenido');
             return;
         }
         if (isSelfReport) {

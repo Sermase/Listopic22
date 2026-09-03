@@ -13,6 +13,7 @@ import { ReviewCard } from '../components/ReviewCard';
 import { ReviewCardList } from '../components/ReviewCardList';
 import { MapView } from '../components/MapView';
 import { useAuth } from '../context/AuthContext';
+import { useAuthPrompt } from '../context/AuthPromptContext';
 import { collection, doc, getDoc, getDocs, query, setDoc, deleteDoc, serverTimestamp, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { AddReviewForm } from '../components/AddReviewForm';
@@ -129,6 +130,7 @@ export const PlacePage: React.FC = () => {
     const { placeId } = useParams<{ placeId: string }>();
     const { place, loading, error, refresh } = usePlaceDetails(placeId);
     const { user } = useAuth();
+    const { openAuthPrompt } = useAuthPrompt();
 
     // OG meta tags for social sharing
     useEffect(() => {
@@ -277,6 +279,47 @@ export const PlacePage: React.FC = () => {
         setIsFlowOpen(true);
     };
 
+    const handleOpenReviewFlow = () => {
+        if (!user) {
+            openAuthPrompt('añadir una reseña');
+            return;
+        }
+        setSelectedListId(fromListId || null);
+        setIsFlowOpen(true);
+    };
+
+    const handleOpenPhotoUpload = () => {
+        if (!user) {
+            openAuthPrompt('añadir fotos');
+            return;
+        }
+        setIsPlacePhotoUploadOpen(true);
+    };
+
+    const handleOpenSave = () => {
+        if (!user) {
+            openAuthPrompt('guardar este lugar');
+            return;
+        }
+        setIsSaveModalOpen(true);
+    };
+
+    const handleOpenReport = () => {
+        if (!user) {
+            openAuthPrompt('reportar este lugar');
+            return;
+        }
+        setShowReportModal(true);
+    };
+
+    const handleOpenBusinessClaim = () => {
+        if (!user) {
+            openAuthPrompt('reclamar este negocio');
+            return;
+        }
+        setIsBusinessClaimOpen(true);
+    };
+
     const [reactionConfig, setReactionConfig] = useState<{ like?: string; dislike?: string } | null>(null);
 
     // Fetch Category Configuration for Reactions
@@ -308,7 +351,11 @@ export const PlacePage: React.FC = () => {
     }, [user, placeId]);
 
     const handleFollowToggle = async () => {
-        if (!user || !placeId) return; // Prompt login if needed
+        if (!user) {
+            openAuthPrompt('seguir este lugar');
+            return;
+        }
+        if (!placeId) return;
 
         // Optimistic UI
         const prevState = isFollowed;
@@ -809,22 +856,14 @@ export const PlacePage: React.FC = () => {
 
                                 {/* Add Review Button (New) */}
                                 <button
-                                    onClick={() => {
-                                        if (fromListId) {
-                                            setSelectedListId(fromListId);
-                                            setIsFlowOpen(true);
-                                        } else {
-                                            setSelectedListId(null);
-                                            setIsFlowOpen(true);
-                                        }
-                                    }}
+                                    onClick={handleOpenReviewFlow}
                                     className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all ml-2"
                                 >
                                     <Plus className="w-4 h-4" />
                                     <span>Añadir reseña</span>
                                 </button>
                                 <button
-                                    onClick={() => setIsPlacePhotoUploadOpen(true)}
+                                    onClick={handleOpenPhotoUpload}
                                     className="px-4 py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
                                 >
                                     <ImageIcon className="w-4 h-4 text-[var(--lt-accent)]" />
@@ -844,7 +883,7 @@ export const PlacePage: React.FC = () => {
                     {/* 1. Actions Row */}
                     <div className="glass-card p-3 rounded-2xl grid grid-cols-5 gap-2 sm:gap-3 shadow-lg">
                         <button
-                            onClick={() => setIsSaveModalOpen(true)}
+                            onClick={handleOpenSave}
                             className="lt-secondary-action flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
                         >
                             <Bookmark className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
@@ -866,14 +905,14 @@ export const PlacePage: React.FC = () => {
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Compartir</span>
                         </button>
                         <button
-                            onClick={() => setIsPlacePhotoUploadOpen(true)}
+                            onClick={handleOpenPhotoUpload}
                             className="lt-secondary-action flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
                         >
                             <ImageIcon className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
                             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Fotos</span>
                         </button>
                         <button
-                            onClick={() => setShowReportModal(true)}
+                            onClick={handleOpenReport}
                             className="lt-report-action flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-[var(--lt-text-muted)] hover:bg-red-500/10 hover:text-red-500 transition-all group/report"
                         >
                             <AlertTriangle className="w-5 h-5 mb-1 text-red-500/50 group-hover/report:text-red-500 transition-colors" />
@@ -1511,9 +1550,8 @@ export const PlacePage: React.FC = () => {
                             ) : (
                                 <button
                                     type="button"
-                                    onClick={() => user ? setIsBusinessClaimOpen(true) : undefined}
-                                    disabled={!user}
-                                    className="mt-4 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/10 hover:text-white disabled:opacity-50"
+                                    onClick={handleOpenBusinessClaim}
+                                    className="mt-4 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/10 hover:text-white"
                                 >
                                     {user ? 'Reclamar negocio' : 'Inicia sesión para reclamar'}
                                 </button>
@@ -2063,7 +2101,7 @@ export const PlacePage: React.FC = () => {
                                         <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-3" />
                                         <h3 className="text-white font-bold">Sin fotos</h3>
                                         <button
-                                            onClick={() => setIsPlacePhotoUploadOpen(true)}
+                                            onClick={handleOpenPhotoUpload}
                                             className="mt-4 px-4 py-2 rounded-xl bg-[var(--lt-accent)] text-white text-sm font-bold"
                                         >
                                             Subir fotos

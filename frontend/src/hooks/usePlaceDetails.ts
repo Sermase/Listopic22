@@ -259,18 +259,20 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         return { docs: [] };
     });
 
-    const { getAuth } = await import('firebase/auth');
-    const currentUser = getAuth().currentUser;
-
     // Una sola query de collection group cubre lists/{listId}/reviews y la
-    // colección raíz legacy reviews/ (todas las colecciones llamadas 'reviews').
-    // Las reglas exigen usuario autenticado y limit <= 100.
-    const reviewsSnap = currentUser ? await getDocs(
-        query(collectionGroup(db, 'reviews'), where('placeId', '==', placeId), limit(100))
+    // colección raíz legacy reviews/. Solo se pide contenido público para que
+    // la ficha funcione igual con y sin sesión y nunca mezcle reseñas privadas.
+    const reviewsSnap = await getDocs(
+        query(
+            collectionGroup(db, 'reviews'),
+            where('placeId', '==', placeId),
+            where('visibility', '==', 'public'),
+            limit(100),
+        )
     ).catch((e: any) => {
         if (e?.code !== 'permission-denied') console.warn('Failed to fetch reviews for place', e);
         return null;
-    }) : null;
+    });
 
     const placePhotosSnap = await placePhotosSnapPromise;
     const resolvedBusinessSnap = await resolvedBusinessSnapPromise;
@@ -385,10 +387,8 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     });
 
     const canViewReview = (review: ReviewEntity) => {
-        const r = review as ReviewEntity & { visibility?: string; userId?: string; authorId?: string };
-        if (r.visibility !== 'private') return true;
-        const uid = currentUser?.uid;
-        return !!uid && (r.userId === uid || r.authorId === uid);
+        const r = review as ReviewEntity & { visibility?: string };
+        return r.visibility !== 'private';
     };
 
     const reviews = Array.from(reviewMap.values())

@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { useAuthPrompt } from '../context/AuthPromptContext';
 
 export const useLike = (listId: string, initialCount: number = 0) => {
     const { user } = useAuth();
+    const { openAuthPrompt } = useAuthPrompt();
     const [isLiked, setIsLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(initialCount);
     const [loading, setLoading] = useState(false);
@@ -37,7 +39,10 @@ export const useLike = (listId: string, initialCount: number = 0) => {
     }, [listId, user]);
 
     const toggleLike = async () => {
-        if (!user) return; // Or show login prompt
+        if (!user) {
+            openAuthPrompt('guardar esta lista');
+            return;
+        }
 
         // Optimistic update
         const previousState = isLiked;

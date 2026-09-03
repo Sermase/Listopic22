@@ -14,6 +14,7 @@ import { useAuth } from './context/AuthContext';
 import { NotificationBannerProvider, useNotificationBanner } from './context/NotificationBannerContext';
 import { NotificationBanner } from './components/NotificationBanner';
 import ErrorBoundary from './components/ErrorBoundary';
+import { AuthPromptProvider } from './context/AuthPromptContext';
 import { PageAnalyticsTracker } from './components/PageAnalyticsTracker';
 
 // Lazy Load Pages
@@ -258,20 +259,22 @@ function App() {
     <ToastProvider>
       <NotificationBannerProvider>
         <Router>
-          <ScrollToTop />
-          <PageAnalyticsTracker />
-          <div className="min-h-screen font-sans selection:bg-[var(--lt-accent-soft)]"
-            style={{
-              background: 'var(--lt-bg)',
-              color: 'var(--lt-text)',
-              minHeight: '100dvh',
-              paddingBottom: 'env(safe-area-inset-bottom)',
-            }}>
-            <NavbarWrapper />
-            <NotificationBanner />
-            <AppRoutes />
-            <PushSetup />
-          </div>
+          <AuthPromptProvider>
+            <ScrollToTop />
+            <PageAnalyticsTracker />
+            <div className="min-h-screen font-sans selection:bg-[var(--lt-accent-soft)]"
+              style={{
+                background: 'var(--lt-bg)',
+                color: 'var(--lt-text)',
+                minHeight: '100dvh',
+                paddingBottom: 'env(safe-area-inset-bottom)',
+              }}>
+              <NavbarWrapper />
+              <NotificationBanner />
+              <AppRoutes />
+              <PushSetup />
+            </div>
+          </AuthPromptProvider>
         </Router>
       </NotificationBannerProvider>
     </ToastProvider>

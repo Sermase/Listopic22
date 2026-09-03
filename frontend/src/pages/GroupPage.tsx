@@ -18,6 +18,7 @@ import { type ReviewEntity } from '../hooks/useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
+import { useAuthPrompt } from '../context/AuthPromptContext';
 
 // Helper for Criteria Colors
 const getScoreColor = (score: number) => {
@@ -39,6 +40,7 @@ const toMillis = (value: any): number => {
 export const GroupPage: React.FC = () => {
     const { placeId, itemName } = useParams<{ placeId: string; itemName: string }>();
     const { user } = useAuth();
+    const { openAuthPrompt } = useAuthPrompt();
     const navigate = useNavigate();
     const decodedName = decodeURIComponent(itemName || '');
 
@@ -145,27 +147,30 @@ export const GroupPage: React.FC = () => {
                     || (reviewListId ? ownListSet.has(reviewListId) : false);
             };
 
-            // Una sola query de collection group sobre lists/{listId}/reviews
-            // (las reglas exigen usuario autenticado y limit <= 100).
+            // Una sola query pública de collection group sobre
+            // lists/{listId}/reviews. La página es navegable sin sesión.
             const reviewMap = new Map<string, ReviewEntity>();
-            if (user) {
-                try {
-                    const reviewsSnap = await getDocs(
-                        query(collectionGroup(db, 'reviews'), where('placeId', '==', placeId), limit(100))
-                    );
-                    reviewsSnap.docs.forEach((reviewDoc) => {
-                        const data = reviewDoc.data() as any;
-                        const pathParts = reviewDoc.ref.path.split('/');
-                        const resolvedListId = (pathParts[0] === 'lists' ? pathParts[1] : '')
-                            || data.listId || data.parentListId || '';
-                        const review = { id: reviewDoc.id, ...data, listId: resolvedListId } as ReviewEntity;
-                        if (!canViewReview(review)) return;
-                        reviewMap.set(reviewDoc.id, review);
-                    });
-                } catch (error: any) {
-                    if (error?.code !== 'permission-denied') {
-                        console.warn('Error loading reviews for group page', error);
-                    }
+            try {
+                const reviewsSnap = await getDocs(
+                    query(
+                        collectionGroup(db, 'reviews'),
+                        where('placeId', '==', placeId),
+                        where('visibility', '==', 'public'),
+                        limit(100),
+                    )
+                );
+                reviewsSnap.docs.forEach((reviewDoc) => {
+                    const data = reviewDoc.data() as any;
+                    const pathParts = reviewDoc.ref.path.split('/');
+                    const resolvedListId = (pathParts[0] === 'lists' ? pathParts[1] : '')
+                        || data.listId || data.parentListId || '';
+                    const review = { id: reviewDoc.id, ...data, listId: resolvedListId } as ReviewEntity;
+                    if (!canViewReview(review)) return;
+                    reviewMap.set(reviewDoc.id, review);
+                });
+            } catch (error: any) {
+                if (error?.code !== 'permission-denied') {
+                    console.warn('Error loading reviews for group page', error);
                 }
             }
 
@@ -368,8 +373,28 @@ export const GroupPage: React.FC = () => {
     const lockedListId = fromListId || relatedLists[0] || null;
 
     const openAddReviewFlow = () => {
+        if (!user) {
+            openAuthPrompt('añadir una reseña');
+            return;
+        }
         setSelectedListId(lockedListId);
         setIsFlowOpen(true);
+    };
+
+    const openSaveModal = () => {
+        if (!user) {
+            openAuthPrompt('guardar este elemento');
+            return;
+        }
+        setIsSaveModalOpen(true);
+    };
+
+    const openReportModal = () => {
+        if (!user) {
+            openAuthPrompt('reportar este elemento');
+            return;
+        }
+        setShowReportModal(true);
     };
 
     const [listsDetails, setListsDetails] = useState<{ id: string, name: string, author: string, parentListId?: string }[]>([]);
@@ -628,7 +653,7 @@ export const GroupPage: React.FC = () => {
                     {/* Actions Row */}
                     <div className="bg-[var(--lt-card-strong)] p-3 rounded-xl border border-white/10 grid grid-cols-3 gap-3">
                         <button
-                            onClick={() => setIsSaveModalOpen(true)}
+                            onClick={openSaveModal}
                             className="lt-secondary-action bg-[var(--lt-card)] hover:bg-[var(--lt-card-strong)] text-gray-200 hover:text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 group"
                         >
                             <Bookmark className="w-6 h-6 group-hover:scale-110 transition-transform text-[var(--lt-accent)]" />
@@ -644,7 +669,7 @@ export const GroupPage: React.FC = () => {
                         </button>
 
                         <button
-                            onClick={() => setShowReportModal(true)}
+                            onClick={openReportModal}
                             className="lt-report-action bg-[var(--lt-card)] hover:bg-red-500/10 text-[var(--lt-text)] hover:text-red-500 rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 hover:border-red-500/25 group"
                         >
                             <Flag className="w-6 h-6 group-hover:scale-110 transition-transform" />

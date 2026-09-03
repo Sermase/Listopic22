@@ -15,6 +15,7 @@ import { buildShareCriteriaGroups } from '../utils/shareCriteria';
 import { buildPublicUrl, buildShareRouteUrl, getLocalRouteFromUrl } from '../utils/publicUrl';
 import { buildShareText } from '../utils/shareTexts';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useAuthPrompt } from '../context/AuthPromptContext';
 import { recordShareEvent, type AnalyticsShareChannel } from '../services/AnalyticsService';
 
 interface ShareModalProps {
@@ -48,6 +49,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     shareEntity,
 }) => {
     const { user } = useAuth();
+    const { openAuthPrompt } = useAuthPrompt();
     useBodyScrollLock(isOpen);
     const shareCardTriggerRef = React.useRef<() => void>(() => { });
     const fallbackUrl = buildPublicUrl(url || (typeof window !== 'undefined' ? window.location.href : '/'));
@@ -425,8 +427,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
         if (platform === 'chat') {
             if (!user) {
-                setStatusTone('error');
-                setStatusMessage('Inicia sesión para compartir en chats');
+                openAuthPrompt('compartir contenido en un chat');
                 return;
             }
             setIsCardStylePickerOpen(false);

@@ -10,6 +10,7 @@ import { db } from '../firebase';
 import { Capacitor } from '@capacitor/core';
 import { NotificationHistoryModal } from './NotificationHistoryModal';
 import { NotificationModal } from './NotificationModal';
+import { useAuthPrompt } from '../context/AuthPromptContext';
 import { PageAnalyticsModal } from './PageAnalyticsModal';
 import { isTrackableAnalyticsPath } from '../services/AnalyticsService';
 
@@ -28,10 +29,11 @@ const getFirebaseStorageRetryUrl = (src: string): string | null => {
     }
 };
 
-const NavItem = ({ to, icon: Icon, label, badge, count, isActive }: { to: string; icon: React.ElementType; label: string; badge?: boolean; count?: number; isActive: boolean }) => {
+const NavItem = ({ to, icon: Icon, label, badge, count, isActive, onClick }: { to: string; icon: React.ElementType; label: string; badge?: boolean; count?: number; isActive: boolean; onClick?: React.MouseEventHandler<HTMLAnchorElement> }) => {
     return (
         <Link
             to={to}
+            onClick={onClick}
             className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 group
                 ${isActive
                     ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] font-medium'
@@ -54,6 +56,7 @@ const NavItem = ({ to, icon: Icon, label, badge, count, isActive }: { to: string
 
 export const Navbar: React.FC = () => {
     const { user, isJefe } = useAuth();
+    const { openAuthPrompt } = useAuthPrompt();
     const config = useAppConfig();
     const isConfigLoading = useAppConfigLoading();
     const { theme } = useTheme();
@@ -247,6 +250,12 @@ export const Navbar: React.FC = () => {
 
     const profileLabel = profileUsername ? `@${profileUsername}` : (user?.displayName || 'Mi cuenta');
     const mobileCreateButtonClass = "w-full flex items-center justify-center gap-3 rounded-2xl px-5 py-4 text-lg font-bold text-white shadow-lg transition-all";
+    const guardProtectedLink = (action: string): React.MouseEventHandler<HTMLAnchorElement> => (event) => {
+        if (user) return;
+        event.preventDefault();
+        setIsMenuOpen(false);
+        openAuthPrompt(action);
+    };
 
     return (
         <header className="fixed top-0 w-full z-50 px-3 sm:px-5 transition-all duration-500 pointer-events-none" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 0.5rem)' }}>
@@ -281,15 +290,15 @@ export const Navbar: React.FC = () => {
                     <nav className="lt-nav-pill hidden md:flex items-center bg-white/5 backdrop-blur-xl rounded-full px-2 py-1.5 border border-white/5 shadow-inner">
                         <NavItem to="/search" icon={Search} label="Buscar" isActive={location.pathname === '/search'} />
                         <div className="w-px h-4 bg-white/10 mx-1" />
-                        <NavItem to="/archive" icon={Archive} label="Archivo" isActive={location.pathname === '/archive'} />
+                        <NavItem to="/archive" icon={Archive} label="Archivo" isActive={location.pathname === '/archive'} onClick={guardProtectedLink('ver tu archivo')} />
                         {user && managedBusinessCount > 0 && (
                             <NavItem to="/businesses" icon={Building2} label="Negocios" isActive={location.pathname === '/businesses'} />
                         )}
-                        <NavItem to="/chats" icon={MessageSquare} label="Chats" count={unreadChatCount} isActive={location.pathname === '/chats'} />
+                        <NavItem to="/chats" icon={MessageSquare} label="Chats" count={unreadChatCount} isActive={location.pathname === '/chats'} onClick={guardProtectedLink('abrir tus chats')} />
                     </nav>
 
                     <div className="hidden md:flex items-center gap-4">
-                        <Link to="/create-sublist" className="btn-primary">
+                        <Link to="/create-sublist" onClick={guardProtectedLink('crear una sublista')} className="btn-primary">
                             <Plus className="w-4 h-4" />
                             <span>Crear Sublista</span>
                         </Link>
@@ -424,10 +433,10 @@ export const Navbar: React.FC = () => {
                         )}
 
                         <div className="grid grid-cols-1 gap-3">
-                            <Link to="/create-sublist" className={mobileCreateButtonClass} style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' }}>
+                            <Link to="/create-sublist" onClick={guardProtectedLink('crear una sublista')} className={mobileCreateButtonClass} style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' }}>
                                 <Plus className="w-6 h-6" /> Crear Sublista
                             </Link>
-                            <Link to="/create-review" className={mobileCreateButtonClass} style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' }}>
+                            <Link to="/create-review" onClick={guardProtectedLink('crear una reseña')} className={mobileCreateButtonClass} style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' }}>
                                 <Plus className="w-6 h-6" /> Crear Reseña
                             </Link>
                         </div>
@@ -439,7 +448,7 @@ export const Navbar: React.FC = () => {
                             <Link to="/search" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
                                 <Search className="w-5 h-5 text-[var(--lt-accent)]" /> Buscar
                             </Link>
-                            <Link to="/chats" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)] justify-between">
+                            <Link to="/chats" onClick={guardProtectedLink('abrir tus chats')} className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)] justify-between">
                                 <div className="flex items-center gap-3">
                                     <MessageSquare className="w-5 h-5 text-[var(--lt-accent)]" /> Chats
                                 </div>
@@ -481,7 +490,7 @@ export const Navbar: React.FC = () => {
                                     <Eye className="w-5 h-5" /> Ojo mágico · Estadísticas
                                 </button>
                             )}
-                            <Link to="/archive" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
+                            <Link to="/archive" onClick={guardProtectedLink('ver tu archivo')} className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
                                 <Archive className="w-5 h-5 text-[var(--lt-accent)]" /> Archivo
                             </Link>
                             {user && managedBusinessCount > 0 && (

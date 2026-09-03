@@ -20,6 +20,7 @@ import { db } from '../firebase';
 import { buildShareCriteriaGroups } from '../utils/shareCriteria';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { CategoryService } from '../services/CategoryService';
+import { useAuthPrompt } from '../context/AuthPromptContext';
 
 interface ReviewCardListProps {
     review: ReviewEntity;
@@ -47,6 +48,7 @@ const formatScore = (score: number | undefined) => {
 export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp, hidePlaceName }) => {
     const placeClosedStatus = placeClosedStatusProp || (review as any).placeClosedStatus || undefined;
     const { user } = useAuth();
+    const { openAuthPrompt } = useAuthPrompt();
     const queryClient = useQueryClient();
     const navigate = useNavigate();
 
@@ -147,7 +149,11 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
 
     const handleLike = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!user || !review.id || !review.listId) return;
+        if (!user) {
+            openAuthPrompt('indicar que te gusta esta reseña');
+            return;
+        }
+        if (!review.id || !review.listId) return;
         const newLiked = !liked;
         setLiked(newLiked);
         setLikeCount((prev) => Math.max(0, newLiked ? prev + 1 : prev - 1));
@@ -166,9 +172,23 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
     };
 
     const handleShareClick = (e: React.MouseEvent) => { e.stopPropagation(); setIsShareOpen(true); };
-    const handleSaveClick = (e: React.MouseEvent) => { e.stopPropagation(); setIsSaveModalOpen(true); };
+    const handleSaveClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!user) {
+            openAuthPrompt('guardar esta reseña');
+            return;
+        }
+        setIsSaveModalOpen(true);
+    };
     const handleEdit = (e: React.MouseEvent) => { e.stopPropagation(); if (onEdit) onEdit(review); };
-    const handleReportClick = (e: React.MouseEvent) => { e.stopPropagation(); setShowReportModal(true); };
+    const handleReportClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!user) {
+            openAuthPrompt('reportar esta reseña');
+            return;
+        }
+        setShowReportModal(true);
+    };
     const handleCommentToggle = (e: React.MouseEvent) => { e.stopPropagation(); setShowComments(!showComments); };
 
     const handleDelete = async (e: React.MouseEvent) => {

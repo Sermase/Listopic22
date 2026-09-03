@@ -397,7 +397,10 @@ export const HomePage: React.FC = () => {
     const [followingIds, setFollowingIds] = useState<string[]>([]);
     const userUid = user?.uid;
     useEffect(() => {
-        if (!userUid) return;
+        if (!userUid) {
+            setFollowingIds([]);
+            return;
+        }
         const fetchFollowing = async () => {
             const q = query(collection(db, 'users', userUid, 'following'));
             const snap = await getDocs(q);
@@ -425,8 +428,11 @@ export const HomePage: React.FC = () => {
             }
             return { type: 'trending' as const, limit: 1000 }; // 0 meses = sin límite temporal, cota de seguridad
         }
+        if (!user || followingIds.length === 0) {
+            return { type: 'recent' as const, limit: 20 };
+        }
         return { type: 'following' as const, followingIds, limit: 10 };
-    }, [activeTab, followingIds, appConfig.homeReviewsMonths]);
+    }, [activeTab, followingIds, appConfig.homeReviewsMonths, user]);
 
     const { lists, loading: loadingLists } = useLists(listSort);
     const { reviews, loading: loadingReviews, fetchMore, hasMore, loadingMore } = useReviews(reviewSortParam);

@@ -20,6 +20,7 @@ import { NonPonderableGauge } from './NonPonderableGauge';
 import { buildShareCriteriaGroups } from '../utils/shareCriteria';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { CategoryService } from '../services/CategoryService';
+import { useAuthPrompt } from '../context/AuthPromptContext';
 
 interface ReviewCardProps {
     review: ReviewEntity;
@@ -33,6 +34,7 @@ interface ReviewCardProps {
 export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp }) => {
     const placeClosedStatus = placeClosedStatusProp || (review as any).placeClosedStatus || undefined;
     const { user } = useAuth();
+    const { openAuthPrompt } = useAuthPrompt();
     const queryClient = useQueryClient();
     const navigate = useNavigate();
 
@@ -187,7 +189,11 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
     const handleLike = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!user || !review.id || !review.listId) return;
+        if (!user) {
+            openAuthPrompt('indicar que te gusta esta reseña');
+            return;
+        }
+        if (!review.id || !review.listId) return;
 
         const newLiked = !liked;
 
@@ -216,6 +222,10 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
     const handleSaveClick = (e: React.MouseEvent) => {
         e.stopPropagation();
+        if (!user) {
+            openAuthPrompt('guardar esta reseña');
+            return;
+        }
         setIsSaveModalOpen(true);
     };
 
@@ -240,6 +250,10 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
     const handleReportClick = (e: React.MouseEvent) => {
         e.stopPropagation();
+        if (!user) {
+            openAuthPrompt('reportar esta reseña');
+            return;
+        }
         setShowReportModal(true);
     };
 
@@ -472,7 +486,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         <button
                             aria-label="Guardar en archivo"
                             className="text-gray-500 hover:text-[var(--lt-accent)] transition-colors p-1"
-                            onClick={(e) => { e.stopPropagation(); setIsSaveModalOpen(true); }}
+                            onClick={handleSaveClick}
                         >
                             <Bookmark className="w-5 h-5 stroke-[1.5]" />
                         </button>

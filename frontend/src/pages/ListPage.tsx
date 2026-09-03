@@ -24,6 +24,7 @@ import { buildShareCriteriaGroups } from '../utils/shareCriteria';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
 import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
+import { useAuthPrompt } from '../context/AuthPromptContext';
 
 export interface FilterState {
     minRating: number;
@@ -145,6 +146,7 @@ export const ListPage: React.FC = () => {
     const [sortMode, setSortMode] = useState<'rating' | 'newest' | 'oldest' | 'count'>('rating');
     const { list, reviews, sublists, loading, error } = useListDetails(listId);
     const { user } = useAuth();
+    const { openAuthPrompt } = useAuthPrompt();
 
     // OG meta tags for social sharing (WhatsApp, iMessage, etc.)
     useEffect(() => {
@@ -175,10 +177,11 @@ export const ListPage: React.FC = () => {
     const canManageList = user && (list?.parentListId ? list.userId === user.uid : isJefe);
 
     const canAddReview = useMemo(() => {
-        if (!user || !list) return false;
+        if (!list) return false;
+        if (list.isPublic && (list as any).publicAccess === 'writer') return true;
+        if (!user) return false;
         if (list.userId === user.uid) return true;           // owner
         if (list.editors?.includes(user.uid)) return true;  // editor/collaborator (UID)
-        if (list.isPublic && (list as any).publicAccess === 'writer') return true; // public write
         return false;
     }, [user, list]);
 
@@ -198,7 +201,7 @@ export const ListPage: React.FC = () => {
     const queryParams = new URLSearchParams(routerLocation.search);
     const editId = queryParams.get('editId');
 
-    const [isAddModalOpen, setIsAddModalOpen] = useState(!!editId);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingReviewId, setEditingReviewId] = useState<string | undefined>(editId || undefined);
 
     // Update state if URL changes (e.g. navigation back/forward)
@@ -206,10 +209,22 @@ export const ListPage: React.FC = () => {
         const q = new URLSearchParams(routerLocation.search);
         const Eid = q.get('editId');
         if (Eid) {
+            if (!user) {
+                openAuthPrompt('editar una reseña');
+                return;
+            }
             setEditingReviewId(Eid);
             setIsAddModalOpen(true);
         }
-    }, [routerLocation.search]);
+    }, [openAuthPrompt, routerLocation.search, user]);
+
+    const handleOpenAddReview = () => {
+        if (!user) {
+            openAuthPrompt('añadir una reseña');
+            return;
+        }
+        setIsAddModalOpen(true);
+    };
 
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isMapOpen, setIsMapOpen] = useState(false);
@@ -983,7 +998,7 @@ export const ListPage: React.FC = () => {
                             {/* Primary CTA: Add Review */}
                             {canAddReview && (
                                 <button
-                                    onClick={() => setIsAddModalOpen(true)}
+                                    onClick={handleOpenAddReview}
                                     className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
                                 >
                                     <Plus className="w-4 h-4" />
@@ -993,7 +1008,7 @@ export const ListPage: React.FC = () => {
 
                             {/* Desktop: secondary actions inline */}
                             <div className="hidden md:flex items-center gap-2">
-                                {user && list.userId !== user.uid && (
+                                {(!user || list.userId !== user.uid) && (
                                     <button onClick={toggleLike} className={`px-3 py-2 text-sm font-bold rounded-xl border flex items-center gap-1.5 transition-all ${isLiked ? 'border-white/20 text-white hover:border-pink-500 hover:text-pink-400' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}>
                                         <Heart className={`w-4 h-4 ${isLiked ? 'fill-current text-pink-400' : ''}`} />
                                         {isLiked ? 'Guardada' : 'Guardar'}
@@ -1043,7 +1058,7 @@ export const ListPage: React.FC = () => {
                                     <div ref={dropdownPortalRef} className="fixed w-52 bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-1 z-[9999]"
                                         style={{ top: dropdownPosition.top, right: dropdownPosition.right }}
                                     >
-                                        {user && list.userId !== user.uid && (
+                                        {(!user || list.userId !== user.uid) && (
                                             <button
                                                 onClick={() => { toggleLike(); setIsActionsMenuOpen(false); }}
                                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors text-left"
@@ -1366,7 +1381,7 @@ export const ListPage: React.FC = () => {
                             </p>
                             {canAddReview && !searchQuery && (
                                 <button
-                                    onClick={() => setIsAddModalOpen(true)}
+                                    onClick={handleOpenAddReview}
                                     className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] font-bold hover:underline"
                                 >
                                     ¡Añade la primera reseña!
