@@ -194,6 +194,7 @@ service cloud.firestore {
     function canReadReviewByListId(listId) {
       let reviewVisibility = resource.data.get('visibility', 'private');
       let sublistId = resource.data.get('sublistId', '');
+      let hasSublist = sublistId is string && sublistId != '';
       return listId is string && (
         (reviewVisibility == 'public' && canReadListById(listId)) ||
         (
@@ -202,8 +203,8 @@ service cloud.firestore {
             resource.data.userId == request.auth.uid ||
             resource.data.get('authorId', '') == request.auth.uid ||
             isJefe(request.auth.uid) ||
-            (sublistId is string && sublistId != '' && canReadListById(sublistId)) ||
-            (sublistId == '' && canReadListById(listId))
+            (hasSublist && canReadListById(sublistId)) ||
+            (!hasSublist && canReadListById(listId))
           )
         )
       );
@@ -230,6 +231,28 @@ service cloud.firestore {
         'visibility', 'listId', 'parentListId', 'sublistId',
         'userId', 'authorId', 'createdAt'
       ]);
+    }
+
+    // La visibilidad solo puede sincronizarla quien administra la lista real
+    // de la reseña, y únicamente con el valor que esa lista tiene ahora.
+    function canManageReviewTarget(reviewData, listId) {
+      let sublistId = reviewData.get('sublistId', '');
+      let targetListId = sublistId is string && sublistId != '' ? sublistId : listId;
+      let targetList = get(/databases/$(database)/documents/lists/$(targetListId)).data;
+      return request.auth != null && targetList != null && (
+        targetList.userId == request.auth.uid ||
+        (targetList.editors is list && targetList.editors.hasAny([request.auth.uid])) ||
+        isJefe(request.auth.uid)
+      );
+    }
+
+    function reviewVisibilityUpdateIsValid(listId) {
+      let changedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      return changedKeys.hasOnly(['visibility'])
+             && changedKeys.hasAny(['visibility'])
+             && request.resource.data.listId == listId
+             && reviewVisibilityMatchesList(request.resource.data, listId)
+             && canManageReviewTarget(request.resource.data, listId);
     }
 
     function isListOwner(listId) {
@@ -465,13 +488,20 @@ service cloud.firestore {
                          && (canWriteToList(listId) || canWriteToSublistOf(listId));
         
         // UPDATE/DELETE: El autor o un jefe puede hacerlo.
-        allow update: if request.auth != null && (
-                        resource.data.userId == request.auth.uid ||
-                        isJefe(request.auth.uid) ||
-                        (canReadListById(listId) && (isReactionCountUpdate() || isCommentsCountUpdate()))
-                      ) && reviewUpdateChangesOnlyAllowedFields()
-                        && request.resource.data.listId == listId
-                        && reviewIdentityAndTargetDidNotChange();
+        allow update: if request.auth != null
+                      && reviewUpdateChangesOnlyAllowedFields()
+                      && request.resource.data.listId == listId
+                      && (
+                        (
+                          (
+                            resource.data.userId == request.auth.uid ||
+                            isJefe(request.auth.uid) ||
+                            (canReadListById(listId) && (isReactionCountUpdate() || isCommentsCountUpdate()))
+                          )
+                          && reviewIdentityAndTargetDidNotChange()
+                        ) ||
+                        reviewVisibilityUpdateIsValid(listId)
+                      );
         allow delete: if request.auth != null && (
           resource.data.userId == request.auth.uid ||
           resource.data.authorId == request.auth.uid ||
@@ -526,12 +556,20 @@ service cloud.firestore {
                     && reviewCreateHasOnlyAllowedFields()
                     && reviewVisibilityMatchesList(request.resource.data, request.resource.data.listId)
                     && canWriteToList(request.resource.data.listId);
-      allow update: if request.auth != null && (
-        resource.data.userId == request.auth.uid ||
-        resource.data.authorId == request.auth.uid ||
-        isJefe(request.auth.uid)
-      ) && reviewUpdateChangesOnlyAllowedFields()
-        && reviewIdentityAndTargetDidNotChange();
+      allow update: if request.auth != null
+                    && request.resource.data.listId is string
+                    && reviewUpdateChangesOnlyAllowedFields()
+                    && (
+                      (
+                        (
+                          resource.data.userId == request.auth.uid ||
+                          resource.data.authorId == request.auth.uid ||
+                          isJefe(request.auth.uid)
+                        )
+                        && reviewIdentityAndTargetDidNotChange()
+                      ) ||
+                      reviewVisibilityUpdateIsValid(request.resource.data.listId)
+                    );
       allow delete: if request.auth != null && (
         resource.data.userId == request.auth.uid ||
         resource.data.authorId == request.auth.uid ||
