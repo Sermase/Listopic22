@@ -1036,10 +1036,21 @@ export const GroupPage: React.FC = () => {
                     route: groupRoute,
                     url: groupShareUrl,
                     imageUrl: stats?.mainPhoto || undefined,
+                    imageUrls: stats?.photos || [],
                     score: stats?.avg,
                     reviewCount: stats?.count,
                     criteriaStats: stats
-                        ? [...stats.ponderable, ...stats.nonPonderable]
+                        ? stats.ponderable
+                            .slice(0, 6)
+                            .map((criterion) => ({
+                                key: criterion.key,
+                                label: criterion.label,
+                                score: criterion.avg,
+                                count: criterion.count,
+                            }))
+                        : [],
+                    nonPonderableStats: stats
+                        ? stats.nonPonderable
                             .slice(0, 6)
                             .map((criterion) => ({
                                 key: criterion.key,

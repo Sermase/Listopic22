@@ -10,11 +10,13 @@ import {
     Pencil,
     Plus,
     Save,
+    Share2,
     Sparkles,
     Tags,
     Trash2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { getBusinessPlaceAnalytics, type BusinessPlaceAnalyticsResult } from '../../services/AnalyticsService';
 import { getCanonicalPlaceItems, type CanonicalPlaceItem } from '../../services/CanonicalItemService';
 import {
     ALLERGEN_OPTIONS,
@@ -40,6 +42,7 @@ import {
     requestItemSpotlight,
     requestSponsoredPlacement,
     saveBusinessOffer,
+    SPOTLIGHT_RADIUS_STEP_KM,
     submitItemProposal,
     updateBusinessMenuSections,
     updateBusinessVisual,
@@ -58,6 +61,19 @@ import {
 } from '../../services/BusinessProService';
 
 type Message = { type: 'success' | 'error'; text: string } | null;
+const BUSINESS_SHARE_CHANNEL_LABELS: Record<string, string> = {
+    whatsapp: 'WhatsApp',
+    clipboard: 'Enlace copiado',
+    image: 'Tarjeta generada',
+    chat: 'Chat Listopic',
+};
+const BUSINESS_SHARE_ENTITY_LABELS: Record<string, string> = {
+    place: 'Ficha del lugar',
+    group: 'Grupo o elemento',
+    review: 'Reseña',
+    list: 'Lista',
+    sublist: 'Sublista',
+};
 
 const inputClass = 'w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-[var(--lt-text)] outline-none transition-colors placeholder:text-[var(--lt-text-muted)] focus:border-[var(--lt-accent-border)]';
 
@@ -1092,6 +1108,10 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                     setItems(itemRows);
                     setSpotlights(spotlightRows);
                     setPricing(pricingConfig);
+                    setSpotlightRadius((current) => {
+                        const clamped = Math.max(pricingConfig.minRadiusKm, Math.min(pricingConfig.maxRadiusKm, current));
+                        return Number((Math.round(clamped / SPOTLIGHT_RADIUS_STEP_KM) * SPOTLIGHT_RADIUS_STEP_KM).toFixed(1));
+                    });
                     setSpotlightCredits(creditsBalance);
                 }
             } catch (error) {
@@ -1107,6 +1127,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
     }, [placeId]);
 
     const spotlightUnitPrice = computeSpotlightUnitPrice(pricing, spotlightRadius, spotlightWeeks);
+    const spotlightRadiusSteps = Math.ceil((spotlightRadius / SPOTLIGHT_RADIUS_STEP_KM) - 1e-9);
     const spotlightCreditsUsed = Math.min(spotlightCredits, spotlightUnits);
     const spotlightBilledUnits = spotlightUnits - spotlightCreditsUsed;
     const spotlightTotal = Number((spotlightUnitPrice * spotlightBilledUnits).toFixed(2));
@@ -1418,7 +1439,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                                     type="range"
                                     min={pricing.minRadiusKm}
                                     max={pricing.maxRadiusKm}
-                                    step={0.5}
+                                    step={SPOTLIGHT_RADIUS_STEP_KM}
                                     value={spotlightRadius}
                                     onChange={(event) => setSpotlightRadius(Number(event.target.value))}
                                     className="mt-3 w-full accent-[var(--lt-accent)]"
@@ -1444,7 +1465,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/10 px-3 py-2.5">
                             <p className="text-xs text-[var(--lt-text-muted)]">
                                 {spotlightUnits} impulso{spotlightUnits === 1 ? '' : 's'} × {spotlightUnitPrice.toFixed(2)} €
-                                <span className="block text-[10px]">({pricing.pricePerKmPerWeek.toFixed(2)} €/km·semana × {spotlightRadius} km × {spotlightWeeks} sem.)</span>
+                                <span className="block text-[10px]">({pricing.pricePerRadiusStepPerWeek.toFixed(2)} € × {spotlightRadiusSteps} tramos de 0,2 km × {spotlightWeeks} sem.)</span>
                                 {spotlightCreditsUsed > 0 && (
                                     <span className="block text-[10px] text-yellow-200">− {spotlightCreditsUsed} de regalo → pagas {spotlightBilledUnits}</span>
                                 )}
@@ -1475,6 +1496,11 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                                                     {spotlight.endsAt ? ` · hasta ${spotlight.endsAt}` : ''}
                                                 </p>
                                                 {spotlight.adminNotes && <p className="text-[11px] text-[var(--lt-text-muted)]">Admin: {spotlight.adminNotes}</p>}
+                                                {spotlight.status === 'active' && (
+                                                    <p className="text-[11px] font-bold text-amber-300/80">
+                                                        {spotlight.metrics.impressions} impresiones · {spotlight.metrics.clicks} clics · CTR {spotlight.metrics.impressions > 0 ? ((spotlight.metrics.clicks / spotlight.metrics.impressions) * 100).toFixed(1) : '0,0'}%
+                                                    </p>
+                                                )}
                                             </div>
                                             <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${meta.className}`}>
                                                 {meta.label}
@@ -1549,6 +1575,11 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                                                     {placement.headline && <p className="mt-0.5 truncate text-[11px] text-[var(--lt-text-muted)]">{placement.headline}</p>}
                                                     {dates && <p className="mt-0.5 text-[11px] text-[var(--lt-text-muted)]">{dates}</p>}
                                                     {placement.adminNotes && <p className="mt-0.5 text-[11px] text-[var(--lt-text-muted)]">Admin: {placement.adminNotes}</p>}
+                                                    {placement.status === 'active' && (
+                                                        <p className="mt-0.5 text-[11px] font-bold text-cyan-300/80">
+                                                            {placement.metrics.impressions} impresiones · {placement.metrics.clicks} clics · CTR {placement.metrics.impressions > 0 ? ((placement.metrics.clicks / placement.metrics.impressions) * 100).toFixed(1) : '0,0'}%
+                                                        </p>
+                                                    )}
                                                 </div>
                                                 <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-black uppercase ${meta.className}`}>
                                                     {meta.label}
@@ -1595,6 +1626,7 @@ const lastMonths = (count: number): string[] => {
 export const BusinessStatsSection: React.FC<{ placeId: string }> = ({ placeId }) => {
     const [reviews, setReviews] = useState<ManagerPlaceReview[]>([]);
     const [items, setItems] = useState<CanonicalPlaceItem[]>([]);
+    const [traffic, setTraffic] = useState<BusinessPlaceAnalyticsResult | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -1602,13 +1634,15 @@ export const BusinessStatsSection: React.FC<{ placeId: string }> = ({ placeId })
         const load = async () => {
             setLoading(true);
             try {
-                const [reviewRows, itemRows] = await Promise.all([
+                const [reviewRows, itemRows, trafficRows] = await Promise.all([
                     getPlaceReviewsForManager(placeId).catch(() => [] as ManagerPlaceReview[]),
                     getCanonicalPlaceItems(placeId).catch(() => [] as CanonicalPlaceItem[]),
+                    getBusinessPlaceAnalytics(placeId, 30).catch(() => null),
                 ]);
                 if (!cancelled) {
                     setReviews(reviewRows);
                     setItems(itemRows);
+                    setTraffic(trafficRows);
                 }
             } finally {
                 if (!cancelled) setLoading(false);
@@ -1656,8 +1690,26 @@ export const BusinessStatsSection: React.FC<{ placeId: string }> = ({ placeId })
             .sort((a, b) => (b.stats?.reviewCount || 0) - (a.stats?.reviewCount || 0))
             .slice(0, 5);
 
-        return { total: reviews.length, average, monthly, maxCount, topItems };
-    }, [reviews, items]);
+        const pageDaily = traffic?.page.daily || [];
+        const relatedDaily = traffic?.relatedDaily || [];
+        const pageViews = pageDaily.reduce((sum, row) => sum + row.totalViews, 0);
+        const uniqueSessions = pageDaily.reduce((sum, row) => sum + row.uniqueSessions, 0);
+        const relatedShares = relatedDaily.reduce((sum, row) => sum + row.totalShares, 0);
+        const shareChannels = relatedDaily.reduce<Record<string, number>>((totals, row) => {
+            Object.entries(row.byShareChannel).forEach(([channel, count]) => {
+                totals[channel] = (totals[channel] || 0) + count;
+            });
+            return totals;
+        }, {});
+        const shareEntityTypes = relatedDaily.reduce<Record<string, number>>((totals, row) => {
+            Object.entries(row.byShareEntityType).forEach(([entityType, count]) => {
+                totals[entityType] = (totals[entityType] || 0) + count;
+            });
+            return totals;
+        }, {});
+
+        return { total: reviews.length, average, monthly, maxCount, topItems, pageViews, uniqueSessions, relatedShares, shareChannels, shareEntityTypes };
+    }, [reviews, items, traffic]);
 
     if (loading) {
         return (
@@ -1688,6 +1740,34 @@ export const BusinessStatsSection: React.FC<{ placeId: string }> = ({ placeId })
                     <p className="mt-1 text-xs font-bold uppercase tracking-wider text-[var(--lt-text-muted)]">Elementos en carta</p>
                 </div>
             </div>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                <div className="rounded-2xl border border-violet-400/20 bg-violet-400/[0.06] p-4 text-center">
+                    <p className="text-3xl font-black text-[var(--lt-text)]">{stats.pageViews.toLocaleString('es-ES')}</p>
+                    <p className="mt-1 text-xs font-bold uppercase tracking-wider text-[var(--lt-text-muted)]">Vistas de la ficha · 30 días</p>
+                </div>
+                <div className="rounded-2xl border border-violet-400/20 bg-violet-400/[0.06] p-4 text-center">
+                    <p className="text-3xl font-black text-[var(--lt-text)]">{stats.uniqueSessions.toLocaleString('es-ES')}</p>
+                    <p className="mt-1 text-xs font-bold uppercase tracking-wider text-[var(--lt-text-muted)]">Sesiones únicas · 30 días</p>
+                </div>
+                <div className="rounded-2xl border border-violet-400/20 bg-violet-400/[0.06] p-4 text-center">
+                    <p className="flex items-center justify-center gap-2 text-3xl font-black text-[var(--lt-text)]"><Share2 className="h-5 w-5 text-violet-300" />{stats.relatedShares.toLocaleString('es-ES')}</p>
+                    <p className="mt-1 text-xs font-bold uppercase tracking-wider text-[var(--lt-text-muted)]">Compartidos relacionados · 30 días</p>
+                </div>
+            </div>
+
+            {Object.keys(stats.shareChannels).length > 0 && (
+                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <h3 className="mb-3 text-sm font-black text-[var(--lt-text)]">Cómo se ha compartido</h3>
+                        <StatBreakdown values={stats.shareChannels} labels={BUSINESS_SHARE_CHANNEL_LABELS} />
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <h3 className="mb-3 text-sm font-black text-[var(--lt-text)]">Qué contenido relacionado se comparte</h3>
+                        <StatBreakdown values={stats.shareEntityTypes} labels={BUSINESS_SHARE_ENTITY_LABELS} />
+                    </div>
+                </div>
+            )}
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -1739,3 +1819,14 @@ export const BusinessStatsSection: React.FC<{ placeId: string }> = ({ placeId })
         </ProSectionShell>
     );
 };
+
+const StatBreakdown: React.FC<{ values: Record<string, number>; labels: Record<string, string> }> = ({ values, labels }) => (
+    <div className="grid gap-2 sm:grid-cols-2">
+        {Object.entries(values).sort((a, b) => b[1] - a[1]).map(([key, count]) => (
+            <div key={key} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm">
+                <span className="text-[var(--lt-text-muted)]">{labels[key] || key}</span>
+                <strong className="text-[var(--lt-text)]">{count.toLocaleString('es-ES')}</strong>
+            </div>
+        ))}
+    </div>
+);

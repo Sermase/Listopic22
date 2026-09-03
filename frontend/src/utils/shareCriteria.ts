@@ -1,7 +1,13 @@
 import type { ShareCriteriaStat } from '../types/share';
 
-type CriteriaDefinitionRecord = Record<string, { label?: string }>;
-type CriteriaDefinitionArray = Array<{ id?: string; label?: string }>;
+type CriteriaDefinitionItem = {
+    id?: string;
+    label?: string;
+    ponderable?: boolean;
+    isPonderable?: boolean;
+};
+type CriteriaDefinitionRecord = Record<string, CriteriaDefinitionItem>;
+type CriteriaDefinitionArray = CriteriaDefinitionItem[];
 type CriteriaDefinition = CriteriaDefinitionRecord | CriteriaDefinitionArray | null | undefined;
 
 const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
@@ -17,6 +23,18 @@ const getLabel = (definition: CriteriaDefinition, key: string) => {
     }
 
     return key;
+};
+
+const getDefinitionItem = (definition: CriteriaDefinition, key: string): CriteriaDefinitionItem | undefined => {
+    if (Array.isArray(definition)) {
+        return definition.find((item) => item?.id === key);
+    }
+    return definition && typeof definition === 'object' ? definition[key] : undefined;
+};
+
+const isPonderableCriterion = (definition: CriteriaDefinition, key: string) => {
+    const item = getDefinitionItem(definition, key);
+    return item ? item.ponderable !== false && item.isPonderable !== false : true;
 };
 
 export const buildCriteriaStats = (
@@ -66,4 +84,20 @@ export const buildCriteriaStats = (
         })
         .filter((entry): entry is ShareCriteriaStat => Boolean(entry))
         .slice(0, limit);
+};
+
+export const buildShareCriteriaGroups = (
+    scores?: Record<string, number>,
+    definition?: CriteriaDefinition,
+    limitPerGroup = 6,
+): { ponderable: ShareCriteriaStat[]; nonPonderable: ShareCriteriaStat[] } => {
+    const all = buildCriteriaStats(scores, definition, Number.MAX_SAFE_INTEGER);
+    return {
+        ponderable: all
+            .filter((entry) => isPonderableCriterion(definition, entry.key))
+            .slice(0, limitPerGroup),
+        nonPonderable: all
+            .filter((entry) => !isPonderableCriterion(definition, entry.key))
+            .slice(0, limitPerGroup),
+    };
 };

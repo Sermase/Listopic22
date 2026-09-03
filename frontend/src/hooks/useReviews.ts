@@ -206,6 +206,24 @@ async function fetchReviewsPage(
             });
             hasMore = false;
 
+        } else if (userId && listId) {
+            // En perfiles, filtrar por lista debe lanzar una consulta propia. No
+            // usamos las reseñas ya paginadas del perfil porque eso obligaría a
+            // recorrer primero todo el feed. Al consultar la subcolección de la
+            // lista evitamos además un índice compuesto userId+listId+createdAt.
+            const pageSize = customLimit || 20;
+            const constraints: any[] = [where('userId', '==', userId)];
+            if (lastDoc) constraints.push(startAfter(lastDoc));
+            constraints.push(limit(pageSize));
+
+            const snap = await getDocs(query(collection(db, 'lists', listId, 'reviews'), ...constraints));
+            hasMore = snap.docs.length >= pageSize;
+            if (snap.docs.length > 0) nextLastDoc = snap.docs[snap.docs.length - 1];
+            rawReviews = snap.docs.map(d => ({
+                id: d.id,
+                ...(d.data() as any),
+                listId,
+            } as ReviewEntity));
         } else {
             const constraints: any[] = [where('visibility', '==', 'public')];
             if (userId) constraints.push(where('userId', '==', userId));
@@ -258,10 +276,11 @@ export interface UseReviewsOptions {
     followingIds?: string[];
     limit?: number;
     sinceDate?: Date;
+    enabled?: boolean;
 }
 
 export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 'following' = 'recent') => {
-    const { type = 'recent', userId, listId, followingIds, limit: customLimit, sinceDate } =
+    const { type = 'recent', userId, listId, followingIds, limit: customLimit, sinceDate, enabled = true } =
         typeof options === 'string' ? { type: options } : options;
 
     const qc = useQueryClient();
@@ -273,7 +292,7 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
             followingIds: (followingIds ?? []).join(','),
             sinceDate: sinceDate?.getTime() ?? null,
         }],
-        enabled: !(type === 'following' && (!followingIds || followingIds.length === 0)),
+        enabled: enabled && !(type === 'following' && (!followingIds || followingIds.length === 0)),
         staleTime: type === 'following' ? 0 : 5 * 60 * 1000,
         gcTime: type === 'following' ? 0 : 10 * 60 * 1000,
         initialPageParam: null as any,

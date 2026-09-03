@@ -91,6 +91,7 @@ import {
   normalizeEarnedBadgeIds,
 } from "../utils/gamification";
 import { buildPublicRouteUrl } from "../utils/publicUrl";
+import { getSelectedProfileReviewListId, selectProfileReviewResults } from "../utils/profileReviewFilter";
 import { EntityHero } from "../components/EntityHero";
 import { useAuthPrompt } from "../context/AuthPromptContext";
 
@@ -388,12 +389,25 @@ export const ProfilePage: React.FC = () => {
 
   const {
     reviews: fetchedReviews,
-    loading: loadingReviews,
+    loading: baseLoadingReviews,
     refresh: refreshReviews,
-    fetchMore,
-    hasMore,
-    loadingMore,
+    fetchMore: fetchMoreBaseReviews,
+    hasMore: hasMoreBaseReviews,
+    loadingMore: loadingMoreBaseReviews,
   } = useReviews({ type: "recent", userId: targetUserId, limit: reviewViewMode === "gallery" ? 10 : 3 });
+  const selectedReviewListId = getSelectedProfileReviewListId(reviewListFilter);
+  const filteredReviewQuery = useReviews({
+    type: "recent",
+    userId: targetUserId,
+    listId: selectedReviewListId,
+    limit: reviewViewMode === "gallery" ? 20 : 10,
+    enabled: Boolean(selectedReviewListId),
+  });
+  const isReviewListFilterActive = Boolean(selectedReviewListId);
+  const fetchMore = isReviewListFilterActive ? filteredReviewQuery.fetchMore : fetchMoreBaseReviews;
+  const hasMore = isReviewListFilterActive ? filteredReviewQuery.hasMore : hasMoreBaseReviews;
+  const loadingMore = isReviewListFilterActive ? filteredReviewQuery.loadingMore : loadingMoreBaseReviews;
+  const loadingReviews = isReviewListFilterActive ? filteredReviewQuery.loading : baseLoadingReviews;
   const [localReviews, setLocalReviews] = useState<any[]>([]);
 
   // Infinite Scroll Effect (Must be after useReviews)
@@ -742,7 +756,7 @@ export const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (!targetUserId) return;
-    if (!isOwnProfile && loadingReviews) return;
+    if (!isOwnProfile && baseLoadingReviews) return;
     if (statsLoadedUserId === targetUserId) return;
 
     let cancelled = false;
@@ -1217,7 +1231,7 @@ export const ProfilePage: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [isOwnProfile, loadingReviews, localReviews.length, profile?.reviewCount, profile?.reviewsCount, targetUserId, statsLoadedUserId, user?.uid]);
+  }, [isOwnProfile, baseLoadingReviews, localReviews.length, profile?.reviewCount, profile?.reviewsCount, targetUserId, statsLoadedUserId, user?.uid]);
 
   const handleDeleteReview = (id: string) => {
     setLocalReviews((prev) => prev.filter((r) => r.id !== id));
@@ -1367,10 +1381,11 @@ export const ProfilePage: React.FC = () => {
   );
 
   const sortedProfileReviews = useMemo(() => {
-    const filteredReviews =
-      reviewListFilter === "all"
-        ? localReviews
-        : localReviews.filter((r) => r.listId === reviewListFilter);
+    const filteredReviews = selectProfileReviewResults(
+      reviewListFilter,
+      localReviews,
+      filteredReviewQuery.reviews,
+    );
 
     const base = [...filteredReviews];
     if (reviewSortMode === "top_rated") {
@@ -1396,7 +1411,7 @@ export const ProfilePage: React.FC = () => {
         getReviewCreatedAtMillis(b.createdAt) -
         getReviewCreatedAtMillis(a.createdAt),
     );
-  }, [localReviews, reviewSortMode, reviewListFilter]);
+  }, [filteredReviewQuery.reviews, localReviews, reviewSortMode, reviewListFilter]);
 
   const availableListsForFilter = useMemo(() => {
     const listMap = new Map();
@@ -3465,6 +3480,15 @@ export const ProfilePage: React.FC = () => {
           route: `/profile/${targetUserId}`,
           url: profileShareUrl,
           imageUrl: profile.photoUrl || undefined,
+          imageUrls: profile.photoUrl ? [profile.photoUrl] : [],
+          profileStats: [
+            { key: "level", label: "Nivel", value: levelInfo.level },
+            { key: "reviews", label: "Reseñas", value: gamificationMetrics.reviewsCount },
+            { key: "photos", label: "Fotos", value: gamificationMetrics.photosCount },
+            { key: "places", label: "Lugares", value: gamificationMetrics.placeCount },
+            { key: "lists", label: "Listas", value: profileListsCount },
+            { key: "followers", label: "Seguidores", value: profile.followersCount || 0 },
+          ],
         }}
       />
       <ReportModal

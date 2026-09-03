@@ -1,6 +1,7 @@
 import { collection, collectionGroup, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { db, functions } from '../firebase';
+import { auth, db, functions } from '../firebase';
+import { getAnalyticsSessionId } from './AnalyticsService';
 
 // Datos Business Pro: lectura directa de Firestore (colecciones públicas de solo
 // lectura) y escritura vía callables que validan gestor + plan Pro activo.
@@ -348,6 +349,19 @@ export const reviewItemProposal = async (
 
 export type SponsoredPlacementStatus = 'requested' | 'active' | 'rejected' | 'ended';
 
+export interface SponsoredMetrics {
+    impressions: number;
+    clicks: number;
+}
+
+const mapSponsoredMetrics = (data: Record<string, unknown>): SponsoredMetrics => {
+    const metrics = data.metrics && typeof data.metrics === 'object' ? data.metrics as Record<string, unknown> : {};
+    return {
+        impressions: typeof metrics.impressions === 'number' && metrics.impressions > 0 ? metrics.impressions : 0,
+        clicks: typeof metrics.clicks === 'number' && metrics.clicks > 0 ? metrics.clicks : 0,
+    };
+};
+
 export interface SponsoredPlacement {
     id: string;
     placeId: string;
@@ -360,6 +374,7 @@ export interface SponsoredPlacement {
     endsAt?: string;
     status: SponsoredPlacementStatus;
     adminNotes?: string;
+    metrics: SponsoredMetrics;
     createdAtMs: number;
 }
 
@@ -377,18 +392,22 @@ const mapPlacement = (id: string, data: Record<string, unknown>): SponsoredPlace
         endsAt: typeof data.endsAt === 'string' ? data.endsAt : undefined,
         status: (['requested', 'active', 'rejected', 'ended'].includes(String(data.status)) ? data.status : 'requested') as SponsoredPlacementStatus,
         adminNotes: typeof data.adminNotes === 'string' ? data.adminNotes : undefined,
+        metrics: mapSponsoredMetrics(data),
         createdAtMs: typeof createdAt?.toMillis === 'function' ? createdAt.toMillis() : 0,
     };
 };
 
 export const getPlaceSponsoredPlacements = async (placeId: string): Promise<SponsoredPlacement[]> => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return [];
     const snap = await getDocs(query(
         collection(db, 'sponsoredPlacements'),
-        where('placeId', '==', placeId),
-        limit(50),
+        where('createdBy', '==', uid),
+        limit(100),
     ));
     return snap.docs
         .map((placementDoc) => mapPlacement(placementDoc.id, placementDoc.data() as Record<string, unknown>))
+        .filter((placement) => placement.placeId === placeId)
         .sort((a, b) => b.createdAtMs - a.createdAtMs);
 };
 
@@ -445,9 +464,10 @@ export const reviewSponsoredPlacement = async (
 // en el sorteo del carrusel (2 impulsos = doble probabilidad que 1).
 export const SPOTLIGHT_UNIT_SINGULAR = 'impulso';
 export const SPOTLIGHT_UNIT_PLURAL = 'impulsos';
+export const SPOTLIGHT_RADIUS_STEP_KM = 0.2;
 
 export interface SpotlightPricing {
-    pricePerKmPerWeek: number;
+    pricePerRadiusStepPerWeek: number;
     minRadiusKm: number;
     maxRadiusKm: number;
     maxUnitsPerCampaign: number;
@@ -455,8 +475,8 @@ export interface SpotlightPricing {
 }
 
 export const DEFAULT_SPOTLIGHT_PRICING: SpotlightPricing = {
-    pricePerKmPerWeek: 0.4,
-    minRadiusKm: 0.5,
+    pricePerRadiusStepPerWeek: 0.08,
+    minRadiusKm: 0.2,
     maxRadiusKm: 20,
     maxUnitsPerCampaign: 10,
     maxWeeks: 8,
@@ -470,14 +490,28 @@ export const getSpotlightPricing = async (): Promise<SpotlightPricing> => {
         const value = data[key];
         if (typeof value === 'number' && Number.isFinite(value) && value > 0) merged[key] = value;
     });
+    // Migra de forma transparente la configuración anterior expresada por km.
+    if (!(typeof data.pricePerRadiusStepPerWeek === 'number' && data.pricePerRadiusStepPerWeek > 0)
+        && typeof data.pricePerKmPerWeek === 'number' && data.pricePerKmPerWeek > 0) {
+        merged.pricePerRadiusStepPerWeek = Number((data.pricePerKmPerWeek * SPOTLIGHT_RADIUS_STEP_KM).toFixed(2));
+    }
+    merged.minRadiusKm = Number((Math.ceil(merged.minRadiusKm / SPOTLIGHT_RADIUS_STEP_KM) * SPOTLIGHT_RADIUS_STEP_KM).toFixed(1));
+    merged.maxRadiusKm = Number((Math.floor(merged.maxRadiusKm / SPOTLIGHT_RADIUS_STEP_KM) * SPOTLIGHT_RADIUS_STEP_KM).toFixed(1));
+    if (merged.maxRadiusKm < merged.minRadiusKm) merged.maxRadiusKm = merged.minRadiusKm;
     return merged;
 };
 
-// Precio por impulso = €/km·semana × radio × semanas. Barato a propósito:
-// la visibilidad extra se compra con más impulsos, no con tarifas más caras.
+// Precio por impulso = precio del tramo × nº de tramos de 0,2 km × semanas.
 export const computeSpotlightUnitPrice = (pricing: SpotlightPricing, radiusKm: number, weeks: number): number => {
     const effectiveRadius = Math.max(pricing.minRadiusKm, radiusKm);
-    return Number((pricing.pricePerKmPerWeek * effectiveRadius * weeks).toFixed(2));
+    const radiusSteps = Math.ceil((effectiveRadius / SPOTLIGHT_RADIUS_STEP_KM) - 1e-9);
+    return Number((pricing.pricePerRadiusStepPerWeek * radiusSteps * weeks).toFixed(2));
+};
+
+export const updateSpotlightPricing = async (pricing: SpotlightPricing): Promise<SpotlightPricing> => {
+    const callable = httpsCallable<SpotlightPricing, { pricing: SpotlightPricing }>(functions, 'adminUpdateSpotlightPricing');
+    const result = await callable(pricing);
+    return result.data.pricing;
 };
 
 export type ItemSpotlightStatus = 'requested' | 'active' | 'rejected' | 'ended';
@@ -502,6 +536,7 @@ export interface ItemSpotlight {
     endsAt?: string;
     status: ItemSpotlightStatus;
     adminNotes?: string;
+    metrics: SponsoredMetrics;
     createdAtMs: number;
 }
 
@@ -532,6 +567,7 @@ const mapSpotlight = (id: string, data: Record<string, unknown>): ItemSpotlight 
         endsAt: typeof data.endsAt === 'string' ? data.endsAt : undefined,
         status: (['requested', 'active', 'rejected', 'ended'].includes(String(data.status)) ? data.status : 'requested') as ItemSpotlightStatus,
         adminNotes: typeof data.adminNotes === 'string' ? data.adminNotes : undefined,
+        metrics: mapSponsoredMetrics(data),
         createdAtMs: typeof createdAt?.toMillis === 'function' ? createdAt.toMillis() : 0,
     };
 };
@@ -549,13 +585,16 @@ export const requestItemSpotlight = async (input: {
 };
 
 export const getPlaceItemSpotlights = async (placeId: string): Promise<ItemSpotlight[]> => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return [];
     const snap = await getDocs(query(
         collection(db, 'sponsoredItemSpotlights'),
-        where('placeId', '==', placeId),
-        limit(50),
+        where('createdBy', '==', uid),
+        limit(100),
     ));
     return snap.docs
         .map((spotlightDoc) => mapSpotlight(spotlightDoc.id, spotlightDoc.data() as Record<string, unknown>))
+        .filter((spotlight) => spotlight.placeId === placeId)
         .sort((a, b) => b.createdAtMs - a.createdAtMs);
 };
 
@@ -610,36 +649,49 @@ export const reviewItemSpotlight = async (
     await callable({ spotlightId, decision, adminNotes });
 };
 
-// Lugares con publicidad activa (emplazamientos o impulsos de platos), para
-// marcarlos en los mapas con la chincheta dorada. Cache en memoria de 5 min
-// para no repetir lecturas en cada mapa que se monta.
-let sponsoredPlaceIdsCache: { ids: Set<string>; fetchedAt: number } | null = null;
+export const recordSponsoredEvent = async (
+    campaignType: 'placement' | 'spotlight',
+    campaignId: string,
+    eventType: 'impression' | 'click',
+): Promise<void> => {
+    if (import.meta.env.DEV) return;
+    const callable = httpsCallable(functions, 'recordSponsoredEvent');
+    await callable({ campaignType, campaignId, eventType, sessionId: getAnalyticsSessionId() });
+};
 
-export const getSponsoredPlaceIds = async (): Promise<Set<string>> => {
-    if (sponsoredPlaceIdsCache && Date.now() - sponsoredPlaceIdsCache.fetchedAt < 5 * 60 * 1000) {
-        return sponsoredPlaceIdsCache.ids;
+// Solo los emplazamientos contratados para búsqueda reciben chincheta dorada.
+// Los de home se quedan en home y los impulsos de plato en su carrusel con
+// filtro geográfico; así una campaña no obtiene inventario que no ha comprado.
+let sponsoredSearchCampaignsCache: { campaigns: Map<string, string[]>; fetchedAt: number } | null = null;
+
+export const getSponsoredSearchCampaigns = async (): Promise<Map<string, string[]>> => {
+    if (sponsoredSearchCampaignsCache && Date.now() - sponsoredSearchCampaignsCache.fetchedAt < 5 * 60 * 1000) {
+        return sponsoredSearchCampaignsCache.campaigns;
     }
     const today = new Date().toISOString().slice(0, 10);
     const inDateWindow = (row: { startsAt?: string; endsAt?: string }) =>
         (!row.startsAt || row.startsAt <= today) && (!row.endsAt || row.endsAt >= today);
 
-    const [placementsSnap, spotlightsSnap] = await Promise.all([
-        getDocs(query(collection(db, 'sponsoredPlacements'), where('status', '==', 'active'), limit(100))).catch(() => null),
-        getDocs(query(collection(db, 'sponsoredItemSpotlights'), where('status', '==', 'active'), limit(100))).catch(() => null),
-    ]);
+    const placementsSnap = await getDocs(query(
+        collection(db, 'sponsoredPlacements'),
+        where('status', '==', 'active'),
+        limit(100),
+    )).catch(() => null);
 
-    const ids = new Set<string>();
+    const campaigns = new Map<string, string[]>();
     (placementsSnap?.docs || []).forEach((placementDoc) => {
         const row = mapPlacement(placementDoc.id, placementDoc.data() as Record<string, unknown>);
-        if (row.placeId && inDateWindow(row)) ids.add(row.placeId);
-    });
-    (spotlightsSnap?.docs || []).forEach((spotlightDoc) => {
-        const row = mapSpotlight(spotlightDoc.id, spotlightDoc.data() as Record<string, unknown>);
-        if (row.placeId && inDateWindow(row)) ids.add(row.placeId);
+        if (row.type !== 'search' || !row.placeId || !inDateWindow(row)) return;
+        campaigns.set(row.placeId, [...(campaigns.get(row.placeId) || []), row.id]);
     });
 
-    sponsoredPlaceIdsCache = { ids, fetchedAt: Date.now() };
-    return ids;
+    sponsoredSearchCampaignsCache = { campaigns, fetchedAt: Date.now() };
+    return campaigns;
+};
+
+export const getSponsoredPlaceIds = async (): Promise<Set<string>> => {
+    const campaigns = await getSponsoredSearchCampaigns();
+    return new Set(campaigns.keys());
 };
 
 // Sorteo ponderado sin reemplazo: cada campaña entra con peso = unidades, así

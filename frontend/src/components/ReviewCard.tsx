@@ -17,7 +17,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db } from '../firebase';
 import { NonPonderableGauge } from './NonPonderableGauge';
-import { buildCriteriaStats } from '../utils/shareCriteria';
+import { buildShareCriteriaGroups } from '../utils/shareCriteria';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { CategoryService } from '../services/CategoryService';
 import { useAuthPrompt } from '../context/AuthPromptContext';
@@ -533,21 +533,29 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 url={reviewShareUrl}
                 text={`¡Mira esta reseña de ${review.itemName} en ${review.placeName}!`}
                 review={review}
-                shareEntity={{
+                shareEntity={(() => {
+                    const shareCriteria = buildShareCriteriaGroups(review.scores, review.criteriaDefinition);
+                    return {
                     type: 'review',
                     id: review.id,
                     title: review.itemName || 'Reseña',
                     subtitle: review.placeName || 'Lugar',
+                    description: review.comment,
                     route: review.placeId && review.itemName ? reviewRoute : undefined,
                     url: reviewShareUrl,
                     imageUrl: review.photoUrl || review.placeMainImage,
+                    imageUrls: [...(review.photoUrls || []), review.photoUrl, review.placeMainImage]
+                        .filter((value): value is string => Boolean(value)),
                     badgeLabel: review.listName,
                     score: review.overallRating,
+                    authorId: review.userId || review.authorId,
                     authorName: review.authorName,
                     authorPhoto: review.authorPhoto,
-                    criteriaStats: buildCriteriaStats(review.scores, review.criteriaDefinition),
+                    criteriaStats: shareCriteria.ponderable,
+                    nonPonderableStats: shareCriteria.nonPonderable,
                     tags: review.userTags || review.tags,
-                }}
+                    };
+                })()}
             />
 
             <ReportModal

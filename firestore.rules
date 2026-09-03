@@ -641,17 +641,25 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Emplazamientos patrocinados (home/búsqueda). Lectura pública (es
-    // publicidad etiquetada); escritura solo vía Cloud Functions.
+    // Emplazamientos patrocinados (home/búsqueda). Las campañas activas son
+    // públicas; borradores/rechazos solo los ven creador y jefe.
     match /sponsoredPlacements/{placementId} {
-      allow read: if true;
+      allow read: if resource.data.status == 'active' || (
+        request.auth != null && (
+          resource.data.createdBy == request.auth.uid || isJefe(request.auth.uid)
+        )
+      );
       allow write: if false;
     }
 
-    // Platos destacados por radio (sorteo ponderado por unidades). Lectura
-    // pública para el carrusel; escritura solo vía Cloud Functions.
+    // Platos destacados por radio. Las campañas activas son públicas para el
+    // carrusel; el resto solo lo ven creador y jefe.
     match /sponsoredItemSpotlights/{spotlightId} {
-      allow read: if true;
+      allow read: if resource.data.status == 'active' || (
+        request.auth != null && (
+          resource.data.createdBy == request.auth.uid || isJefe(request.auth.uid)
+        )
+      );
       allow write: if false;
     }
 
@@ -787,6 +795,46 @@ service cloud.firestore {
     match /apiUsageStats/{docId} {
       allow read, list: if request.auth != null && isJefe(request.auth.uid);
       allow write: if false;
+    }
+
+    // Analítica de navegación: el cliente nunca accede directamente. Las
+    // vistas se agregan y consultan mediante Cloud Functions, que aplican
+    // rate-limit y autorización de jefe sin exponer marcadores de sesión.
+    match /pageAnalyticsTotals/{docId} {
+      allow read, write: if false;
+    }
+    match /pageAnalyticsDaily/{docId} {
+      allow read, write: if false;
+    }
+    match /pageAnalyticsGlobal/{docId} {
+      allow read, write: if false;
+    }
+    match /pageAnalyticsGlobalDaily/{docId} {
+      allow read, write: if false;
+    }
+    match /pageAnalyticsSessionMarkers/{docId} {
+      allow read, write: if false;
+    }
+    match /placeAnalyticsDaily/{docId} {
+      allow read, write: if false;
+    }
+    match /connectionGeoDaily/{docId} {
+      allow read, write: if false;
+    }
+    match /connectionGeoMarkers/{docId} {
+      allow read, write: if false;
+    }
+    match /reviewGeoDaily/{docId} {
+      allow read, write: if false;
+    }
+    match /reviewAnalyticsMarkers/{docId} {
+      allow read, write: if false;
+    }
+    match /shareEventMarkers/{docId} {
+      allow read, write: if false;
+    }
+    match /sponsoredEventMarkers/{docId} {
+      allow read, write: if false;
     }
 
     // ==================================================================

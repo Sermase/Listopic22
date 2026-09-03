@@ -11,11 +11,12 @@ import { ChatService, type Chat } from '../services/ChatService';
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 import type { ShareEntityPayload } from '../types/share';
 import { db } from '../firebase';
-import { buildCriteriaStats } from '../utils/shareCriteria';
+import { buildShareCriteriaGroups } from '../utils/shareCriteria';
 import { buildPublicUrl, buildShareRouteUrl, getLocalRouteFromUrl } from '../utils/publicUrl';
 import { buildShareText } from '../utils/shareTexts';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useAuthPrompt } from '../context/AuthPromptContext';
+import { recordShareEvent, type AnalyticsShareChannel } from '../services/AnalyticsService';
 
 interface ShareModalProps {
     isOpen: boolean;
@@ -68,8 +69,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const [statusTone, setStatusTone] = React.useState<'neutral' | 'success' | 'error'>('neutral');
     const [isCardStylePickerOpen, setIsCardStylePickerOpen] = React.useState(false);
     const [selectedCardVariant, setSelectedCardVariant] = React.useState<ModernCardVariant | null>(null);
+    const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | undefined>(undefined);
+    const [hydratedAuthorPhoto, setHydratedAuthorPhoto] = React.useState<string | undefined>(undefined);
     const closeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    // Tarjetas v2: dos variantes dibujadas en canvas con layout determinista
+    // Formatos dibujados en canvas con layout determinista
     // (sin html2canvas ni datos desencuadrados).
     const cardVariantOptions: Array<{ id: ModernCardVariant; label: string; description: string; swatch: string }> = [
         {
@@ -83,6 +86,18 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             label: 'Post',
             description: 'Cuadrada 1:1 para feed y WhatsApp, con los mismos datos bien encuadrados.',
             swatch: 'linear-gradient(135deg, #312e81 0%, #6d28d9 55%, #f59e0b 100%)',
+        },
+        {
+            id: 'portrait',
+            label: 'Retrato',
+            description: 'Vertical 4:5 para publicaciones de Instagram, con más espacio para datos.',
+            swatch: 'linear-gradient(160deg, #0f766e 0%, #312e81 58%, #7e22ce 100%)',
+        },
+        {
+            id: 'landscape',
+            label: 'Banner',
+            description: 'Horizontal 1,91:1 para enlaces, X, Facebook y cabeceras.',
+            swatch: 'linear-gradient(110deg, #111827 0%, #3730a3 55%, #0891b2 100%)',
         },
     ];
 
@@ -103,6 +118,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         if (review) {
             const itemLabel = review.itemName || 'Elemento';
             const placeLabel = review.placeName || 'Lugar';
+            const shareCriteria = buildShareCriteriaGroups(review.scores, review.criteriaDefinition);
             const route = review.placeId && itemLabel
                 ? `/group/${review.placeId}/${encodeURIComponent(itemLabel)}`
                 : inferLocalRoute(fallbackUrl);
@@ -111,20 +127,33 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 id: review.id,
                 title: itemLabel,
                 subtitle: placeLabel,
+                description: review.comment,
                 route,
                 url: fallbackUrl,
                 imageUrl: review.photoUrl || review.placeMainImage,
+                imageUrls: [...(review.photoUrls || []), review.photoUrl, review.placeMainImage]
+                    .filter((value): value is string => Boolean(value)),
                 badgeLabel: review.listName,
                 score: review.overallRating,
+                authorId: review.userId || review.authorId,
                 authorName: review.authorName,
                 authorPhoto: review.authorPhoto,
-                criteriaStats: buildCriteriaStats(review.scores, review.criteriaDefinition),
+                criteriaStats: shareCriteria.ponderable,
+                nonPonderableStats: shareCriteria.nonPonderable,
                 tags: review.userTags || review.tags,
             };
         }
 
         if (place) {
             const route = place.placeId ? `/place/${place.placeId}` : inferLocalRoute(fallbackUrl);
+            const placeImages = [
+                place.photoUrl,
+                ...(place.placePhotos || []).map((photo) => photo.url),
+                ...place.reviews.flatMap((item) => [
+                    ...(item.photoUrls || []),
+                    item.photoUrl,
+                ]),
+            ].filter((value): value is string => Boolean(value));
             return {
                 type: 'place',
                 id: place.placeId,
@@ -133,7 +162,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 route,
                 url: fallbackUrl,
                 imageUrl: place.photoUrl,
+                imageUrls: placeImages,
                 score: place.avgScore,
+                reviewCount: place.reviewCount,
+                city: place.city,
             };
         }
 
@@ -145,6 +177,46 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             url: fallbackUrl,
         };
     }, [shareEntity, review, place, fallbackUrl, title, text]);
+
+    const availableImageUrls = React.useMemo(() => Array.from(new Set(
+        [resolvedShareEntity.imageUrl, ...(resolvedShareEntity.imageUrls || [])]
+            .filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+            .map((value) => value.trim())
+    )), [resolvedShareEntity.imageUrl, resolvedShareEntity.imageUrls]);
+
+    React.useEffect(() => {
+        if (!isOpen) return;
+        setSelectedImageUrl(availableImageUrls[0]);
+    }, [isOpen, resolvedShareEntity.id, resolvedShareEntity.type, availableImageUrls]);
+
+    React.useEffect(() => {
+        if (!isOpen || resolvedShareEntity.authorPhoto || !resolvedShareEntity.authorId) {
+            setHydratedAuthorPhoto(resolvedShareEntity.authorPhoto);
+            return;
+        }
+
+        let cancelled = false;
+        getDoc(doc(db, 'publicProfiles', resolvedShareEntity.authorId))
+            .then((snapshot) => {
+                if (cancelled || !snapshot.exists()) return;
+                const data = snapshot.data();
+                const photo = typeof data.photoUrl === 'string'
+                    ? data.photoUrl
+                    : (typeof data.photoURL === 'string' ? data.photoURL : undefined);
+                if (photo) setHydratedAuthorPhoto(photo);
+            })
+            .catch(() => undefined);
+
+        return () => {
+            cancelled = true;
+        };
+    }, [isOpen, resolvedShareEntity.authorId, resolvedShareEntity.authorPhoto]);
+
+    const cardEntity = React.useMemo<ShareEntityPayload>(() => ({
+        ...resolvedShareEntity,
+        imageUrl: selectedImageUrl || resolvedShareEntity.imageUrl,
+        authorPhoto: hydratedAuthorPhoto || resolvedShareEntity.authorPhoto,
+    }), [resolvedShareEntity, selectedImageUrl, hydratedAuthorPhoto]);
 
     const privateChatByUserId = React.useMemo<Record<string, string>>(() => {
         if (!user) return {};
@@ -197,6 +269,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         setIsSearchingRecipients(false);
         setIsCardStylePickerOpen(false);
         setSelectedCardVariant(null);
+        setSelectedImageUrl(undefined);
+        setHydratedAuthorPhoto(undefined);
     }, []);
 
     const handleRequestClose = React.useCallback(() => {
@@ -294,7 +368,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 const response = await algoliaClient.search({
                     requests: [{ indexName: INDEX_NAMES.users, query: searchTerm, hitsPerPage: 8 }]
                 });
-                const hits = ((response.results[0] as any)?.hits || []) as UserSearchHit[];
+                const hits = (response.results[0] as { hits?: UserSearchHit[] } | undefined)?.hits || [];
                 setRecipientResults(
                     hits.filter((hit) => hit.objectID !== user.uid)
                 );
@@ -315,15 +389,24 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const externalShareUrl = buildShareRouteUrl(resolvedShareEntity.route) || fallbackUrl;
     const shareTextForExternal = `${text || buildShareText(resolvedShareEntity)} ${externalShareUrl}`.trim();
 
+    const trackSuccessfulShare = (channel: AnalyticsShareChannel, count = 1) => {
+        void recordShareEvent(cardEntity, channel, count).catch((error) => {
+            // Compartir debe seguir funcionando aunque la analitica no este disponible.
+            console.warn('No se pudo registrar el compartido.', error);
+        });
+    };
+
     const handleShare = async (platform: 'whatsapp' | 'clipboard' | 'image' | 'chat') => {
         if (platform === 'whatsapp') {
             window.open(`https://wa.me/?text=${encodeURIComponent(shareTextForExternal)}`, '_blank', 'noopener,noreferrer');
+            trackSuccessfulShare('whatsapp');
             return;
         }
 
         if (platform === 'clipboard') {
             try {
                 await navigator.clipboard.writeText(shareTextForExternal);
+                trackSuccessfulShare('clipboard');
                 setStatusTone('success');
                 setStatusMessage('Enlace copiado al portapapeles');
             } catch {
@@ -373,6 +456,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         setStatusTone('neutral');
         setStatusMessage(null);
         shareCardTriggerRef.current();
+        trackSuccessfulShare('image');
     };
 
     const toggleUser = (hit: UserSearchHit) => {
@@ -429,12 +513,13 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 user.uid,
                 chatNote.trim(),
                 'share',
-                { share: resolvedShareEntity }
+                { share: cardEntity }
             ))
         );
 
         const successCount = results.filter((row) => row.status === 'fulfilled').length;
         const failedCount = results.length - successCount;
+        if (successCount > 0) trackSuccessfulShare('chat', successCount);
 
         if (failedCount === 0) {
             setStatusTone('success');
@@ -458,7 +543,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const modalContent = (
         <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={handleRequestClose}>
             <ShareCardModern
-                entity={resolvedShareEntity}
+                entity={cardEntity}
                 variant={selectedCardVariant || 'story'}
                 triggerRef={shareCardTriggerRef}
                 onRequestClose={handleRequestClose}
@@ -537,6 +622,43 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                         </div>
 
                         <div className="p-4 space-y-3">
+                            {availableImageUrls.length > 1 && (
+                                <div>
+                                    <div className="mb-2 flex items-center justify-between gap-3">
+                                        <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                                            Elige la foto
+                                        </div>
+                                        <div className="text-[11px] text-gray-500">
+                                            {availableImageUrls.length} disponibles
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 overflow-x-auto pb-2">
+                                        {availableImageUrls.map((imageUrl, index) => {
+                                            const isSelected = selectedImageUrl === imageUrl;
+                                            return (
+                                                <button
+                                                    key={`${imageUrl}-${index}`}
+                                                    type="button"
+                                                    onClick={() => setSelectedImageUrl(imageUrl)}
+                                                    className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${isSelected
+                                                        ? 'border-[var(--lt-accent)] shadow-lg shadow-[var(--lt-accent-shadow)]'
+                                                        : 'border-white/10 opacity-70 hover:opacity-100'
+                                                        }`}
+                                                    aria-label={`Usar foto ${index + 1}`}
+                                                >
+                                                    <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                                                    {isSelected && (
+                                                        <span className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-[var(--lt-accent)] text-white shadow">
+                                                            <Check className="h-3 w-3" />
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                                 {cardVariantOptions.map((option) => {
                                     const isSelected = selectedCardVariant === option.id;

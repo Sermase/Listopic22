@@ -1,12 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, UtensilsCrossed } from 'lucide-react';
 import { useLocation } from '../../hooks/useLocation';
 import {
     getActiveItemSpotlights,
+    recordSponsoredEvent,
     weightedSampleSpotlights,
     type ItemSpotlight,
 } from '../../services/BusinessProService';
+import { useAuth } from '../../context/AuthContext';
 
 const MAX_CAROUSEL_ITEMS = 6;
 
@@ -19,6 +21,8 @@ export const SponsoredItemsCarousel: React.FC<{ listId?: string; className?: str
     const { location, calculateDistance } = useLocation();
     const [spotlights, setSpotlights] = useState<ItemSpotlight[]>([]);
     const [loaded, setLoaded] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+    const { isJefe } = useAuth();
 
     useEffect(() => {
         let cancelled = false;
@@ -52,6 +56,30 @@ export const SponsoredItemsCarousel: React.FC<{ listId?: string; className?: str
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [loaded, spotlights, listId, location?.latitude, location?.longitude]);
 
+    useEffect(() => {
+        if (isJefe) return;
+        const elements = Array.from(containerRef.current?.querySelectorAll<HTMLElement>('[data-sponsored-id]') || []);
+        if (elements.length === 0) return;
+        const register = (element: HTMLElement) => {
+            const id = element.dataset.sponsoredId;
+            if (id) void recordSponsoredEvent('spotlight', id, 'impression').catch(() => undefined);
+        };
+        if (!('IntersectionObserver' in window)) {
+            elements.forEach(register);
+            return;
+        }
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting && entry.intersectionRatio >= 0.5) {
+                    register(entry.target as HTMLElement);
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.5 });
+        elements.forEach((element) => observer.observe(element));
+        return () => observer.disconnect();
+    }, [isJefe, picked]);
+
     if (picked.length === 0) return null;
 
     return (
@@ -63,11 +91,18 @@ export const SponsoredItemsCarousel: React.FC<{ listId?: string; className?: str
                     Patrocinado
                 </span>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
+            <div ref={containerRef} className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
                 {picked.map((spotlight) => (
                     <Link
                         key={spotlight.id}
+                        data-sponsored-id={spotlight.id}
                         to={`/group/${spotlight.placeId}/${encodeURIComponent(spotlight.itemName)}`}
+                        onClick={() => {
+                            if (!isJefe) void Promise.all([
+                                recordSponsoredEvent('spotlight', spotlight.id, 'impression'),
+                                recordSponsoredEvent('spotlight', spotlight.id, 'click'),
+                            ]).catch(() => undefined);
+                        }}
                         className="group w-44 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] shadow-lg transition-transform hover:scale-[1.02]"
                     >
                         <div className="relative h-24 w-full overflow-hidden bg-white/5">

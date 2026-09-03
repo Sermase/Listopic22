@@ -8,7 +8,7 @@ import { db, functions, storage } from '../firebase';
 import { collection, collectionGroup, query, where, getDocs, doc, getDoc, getDocFromServer, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion, onSnapshot, orderBy } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useQueryClient } from '@tanstack/react-query';
-import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown, ClipboardList, Activity, Building2, Sparkles } from 'lucide-react';
+import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, MapPinned, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown, ClipboardList, Activity, BarChart3, Building2, Sparkles } from 'lucide-react';
 import { invalidateDoc } from '../lib/queryCache';
 
 const FUNCTIONS_REGION = 'europe-west1';
@@ -22,6 +22,8 @@ const UsersManagerTab = React.lazy(() => import('../components/developer/UsersMa
 const DeveloperItemModal = React.lazy(() => import('../components/developer/DeveloperItemModal').then(module => ({ default: module.DeveloperItemModal })));
 const UserDataExportTab = React.lazy(() => import('../components/developer/UserDataExportTab').then(module => ({ default: module.UserDataExportTab })));
 const ApiUsageTab = React.lazy(() => import('../components/developer/ApiUsageTab').then(module => ({ default: module.ApiUsageTab })));
+const PageAnalyticsTab = React.lazy(() => import('../components/developer/PageAnalyticsTab').then(module => ({ default: module.PageAnalyticsTab })));
+const GeoAnalyticsTab = React.lazy(() => import('../components/developer/GeoAnalyticsTab').then(module => ({ default: module.GeoAnalyticsTab })));
 const BusinessClaimsManagerTab = React.lazy(() => import('../components/developer/BusinessClaimsManagerTab').then(module => ({ default: module.BusinessClaimsManagerTab })));
 const BusinessManagersTab = React.lazy(() => import('../components/developer/BusinessManagersTab').then(module => ({ default: module.BusinessManagersTab })));
 const PlansManagerTab = React.lazy(() => import('../components/developer/PlansManagerTab').then(module => ({ default: module.PlansManagerTab })));
@@ -29,7 +31,7 @@ const ProProposalsTab = React.lazy(() => import('../components/developer/ProProp
 const BackupsTab = React.lazy(() => import('../components/developer/BackupsTab').then(module => ({ default: module.BackupsTab })));
 const ReviewsConsolidationCard = React.lazy(() => import('../components/developer/ReviewsConsolidationCard').then(module => ({ default: module.ReviewsConsolidationCard })));
 
-type DeveloperActiveTab = 'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'businessClaims' | 'businessManagers' | 'plans' | 'proProposals' | 'backups' | 'branding' | 'others' | 'proyectos' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit' | 'apiusage';
+type DeveloperActiveTab = 'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'businessClaims' | 'businessManagers' | 'plans' | 'proProposals' | 'backups' | 'branding' | 'others' | 'proyectos' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit' | 'apiusage' | 'analytics' | 'geoAnalytics';
 
 const DeveloperTabFallback: React.FC = () => (
     <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/60 p-8 text-center text-sm text-gray-400">
@@ -58,7 +60,7 @@ export const DeveloperPage: React.FC = () => {
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
     const [searchParams] = useSearchParams();
     const requestedTab = searchParams.get('tab');
-    const initialTab: DeveloperActiveTab = requestedTab === 'businessClaims' || requestedTab === 'businessManagers' || requestedTab === 'plans' ? requestedTab : 'console';
+    const initialTab: DeveloperActiveTab = requestedTab === 'businessClaims' || requestedTab === 'businessManagers' || requestedTab === 'plans' || requestedTab === 'analytics' || requestedTab === 'geoAnalytics' ? requestedTab : 'console';
     const highlightClaimId = searchParams.get('claimId');
     const [activeTab, setActiveTab] = useState<DeveloperActiveTab>(initialTab);
     // Reactive: un usuario al que se le acaba de quitar el rol 'jefe' pierde
@@ -724,7 +726,7 @@ export const DeveloperPage: React.FC = () => {
 
                     {/* Sidebar Nav */}
                     <nav className={`
-                        fixed md:static inset-y-0 left-0 z-40 w-64 bg-[#121624] border-r border-white/5 flex flex-col pt-20 md:pt-6 shrink-0 transition-transform duration-300 ease-in-out
+                        fixed md:static inset-y-0 left-0 z-40 w-64 bg-[#121624] border-r border-white/5 flex flex-col overflow-y-auto pb-6 pt-20 md:pt-6 shrink-0 transition-transform duration-300 ease-in-out
                         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
                     `}>
                         <div className="px-6 mb-6 md:hidden">
@@ -783,7 +785,7 @@ export const DeveloperPage: React.FC = () => {
                             onClick={() => { setActiveTab('proProposals'); setIsSidebarOpen(false); }}
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'proProposals' ? 'border-indigo-400 bg-indigo-400/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
-                            <ClipboardList className="w-5 h-5" /> Propuestas Pro
+                            <ClipboardList className="w-5 h-5" /> Patrocinios y Pro
                         </button>
                         <button
                             onClick={() => { setActiveTab('backups'); setIsSidebarOpen(false); }}
@@ -856,6 +858,18 @@ export const DeveloperPage: React.FC = () => {
                             className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'apiusage' ? 'border-[var(--lt-accent)] bg-[var(--lt-accent-soft)] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
                         >
                             <Activity className="w-5 h-5" /> API Usage
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('analytics'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'analytics' ? 'border-violet-400 bg-violet-400/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <BarChart3 className="w-5 h-5" /> Analítica páginas
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('geoAnalytics'); setIsSidebarOpen(false); }}
+                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'geoAnalytics' ? 'border-cyan-400 bg-cyan-400/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+                        >
+                            <MapPinned className="w-5 h-5" /> Mapas analíticos
                         </button>
                     </nav>
 
@@ -2369,6 +2383,16 @@ export const DeveloperPage: React.FC = () => {
                                     <ApiUsageTab />
                                 </DeveloperLazyPanel>
                             </div>
+                        )}
+                        {activeTab === 'analytics' && (
+                            <DeveloperLazyPanel>
+                                <PageAnalyticsTab />
+                            </DeveloperLazyPanel>
+                        )}
+                        {activeTab === 'geoAnalytics' && (
+                            <DeveloperLazyPanel>
+                                <GeoAnalyticsTab />
+                            </DeveloperLazyPanel>
                         )}
                     </main >
                 </div >
