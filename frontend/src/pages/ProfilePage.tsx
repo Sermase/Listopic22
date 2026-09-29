@@ -928,16 +928,22 @@ export const ProfilePage: React.FC = () => {
           return;
         }
 
-        const pageSize = 200;
+        // Las reglas limitan las consultas de reseñas a 100 por página y, en el
+        // perfil de otra persona, solo permiten leer sus reseñas públicas.
+        const pageSize = 100;
         const maxReviews = 3000;
+        const viewingOwnStats = user?.uid === targetUserId;
         const allReviews: Array<Record<string, any>> = [];
         let cursor: any = null;
 
         while (allReviews.length < maxReviews) {
-          const constraints: any[] = [
-            where("userId", "==", targetUserId),
-            orderBy("createdAt", "desc"),
-          ];
+          const constraints: any[] = viewingOwnStats
+            ? [where("userId", "==", targetUserId), orderBy("createdAt", "desc")]
+            : [
+              where("visibility", "==", "public"),
+              where("userId", "==", targetUserId),
+              orderBy("createdAt", "desc"),
+            ];
 
           if (cursor) {
             constraints.push(startAfter(cursor));

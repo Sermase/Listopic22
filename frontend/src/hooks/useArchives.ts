@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, orderBy, serverTimestamp, updateDoc, increment } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, setDoc, deleteDoc, query, orderBy, serverTimestamp, updateDoc, increment, runTransaction } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 
@@ -32,9 +32,11 @@ export const useArchives = () => {
     const [archives, setArchives] = useState<ArchiveEntity[]>([]);
     const [loading, setLoading] = useState(false);
 
-    // Fetch user's archives
-    const fetchArchives = useCallback(async () => {
-        if (!user) return;
+    // Fetch user's archives. Devuelve la lista para que quien la necesite al
+    // momento (p. ej. para saber dónde está guardado algo) no dependa del
+    // estado de React, que aún no se ha actualizado.
+    const fetchArchives = useCallback(async (): Promise<ArchiveEntity[]> => {
+        if (!user) return [];
         setLoading(true);
         try {
             const q = query(collection(db, 'users', user.uid, 'archives'), orderBy('createdAt', 'desc'));
@@ -54,8 +56,10 @@ export const useArchives = () => {
             }
 
             setArchives(data);
+            return data;
         } catch (error) {
             console.error("Error fetching archives:", error);
+            return [];
         } finally {
             setLoading(false);
         }
@@ -111,55 +115,40 @@ export const useArchives = () => {
         }
     };
 
-    // Check if item is saved in any archive (returns list of archive IDs)
-    const checkItemSavedStatus = async (itemId: string) => {
-        if (!user) return [];
-        // This is tricky in Firestore subcollections. 
-        // We'd need to query ALL archives' subcollections, which is expensive (collectionGroup query restricted by user path issue).
-        // ALTERNATIVE: Simplify. A separate root collection `saved_items` per user or just query archives if count is low.
-        // DESIGN CHOICE: iterate archives for now. User won't have 100 archives.
-
-        const savedArchiveIds: string[] = [];
-
-        // Parallel check (Optimization: Could denormalize "saved_in" array on client if we tracked it differently)
-        // For MVP: We check against the `archives` state if populated, or fetch logic.
-        // Actually, to make "isSaved" efficient, usually we have a `users/{uid}/saved_refs/{itemId}` document.
-        // Let's implement that pattern for global "Is Saved?" checks.
-
-        // However, the prompt implies "Membership in specific folder".
-        // Let's iterate `archives` and check `archives/{id}/items/{itemId}` exists.
-
-        // Improved Approach: `collectionGroup(db, 'items')` with `where('itemId', '==', itemId)` AND filter client side by parent path?
-        // No, `users/{uid}/archives/{aid}/items`.
-
-        // Let's stick to simple Iteration for now, assuming < 10 archives.
-        await Promise.all(archives.map(async (arch) => {
-            const docRef = doc(db, 'users', user.uid, 'archives', arch.id, 'items', itemId);
-            const snap = await getDoc(docRef);
-            if (snap.exists()) savedArchiveIds.push(arch.id);
+    // Colecciones en las que está guardado un elemento (ids). Acepta la lista
+    // de colecciones recién leída para no usar un estado desactualizado.
+    const checkItemSavedStatus = async (itemId: string, archiveList: ArchiveEntity[] = archives) => {
+        if (!user || !itemId) return [];
+        const results = await Promise.all(archiveList.map(async (arch) => {
+            const snap = await getDoc(doc(db, 'users', user.uid, 'archives', arch.id, 'items', itemId));
+            return snap.exists() ? arch.id : null;
         }));
-
-        return savedArchiveIds;
+        return results.filter((id): id is string => id !== null);
     };
 
-    // Toggle Item in Archive
+    // Añade o quita un elemento de una colección. El contador solo cambia si el
+    // elemento cambia de estado (guardar dos veces no suma dos). Los errores se
+    // propagan para que la interfaz pueda avisar.
     const toggleItemInArchive = async (archiveId: string, item: SavedItemEntity, isAdding: boolean) => {
         if (!user) return;
 
-        const itemRef = doc(db, 'users', user.uid, 'archives', archiveId, 'items', item.itemId); // Use itemId as docId to ensure uniqueness per archive
+        const itemRef = doc(db, 'users', user.uid, 'archives', archiveId, 'items', item.itemId);
         const archiveRef = doc(db, 'users', user.uid, 'archives', archiveId);
+        // Firestore rechaza campos undefined: se quitan antes de escribir.
+        const payload = Object.fromEntries(
+            Object.entries({ ...item, savedAt: serverTimestamp() }).filter(([, value]) => value !== undefined)
+        );
 
-        try {
+        await runTransaction(db, async (tx) => {
+            const existing = await tx.get(itemRef);
             if (isAdding) {
-                await setDoc(itemRef, { ...item, savedAt: serverTimestamp() });
-                await updateDoc(archiveRef, { itemCount: increment(1) });
-            } else {
-                await deleteDoc(itemRef);
-                await updateDoc(archiveRef, { itemCount: increment(-1) });
+                tx.set(itemRef, payload);
+                if (!existing.exists()) tx.update(archiveRef, { itemCount: increment(1) });
+            } else if (existing.exists()) {
+                tx.delete(itemRef);
+                tx.update(archiveRef, { itemCount: increment(-1) });
             }
-        } catch (e) {
-            console.error("Error toggling item:", e);
-        }
+        });
     };
 
     return {

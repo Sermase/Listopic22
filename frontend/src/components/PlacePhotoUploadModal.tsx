@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { addDoc, collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { FirebaseError } from 'firebase/app';
 import type { User } from 'firebase/auth';
@@ -137,11 +137,22 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
                 });
             }
 
+            // La primera foto solo se usa como portada si el sitio aún no tiene
+            // una (igual que al publicar una reseña). Si falla, las fotos ya
+            // están subidas: no se muestra error por ello.
             if (firstUrl) {
-                await setDoc(doc(db, 'places', placeId), {
-                    userPhotoUrl: firstUrl,
-                    lastUserPhotoAt: serverTimestamp(),
-                }, { merge: true });
+                try {
+                    const placeRef = doc(db, 'places', placeId);
+                    const placeSnap = await getDoc(placeRef);
+                    if (placeSnap.exists() && !placeSnap.data()?.userPhotoUrl) {
+                        await setDoc(placeRef, {
+                            userPhotoUrl: firstUrl,
+                            lastUserPhotoAt: serverTimestamp(),
+                        }, { merge: true });
+                    }
+                } catch (coverError) {
+                    console.warn('No se pudo fijar la portada del sitio', coverError);
+                }
             }
 
             onUploaded();

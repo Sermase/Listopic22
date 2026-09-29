@@ -2175,6 +2175,7 @@ export const PlacePage: React.FC = () => {
                 onClose={() => setIsSaveModalOpen(false)}
                 item={{
                     itemId: place.placeId,
+                    placeId: place.placeId,
                     type: 'place',
                     name: place.name,
                     subtitle: place.address,

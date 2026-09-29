@@ -96,6 +96,7 @@ export const CreateSublistPage: React.FC = () => {
                                         minLabel: val.labelMin,
                                         maxLabel: val.labelMax,
                                         isPonderable: val.ponderable !== false,
+                                        step: typeof val.step === 'number' ? val.step : undefined,
                                         locked: true // Inherited criteria are locked
                                     });
                                 }
@@ -221,7 +222,7 @@ export const CreateSublistPage: React.FC = () => {
                     label: c.label,
                     min: 0,
                     max: 10,
-                    step: 0.5,
+                    step: c.step ?? 0.5,
                     labelMin: c.minLabel,
                     labelMax: c.maxLabel,
                     ponderable: c.isPonderable

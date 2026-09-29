@@ -662,21 +662,26 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 if (selectedPlace) finalPlaceId = selectedPlace.id; // Correct preference
 
                 if (quieroIrArchiveId && finalPlaceId !== 'unknown') {
-                    // Check items subcollection
-                    const qItem = query(collection(db, 'users', user.uid, 'archives', quieroIrArchiveId, 'items'), where('placeId', '==', finalPlaceId));
-                    const snapItem = await getDocs(qItem);
+                    // Los sitios guardados desde su ficha usan el placeId como id del
+                    // documento (y los antiguos no tienen campo placeId); los platos
+                    // guardados sí llevan placeId.
+                    const quieroIrItems = collection(db, 'users', user.uid, 'archives', quieroIrArchiveId, 'items');
+                    const directItem = await getDoc(doc(quieroIrItems, finalPlaceId));
+                    const matchRef = directItem.exists()
+                        ? directItem.ref
+                        : (await getDocs(query(quieroIrItems, where('placeId', '==', finalPlaceId)))).docs[0]?.ref;
 
-                    if (!snapItem.empty) {
-                        console.log("Found in 'Quiero ir' archive. Moving to 'Ya fui'...");
+                    if (matchRef) {
                         // Move logic:
                         // A. Delete from Quiero ir
-                        await deleteDoc(snapItem.docs[0].ref);
+                        await deleteDoc(matchRef);
                         await updateDoc(doc(db, 'users', user.uid, 'archives', quieroIrArchiveId!), { itemCount: increment(-1) });
 
                         // B. Add to Ya fui (As a Place Item)
                         const placeName = selectedPlace?.name || prefillItemName || 'Lugar';
                         const subtitle = selectedPlace?.address || '';
-                        const photo = imagePreview || '';
+                        // Nunca guardar una imagen en base64 dentro del documento.
+                        const photo = imagePreview && /^https?:/.test(imagePreview) ? imagePreview : '';
 
                         // We use the Place ID as the doc ID in the new archive for uniqueness
                         await setDoc(doc(db, 'users', user.uid, 'archives', yaFuiArchiveId!, 'items', finalPlaceId), {

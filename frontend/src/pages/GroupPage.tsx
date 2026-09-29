@@ -474,7 +474,14 @@ export const GroupPage: React.FC = () => {
                         || review.ownerId === user.uid;
                 };
 
-                const nestedSnap = await getDocs(collection(db, 'lists', primaryId, 'reviews')).catch(() => null);
+                // Solo reseñas públicas y con límite: leer la subcolección entera no
+                // escala y, si la lista contiene alguna privada, las reglas deniegan
+                // la consulta completa a quien no es el dueño.
+                const nestedSnap = await getDocs(query(
+                    collection(db, 'lists', primaryId, 'reviews'),
+                    where('visibility', '==', 'public'),
+                    limit(300),
+                )).catch(() => null);
 
                 const reviewMap = new Map<string, ReviewEntity>();
                 const append = (snap: any) => {
