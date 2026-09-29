@@ -5,7 +5,7 @@ const admin = require("firebase-admin");
 const { getFirestore } = require("firebase-admin/firestore");
 const fetch = require("node-fetch");
 const { sendNotification } = require("./notifications");
-const { rateLimit } = require("./lib/auth");
+const { rateLimit, assertJefeAccess } = require("./lib/auth");
 const {
   googlePlacesApiKey: GOOGLE_PLACES_API_KEY_SECRET,
   getGooglePlacesApiKey,
@@ -308,6 +308,8 @@ const syncPlaceStatusFromGoogle = onCall(
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'Authentication required');
     }
+    // Solo el panel de desarrollador lo usa: cada llamada consume cuota de Google.
+    await assertJefeAccess(request.auth.uid);
 
     const rl = await rateLimit('syncPlaceStatusFromGoogle', `uid_${request.auth.uid}`, 30, 60);
     if (!rl.allowed) {

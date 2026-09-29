@@ -84,7 +84,9 @@ async function recalculateListReviewMetrics(listId) {
     criteriaAveragesUpdatedAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     availableTags: Array.from(availableTags).sort(),
-    itemCount: itemCount > 0 ? itemCount : undefined
+    // Con 0 reseñas también hay que escribir 0: `undefined` hace fallar el
+    // update y las métricas se quedaban con los valores anteriores.
+    itemCount
   };
 
   await listRef.update(updateData);

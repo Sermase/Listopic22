@@ -38,7 +38,7 @@ async function buildPlaceMeta(placeId) {
   const snap = await db.collection("places").doc(placeId).get();
   if (!snap.exists) return null;
   const place = snap.data() || {};
-  const score = formatScore(place.avgScore || place.rating);
+  const score = formatScore(place.averageRating ?? place.avgScore ?? place.rating);
   const reviews = Number(place.reviewsCount) > 0 ? `${place.reviewsCount} reseñas` : null;
   return {
     title: `${place.name || "Lugar"} · Listopic`,
@@ -53,6 +53,13 @@ async function buildListMeta(listId) {
   const snap = await db.collection("lists").doc(listId).get();
   if (!snap.exists) return null;
   const list = snap.data() || {};
+  // Una lista privada no debe revelar nombre, autor ni portada en la vista
+  // previa del enlace: se sirve la genérica y se redirige a la lista (la app
+  // ya decide si quien abre el enlace tiene acceso).
+  const isPublicList = list.isPublic === true || list.visibility === "public";
+  if (!isPublicList) {
+    return { ...DEFAULT_META, redirect: `/list/${encodeURIComponent(listId)}` };
+  }
   const count = Number(list.reviewCount || list.itemCount) > 0 ? `${list.reviewCount || list.itemCount} reseñas` : null;
   const average = formatScore(list.averageRating);
   return {
