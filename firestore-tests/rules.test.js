@@ -183,6 +183,22 @@ describe('V2 · Un editor no puede apropiarse de la lista', () => {
     }));
   });
 
+  it('✅ alice cambia la visibilidad de su lista (EditListForm)', async () => {
+    await assertSucceeds(updateDoc(doc(as('alice'), 'lists/priv'), {
+      name: 'Burgers con amigos', description: '', isPublic: true, publicAccess: 'reader', visibility: 'public',
+      criteriaDefinition: criteria, availableTags: [],
+    }));
+  });
+
+  it('❌ alice transfiere su lista a otro usuario o la cambia de lista madre', async () => {
+    await assertFails(updateDoc(doc(as('alice'), 'lists/priv'), { userId: 'bob' }));
+    await assertFails(updateDoc(doc(as('alice'), 'lists/priv'), { parentListId: 'otra' }));
+  });
+
+  it('✅ jefe corrige métricas de una lista', async () => {
+    await assertSucceeds(updateDoc(doc(jefe(), 'lists/pub'), { reviewCount: 3, averageRating: 8.2 }));
+  });
+
   it('✅ alice gestiona editores e invitados (ShareListModal)', async () => {
     const db = as('alice');
     await assertSucceeds(updateDoc(doc(db, 'lists/priv'), { editors: arrayUnion('bob') }));
@@ -363,6 +379,11 @@ describe('V7 · Contadores de reseña: solo ±1 y sin tocar el contenido ajeno',
 
   it('✅ bob suma +1 al contador de comentarios de una reseña pública', async () => {
     await assertSucceeds(updateDoc(doc(as('bob'), 'lists/pub/reviews/rPub'), { commentsCount: increment(1) }));
+  });
+
+  it('✅ al borrar un comentario se resta 1', async () => {
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'lists/pub/reviews/rPub'), { commentsCount: 2 }));
+    await assertSucceeds(updateDoc(doc(as('bob'), 'lists/pub/reviews/rPub'), { commentsCount: increment(-1) }));
   });
 
   it('✅ bob suma +1 me gusta', async () => {
