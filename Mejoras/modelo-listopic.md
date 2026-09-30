@@ -49,19 +49,22 @@ aunque no se hubieran tocado. Esas notas no se recuperan; el nombre y el comenta
 
 ### Pesos (×0 · ×1 · ×2 · ×3)
 
-**Actualización B1**: la fuente de verdad es `lists.scoringWeights` (id → 0..3). Hoy solo
-×1 (cuenta) y ×0 (no cuenta), rellenados desde `ponderable` (script de backfill). Con
-valoraciones, las reglas bloquean quitar criterios y cambiar pesos; añadir y renombrar
-sí se puede. Un criterio sin puntuar en una valoración no cuenta en su media, así que
-añadir un criterio nuevo no cambia ninguna nota.
+**Actualización B1**: la fuente de verdad es `lists.scoringWeights` (id → 0..3); si falta,
+`ponderable` (×1 / ×0). Pesos **activos** (`WEIGHTS_ENABLED = true` en los dos `scoring`):
+×0 no cuenta, ×1–×3 cuentan esas veces. Los pesos guardados hoy son todos 0 o 1, así que
+activarlos no cambia ninguna nota.
 
-Diseño original (sigue válido para ×2/×3):
-
-- Campo previsto: `criteriaDefinition.{id}.weight` (0–3). `ponderable: false` equivale a ×0 y manda sobre `weight`.
-- Interruptor: `WEIGHTS_ENABLED = false` en los dos `scoring`. Con él apagado, `weight` se ignora
-  y todo es ×1, como hoy. Los tests cubren ambos modos.
-- Para activarlo: UI en `CriteriaBuilder` (selector ×0–×3), encender el interruptor en web y
-  servidor, y decidir qué pasa con las valoraciones ya guardadas (ver §8).
+- **Lista sin valoraciones**: «Cuenta para la nota» es un selector No cuenta / ×1 / ×2 / ×3.
+- **Lista con valoraciones**: añadir y renombrar criterios, sí; quitar criterios o cambiar
+  pesos, solo con **«Cambiar pesos o quitar criterios…»**: se simula en el servidor
+  (notas antes → después, cambio máximo, puestos, Minilistas afectadas) y luego aplica un
+  administrador. Aplicar exige que nada haya cambiado desde la simulación (huella), guarda
+  la nota anterior en `overallRatingBefore`, sube `scoringVersion` y no borra ninguna
+  puntuación (un criterio quitado deja de contar, pero su puntuación sigue guardada).
+- **Minilistas**: heredan los pesos de la madre y se actualizan con ella; sus criterios
+  propios tienen su propio peso.
+- Un criterio sin puntuar en una valoración (p. ej. porque se creó después) **no cuenta**
+  en su media: nunca 0, 5 ni ningún valor implícito.
 
 ---
 
@@ -182,16 +185,21 @@ Qué existe hoy:
 | Radio en Búsqueda | `SearchPage`: 500 m – 50 km o sin límite | Algolia `aroundLatLng` / `aroundRadius` |
 | Ciudad / provincia / país del sitio | `places.city`, `province`/`region`, `country` (de Google) → `placeCity`… en `grouped_items` | Existen, pero no se usan para rankings |
 
-Modelo propuesto (no implementado):
+**Implementado (B1, sin desplegar):**
 
-1. El ámbito es **explícito**: ciudad, provincia, país, «cerca de mí (radio)» o «todo».
-2. La **posición** (#3) se calcula **dentro del conjunto filtrado**, con la misma fórmula que el ranking de la Lista.
-3. La etiqueta «#3 en Valladolid» solo aparece con un mínimo de elementos comparables (p. ej. 5), para no presumir de un #1 entre 2.
-4. El selector de distancia sigue igual; el de ciudad/provincia sería nuevo y usaría los campos que ya están en `places`.
+1. Selector en la Lista, de cerca a lejos: radios («A menos de 5 km», …, «Sin límite de
+   distancia») → ciudad («Valladolid») → provincia («Valladolid provincia») → comunidad
+   («Castilla y León») → país («España»). Sin «mundo». La palabra «ámbito» no se muestra.
+2. La zona elegida filtra y ordena Ranking, Mosaico y Mapa por igual; se recuerdan la zona
+   y la vista.
+3. «#3 en Valladolid» con la fórmula única del §4, dentro de cada zona con **≥ 3**
+   elementos. En la tarjeta, una sola etiqueta (la zona más concreta que aporte algo, sin
+   repetir la que ya se está mirando); el resto, en las estadísticas del sitio.
+4. CCAA con nombre único (`normalizeCcaa`, web y servidor) y ciudad con alternativas
+   (`postal_town`, niveles administrativos 3 y 4) al guardar desde Google.
 
-Incertidumbre: la calidad de `city`/`province` depende de lo que devuelve Google (hay
-sitios sin ellos). Antes de mostrar posiciones por ciudad hay que medir cuántos sitios
-los tienen.
+Datos (solo lectura, 30/09/2026): de 141 sitios, ciudad 93 %, provincia 95 %, CCAA 99 %.
+Los ~10 sin ubicación se arreglan a mano desde Developer (ver `google-places-skus.md`).
 
 ---
 
@@ -220,7 +228,7 @@ Conclusión:
 - **Estado: provisional** (decisión del 30/09/2026). Revisar cuando haya ≥ 50 sitios con ≥ 5 valoraciones.
 - Para **ordenar** sitios (búsqueda, Home) se usa la fórmula única del §4, no la media simple.
 - Reevaluar **E** (una persona = un voto) cuando haya sitios con muchas valoraciones de la misma persona. Es la mejor defensa contra que alguien infle un sitio.
-- Detalle por lista (B) en las estadísticas del sitio, como se decidió.
+- Detalle por lista (B) en las estadísticas del sitio, como se decidió. **Implementado**: pestaña «Estadísticas» de la ficha, con nº de valoraciones, media por Lista y puesto de cada elemento en su Lista.
 
 ---
 

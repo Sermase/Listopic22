@@ -4,7 +4,7 @@ Rama: `Mejoras-Opus-5.5-29-09-2026` (seguimos en ella tras el PR #259 de FASE A 
 Clasificación de riesgo como en FASE A:
 **A** seguro · **B** requiere migración de datos · **C** puede romper o cambia lo que se ve.
 
-## Estado (30/09/2026, tarde) — primera tanda implementada, nada desplegado
+## Estado (30/09/2026, noche) — B1 implementado en la rama, nada desplegado
 
 ### Decisiones añadidas
 - «Croquetas pucelanas» eliminada: ya no hay Minilistas incoherentes en datos públicos.
@@ -38,16 +38,27 @@ una fórmula de verdad única. `posición = (n·media + 3·7) / (n + 3)`.
 | — | Developer → Sitios: «Sel. sin ubicación (N)» para actualizar solo esos desde Google | `PlacesManagerTab.tsx` |
 | — | Red de seguridad: si las reglas desplegadas aún no aceptan `scoringWeights`, la web guarda sin ese campo | `lib/optionalFields.ts` |
 
+### Segunda tanda (S1–S6, 30/09/2026 noche) — hecha, nada desplegado
+| Paso | Qué | Dónde |
+|---|---|---|
+| S1 | Regla histórica con tests: criterio nuevo no puntuado **no cuenta** (nunca 0, 5 ni implícito); ×0; Minilista con criterio propio; madre ignorando los de la Minilista | `scoring.vectors.json`, tests web y servidor |
+| S2 | Simulación del prior (7 vs media global vs media de cada Lista, m = 1…10) con los ejemplos 10/1 … 8,2/100. Se mantiene C = 7, m = 3 | `Mejoras/simulacion-ranking.md` |
+| S3 | Selector de zona en la Lista: «A menos de 5 km» · «Valladolid» · «Valladolid provincia» · «Castilla y León» · «España» (sin «mundo», sin la palabra «ámbito»). Filtra y ordena Ranking, Mosaico y Mapa; se recuerdan zona y vista. «#3 en Valladolid» (uno principal; mínimo 3 elementos) | `lib/geoAreas.ts`, `AreaSelect.tsx`, `ListPage.tsx`, `ListItemCard.tsx` |
+| S4 | Ficha de sitio: nota Listopic global **provisional** con nº de valoraciones; pestaña «Estadísticas» con desglose por Lista y puestos de cada elemento | `PlacePage.tsx`, `place/PlaceStatsPanel.tsx`, `lib/listElements.ts` |
+| S5 | SKUs exactos de Google por actualización, tope de 25 por tanda con aviso de coste, botón «Solo ubicación» (1 llamada Essentials) | `Mejoras/google-places-skus.md`, `PlacesManagerTab.tsx`, `adminRefreshPlaceLocation` |
+| S6 | Migración de criterios/pesos: `simulateCriteriaChange` (dueño o jefe, solo lectura) y `applyCriteriaChange` (jefe; exige la huella de la simulación; guarda `overallRatingBefore`, sube `scoringVersion`, actualiza Minilistas, recalcula métricas, auditoría). Modal «Cambiar pesos o quitar criterios…» en Editar lista. Selector ×0–×3 en listas sin valoraciones y `WEIGHTS_ENABLED = true` (con los pesos guardados hoy, 0/1, no cambia ninguna nota) | `functions/modules/lib/criteria-migration.js`, `functions/modules/admin/criteria-migration.js`, `CriteriaMigrationModal.tsx`, `CriteriaBuilder.tsx` |
+
 ### Pendiente
-- **3.5–3.8**: herramienta de migración (simular → comparar → aplicar) para quitar criterios o cambiar pesos, y activar ×2/×3.
-- **4.2–4.5**: backfill de CCAA normalizada en sitios antiguos, facetas en Algolia, selector de ámbito (Ciudad · Provincia · CCAA · España + radios) y «#3 en Valladolid».
-- **5.x**: nota del sitio con nº de valoraciones y aviso «provisional» en la ficha.
+- **4.2–4.3**: facetas de zona en Algolia y en Búsqueda (hoy la zona funciona dentro de la Lista, en cliente).
+- «#126 en España» en la ficha del elemento: se calcula ya en la Lista; falta llevarlo a la página del elemento.
+- Decidir si el **dueño** puede aplicar migraciones él solo (hoy solo simula; aplica un administrador).
+- Verificar la migración contra el emulador o un proyecto de pruebas antes de usarla en una Lista real.
 
 ### Despliegue de esta tanda (orden obligatorio; nada desplegado)
-1. `cd functions && npm ci && npm test` → `firebase deploy --only functions --project listopic` (trigger de Minilistas, ranking en Algolia, ubicación).
+1. `cd functions && npm ci && npm test` → `firebase deploy --only functions --project listopic`. Funciones nuevas: `propagateParentCriteriaToMinilists` (trigger), `adminRefreshPlaceLocation`, `simulateCriteriaChange`, `applyCriteriaChange`; cambian `adminUpdateSinglePlace`, el agregador y Algolia.
 2. Backfill **en simulación** y luego `--apply`: `GOOGLE_APPLICATION_CREDENTIALS=… node scripts/backfill-scoring-weights.js [--apply]`.
 3. Reglas: `cd firestore-tests && npm test` (55/55) → `firebase deploy --only firestore:rules --project listopic`.
-4. Hosting: fusionar en `main`. Si se fusiona antes de desplegar las reglas, la web guarda las listas sin `scoringWeights` (no se rompe nada) y el backfill los rellena después.
+4. Hosting: fusionar en `main`. Si se fusiona antes de desplegar las reglas, la web guarda las listas sin `scoringWeights` (no se rompe nada) y el backfill los rellena después. **Si se fusiona antes que las Functions**, «Simular» y «Solo ubicación» dan error (la función no existe); nada más se ve afectado.
 5. Algolia: `adminBackfillAlgolia` (botón de Developer) para recalcular `rankingScore` en todos los registros. La configuración de orden y réplicas se aplica sola al primer uso del índice tras desplegar (`ensureIndexSettings`).
 6. Developer → «Recalcular TODAS las Listas».
 
@@ -177,6 +188,6 @@ errores nuevos. Simulaciones siempre antes de cualquier `--apply`.
 ## Preguntas abiertas
 
 1. **1.5**: valoraciones antiguas incompletas de una Minilista: ¿conservar la nota y marcarlas (recomendado) o excluirlas del ranking de la madre?
-2. **B1.2**: ¿prior = media del conjunto (recomendado) o fijo en 7? ¿m = 3?
-3. **B1.3**: ¿el dueño puede migrar solo, o necesita revisión de un administrador a partir de cierto tamaño?
+2. ~~**B1.2**: ¿prior = media del conjunto o fijo en 7? ¿m = 3?~~ Resuelto: C = 7, m = 3 (ver `simulacion-ranking.md`). No se cambia sin enseñar antes esa comparación.
+3. **B1.3**: ¿el dueño puede migrar solo, o necesita revisión de un administrador a partir de cierto tamaño? Hoy: el dueño simula; aplica un administrador.
 4. **B1.4**: la geocodificación de sitios antiguos cuesta llamadas a Google: ¿se acepta el coste estimado, o solo sitios nuevos y los que tengan componentes guardados?
