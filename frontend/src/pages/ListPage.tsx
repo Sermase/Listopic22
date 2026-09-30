@@ -954,9 +954,11 @@ export const ListPage: React.FC = () => {
                         <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Lock className="w-8 h-8 text-gray-400" />
                         </div>
-                        <h2 className="text-2xl font-bold text-white mb-2">Lista Privada</h2>
+                        {/* Firestore no distingue «no existe» de «no tienes permiso»: se dice tal cual. */}
+                        <h2 className="text-2xl font-bold text-white mb-2">Lista no disponible</h2>
                         <p className="text-gray-400 mb-6">
-                            Esta lista es privada y no tienes permisos para verla.
+                            No existe o es privada y no tienes permiso para verla.
+                            {!user && <> Si es tuya, <Link to="/login" className="text-[var(--lt-accent)] font-semibold hover:underline">inicia sesión</Link>.</>}
                         </p>
                         <Link to="/search" className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold rounded-xl transition-colors">
                             <Search className="w-4 h-4" />
@@ -968,15 +970,38 @@ export const ListPage: React.FC = () => {
         }
 
         return (
-            <div className="min-h-screen pt-safe-24 px-4 text-center">
-                <h2 className="text-2xl font-bold text-red-400 mb-2">Error</h2>
-                <p className="text-gray-400">{error || "Lista no encontrada"}</p>
-                <Link to="/search" className="mt-4 inline-block text-[var(--lt-accent)] hover:text-[var(--lt-accent)]">
-                    Volver al buscador
-                </Link>
+            <div className="min-h-screen pt-safe-40 px-4 text-center">
+                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl p-8 max-w-md mx-auto">
+                    <h2 className="text-2xl font-bold text-white mb-2">No se ha podido cargar la Lista</h2>
+                    <p className="text-gray-400 mb-6">Revisa tu conexión e inténtalo otra vez.</p>
+                    <div className="flex flex-wrap justify-center gap-3">
+                        <button type="button" onClick={() => window.location.reload()} className="px-5 py-2.5 bg-[var(--lt-accent)] text-white font-bold rounded-xl">
+                            Reintentar
+                        </button>
+                        <Link to="/search" className="px-5 py-2.5 border border-white/10 text-[var(--lt-text)] font-bold rounded-xl">
+                            Ir a Buscar
+                        </Link>
+                    </div>
+                </div>
             </div>
         );
     }
+
+    // Por qué no se ve nada: Lista sin valoraciones, búsqueda, zona o filtros.
+    const areaFiltering = effectiveArea.kind !== 'near' || range !== null;
+    const emptyReason: 'none' | 'search' | 'area' | 'filters' = reviews.length === 0
+        ? 'none'
+        : searchQuery ? 'search'
+        : groupedItems.length > 0 && areaFiltering ? 'area'
+        : 'filters';
+    const emptyMessage = {
+        none: 'Todavía no hay valoraciones en esta Lista.',
+        search: 'No hay resultados para tu búsqueda.',
+        area: effectiveArea.kind !== 'near'
+            ? `No hay nada en ${geoAreaLabel(effectiveArea.kind, effectiveArea.value)}.`
+            : `No hay nada ${range !== null ? distanceLabel(range).toLowerCase() : 'cerca'}.`,
+        filters: 'Ningún elemento cumple los filtros elegidos.',
+    }[emptyReason];
 
     const listShareUrl = buildPublicRouteUrl(`/list/${list.id}`);
     const listTypeLabel = list.parentListId ? 'Minilista' : 'Lista';
@@ -1444,9 +1469,18 @@ export const ListPage: React.FC = () => {
                     ) : (
                         <div className="text-center py-16 bg-[var(--lt-card-strong)]/30 rounded-2xl border border-dashed border-white/5">
                             <p className="text-gray-400 mb-4 text-lg">
-                                {searchQuery ? 'No hay resultados para tu búsqueda.' : 'Esta lista está vacía o no hay elementos cerca.'}
+                                {emptyMessage}
                             </p>
-                            {canAddReview && !searchQuery && (
+                            {emptyReason === 'area' && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleAreaSelect('r:all')}
+                                    className="mb-3 px-4 py-2 rounded-xl border border-[var(--lt-accent-border)] text-[var(--lt-accent)] font-bold"
+                                >
+                                    Ver toda la Lista
+                                </button>
+                            )}
+                            {canAddReview && emptyReason === 'none' && (
                                 <button
                                     onClick={handleOpenAddReview}
                                     className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] font-bold hover:underline"
