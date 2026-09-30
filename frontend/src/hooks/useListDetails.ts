@@ -4,6 +4,7 @@ import { doc, getDoc, query, where, getDocs, Timestamp, collection } from 'fireb
 import { db } from '../firebase';
 import { firstUsablePlaceImage } from '../utils/placeImages';
 import { type ListEntity } from './useLists';
+import { normalizeCcaa } from '../lib/geoAreas';
 
 export interface ReviewEntity {
     id: string;
@@ -34,6 +35,10 @@ export interface ReviewEntity {
     placeName?: string;
     placeAddress?: string;
     placeCity?: string;
+    /** Provincia, CCAA (normalizada) y país del sitio: para filtrar por zona. */
+    placeProvince?: string;
+    placeRegion?: string;
+    placeCountry?: string;
     placeMainImage?: string;
     placeClosedStatus?: string | null;
     accessibilityOptions?: Record<string, unknown> | string[];
@@ -45,7 +50,9 @@ export interface ReviewEntity {
     placePetOptions?: Record<string, unknown> | string[];
     placePets?: Record<string, unknown> | string[];
     placeAverageRating?: number;
-    criteriaDefinition?: Record<string, { label: string; min?: number; max?: number; step?: number; ponderable?: boolean }>;
+    criteriaDefinition?: Record<string, { label: string; min?: number; max?: number; step?: number; ponderable?: boolean; order?: number }>;
+    /** Peso de cada criterio (0 = no cuenta). Fuente de verdad de la nota; ver lib/scoring. */
+    scoringWeights?: Record<string, number>;
     authorId?: string;
     tags?: string[];
     userTags?: string[];
@@ -59,7 +66,10 @@ const toMillis = (value: any): number => {
     return 0;
 };
 
-async function fetchListDetails(listId: string): Promise<{ list: ListEntity; reviews: ReviewEntity[]; sublists: ListEntity[] }> {
+/** Misma carga que usa la página de Lista (para calcular puestos desde otras pantallas). */
+export const listDetailsQueryKey = (listId: string) => ['listDetails', listId] as const;
+
+export async function fetchListDetails(listId: string): Promise<{ list: ListEntity; reviews: ReviewEntity[]; sublists: ListEntity[] }> {
     const listRef = doc(db, 'lists', listId);
     const listSnap = await getDoc(listRef);
 
@@ -181,8 +191,11 @@ async function fetchListDetails(listId: string): Promise<{ list: ListEntity; rev
             placeName: place?.name || legacyReview.establishmentName || review.placeName,
             placeAddress: place?.address || place?.formattedAddress || place?.vicinity,
             placeCity: city,
+            placeProvince: place?.province || '',
+            placeRegion: normalizeCcaa(place?.region),
+            placeCountry: place?.country || '',
             placeMainImage: firstUsablePlaceImage(place?.userPhotoUrl, place?.mainImageUrl, place?.photos),
-            placeAverageRating: place?.rating || place?.avgScore,
+            placeAverageRating: place?.averageRating ?? place?.rating ?? place?.avgScore,
             placeClosedStatus: place?.closedStatus || place?.googleBusinessStatus || place?.businessStatus || null,
             placePetOptions: place?.businessPetOptions || place?.petOptions || place?.pets,
             authorName: user?.username || user?.displayName || user?.name || review.authorName,
@@ -212,7 +225,7 @@ async function fetchListDetails(listId: string): Promise<{ list: ListEntity; rev
 
 export const useListDetails = (listId: string | undefined) => {
     const q = useQuery({
-        queryKey: ['listDetails', listId],
+        queryKey: listDetailsQueryKey(listId || ''),
         enabled: !!listId,
         queryFn: () => fetchListDetails(listId!),
         retry: (failureCount, error: any) => error?.code === 'permission-denied' ? false : failureCount < 1,

@@ -36,13 +36,15 @@ interface ListItemCardProps {
         tags?: string[];
     };
     rank?: number;
+    /** Puesto con contexto, p. ej. «#3 en Valladolid» (uno solo, el principal). */
+    contextRankLabel?: string | null;
     isGrid?: boolean;
     groupingMode?: 'place' | 'dish' | 'list';
     listId?: string; // Outer phrasing, maybe redundant with item.listId but keeping for compat
     disableLift?: boolean;
 }
 
-export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, groupingMode = 'place', listId, disableLift = false }) => {
+export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextRankLabel, isGrid, groupingMode = 'place', listId, disableLift = false }) => {
     const normalizedClosedStatus = String(item.placeClosedStatus || '').trim().toLowerCase();
     const isPermanentlyClosed = normalizedClosedStatus === 'permanently_closed' || normalizedClosedStatus === 'closed_permanently';
     const photoPlaceholderVariant = groupingMode === 'dish' ? 'group' : 'place';
@@ -160,6 +162,11 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
 
                         {/* Context badges */}
                         <div className="flex flex-wrap gap-1 mb-1">
+                            {contextRankLabel && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black bg-[var(--lt-accent)] text-white border border-[var(--lt-accent-border)] whitespace-nowrap">
+                                    {contextRankLabel}
+                                </span>
+                            )}
                             {item.listName && (
                                 item.listId ? (
                                     <Link
@@ -347,8 +354,11 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                                     )}
                                 </div>
 
-                                <div className="text-xs text-gray-500 mt-1">
-                                    {item.reviewCount > 0 && `${item.reviewCount} ${item.reviewCount === 1 ? 'valoración' : 'valoraciones'}`}
+                                <div className="text-xs text-[var(--lt-text-muted)] mt-1 flex flex-wrap items-center gap-x-2">
+                                    {item.reviewCount > 0 && <span>{`${item.reviewCount} ${item.reviewCount === 1 ? 'valoración' : 'valoraciones'}`}</span>}
+                                    {contextRankLabel && (
+                                        <span className="font-semibold text-[var(--lt-accent)]">{contextRankLabel}</span>
+                                    )}
                                 </div>
 
                                 {/* List Stats */}

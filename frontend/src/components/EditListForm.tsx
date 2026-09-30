@@ -18,12 +18,16 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useQueryClient } from '@tanstack/react-query';
-import { Save, Loader, X, Smile } from 'lucide-react';
+import { Save, Loader, X, Smile, Scale } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
+import { CriteriaMigrationModal } from './CriteriaMigrationModal';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
-import { orderedCriteriaEntries } from '../lib/criteria';
+import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
+import { deriveScoringWeights } from '../lib/scoring';
+import { writeWithOptionalFields } from '../lib/optionalFields';
+import { syncListReviewVisibility } from '../lib/reviewVisibility';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -48,11 +52,9 @@ interface EditableListData {
     parentListId?: string | null;
     availableTags?: string[];
     criteriaDefinition?: CriteriaDefinitionMap;
+    reviewCount?: number;
+    scoringWeights?: Record<string, number>;
 }
-
-const isPermissionDenied = (error: unknown): boolean => {
-    return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'permission-denied');
-};
 
 interface EditListFormProps {
     listId: string;
@@ -94,7 +96,14 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
     const [tagRenames, setTagRenames] = useState<Map<string, string>>(new Map());
     const [inheritedCriteriaIds, setInheritedCriteriaIds] = useState<string[]>([]);
+    // Con valoraciones, los criterios existentes no se quitan ni cambian de peso.
+    const [scoringLockedIds, setScoringLockedIds] = useState<string[]>([]);
+    const [existingWeights, setExistingWeights] = useState<Record<string, number> | null>(null);
+    // Criterios de otro tipo (no deslizador): se conservan tal cual al guardar.
+    const [preservedCriteria, setPreservedCriteria] = useState<CriteriaDefinitionMap>({});
     const [inheritedTags, setInheritedTags] = useState<string[]>([]);
+    const [showMigration, setShowMigration] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         if (loadingProfile) return; // wait for profile before checking permissions
@@ -142,19 +151,31 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
                 if (data.criteriaDefinition) {
                     const loadedCriteria: Criterion[] = [];
+                    const preserved: CriteriaDefinitionMap = {};
                     orderedCriteriaEntries(data.criteriaDefinition).forEach(([key, val]) => {
-                        if (val.type === 'slider') {
+                        if (val.type && val.type !== 'slider') {
+                            preserved[key] = val;
+                        } else {
                             loadedCriteria.push({
                                 id: key,
                                 label: val.label || key,
                                 minLabel: val.labelMin || 'Malo',
                                 maxLabel: val.labelMax || 'Excelente',
-                                isPonderable: val.ponderable !== false,
+                                // Si la lista ya tiene pesos, mandan ellos (ver lib/scoring).
+                                isPonderable: typeof data.scoringWeights?.[key] === 'number'
+                                    ? data.scoringWeights[key] > 0
+                                    : val.ponderable !== false,
+                                weight: typeof data.scoringWeights?.[key] === 'number' ? data.scoringWeights[key] : undefined,
                                 step: val.step ?? 0.5
                             });
                         }
                     });
                     setCriteria(loadedCriteria);
+                    setPreservedCriteria(preserved);
+                    if ((data.reviewCount ?? 0) > 0) {
+                        setScoringLockedIds(Object.keys(data.criteriaDefinition));
+                        setExistingWeights(data.scoringWeights ?? null);
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching list:', error);
@@ -163,7 +184,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             }
         };
         fetchList();
-    }, [listId, loadingProfile, isJefe, onCancel, user, showToast]);
+    }, [listId, loadingProfile, isJefe, onCancel, user, showToast, reloadKey]);
 
     const addTag = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && tagInput.trim()) {
@@ -238,7 +259,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             const docRef = doc(db, 'lists', listId);
             const newVisibility = isPublic ? 'public' : 'private';
 
-            const criteriaDefinitionMap: CriteriaDefinitionMap = {};
+            const criteriaDefinitionMap: CriteriaDefinitionMap = { ...preservedCriteria };
             criteria.forEach((c, index) => {
                 criteriaDefinitionMap[c.id] = {
                     order: index,
@@ -253,15 +274,22 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 };
             });
 
-            await updateDoc(docRef, {
+            // Pesos de la nota: ×1 lo que cuenta, ×0 lo que no. Con valoraciones se
+            // conservan los ya guardados (cambiarlos exige una migración).
+            const scoringWeights = deriveScoringWeights(criteriaDefinitionMap, {
+                ...weightsFromCriteria(criteria),
+                ...(scoringLockedIds.length > 0 ? existingWeights ?? {} : {}),
+            });
+            await writeWithOptionalFields((includeWeights) => updateDoc(docRef, {
                 name,
                 description,
                 isPublic,
                 publicAccess: isPublic ? publicAccess : 'reader',
                 visibility: newVisibility,
                 criteriaDefinition: criteriaDefinitionMap,
+                ...(includeWeights ? { scoringWeights } : {}),
                 availableTags: finalTags
-            });
+            }));
 
             // Propagate tag renames to reviews
             if (tagRenames.size > 0) {
@@ -305,33 +333,8 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 }
             }
 
-            // Sync visibility to reviews
-            const safeGetDocs = async (load: () => Promise<QuerySnapshot<DocumentData>>) => {
-                try { return await load(); } catch (e: unknown) {
-                    if (!isPermissionDenied(e)) console.warn('Failed to query reviews', e);
-                    return null;
-                }
-            };
-
-            const snapshots = parentListId
-                ? await Promise.all([
-                    safeGetDocs(() => getDocs(query(collection(db, 'lists', parentListId, 'reviews'), where('sublistId', '==', listId)))),
-                    safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews')))
-                ])
-                : [await safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews')))];
-
-            const reviewDocs = new Map<string, QueryDocumentSnapshot<DocumentData>>();
-            snapshots.forEach(snap => {
-                if (!snap) return;
-                snap.docs.forEach((d) => reviewDocs.set(d.ref.path, d));
-            });
-
-            const toUpdate = Array.from(reviewDocs.values()).filter((d) => d.data().visibility !== newVisibility);
-            for (let i = 0; i < toUpdate.length; i += 450) {
-                const batch = writeBatch(db);
-                toUpdate.slice(i, i + 450).forEach((d) => batch.update(d.ref, { visibility: newVisibility }));
-                await batch.commit();
-            }
+            // Las valoraciones siguen la visibilidad de su lista (ver lib/reviewVisibility).
+            await syncListReviewVisibility(listId, parentListId, newVisibility);
 
             queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
             queryClient.invalidateQueries({ queryKey: ['lists'] });
@@ -441,7 +444,36 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
             {/* Criteria & Tags */}
             <div className="bg-[var(--lt-card-strong)] p-6 rounded-xl border border-white/10 shadow-xl space-y-8">
-                <CriteriaBuilder criteria={criteria} onChange={setCriteria} lockedIds={inheritedCriteriaIds} />
+                <CriteriaBuilder criteria={criteria} onChange={setCriteria} lockedIds={inheritedCriteriaIds} scoringLockedIds={scoringLockedIds} />
+                {scoringLockedIds.length > 0 && (parentListId ? (
+                    <p className="text-xs text-gray-400">Los pesos de los criterios heredados se cambian en la Lista madre.</p>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => setShowMigration(true)}
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--lt-accent)] hover:underline"
+                    >
+                        <Scale className="w-4 h-4" /> Cambiar pesos o quitar criterios…
+                    </button>
+                ))}
+                {showMigration && (
+                    <CriteriaMigrationModal
+                        isOpen
+                        onClose={() => setShowMigration(false)}
+                        listId={listId}
+                        criteria={criteria.filter((c) => scoringLockedIds.includes(c.id)).map((c) => ({ id: c.id, label: c.label || c.id }))}
+                        currentWeights={weightsFromCriteria(criteria.filter((c) => scoringLockedIds.includes(c.id)))}
+                        canApply={isJefe}
+                        onApplied={() => {
+                            setShowMigration(false);
+                            queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
+                            queryClient.invalidateQueries({ queryKey: ['lists'] });
+                            // Recarga criterios y pesos: evita volver a guardar los de antes.
+                            setLoading(true);
+                            setReloadKey((k) => k + 1);
+                        }}
+                    />
+                )}
 
                 <div className="border-t border-white/5 pt-6" />
 

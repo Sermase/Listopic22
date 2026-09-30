@@ -34,7 +34,7 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
     ready || !imageUrl ? 'animate-hero-from-right' : '',
     className,
   )}>
-    <div className="absolute inset-0 z-10 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-black/40" />
+    <div className="absolute inset-0 z-10 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-[var(--lt-hero-top,rgba(0,0,0,0.4))]" />
 
     {imageUrl ? (
       <ProgressiveImage

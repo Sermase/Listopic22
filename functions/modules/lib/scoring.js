@@ -7,10 +7,12 @@
 const SCORE_MIN = 0;
 const SCORE_MAX = 10;
 const MAX_CRITERION_WEIGHT = 3;
-const WEIGHTS_ENABLED = false;
+// Pesos ×0–×3 activos (espejo de frontend/src/lib/scoring.ts).
+const WEIGHTS_ENABLED = true;
 
-const RANKING_PRIOR_AVERAGE = 7;
-const RANKING_PRIOR_WEIGHT = 5;
+// Ranking único: posición = (n·media + 3·7) / (n + 3). Ver scoring.ts.
+const RANK_PRIOR_WEIGHT = 3;
+const RANK_PRIOR = 7;
 
 const roundToTenth = (value) => Number(value.toFixed(1));
 
@@ -28,13 +30,31 @@ function normalizeCriteria(criteria) {
     .map(([id, def]) => ({ ...def, id }));
 }
 
+const clampWeight = (value) => Math.min(MAX_CRITERION_WEIGHT, Math.max(0, Math.round(value)));
+
+// `scoringWeights` de la lista (options.weights) manda sobre `ponderable`.
 function criterionWeight(criterion, options = {}) {
   const useWeights = options.useWeights ?? WEIGHTS_ENABLED;
-  if (criterion.ponderable === false || criterion.isPonderable === false) return 0;
-  if (useWeights && isScoreValue(criterion.weight)) {
-    return Math.min(MAX_CRITERION_WEIGHT, Math.max(0, Math.round(criterion.weight)));
+  const listWeight = criterion.id && options.weights ? options.weights[criterion.id] : undefined;
+  if (isScoreValue(listWeight)) {
+    const weight = clampWeight(listWeight);
+    return useWeights ? weight : (weight > 0 ? 1 : 0);
   }
+  if (criterion.ponderable === false || criterion.isPonderable === false) return 0;
+  if (useWeights && isScoreValue(criterion.weight)) return clampWeight(criterion.weight);
   return 1;
+}
+
+// ×1 lo que cuenta, ×0 lo que no (conserva pesos ya guardados).
+function deriveScoringWeights(criteria, existing) {
+  const weights = {};
+  normalizeCriteria(criteria).forEach((criterion) => {
+    const previous = existing ? existing[criterion.id] : undefined;
+    weights[criterion.id] = isScoreValue(previous)
+      ? clampWeight(previous)
+      : (criterion.ponderable === false || criterion.isPonderable === false ? 0 : 1);
+  });
+  return weights;
 }
 
 function computingCriteria(criteria, options = {}) {
@@ -103,7 +123,7 @@ function reviewScoreForList(review, list, options = {}) {
   const isMinilist = typeof list?.parentListId === 'string' && list.parentListId.length > 0;
   return isMinilist
     ? reviewScoreForMinilist(review)
-    : reviewScoreForParentList(review, list ? list.criteriaDefinition : null, options);
+    : reviewScoreForParentList(review, list ? list.criteriaDefinition : null, { weights: list ? list.scoringWeights : null, ...options });
 }
 
 function averageScore(values) {
@@ -112,21 +132,23 @@ function averageScore(values) {
   return valid.reduce((sum, v) => sum + v, 0) / valid.length;
 }
 
-// --- Ranking (idéntico a algolia.js) ---
+// --- Ranking único (espejo de rankPosition en la web) ---
 const safeNumber = (value) => (isScoreValue(value) ? value : 0);
 
-function bayesianRating(average, count, priorAverage = RANKING_PRIOR_AVERAGE, priorWeight = RANKING_PRIOR_WEIGHT) {
-  const reviewCount = Math.max(0, safeNumber(count));
-  if (reviewCount <= 0) return 0;
+function rankPosition(average, count, prior = RANK_PRIOR, priorWeight = RANK_PRIOR_WEIGHT) {
+  const n = Math.max(0, safeNumber(count));
+  if (n <= 0) return 0;
   const rating = Math.max(SCORE_MIN, Math.min(SCORE_MAX, safeNumber(average)));
-  return ((rating * reviewCount) + (priorAverage * priorWeight)) / (reviewCount + priorWeight);
+  return ((rating * n) + (prior * priorWeight)) / (n + priorWeight);
 }
 
-const rankingVolumeBoost = (count) => Math.log1p(Math.max(0, safeNumber(count)));
-
-function rankingScore(average, count) {
-  return Number(Math.max(0, (bayesianRating(average, count) * 8) + (rankingVolumeBoost(count) * 4)).toFixed(4));
+function compareByRank(a, b) {
+  const diff = rankPosition(b.average, b.count) - rankPosition(a.average, a.count);
+  if (diff !== 0) return diff;
+  return safeNumber(b.count) - safeNumber(a.count);
 }
+
+const rankingIndexScore = (average, count) => Number(rankPosition(average, count).toFixed(4));
 
 module.exports = {
   SCORE_MIN,
@@ -144,7 +166,10 @@ module.exports = {
   reviewScoreForMinilist,
   reviewScoreForList,
   averageScore,
-  bayesianRating,
-  rankingVolumeBoost,
-  rankingScore
+  deriveScoringWeights,
+  RANK_PRIOR_WEIGHT,
+  RANK_PRIOR,
+  rankPosition,
+  compareByRank,
+  rankingIndexScore
 };

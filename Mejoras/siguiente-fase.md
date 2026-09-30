@@ -1,5 +1,8 @@
 # Siguiente fase — recomendaciones y orden
 
+> **Actualizado 30/09/2026**: con las decisiones del dueño, el plan detallado y
+> cerrado de B1 está en `plan-fase-B1.md`, y sustituye a la tabla §1 de este documento.
+
 Punto de partida: FASE A y B0 terminadas en la rama `Mejoras-Opus-5.5-29-09-2026`
 (ver `informe-fase-A.md`). El modelo de notas está en `modelo-listopic.md`.
 

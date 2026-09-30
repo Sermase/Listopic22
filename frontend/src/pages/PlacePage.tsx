@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby, Megaphone
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby, Megaphone, BarChart3
 } from 'lucide-react';
 import { LazyShareModal as ShareModal, LazyMapView as MapView, LazyAddReviewForm as AddReviewForm } from '../components/lazy';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -26,6 +26,9 @@ import type { BusinessClaim } from '../services/BusinessClaimService';
 import { CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_LABELS, PET_POLICY_LABELS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { allergenLabel, itemDocIdFromName } from '../services/BusinessProService';
+import { compareByRank } from '../lib/scoring';
+import { PlaceStatsPanel } from '../components/place/PlaceStatsPanel';
+import { scoreBadgeStyle } from '../lib/scoreScale';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
@@ -156,7 +159,7 @@ export const PlacePage: React.FC = () => {
     const [syncing, setSyncing] = useState(false);
     const [syncError, setSyncError] = useState<string | null>(null);
 
-    const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes' | 'photos'>('dishes');
+    const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes' | 'photos' | 'stats'>('dishes');
     const [reviewViewMode, setReviewViewMode] = useState<'list' | 'full' | 'gallery'>('list');
     const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -432,7 +435,7 @@ export const PlacePage: React.FC = () => {
                 photo: d.photos[0],
                 listId: d.listId,
             };
-        }).sort((a, b) => b.avg - a.avg);
+        }).sort((a, b) => compareByRank({ average: a.avg, count: a.count }, { average: b.avg, count: b.count }));
     }, [place?.reviews]);
 
 
@@ -803,7 +806,7 @@ export const PlacePage: React.FC = () => {
                 alt={place.name}
                 ready={heroReady}
                 onImageLoad={() => setHeroReady(true)}
-                fallback={<PlacePhotoPlaceholder />}
+                fallback={<PlacePhotoPlaceholder compact />}
             >
 
                         {/* Title & Info */}
@@ -839,14 +842,27 @@ export const PlacePage: React.FC = () => {
                         {/* Ratings & Awards Row */}
                         <div className="flex flex-col items-start md:items-end gap-3">
                             <div className="flex flex-wrap items-center gap-2">
-                                {/* Listopic Rating */}
-                                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold border backdrop-blur-md ${place.avgScore >= 7
-                                    ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-400'
-                                    : 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
-                                    }`}>
-                                    <Star className="w-4 h-4 fill-current" />
-                                    <span>{place.avgScore.toFixed(1)}</span>
-                                </div>
+                                {/* Nota Listopic global (provisional) + nº de valoraciones */}
+                                {place.reviewCount > 0 ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveTab('stats')}
+                                        title="Nota Listopic provisional: media simple de todas sus valoraciones. Toca para ver el detalle por Lista."
+                                        className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full text-sm font-bold border border-[var(--lt-border-strong)] bg-[var(--lt-glass)] backdrop-blur-md text-[var(--lt-text)]"
+                                    >
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={scoreBadgeStyle(place.avgScore)}>
+                                            <Star className="w-3.5 h-3.5 fill-current" aria-hidden />
+                                            {place.avgScore.toFixed(1)}
+                                        </span>
+                                        <span className="text-xs font-semibold text-[var(--lt-text-muted)]">
+                                            {place.reviewCount} {place.reviewCount === 1 ? 'valoración' : 'valoraciones'}
+                                        </span>
+                                    </button>
+                                ) : (
+                                    <span className="px-3 py-1 rounded-full text-xs font-semibold border border-[var(--lt-border-strong)] text-[var(--lt-text-muted)]">
+                                        Sin valoraciones
+                                    </span>
+                                )}
 
                                 {
                                     /* Awards removed */
@@ -1599,7 +1615,26 @@ export const PlacePage: React.FC = () => {
                         >
                             <ImageIcon className="w-4 h-4" /> Fotos ({galleryPhotos.length})
                         </button>
+                        <button
+                            onClick={() => setActiveTab('stats')}
+                            className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'stats'
+                                ? 'bg-[var(--lt-accent)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
+                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
+                                }`}
+                        >
+                            <BarChart3 className="w-4 h-4" /> Estadísticas
+                        </button>
                     </div>
+                    {activeTab === 'stats' && (
+                        <div className="mt-4">
+                            <PlaceStatsPanel
+                                placeId={place.placeId}
+                                reviews={place.reviews}
+                                globalScore={place.reviewCount > 0 ? place.avgScore : null}
+                                reviewCount={place.reviewCount}
+                            />
+                        </div>
+                    )}
 
 
 

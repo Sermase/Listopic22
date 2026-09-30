@@ -560,6 +560,8 @@
 }
 
 .theme-light {
+    /* Parte alta de las cabeceras con foto: clara para que el menú (texto oscuro) se lea. */
+    --lt-hero-top: rgba(250, 248, 244, 0.55);
     --lt-bg: #faf8f4;
     --lt-bg-deep: #f1ede5;
     --lt-text: #1a1625;

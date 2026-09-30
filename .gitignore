@@ -58,3 +58,6 @@ frontend/android/.cxx/
 # --- IDEs ---
 .idea/
 *.iml
+
+# Secretos del emulador de Functions
+functions/.secret.local

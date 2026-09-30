@@ -3,7 +3,8 @@
 const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 
-const { reviewScoreForList } = require('./lib/scoring');
+const { compareByRank, reviewScoreForList } = require('./lib/scoring');
+const { normalizeCcaa } = require('./lib/geo-areas');
 
 const db = getFirestore();
 
@@ -212,7 +213,9 @@ async function buildGroupedItemsForList(listId) {
                 placeThumbnailUrl: placeInfo ? (placeInfo.userPhotoUrl || placeInfo.mainImageUrl || null) : null,
                 googleMapsUrl: placeInfo && placeInfo.googleMapsUrl ? placeInfo.googleMapsUrl : null,
                 placeCity: placeInfo && typeof placeInfo.city === 'string' ? placeInfo.city : null,
-                placeProvince: placeInfo && typeof placeInfo.province === 'string' ? placeInfo.province : (placeInfo && typeof placeInfo.region === 'string' ? placeInfo.region : null),
+                // Provincia y comunidad por separado (antes, sin provincia se usaba la comunidad).
+                placeProvince: placeInfo && typeof placeInfo.province === 'string' && placeInfo.province.trim() ? placeInfo.province : null,
+                placeRegion: placeInfo ? (normalizeCcaa(placeInfo.region) || null) : null,
                 placeCountry: placeInfo && typeof placeInfo.country === 'string' ? placeInfo.country : null,
                 placeAddress: placeInfo && (placeInfo.address || placeInfo.formatted_address) ? (placeInfo.address || placeInfo.formatted_address) : null,
                 placeClosedStatus: placeInfo && typeof placeInfo.closedStatus === 'string'
@@ -292,6 +295,7 @@ async function buildGroupedItemsForList(listId) {
             googleMapsUrl: group.googleMapsUrl,
             placeCity: group.placeCity,
             placeProvince: group.placeProvince,
+            placeRegion: group.placeRegion,
             placeCountry: group.placeCountry,
             placeAddress: group.placeAddress,
             placeClosedStatus: group.placeClosedStatus,
@@ -306,7 +310,11 @@ async function buildGroupedItemsForList(listId) {
         };
     });
 
-    groupedReviews.sort((a, b) => (b.avgGeneralScore || 0) - (a.avgGeneralScore || 0));
+    // Ranking único (lib/scoring): una valoración suelta no basta para encabezar.
+    groupedReviews.sort((a, b) => compareByRank(
+        { average: a.avgGeneralScore, count: a.itemCount },
+        { average: b.avgGeneralScore, count: b.itemCount }
+    ));
 
     return {
         listId,

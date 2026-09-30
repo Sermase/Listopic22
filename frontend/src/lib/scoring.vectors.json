@@ -323,6 +323,9 @@
         "scoredCount": 2,
         "requiredCount": 2,
         "missing": []
+      },
+      "options": {
+        "useWeights": false
       }
     },
     {
@@ -448,6 +451,160 @@
         "scoredCount": 3,
         "requiredCount": 3,
         "missing": []
+      }
+    },
+    {
+      "name": "scoringWeights manda sobre ponderable (×0)",
+      "criteria": {
+        "a": {
+          "ponderable": true
+        },
+        "b": {
+          "ponderable": true
+        }
+      },
+      "scores": {
+        "a": 6,
+        "b": 10
+      },
+      "options": {
+        "weights": {
+          "a": 1,
+          "b": 0
+        }
+      },
+      "expected": {
+        "score": 6,
+        "complete": true,
+        "scoredCount": 1,
+        "requiredCount": 1,
+        "missing": []
+      }
+    },
+    {
+      "name": "scoringWeights ×1 aunque ponderable diga false",
+      "criteria": {
+        "a": {
+          "ponderable": false
+        }
+      },
+      "scores": {
+        "a": 8
+      },
+      "options": {
+        "weights": {
+          "a": 1
+        }
+      },
+      "expected": {
+        "score": 8,
+        "complete": true,
+        "scoredCount": 1,
+        "requiredCount": 1,
+        "missing": []
+      }
+    },
+    {
+      "name": "scoringWeights ×3 con pesos apagados cuenta ×1",
+      "criteria": {
+        "a": {},
+        "b": {}
+      },
+      "scores": {
+        "a": 9,
+        "b": 5
+      },
+      "options": {
+        "weights": {
+          "a": 3,
+          "b": 1
+        },
+        "useWeights": false
+      },
+      "expected": {
+        "score": 7,
+        "complete": true,
+        "scoredCount": 2,
+        "requiredCount": 2,
+        "missing": []
+      }
+    },
+    {
+      "name": "scoringWeights ×3 con pesos activos",
+      "criteria": {
+        "a": {},
+        "b": {}
+      },
+      "scores": {
+        "a": 9,
+        "b": 5
+      },
+      "options": {
+        "weights": {
+          "a": 3,
+          "b": 1
+        },
+        "useWeights": true
+      },
+      "expected": {
+        "score": 8,
+        "complete": true,
+        "scoredCount": 2,
+        "requiredCount": 2,
+        "missing": []
+      }
+    },
+    {
+      "name": "criterio sin peso en scoringWeights usa ponderable",
+      "criteria": {
+        "a": {},
+        "b": {
+          "ponderable": false
+        }
+      },
+      "scores": {
+        "a": 7,
+        "b": 1
+      },
+      "options": {
+        "weights": {
+          "a": 1
+        }
+      },
+      "expected": {
+        "score": 7,
+        "complete": true,
+        "scoredCount": 1,
+        "requiredCount": 1,
+        "missing": []
+      }
+    },
+    {
+      "name": "criterio nuevo sin puntuar no cuenta en la media",
+      "criteria": {
+        "a": {},
+        "b": {},
+        "nuevo": {}
+      },
+      "scores": {
+        "a": 8,
+        "b": 6
+      },
+      "options": {
+        "weights": {
+          "a": 1,
+          "b": 1,
+          "nuevo": 1
+        }
+      },
+      "expected": {
+        "score": 7,
+        "complete": false,
+        "scoredCount": 2,
+        "requiredCount": 3,
+        "missing": [
+          "nuevo"
+        ]
       }
     }
   ],
@@ -731,92 +888,339 @@
         "source": "stored",
         "partial": false
       }
+    },
+    {
+      "name": "la madre usa sus scoringWeights con valoraciones de Minilista",
+      "list": {
+        "parentListId": null,
+        "criteriaDefinition": {
+          "sabor": {},
+          "textura": {}
+        },
+        "scoringWeights": {
+          "sabor": 1,
+          "textura": 0
+        }
+      },
+      "review": {
+        "sublistId": "m",
+        "overallRating": 7,
+        "scores": {
+          "sabor": 9,
+          "textura": 5,
+          "relleno": 7
+        }
+      },
+      "expected": {
+        "score": 9,
+        "source": "criteria",
+        "partial": false
+      }
     }
   ],
   "ranking": [
     {
       "average": 10,
       "count": 1,
-      "bayesian": 7.5,
-      "rankingScore": 62.7726
+      "prior": 7,
+      "position": 7.75,
+      "indexScore": 7.75
     },
     {
-      "average": 9.5,
-      "count": 2,
-      "bayesian": 7.7142857143,
-      "rankingScore": 66.1087
-    },
-    {
-      "average": 8,
-      "count": 5,
-      "bayesian": 7.5,
-      "rankingScore": 67.167
-    },
-    {
-      "average": 7,
+      "average": 8.5,
       "count": 10,
-      "bayesian": 7,
-      "rankingScore": 65.5916
-    },
-    {
-      "average": 6,
-      "count": 25,
-      "bayesian": 6.1666666667,
-      "rankingScore": 62.3657
+      "prior": 7,
+      "position": 8.1538461538,
+      "indexScore": 8.1538
     },
     {
       "average": 9,
       "count": 100,
-      "bayesian": 8.9047619048,
-      "rankingScore": 89.6986
+      "prior": 7,
+      "position": 8.9417475728,
+      "indexScore": 8.9417
     },
     {
       "average": 0,
       "count": 0,
-      "bayesian": 0,
-      "rankingScore": 0
+      "prior": 7,
+      "position": 0,
+      "indexScore": 0
     },
     {
       "average": 12,
       "count": 3,
-      "bayesian": 8.125,
-      "rankingScore": 70.5452
+      "prior": 7,
+      "position": 8.5,
+      "indexScore": 8.5
     },
     {
       "average": -1,
       "count": 3,
-      "bayesian": 4.375,
-      "rankingScore": 40.5452
+      "prior": 7,
+      "position": 3.5,
+      "indexScore": 3.5
     },
     {
-      "average": "8.4",
-      "count": "4",
-      "bayesian": 0,
-      "rankingScore": 0
+      "average": "8",
+      "count": 4,
+      "prior": 7,
+      "position": 3,
+      "indexScore": 3
     },
     {
       "average": null,
       "count": 2,
-      "bayesian": 5,
-      "rankingScore": 44.3944
+      "prior": 7,
+      "position": 4.2,
+      "indexScore": 4.2
     },
     {
-      "average": 8.35,
-      "count": 0,
-      "bayesian": 0,
-      "rankingScore": 0
+      "average": 8,
+      "count": 5,
+      "prior": 7.7,
+      "position": 7.8875,
+      "indexScore": 7.8875
     },
     {
-      "average": 8.35,
+      "average": 7,
       "count": -2,
-      "bayesian": 0,
-      "rankingScore": 0
+      "prior": 7,
+      "position": 0,
+      "indexScore": 0
     },
     {
       "average": 7.8,
       "count": 1000,
-      "bayesian": 7.7960199005,
-      "rankingScore": 90.0032
+      "prior": 7.5,
+      "position": 7.7991026919,
+      "indexScore": 7.7991
+    },
+    {
+      "average": 9.5,
+      "count": 2,
+      "prior": 8,
+      "position": 8.6,
+      "indexScore": 8.6
+    }
+  ],
+  "deriveWeights": [
+    {
+      "name": "×1 lo que cuenta y ×0 lo que no",
+      "criteria": {
+        "a": {},
+        "b": {
+          "ponderable": false
+        },
+        "c": {
+          "isPonderable": false
+        }
+      },
+      "existing": null,
+      "expected": {
+        "a": 1,
+        "b": 0,
+        "c": 0
+      }
+    },
+    {
+      "name": "conserva pesos ya guardados y acota a 0–3",
+      "criteria": {
+        "a": {},
+        "b": {},
+        "c": {
+          "ponderable": false
+        }
+      },
+      "existing": {
+        "a": 3,
+        "b": 7
+      },
+      "expected": {
+        "a": 3,
+        "b": 3,
+        "c": 0
+      }
+    },
+    {
+      "name": "sin criterios",
+      "criteria": null,
+      "existing": null,
+      "expected": {}
+    }
+  ],
+  "historic": [
+    {
+      "name": "valoración antigua sin el criterio nuevo: solo cuentan los puntuados (8 y 6 → 7)",
+      "kind": "review",
+      "list": {
+        "criteriaDefinition": {
+          "sabor": {
+            "type": "slider",
+            "label": "Sabor"
+          },
+          "textura": {
+            "type": "slider",
+            "label": "Textura"
+          },
+          "nuevo": {
+            "type": "slider",
+            "label": "Crujiente (nuevo)"
+          }
+        },
+        "scoringWeights": {
+          "sabor": 1,
+          "textura": 1,
+          "nuevo": 1
+        },
+        "parentListId": null
+      },
+      "scores": {
+        "sabor": 8,
+        "textura": 6
+      },
+      "notWith": {
+        "zero": 4.666666666666667,
+        "five": 6.333333333333333
+      },
+      "expected": 7
+    },
+    {
+      "name": "valoración nueva con el criterio nuevo: cuenta (8, 6 y 10 → 8)",
+      "kind": "review",
+      "list": {
+        "criteriaDefinition": {
+          "sabor": {
+            "type": "slider",
+            "label": "Sabor"
+          },
+          "textura": {
+            "type": "slider",
+            "label": "Textura"
+          },
+          "nuevo": {
+            "type": "slider",
+            "label": "Crujiente (nuevo)"
+          }
+        },
+        "scoringWeights": {
+          "sabor": 1,
+          "textura": 1,
+          "nuevo": 1
+        },
+        "parentListId": null
+      },
+      "scores": {
+        "sabor": 8,
+        "textura": 6,
+        "nuevo": 10
+      },
+      "expected": 8
+    },
+    {
+      "name": "criterio con peso ×0: nunca cuenta aunque esté puntuado (→ 7)",
+      "kind": "review",
+      "list": {
+        "criteriaDefinition": {
+          "sabor": {
+            "type": "slider",
+            "label": "Sabor"
+          },
+          "textura": {
+            "type": "slider",
+            "label": "Textura"
+          },
+          "nuevo": {
+            "type": "slider",
+            "label": "Crujiente (nuevo)"
+          }
+        },
+        "scoringWeights": {
+          "sabor": 1,
+          "textura": 1,
+          "nuevo": 0
+        },
+        "parentListId": null
+      },
+      "scores": {
+        "sabor": 8,
+        "textura": 6,
+        "nuevo": 10
+      },
+      "expected": 7
+    },
+    {
+      "name": "Minilista con criterio adicional: su nota incluye el propio (8, 6, 10 → 8)",
+      "kind": "review",
+      "list": {
+        "criteriaDefinition": {
+          "sabor": {
+            "type": "slider",
+            "label": "Sabor"
+          },
+          "textura": {
+            "type": "slider",
+            "label": "Textura"
+          },
+          "nuevo": {
+            "type": "slider",
+            "label": "Crujiente (nuevo)"
+          },
+          "relleno": {
+            "type": "slider",
+            "label": "Relleno"
+          }
+        },
+        "scoringWeights": {
+          "sabor": 1,
+          "textura": 1,
+          "nuevo": 1,
+          "relleno": 1
+        },
+        "parentListId": "madre"
+      },
+      "scores": {
+        "sabor": 8,
+        "textura": 6,
+        "relleno": 10
+      },
+      "expected": 8
+    },
+    {
+      "name": "Lista madre ignora el criterio propio de la Minilista (→ 7)",
+      "kind": "parent",
+      "list": {
+        "criteriaDefinition": {
+          "sabor": {
+            "type": "slider",
+            "label": "Sabor"
+          },
+          "textura": {
+            "type": "slider",
+            "label": "Textura"
+          },
+          "nuevo": {
+            "type": "slider",
+            "label": "Crujiente (nuevo)"
+          }
+        },
+        "scoringWeights": {
+          "sabor": 1,
+          "textura": 1,
+          "nuevo": 1
+        },
+        "parentListId": null
+      },
+      "review": {
+        "sublistId": "mini",
+        "overallRating": 8,
+        "scores": {
+          "sabor": 8,
+          "textura": 6,
+          "relleno": 10
+        }
+      },
+      "expected": 7
     }
   ]
 }

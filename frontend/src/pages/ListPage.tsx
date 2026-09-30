@@ -1,8 +1,8 @@
-import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useParams, Link, useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
-import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, MapPin, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid, Bot, Star } from 'lucide-react';
+import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid, Bot, Star } from 'lucide-react';
 import { useListDetails } from '../hooks/useListDetails';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { ListItemCard } from '../components/ListItemCard';
@@ -23,9 +23,11 @@ import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
 import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
 import { useAuthPrompt } from '../context/AuthPromptContext';
-import { isScoreValue, reviewScoreForList } from '../lib/scoring';
+import { compareByRank, isScoreValue, reviewScoreForList } from '../lib/scoring';
 import { scoreBadgeStyle } from '../lib/scoreScale';
 import { useStoredChoice } from '../hooks/useStoredChoice';
+import { AREA_STORAGE_KEY, buildAreaOptions, contextualRanks, decodeArea, distanceLabel, encodeArea, geoAreaLabel, inferUserGeo, localAreaOptions, matchesArea, primaryContextRank, type GeoFields, type ListArea } from '../lib/geoAreas';
+import { AreaSelect } from '../components/AreaSelect';
 
 export interface FilterState {
     minRating: number;
@@ -266,21 +268,34 @@ export const ListPage: React.FC = () => {
 
 
     // Range State from Context
-    const { range, setRange, toggleRange, getRangeLabel } = useFilters();
+    const { range, setRange } = useFilters();
 
-    const handleToggleRange = () => {
-        if (!location) {
-            requestLocation();
+    // Zona: «cerca» (radio de distancia, lo de siempre) o ciudad/provincia/CCAA/España.
+    // Se recuerda en este navegador; filtra por igual Ranking, Mosaico y Mapa.
+    const [area, setArea] = useState<ListArea>(() => {
+        try { return decodeArea(localStorage.getItem(AREA_STORAGE_KEY)); } catch { return { kind: 'near' }; }
+    });
+    useEffect(() => {
+        try { localStorage.setItem(AREA_STORAGE_KEY, encodeArea(area)); } catch { /* opcional */ }
+    }, [area]);
+
+    const handleAreaSelect = (value: string) => {
+        if (value.startsWith('r:')) {
+            const raw = value.slice(2);
+            setArea({ kind: 'near' });
+            setRange(raw === 'all' ? null : Number(raw));
+            if (raw !== 'all' && !location) requestLocation();
+            return;
         }
-        toggleRange();
+        setArea(decodeArea(value));
     };
 
     // Ensure location is requested if a range is active, to prevent showing ALL items by default
     useEffect(() => {
-        if (range !== null && !location) {
+        if (area.kind === 'near' && range !== null && !location) {
             requestLocation();
         }
-    }, [range, location]);
+    }, [range, location, area.kind]);
 
     // list.likes might be undefined initially, defaulting to 0
     const { isLiked, likeCount, toggleLike } = useLike(listId || '', list?.likes || 0);
@@ -365,6 +380,7 @@ export const ListPage: React.FC = () => {
             placeId?: string;
             placeName?: string;
             placeCity?: string;
+            geo: GeoFields;
             placeAddress?: string;
             photoUrl?: string;
             reviewPhotoUrl?: string;
@@ -406,6 +422,7 @@ export const ListPage: React.FC = () => {
                     placeId: review.placeId,
                     placeName: review.placeName,
                     placeCity: review.placeCity,
+                    geo: { city: review.placeCity, province: review.placeProvince, region: review.placeRegion, country: review.placeCountry },
                     placeAddress: review.placeAddress,
                     photoUrl: undefined,
                     totalRating: 0,
@@ -558,8 +575,8 @@ export const ListPage: React.FC = () => {
             };
         }).sort((a, b) => {
             if (sortMode === 'rating') {
-                if (b.avgRating !== a.avgRating) return b.avgRating - a.avgRating;
-                return b.reviewCount - a.reviewCount;
+                // Ranking único (lib/scoring): una valoración suelta no basta para encabezar.
+                return compareByRank({ average: a.avgRating, count: a.reviewCount }, { average: b.avgRating, count: b.reviewCount });
             }
             if (sortMode === 'count') {
                 return b.reviewCount - a.reviewCount;
@@ -583,6 +600,34 @@ export const ListPage: React.FC = () => {
 
     // Filter Items
     // Filter Items by Tag
+    // Contexto local: solo radios y la ciudad, comunidad y país donde está la
+    // persona (deducidos del sitio más cercano). Otras zonas, en Buscar.
+    // Si la zona guardada no es de aquí, vuelve a «cerca».
+    const userGeo = useMemo(
+        () => inferUserGeo(location, groupedItems.map(item => ({ ...item.geo, lat: item.lat, lng: item.lng }))),
+        [location, groupedItems],
+    );
+    const areaOptions = useMemo(
+        () => localAreaOptions(buildAreaOptions(groupedItems.map(item => item.geo)), userGeo),
+        [groupedItems, userGeo],
+    );
+    const exploreInSearch = useCallback(() => {
+        if (!listId) return;
+        const params = new URLSearchParams({ type: 'items', sort: 'grouped_items_by_score', listId, listName: list?.name || '' });
+        navigate(`/search?${params.toString()}`);
+    }, [listId, list?.name, navigate]);
+    const effectiveArea = useMemo<ListArea>(() => {
+        if (area.kind === 'near') return area;
+        return areaOptions[area.kind].some(option => option.value === area.value) ? area : { kind: 'near' };
+    }, [area, areaOptions]);
+
+    // Puesto con contexto («#3 en Valladolid»), con la misma función que la ficha del sitio.
+    const contextRanksById = useMemo(() => contextualRanks(
+        groupedItems
+            .filter(item => !isClosedPlaceStatus(item.placeClosedStatus))
+            .map(item => ({ id: item.id, average: item.avgRating, count: item.reviewCount, ...item.geo })),
+    ), [groupedItems]);
+
     const filteredByTagItems = useMemo(() => {
         if (selectedTags.length === 0) return groupedItems;
         return groupedItems.filter(item => (item.allTags || item.tags).some(t => selectedTags.includes(t)));
@@ -607,6 +652,7 @@ export const ListPage: React.FC = () => {
             petOptions: string[];
             reviewsCount: number;
             placeClosedStatus?: string | null;
+            geo: GeoFields;
         }> = {};
 
         visibleReviews.forEach(review => {
@@ -638,6 +684,7 @@ export const ListPage: React.FC = () => {
                     ),
                     reviewsCount: 0,
                     placeClosedStatus: review.placeClosedStatus || null,
+                    geo: { city: review.placeCity, province: review.placeProvince, region: review.placeRegion, country: review.placeCountry },
                 };
             }
 
@@ -738,8 +785,10 @@ export const ListPage: React.FC = () => {
             );
         }
 
-        // 3. Apply Distance Range
-        if (range !== null && location) {
+        // 3. Zona: ciudad/provincia/CCAA/España, o radio de distancia («cerca»)
+        if (effectiveArea.kind !== 'near') {
+            result = result.filter(item => matchesArea(item.geo, effectiveArea));
+        } else if (range !== null && location) {
             result = result.filter(item => {
                 if (!item.lat || !item.lng) return false;
                 const dist = calculateDistance(item.lat, item.lng);
@@ -754,7 +803,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable]);
+    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable, effectiveArea]);
 
     const filteredMapItems = useMemo(() => {
         // Filter mapItems based on the SAME criteria as the list (or at least search/range)
@@ -797,7 +846,9 @@ export const ListPage: React.FC = () => {
             ); // Map items are places, so searching by name is usually enough. Items names are also in the 'items' array if we wanted deep search.
         }
 
-        if (range !== null && location) {
+        if (effectiveArea.kind !== 'near') {
+            result = result.filter(item => matchesArea(item.geo, effectiveArea));
+        } else if (range !== null && location) {
             result = result.filter(item => {
                 if (!item.lat || !item.lng) return false;
                 const dist = calculateDistance(item.lat, item.lng);
@@ -806,7 +857,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [mapItems, searchQuery, filters, range, location, showUnavailable]);
+    }, [mapItems, searchQuery, filters, range, location, showUnavailable, effectiveArea]);
 
     const hasListMapCandidates = useMemo(() => {
         return mapItems.some((item: any) => !!item?.lat && !!item?.lng);
@@ -815,7 +866,7 @@ export const ListPage: React.FC = () => {
     useEffect(() => {
         if (!isMapOpen) return;
         if (loading) return;
-        if (range === null || !location) return;
+        if (effectiveArea.kind !== 'near' || range === null || !location) return;
         if (!hasListMapCandidates) return;
         if (filteredMapItems.length > 0) return;
 
@@ -823,7 +874,7 @@ export const ListPage: React.FC = () => {
         if (nextRange !== range) {
             setRange(nextRange);
         }
-    }, [isMapOpen, loading, range, location, hasListMapCandidates, filteredMapItems.length, setRange]);
+    }, [isMapOpen, loading, range, location, hasListMapCandidates, filteredMapItems.length, setRange, effectiveArea.kind]);
 
     // Close actions overflow menu when clicking outside
     useEffect(() => {
@@ -903,9 +954,11 @@ export const ListPage: React.FC = () => {
                         <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
                             <Lock className="w-8 h-8 text-gray-400" />
                         </div>
-                        <h2 className="text-2xl font-bold text-white mb-2">Lista Privada</h2>
+                        {/* Firestore no distingue «no existe» de «no tienes permiso»: se dice tal cual. */}
+                        <h2 className="text-2xl font-bold text-white mb-2">Lista no disponible</h2>
                         <p className="text-gray-400 mb-6">
-                            Esta lista es privada y no tienes permisos para verla.
+                            No existe o es privada y no tienes permiso para verla.
+                            {!user && <> Si es tuya, <Link to="/login" className="text-[var(--lt-accent)] font-semibold hover:underline">inicia sesión</Link>.</>}
                         </p>
                         <Link to="/search" className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold rounded-xl transition-colors">
                             <Search className="w-4 h-4" />
@@ -917,15 +970,38 @@ export const ListPage: React.FC = () => {
         }
 
         return (
-            <div className="min-h-screen pt-safe-24 px-4 text-center">
-                <h2 className="text-2xl font-bold text-red-400 mb-2">Error</h2>
-                <p className="text-gray-400">{error || "Lista no encontrada"}</p>
-                <Link to="/search" className="mt-4 inline-block text-[var(--lt-accent)] hover:text-[var(--lt-accent)]">
-                    Volver al buscador
-                </Link>
+            <div className="min-h-screen pt-safe-40 px-4 text-center">
+                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl p-8 max-w-md mx-auto">
+                    <h2 className="text-2xl font-bold text-white mb-2">No se ha podido cargar la Lista</h2>
+                    <p className="text-gray-400 mb-6">Revisa tu conexión e inténtalo otra vez.</p>
+                    <div className="flex flex-wrap justify-center gap-3">
+                        <button type="button" onClick={() => window.location.reload()} className="px-5 py-2.5 bg-[var(--lt-accent)] text-white font-bold rounded-xl">
+                            Reintentar
+                        </button>
+                        <Link to="/search" className="px-5 py-2.5 border border-white/10 text-[var(--lt-text)] font-bold rounded-xl">
+                            Ir a Buscar
+                        </Link>
+                    </div>
+                </div>
             </div>
         );
     }
+
+    // Por qué no se ve nada: Lista sin valoraciones, búsqueda, zona o filtros.
+    const areaFiltering = effectiveArea.kind !== 'near' || range !== null;
+    const emptyReason: 'none' | 'search' | 'area' | 'filters' = reviews.length === 0
+        ? 'none'
+        : searchQuery ? 'search'
+        : groupedItems.length > 0 && areaFiltering ? 'area'
+        : 'filters';
+    const emptyMessage = {
+        none: 'Todavía no hay valoraciones en esta Lista.',
+        search: 'No hay resultados para tu búsqueda.',
+        area: effectiveArea.kind !== 'near'
+            ? `No hay nada en ${geoAreaLabel(effectiveArea.kind, effectiveArea.value)}.`
+            : `No hay nada ${range !== null ? distanceLabel(range).toLowerCase() : 'cerca'}.`,
+        filters: 'Ningún elemento cumple los filtros elegidos.',
+    }[emptyReason];
 
     const listShareUrl = buildPublicRouteUrl(`/list/${list.id}`);
     const listTypeLabel = list.parentListId ? 'Minilista' : 'Lista';
@@ -1153,29 +1229,27 @@ export const ListPage: React.FC = () => {
                     <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[var(--lt-card-strong)]/60 border-b border-white/5">
                         <button
                             onClick={() => setIsMapOpen(!isMapOpen)}
-                            className="flex items-center gap-2 hover:text-white transition-colors flex-1"
+                            className="flex items-center gap-2 hover:text-white transition-colors shrink-0"
                         >
-                            <MapIcon className="w-5 h-5 text-gray-400" />
-                            <span className="font-bold text-sm">Mapa de la Lista</span>
+                            <MapIcon className="w-5 h-5 text-gray-400 shrink-0" />
+                            <span className="font-bold text-sm whitespace-nowrap">Mapa<span className="hidden sm:inline"> de la Lista</span></span>
                         </button>
 
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={handleToggleRange}
-                                className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 ${range !== null
-                                    ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg'
-                                    : 'bg-[var(--lt-bg)] border-white/10 text-gray-400 hover:text-white hover:border-white/30'
-                                    }`}
-                            >
-                                <MapPin className="w-3 h-3" />
-                                {getRangeLabel()}
-                            </button>
+                        <div className="flex items-center justify-end gap-2 sm:gap-3 min-w-0 flex-1 ml-2">
+                            <AreaSelect
+                                value={effectiveArea.kind === 'near' ? `r:${range ?? 'all'}` : encodeArea(effectiveArea)}
+                                range={range}
+                                options={areaOptions}
+                                onChange={handleAreaSelect}
+                                onExplore={exploreInSearch}
+                            />
 
                             <button
+                                aria-label={isMapOpen ? 'Ocultar mapa' : 'Ver mapa'}
                                 onClick={() => setIsMapOpen(!isMapOpen)}
-                                className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-white transition-colors"
+                                className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-white transition-colors whitespace-nowrap shrink-0"
                             >
-                                {isMapOpen ? 'Ocultar' : 'Ver Mapa'}
+                                <span className="hidden sm:inline">{isMapOpen ? 'Ocultar' : 'Ver mapa'}</span>
                                 <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapOpen ? 'rotate-180' : ''}`} />
                             </button>
                         </div>
@@ -1183,7 +1257,8 @@ export const ListPage: React.FC = () => {
 
                     <div className={`transition-all duration-500 ease-in-out ${isMapOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
                         <div className="h-[400px] w-full relative z-0">
-                            {isMapOpen && <MapView items={filteredMapItems} mode="list" range={range} />}
+                            {/* Con una zona (ciudad, comunidad, país) el mapa encuadra sus sitios, no el radio. */}
+                            {isMapOpen && <MapView items={filteredMapItems} mode="list" range={effectiveArea.kind === 'near' ? range : null} />}
                         </div>
                     </div>
                 </div>
@@ -1273,6 +1348,14 @@ export const ListPage: React.FC = () => {
                     </div>
                 </div>
 
+                {filteredItemsAll.length > 0 && (
+                    <p className="text-xs text-[var(--lt-text-muted)] mb-2 px-1" aria-live="polite">
+                        {filteredItemsAll.length} {filteredItemsAll.length === 1 ? 'elemento' : 'elementos'}
+                        {sortMode === 'rating' && ` · puestos ${effectiveArea.kind !== 'near'
+                            ? `en ${geoAreaLabel(effectiveArea.kind, effectiveArea.value)}`
+                            : range !== null ? distanceLabel(range).toLowerCase() : 'en toda la Lista'}`}
+                    </p>
+                )}
                 <div className="animate-fade-in">
                     {filteredItems.length > 0 ? (
                         <>
@@ -1361,6 +1444,7 @@ export const ListPage: React.FC = () => {
                                         <ListItemCard
                                             item={filteredItems[virtualRow.index]}
                                             rank={virtualRow.index + 1}
+                                            contextRankLabel={primaryContextRank(contextRanksById.get(filteredItems[virtualRow.index].id), effectiveArea, filteredItemsAll.length)?.label}
                                             isGrid={false}
                                             groupingMode={groupingMode}
                                             listId={listId}
@@ -1385,9 +1469,18 @@ export const ListPage: React.FC = () => {
                     ) : (
                         <div className="text-center py-16 bg-[var(--lt-card-strong)]/30 rounded-2xl border border-dashed border-white/5">
                             <p className="text-gray-400 mb-4 text-lg">
-                                {searchQuery ? 'No hay resultados para tu búsqueda.' : 'Esta lista está vacía o no hay elementos cerca.'}
+                                {emptyMessage}
                             </p>
-                            {canAddReview && !searchQuery && (
+                            {emptyReason === 'area' && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleAreaSelect('r:all')}
+                                    className="mb-3 px-4 py-2 rounded-xl border border-[var(--lt-accent-border)] text-[var(--lt-accent)] font-bold"
+                                >
+                                    Ver toda la Lista
+                                </button>
+                            )}
+                            {canAddReview && emptyReason === 'none' && (
                                 <button
                                     onClick={handleOpenAddReview}
                                     className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] font-bold hover:underline"
@@ -1472,6 +1565,7 @@ export const ListPage: React.FC = () => {
                         listId={list.id}
                         listName={list.name}
                         parentCriteria={list.criteriaDefinition}
+                        parentScoringWeights={list.scoringWeights}
                         parentTags={list.availableTags}
                     />
                 )

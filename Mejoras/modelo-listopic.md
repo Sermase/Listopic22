@@ -47,13 +47,24 @@ notificaciones que genera el servidor todavía dicen «reseña» (ver `siguiente
 Borradores: los guardados antes de este cambio traían un 5 en todos los criterios
 aunque no se hubieran tocado. Esas notas no se recuperan; el nombre y el comentario sí.
 
-### Pesos (×0 · ×1 · ×2 · ×3) — preparados, apagados
+### Pesos (×0 · ×1 · ×2 · ×3)
 
-- Campo previsto: `criteriaDefinition.{id}.weight` (0–3). `ponderable: false` equivale a ×0 y manda sobre `weight`.
-- Interruptor: `WEIGHTS_ENABLED = false` en los dos `scoring`. Con él apagado, `weight` se ignora
-  y todo es ×1, como hoy. Los tests cubren ambos modos.
-- Para activarlo: UI en `CriteriaBuilder` (selector ×0–×3), encender el interruptor en web y
-  servidor, y decidir qué pasa con las valoraciones ya guardadas (ver §8).
+**Actualización B1**: la fuente de verdad es `lists.scoringWeights` (id → 0..3); si falta,
+`ponderable` (×1 / ×0). Pesos **activos** (`WEIGHTS_ENABLED = true` en los dos `scoring`):
+×0 no cuenta, ×1–×3 cuentan esas veces. Los pesos guardados hoy son todos 0 o 1, así que
+activarlos no cambia ninguna nota.
+
+- **Lista sin valoraciones**: «Cuenta para la nota» es un selector No cuenta / ×1 / ×2 / ×3.
+- **Lista con valoraciones**: añadir y renombrar criterios, sí; quitar criterios o cambiar
+  pesos, solo con **«Cambiar pesos o quitar criterios…»**: se simula en el servidor
+  (notas antes → después, cambio máximo, puestos, Minilistas afectadas) y luego aplica un
+  administrador. Aplicar exige que nada haya cambiado desde la simulación (huella), guarda
+  la nota anterior en `overallRatingBefore`, sube `scoringVersion` y no borra ninguna
+  puntuación (un criterio quitado deja de contar, pero su puntuación sigue guardada).
+- **Minilistas**: heredan los pesos de la madre y se actualizan con ella; sus criterios
+  propios tienen su propio peso.
+- Un criterio sin puntuar en una valoración (p. ej. porque se creó después) **no cuenta**
+  en su media: nunca 0, 5 ni ningún valor implícito.
 
 ---
 
@@ -111,6 +122,13 @@ hoy solo comparte «Sabor». Sus valoraciones contarían en la madre solo por Sa
 
 ## 4. Ranking
 
+> **Actualización B1 (implementado)**: una sola fórmula en toda la app:
+> `posición = (n·media + 3·7) / (n + 3)`, sin término de volumen, desempate por nº de
+> valoraciones. Se muestra siempre la media real. Se usa en la Lista, «La Carta» del
+> sitio, la Home, el perfil, el agregador y Algolia (sitios y elementos). C fijo en 7
+> (no la media de cada lista: con C = 8 un 10 con una valoración volvía a encabezar).
+> Lo que sigue es el estado anterior y la simulación que llevó a esta decisión.
+
 ### 4.1 Qué hay hoy (sin cambios de resultado en esta fase)
 
 | Dónde | Fórmula |
@@ -167,16 +185,36 @@ Qué existe hoy:
 | Radio en Búsqueda | `SearchPage`: 500 m – 50 km o sin límite | Algolia `aroundLatLng` / `aroundRadius` |
 | Ciudad / provincia / país del sitio | `places.city`, `province`/`region`, `country` (de Google) → `placeCity`… en `grouped_items` | Existen, pero no se usan para rankings |
 
-Modelo propuesto (no implementado):
+**Ajuste del 30/09/2026 (noche): Lista y Home = contexto local; Buscar = explorar.**
 
-1. El ámbito es **explícito**: ciudad, provincia, país, «cerca de mí (radio)» o «todo».
-2. La **posición** (#3) se calcula **dentro del conjunto filtrado**, con la misma fórmula que el ranking de la Lista.
-3. La etiqueta «#3 en Valladolid» solo aparece con un mínimo de elementos comparables (p. ej. 5), para no presumir de un #1 entre 2.
-4. El selector de distancia sigue igual; el de ciudad/provincia sería nuevo y usaría los campos que ya están en `places`.
+- Lista y Home: radios y, en «Donde estás», **tu** ciudad, **tu** comunidad y
+  **tu** país. Se deducen del sitio más cercano (ciudad a menos de 15 km,
+  comunidad a menos de 120 km, país a menos de 600 km), sin llamar a Google.
+  Sin ubicación, solo el país. Ninguna ciudad lejana en el selector. Última
+  opción: «Explorar otra zona en Buscar…».
+- Buscar: Zona · Ciudad / Provincia / Comunidad / País, cualquiera. Con una sola
+  Lista, sin texto y ordenado por puntuación, cada resultado lleva «#N en <zona>».
+- Página del elemento: un puesto principal («#3 en Valladolid») y los más
+  amplios en pequeño.
+- Incertidumbre: cerca de una frontera entre comunidades, la deducida puede ser
+  la vecina. Es aceptable mientras no se use la geocodificación inversa de
+  Google, que cuesta dinero y hoy solo pueden usar los administradores.
 
-Incertidumbre: la calidad de `city`/`province` depende de lo que devuelve Google (hay
-sitios sin ellos). Antes de mostrar posiciones por ciudad hay que medir cuántos sitios
-los tienen.
+**Implementado (B1, sin desplegar):**
+
+1. Selector en la Lista, de cerca a lejos: radios («A menos de 5 km», …, «Sin límite de
+   distancia») → ciudad («Valladolid») → provincia («Valladolid provincia») → comunidad
+   («Castilla y León») → país («España»). Sin «mundo». La palabra «ámbito» no se muestra.
+2. La zona elegida filtra y ordena Ranking, Mosaico y Mapa por igual; se recuerdan la zona
+   y la vista.
+3. «#3 en Valladolid» con la fórmula única del §4, dentro de cada zona con **≥ 3**
+   elementos. En la tarjeta, una sola etiqueta (la zona más concreta que aporte algo, sin
+   repetir la que ya se está mirando); el resto, en las estadísticas del sitio.
+4. CCAA con nombre único (`normalizeCcaa`, web y servidor) y ciudad con alternativas
+   (`postal_town`, niveles administrativos 3 y 4) al guardar desde Google.
+
+Datos (solo lectura, 30/09/2026): de 141 sitios, ciudad 93 %, provincia 95 %, CCAA 99 %.
+Los ~10 sin ubicación se arreglan a mano desde Developer (ver `google-places-skus.md`).
 
 ---
 
@@ -202,8 +240,10 @@ Conclusión:
 
 - **Hoy A, B, C y E son prácticamente iguales**: con tan pocos datos la elección no cambia nada visible.
 - **Recomendación: A para mostrar** (coincide con la decisión tomada), siempre junto al número de valoraciones, y **D solo para ordenar** sitios.
+- **Estado: provisional** (decisión del 30/09/2026). Revisar cuando haya ≥ 50 sitios con ≥ 5 valoraciones.
+- Para **ordenar** sitios (búsqueda, Home) se usa la fórmula única del §4, no la media simple.
 - Reevaluar **E** (una persona = un voto) cuando haya sitios con muchas valoraciones de la misma persona. Es la mejor defensa contra que alguien infle un sitio.
-- Detalle por lista (B) en las estadísticas del sitio, como se decidió.
+- Detalle por lista (B) en las estadísticas del sitio, como se decidió. **Implementado**: pestaña «Estadísticas» de la ficha, con nº de valoraciones, media por Lista y puesto de cada elemento en su Lista.
 
 ---
 
@@ -217,7 +257,18 @@ Conclusión:
 
 ---
 
-## 8. Preguntas abiertas
+## 8. Decisiones del 30/09/2026 (plan en `plan-fase-B1.md`)
+
+- Las Minilistas comparten **siempre** todos los criterios de la madre.
+- Al activar pesos, las valoraciones históricas **se recalculan**, con simulación y comparación antes/después.
+- Con valoraciones, «cuenta / no cuenta» y el peso quedan **bloqueados** salvo una migración explícita.
+- **Ranking único** bayesiano en toda la app.
+- Ámbito: ciudad → provincia / CCAA → España, más los radios de distancia.
+- Nota global del sitio: **media simple, provisional** mientras haya pocos datos.
+
+Las preguntas siguientes quedan como registro; las que siguen vivas están en `plan-fase-B1.md`.
+
+## 9. Preguntas abiertas (históricas)
 
 1. **Minilista con criterios viejos de la madre** (caso parcial de §3.3): ¿contar en la madre solo con los criterios comunes (lo implementado) o no contar en la madre hasta que se valoren todos los criterios actuales de la madre?
 2. **Pesos**: al activarlos, ¿se recalculan las notas guardadas con los pesos nuevos o se respeta la nota que la persona vio al publicar? Recomiendo respetarla (guardar `weightsVersion` en la valoración) y recalcular solo la Nota Listopic.

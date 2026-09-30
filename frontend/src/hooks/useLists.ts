@@ -52,7 +52,10 @@ export interface ListEntity {
         step: number;
         type: string;
         ponderable: boolean;
+        order?: number;
     }>;
+    /** Peso de cada criterio en la nota (0 = no cuenta). Ver lib/scoring. */
+    scoringWeights?: Record<string, number>;
 
     criteriaAverages: Record<string, number>;
     criteriaAveragesUpdatedAt?: Timestamp;

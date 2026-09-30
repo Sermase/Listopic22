@@ -89,6 +89,7 @@ const {
   buildHttpsErrorFrom,
 } = require("./lib/https-errors");
 const { recalculateListReviewMetrics } = require("./lib/list-metrics");
+const { normalizeCcaa, pickCity } = require("./lib/geo-areas");
 const { logApiUsage } = require("./lib/apiLogger");
 
 const db = getFirestore();
@@ -392,11 +393,8 @@ function extractAddressFields(addressComponents) {
     if (!component || !Array.isArray(component.types)) {
       continue;
     }
-    if (component.types.includes('locality')) {
-      output.city = component.long_name;
-    }
     if (component.types.includes('administrative_area_level_1')) {
-      output.region = component.long_name;
+      output.region = normalizeCcaa(component.long_name);
     }
     if (component.types.includes('country')) {
       output.country = component.long_name;
@@ -405,6 +403,9 @@ function extractAddressFields(addressComponents) {
       output.postalCode = component.long_name;
     }
   }
+
+  // Ciudad con alternativas para pueblos sin «locality» (ver lib/geo-areas).
+  output.city = pickCity(addressComponents) || null;
 
   if (output.postalCode) {
     const provinceCode = output.postalCode.substring(0, 2);
@@ -1265,12 +1266,12 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
         let city = '', region = '', country = '', postalCode = '', province = '';
         if (result.address_components) {
           for (const component of result.address_components) {
-            if (component.types.includes('locality')) city = component.long_name;
-            if (component.types.includes('administrative_area_level_1')) region = component.long_name;
+            if (component.types.includes('administrative_area_level_1')) region = normalizeCcaa(component.long_name);
             if (component.types.includes('country')) country = component.long_name;
             if (component.types.includes('postal_code')) postalCode = component.long_name;
           }
         }
+        city = pickCity(result.address_components);
         if (postalCode) {
           const provinceCode = postalCode.substring(0, 2);
           province = provinceMap[provinceCode] || '';
@@ -2707,6 +2708,53 @@ const adminUpdateAllPlaces = onCall(async (request) => {
   }
 });
 
+// Solo ubicación: 1 llamada a Place Details (New) con `addressComponents`
+// → SKU Place Details Essentials (10.000 gratis/mes). Escribe únicamente
+// ciudad, provincia, CCAA, país y código postal. Ver Mejoras/google-places-skus.md.
+const adminRefreshPlaceLocation = onCall({ cors: true }, async (request) => {
+  const contextAuth = request.auth;
+  if (!contextAuth) {
+    throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+  }
+  await assertJefeAccess(contextAuth.uid);
+
+  const { documentId, googlePlaceId } = request.data || {};
+  if (!documentId || !googlePlaceId) {
+    throw new HttpsError('invalid-argument', 'Se requieren documentId y googlePlaceId.');
+  }
+  await writeAuditLog(contextAuth.uid, 'adminRefreshPlaceLocation', { documentId, googlePlaceId });
+
+  const apiKey = await getGooglePlacesApiKey();
+  if (!apiKey) {
+    throw new HttpsError('internal', 'Error de configuración del servidor.');
+  }
+
+  const response = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(googlePlaceId)}?languageCode=es`, {
+    method: 'GET',
+    headers: { 'X-Goog-Api-Key': apiKey, 'X-Goog-FieldMask': 'addressComponents' },
+  });
+  const data = await response.json().catch(() => ({}));
+  logApiUsage({ action: 'admin_refresh_place_location', userId: contextAuth.uid, details: { placeId: googlePlaceId, calls: 1 } }).catch(() => {});
+  if (!response.ok || data?.error) {
+    throw new HttpsError('unavailable', `Google no devolvió la dirección: ${data?.error?.message || response.status}`);
+  }
+
+  // Formato de la API nueva → el de siempre (long_name / types).
+  const components = Array.isArray(data.addressComponents)
+    ? data.addressComponents.map((c) => ({ long_name: c.longText, short_name: c.shortText, types: c.types || [] }))
+    : [];
+  const fields = extractAddressFields(components);
+  const update = {};
+  ['city', 'province', 'region', 'country', 'postalCode'].forEach((key) => {
+    if (fields[key]) update[key] = fields[key];
+  });
+  if (Object.keys(update).length === 0) {
+    return { success: false, message: 'Google no tiene datos de ubicación para este sitio.' };
+  }
+  await db.collection('places').doc(documentId).set(update, { merge: true });
+  return { success: true, location: update };
+});
+
 const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
   const contextAuth = request.auth;
   if (!contextAuth) {
@@ -2727,6 +2775,8 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
   const { documentId, googlePlaceId } = request.data;
 
   await writeAuditLog(contextAuth.uid, 'adminUpdateSinglePlace', { documentId, googlePlaceId });
+  // 2 llamadas a Google por sitio (ver Mejoras/google-places-skus.md): se registran para Developer → Uso de API.
+  logApiUsage({ action: 'admin_update_place_google', userId: contextAuth.uid, details: { placeId: googlePlaceId, calls: 2 } }).catch(() => {});
   if (!documentId || !googlePlaceId) {
     throw new HttpsError('invalid-argument', 'Se requieren documentId y googlePlaceId.');
   }
@@ -3460,6 +3510,7 @@ module.exports = {
   updatePlaceAggregatesOnReviewChange,
   adminUpdateAllPlaces,
   adminUpdateSinglePlace,
+  adminRefreshPlaceLocation,
   adminFixPlaceDocument,
   adminAuditPlaceIdConsistency,
   adminRecalculatePlaceStats,
