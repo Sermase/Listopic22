@@ -18,8 +18,9 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useQueryClient } from '@tanstack/react-query';
-import { Save, Loader, X, Smile } from 'lucide-react';
+import { Save, Loader, X, Smile, Scale } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
+import { CriteriaMigrationModal } from './CriteriaMigrationModal';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -104,6 +105,8 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     // Criterios de otro tipo (no deslizador): se conservan tal cual al guardar.
     const [preservedCriteria, setPreservedCriteria] = useState<CriteriaDefinitionMap>({});
     const [inheritedTags, setInheritedTags] = useState<string[]>([]);
+    const [showMigration, setShowMigration] = useState(false);
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         if (loadingProfile) return; // wait for profile before checking permissions
@@ -184,7 +187,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             }
         };
         fetchList();
-    }, [listId, loadingProfile, isJefe, onCancel, user, showToast]);
+    }, [listId, loadingProfile, isJefe, onCancel, user, showToast, reloadKey]);
 
     const addTag = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && tagInput.trim()) {
@@ -470,6 +473,35 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             {/* Criteria & Tags */}
             <div className="bg-[var(--lt-card-strong)] p-6 rounded-xl border border-white/10 shadow-xl space-y-8">
                 <CriteriaBuilder criteria={criteria} onChange={setCriteria} lockedIds={inheritedCriteriaIds} scoringLockedIds={scoringLockedIds} />
+                {scoringLockedIds.length > 0 && (parentListId ? (
+                    <p className="text-xs text-gray-400">Los pesos de los criterios heredados se cambian en la Lista madre.</p>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => setShowMigration(true)}
+                        className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--lt-accent)] hover:underline"
+                    >
+                        <Scale className="w-4 h-4" /> Cambiar pesos o quitar criterios…
+                    </button>
+                ))}
+                {showMigration && (
+                    <CriteriaMigrationModal
+                        isOpen
+                        onClose={() => setShowMigration(false)}
+                        listId={listId}
+                        criteria={criteria.filter((c) => scoringLockedIds.includes(c.id)).map((c) => ({ id: c.id, label: c.label || c.id }))}
+                        currentWeights={weightsFromCriteria(criteria.filter((c) => scoringLockedIds.includes(c.id)))}
+                        canApply={isJefe}
+                        onApplied={() => {
+                            setShowMigration(false);
+                            queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
+                            queryClient.invalidateQueries({ queryKey: ['lists'] });
+                            // Recarga criterios y pesos: evita volver a guardar los de antes.
+                            setLoading(true);
+                            setReloadKey((k) => k + 1);
+                        }}
+                    />
+                )}
 
                 <div className="border-t border-white/5 pt-6" />
 
