@@ -75,7 +75,7 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                             </button>
                         )}
                         <Layers className="w-5 h-5 text-[var(--lt-accent)]" />
-                        {view === 'create' ? 'Nueva Sublista' : `Sublistas de ${listName}`}
+                        {view === 'create' ? 'Nueva Minilista' : `Minilistas de ${listName}`}
                     </h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
                         <X className="w-6 h-6" />
@@ -88,14 +88,14 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                         <div className="space-y-4">
                             <div className="flex justify-between items-center mb-4">
                                 <p className="text-sm text-gray-400">
-                                    Las sublistas heredan el contexto de la lista principal pero pueden tener sus propias reseñas.
+                                    Las minilistas heredan el contexto de la lista principal pero pueden tener sus propias valoraciones.
                                 </p>
                                 <button
                                     onClick={() => setView('create')}
                                     className="flex items-center gap-2 px-4 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white rounded-lg text-sm font-bold transition-colors shadow-lg shadow-[var(--lt-accent-shadow)]"
                                 >
                                     <Plus className="w-4 h-4" />
-                                    Crear Sublista
+                                    Crear Minilista
                                 </button>
                             </div>
 
@@ -122,7 +122,7 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <h3 className="font-bold text-white truncate group-hover:text-[var(--lt-accent)] transition-colors">{list.name}</h3>
-                                                <p className="text-xs text-gray-500 truncate">{list.itemCount || 0} reseñas</p>
+                                                <p className="text-xs text-gray-500 truncate">{list.itemCount || 0} valoraciones</p>
                                             </div>
                                             <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-white transition-colors" />
                                         </Link>
@@ -131,7 +131,7 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                             ) : (
                                 <div className="text-center py-10 border-2 border-dashed border-white/5 rounded-xl">
                                     <Layers className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                                    <p className="text-gray-400">No hay sublistas todavía.</p>
+                                    <p className="text-gray-400">No hay minilistas todavía.</p>
                                     <button
                                         onClick={() => setView('create')}
                                         className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] text-sm font-bold mt-2"
@@ -150,7 +150,7 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                             onSuccess={handleCreateSuccess}
                             onCancel={() => setView('list')}
                             initialData={{
-                                name: `${listName} (Sublista)`
+                                name: `${listName} (Minilista)`
                             }}
                         />
                     )}

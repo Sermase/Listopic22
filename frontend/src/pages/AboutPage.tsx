@@ -48,7 +48,7 @@ export const AboutPage: React.FC = () => {
                 <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6">
                     <h2 className="text-lg font-bold text-white mb-3">¿Qué es Listopic?</h2>
                     <p className="text-gray-300 text-sm leading-relaxed mb-4">
-                        Listopic es una app para crear listas de lugares, descubrir recomendaciones y compartir reseñas con tu comunidad. Organiza tus sitios favoritos, descubre nuevos rincones y conecta con personas que comparten tus gustos.
+                        Listopic es una app para crear listas de lugares, descubrir recomendaciones y compartir valoraciones con tu comunidad. Organiza tus sitios favoritos, descubre nuevos rincones y conecta con personas que comparten tus gustos.
                     </p>
                     <div className="grid grid-cols-3 gap-3">
                         {[

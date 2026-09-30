@@ -190,7 +190,7 @@ export const getBadgeProgress = (
     case "photo_count":
       return buildTrackedProgress(metrics.photosCount, "resenas con foto");
     case "place_count":
-      return buildTrackedProgress(metrics.placeCount, "lugares valorados");
+      return buildTrackedProgress(metrics.placeCount, "sitios valorados");
     case "lists_count":
       return buildTrackedProgress(metrics.listsCount, "listas creadas");
     case "followers_count":

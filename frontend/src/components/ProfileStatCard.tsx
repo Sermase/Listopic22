@@ -18,7 +18,7 @@ export const ProfileStatCard: React.FC<ProfileStatCardProps> = ({
     <button
         type="button"
         onClick={onClick}
-        className={`group relative flex min-h-[78px] sm:min-h-[108px] min-w-0 flex-col items-center justify-center rounded-2xl border px-1.5 py-2 text-center transition-all hover:-translate-y-0.5 sm:px-3 sm:py-3 ${
+        className={`group relative flex min-h-[78px] sm:min-h-[108px] min-w-0 flex-col items-center justify-center rounded-2xl border px-0.5 py-2 text-center transition-all hover:-translate-y-0.5 sm:px-3 sm:py-3 ${
             accent === 'level'
                 ? 'lt-level-card overflow-hidden border-amber-400/35 bg-[#110804] shadow-[0_18px_40px_rgba(245,158,11,0.18)]'
                 : 'lt-stat-card border-white/10 bg-[var(--lt-card-strong)]/80 hover:border-[var(--lt-accent-border)] hover:bg-[var(--lt-card)]'
@@ -41,7 +41,7 @@ export const ProfileStatCard: React.FC<ProfileStatCardProps> = ({
             </>
         )}
         <span
-            className={`lt-level-label relative z-10 text-[9px] sm:text-[10px] font-black uppercase leading-tight tracking-[0.14em] sm:tracking-[0.22em] ${
+            className={`lt-level-label relative z-10 max-w-full whitespace-nowrap text-[9.5px] sm:text-[10px] font-bold sm:font-black sm:uppercase leading-tight tracking-normal sm:tracking-[0.22em] ${
                 accent === 'level'
                     ? 'text-amber-200/95'
                     : 'lt-stat-label text-gray-500 group-hover:text-gray-300'

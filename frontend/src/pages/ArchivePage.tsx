@@ -6,14 +6,15 @@ import { useAuth } from '../context/AuthContext';
 import { collection, collectionGroup, deleteDoc, deleteField, getDocs, limit, orderBy, query, doc, getDoc, updateDoc, where } from 'firebase/firestore';
 import { deleteObject, ref } from 'firebase/storage';
 import { db, storage } from '../firebase';
-import { MapView } from '../components/MapView';
+import { LazyMapView as MapView, LazyAddReviewForm as AddReviewForm } from '../components/lazy';
 import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
-import { AddReviewForm } from '../components/AddReviewForm';
 import { ProgressiveImage } from '../components/ProgressiveImage';
 import type { MapItem } from '../components/MapView';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { Button, Card, IconButton, Modal, Tabs } from '../components/ui';
 import { fetchUserReviewsFromAccessibleLists } from '../lib/reviewFallbacks';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const COLOR_OPTIONS = [
     '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
@@ -33,13 +34,13 @@ const EMOJI_OPTIONS = [
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
     place: {
-        label: 'Lugar',
+        label: 'Sitio',
         color: 'text-blue-300',
         bg: 'bg-blue-500/20',
         icon: <MapPin className="w-3 h-3" />,
     },
     review: {
-        label: 'Reseña',
+        label: 'Valoración',
         color: 'text-[var(--lt-accent-2)]',
         bg: 'bg-[var(--lt-accent-soft)]',
         icon: <MessageSquare className="w-3 h-3" />,
@@ -110,16 +111,16 @@ const SECTION_TABS = [
 
 const PHOTO_FILTER_TABS = [
     { value: 'all' as const, label: 'Todas' },
-    { value: 'place' as const, label: 'Lugares' },
-    { value: 'review' as const, label: 'Reseñas' },
+    { value: 'place' as const, label: 'Sitios' },
+    { value: 'review' as const, label: 'Valoraciones' },
 ];
 
 const COLLECTION_FILTER_TABS = [
     { value: 'all' as const, label: 'Todo' },
-    { value: 'place' as const, label: 'Lugares' },
+    { value: 'place' as const, label: 'Sitios' },
     { value: 'list' as const, label: 'Listas' },
     { value: 'group' as const, label: 'Platos' },
-    { value: 'review' as const, label: 'Reseñas' },
+    { value: 'review' as const, label: 'Valoraciones' },
 ];
 
 function toMillis(value: any): number {
@@ -228,6 +229,8 @@ export const ArchivePage: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const { archives, fetchArchives, toggleItemInArchive, createArchive, updateArchive, deleteArchive } = useArchives();
+    const { showToast } = useToast();
+    const confirm = useConfirm();
 
     const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
     const [activeSection, setActiveSection] = useState<ArchiveSection>('collections');
@@ -392,7 +395,7 @@ export const ArchivePage: React.FC = () => {
                                 reviewId: reviewDoc.id,
                                 listId,
                                 placeId: typeof data.placeId === 'string' ? data.placeId : undefined,
-                                itemName: typeof data.itemName === 'string' && data.itemName.trim() ? data.itemName.trim() : 'Reseña',
+                                itemName: typeof data.itemName === 'string' && data.itemName.trim() ? data.itemName.trim() : 'Valoración',
                                 placeName: typeof data.placeName === 'string' && data.placeName.trim() ? data.placeName.trim() : undefined,
                                 url: trimmedUrl,
                                 storagePath: explicitStoragePath || getStoragePathFromUrl(trimmedUrl),
@@ -633,7 +636,7 @@ export const ArchivePage: React.FC = () => {
             fetchItemsForArchive(targetId);
             fetchItemsForArchive(sourceId);
             if (!expandedIds.includes(targetId)) setExpandedIds(prev => [...prev, targetId]);
-        } catch { alert('Error moviendo el elemento.'); }
+        } catch { showToast({ variant: 'error', message: 'No se pudo mover el elemento.' }); }
     };
 
     const getFilteredItems = (items: SavedItemEntity[]) =>
@@ -662,7 +665,7 @@ export const ArchivePage: React.FC = () => {
             if (editMode === 'create') await createArchive(editName.trim(), editEmoji, editColor);
             else await updateArchive(editId, { name: editName.trim(), emoji: editEmoji, color: editColor });
             setShowEditModal(false);
-        } catch { alert('Error al guardar.'); }
+        } catch { showToast({ variant: 'error', message: 'No se pudo guardar la colección.' }); }
     };
 
     const makeDocRefFromPath = (path: string) => {
@@ -717,13 +720,13 @@ export const ArchivePage: React.FC = () => {
             setEditingCaption('');
         } catch (error) {
             console.error('Error updating place photo caption', error);
-            alert('No se pudo editar la foto.');
+            showToast({ variant: 'error', message: 'No se pudo editar la foto.' });
         }
     };
 
     const deleteUploadedPlacePhoto = async (photo: UploadedPlacePhoto) => {
         setOpenPhotoMenu(null);
-        if (!confirm('¿Borrar esta foto del lugar?')) return;
+        if (!await confirm({ title: '¿Borrar esta foto del sitio?', message: 'Dejará de verse en la ficha del sitio.', confirmLabel: 'Borrar', destructive: true })) return;
         try {
             if (photo.storagePath) {
                 await deleteObject(ref(storage, photo.storagePath)).catch((error: any) => {
@@ -735,13 +738,13 @@ export const ArchivePage: React.FC = () => {
             setOpenPhotoMenu(null);
         } catch (error) {
             console.error('Error deleting uploaded place photo', error);
-            alert('No se pudo borrar la foto.');
+            showToast({ variant: 'error', message: 'No se pudo borrar la foto.' });
         }
     };
 
     const deleteUploadedReviewPhoto = async (photo: UploadedReviewPhoto) => {
         setOpenPhotoMenu(null);
-        if (!confirm('¿Borrar esta foto de la reseña?')) return;
+        if (!await confirm({ title: '¿Borrar esta foto de la valoración?', confirmLabel: 'Borrar', destructive: true })) return;
         try {
             if (photo.storagePath) {
                 await deleteObject(ref(storage, photo.storagePath)).catch((error: any) => {
@@ -782,11 +785,11 @@ export const ArchivePage: React.FC = () => {
             setOpenPhotoMenu(null);
         } catch (error) {
             console.error('Error deleting uploaded review photo', error);
-            alert('No se pudo borrar la foto.');
+            showToast({ variant: 'error', message: 'No se pudo borrar la foto.' });
         }
     };
 
-    if (!user) return <div className="pt-safe-32 text-center text-gray-500">Inicia sesión para ver tu archivo.</div>;
+    if (!user) return <div className="pt-safe-32 text-center text-gray-500">Inicia sesión para ver tus colecciones.</div>;
 
     // ── VISTA MAPA ────────────────────────────────────────────────────────────
     if (viewMode === 'map') {
@@ -803,7 +806,7 @@ export const ArchivePage: React.FC = () => {
                             className="rounded-full bg-black/60 text-white backdrop-blur-md"
                         />
                         <span className="rounded-full border border-white/10 bg-black/60 px-4 py-2 text-sm font-bold text-white backdrop-blur-md">
-                            {mapItems.length} lugares
+                            {mapItems.length} sitios
                         </span>
                         <Button
                             onClick={() => setShowMapFilters(v => !v)}
@@ -870,7 +873,7 @@ export const ArchivePage: React.FC = () => {
                 {/* Header */}
                 <header className="mb-6">
                     <div className="flex justify-between items-center mb-4">
-                        <h1 className="text-3xl font-bold text-white">Mi Archivo</h1>
+                        <h1 className="text-3xl font-bold text-white">Mis colecciones</h1>
                         {activeSection === 'collections' && (
                             <Button size="sm" leftIcon={<MapIcon className="w-4 h-4" />} onClick={() => setViewMode('map')}>
                                 Mapa
@@ -899,14 +902,14 @@ export const ArchivePage: React.FC = () => {
                         <div className="flex gap-1.5 overflow-x-auto custom-scrollbar shrink-0">
                             {(activeSection === 'photos' ? [
                                 { id: 'all', label: 'Todas' },
-                                { id: 'place', label: 'Lugares' },
-                                { id: 'review', label: 'Reseñas' },
+                                { id: 'place', label: 'Sitios' },
+                                { id: 'review', label: 'Valoraciones' },
                             ] : [
                                 { id: 'all', label: 'Todo' },
-                                { id: 'place', label: 'Lugares' },
+                                { id: 'place', label: 'Sitios' },
                                 { id: 'list', label: 'Listas' },
                                 { id: 'group', label: 'Platos' },
-                                { id: 'review', label: 'Reseñas' },
+                                { id: 'review', label: 'Valoraciones' },
                             ]).map(f => (
                                 <button
                                     key={f.id}
@@ -927,7 +930,7 @@ export const ArchivePage: React.FC = () => {
                         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-3">
                             <div className="min-w-0">
                                 <h2 className="text-sm font-bold text-white">Fotos</h2>
-                                <p className="text-xs text-gray-500">Fotos que has subido a reseñas y lugares</p>
+                                <p className="text-xs text-gray-500">Fotos que has subido a valoraciones y sitios</p>
                             </div>
                             <span className="text-xs font-bold text-gray-300 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1">
                                 {uploadedPlacePhotos.length + uploadedReviewPhotos.length}
@@ -968,7 +971,7 @@ export const ArchivePage: React.FC = () => {
                                                 <UploadedPhotoImage photo={item.photo} kind={item.kind} alt={title} />
                                                 <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide ${item.kind === 'place' ? 'bg-blue-500/20 text-blue-300' : 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)]'}`}>
                                                     {item.kind === 'place' ? <MapPin className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
-                                                    {item.kind === 'place' ? 'Lugar' : 'Reseña'}
+                                                    {item.kind === 'place' ? 'Sitio' : 'Valoración'}
                                                 </span>
                                             </Link>
                                             <div className="absolute top-1.5 right-1.5 z-20">
@@ -1125,12 +1128,17 @@ export const ArchivePage: React.FC = () => {
                                                                         onClick={async e => {
                                                                             e.preventDefault();
                                                                             e.stopPropagation();
-                                                                            if (confirm('¿Quitar de la colección?')) {
-                                                                                await toggleItemInArchive(arch.id, item, false);
-                                                                                fetchItemsForArchive(arch.id);
+                                                                            if (await confirm({ title: '¿Quitar de la colección?', message: `"${item.name}" dejará de estar en ${arch.name}.`, confirmLabel: 'Quitar', destructive: true })) {
+                                                                                try {
+                                                                                    await toggleItemInArchive(arch.id, item, false);
+                                                                                    fetchItemsForArchive(arch.id);
+                                                                                } catch {
+                                                                                    showToast({ variant: 'error', message: 'No se pudo quitar el elemento.' });
+                                                                                }
                                                                             }
                                                                         }}
-                                                                        className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/60 text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                                                                        aria-label="Quitar de la colección"
+                                                                        className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-black/60 text-gray-200 hover:text-red-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-all"
                                                                     >
                                                                         <Trash2 className="w-3 h-3" />
                                                                     </button>
@@ -1149,8 +1157,20 @@ export const ArchivePage: React.FC = () => {
 
                                             <div className="mt-4 pt-3 border-t border-white/5 flex justify-end">
                                                 <button
-                                                    onClick={() => {
-                                                        if (confirm(`¿Eliminar la colección "${arch.name}"?`)) deleteArchive(arch.id);
+                                                    onClick={async () => {
+                                                        const ok = await confirm({
+                                                            title: `¿Eliminar la colección "${arch.name}"?`,
+                                                            message: 'Se borra la colección y lo que tiene guardado. No se puede deshacer.',
+                                                            confirmLabel: 'Eliminar',
+                                                            destructive: true,
+                                                        });
+                                                        if (!ok) return;
+                                                        try {
+                                                            await deleteArchive(arch.id);
+                                                            showToast({ variant: 'success', message: 'Colección eliminada' });
+                                                        } catch {
+                                                            showToast({ variant: 'error', message: 'No se pudo eliminar la colección.' });
+                                                        }
                                                     }}
                                                     className="text-xs text-red-500/60 hover:text-red-400 flex items-center gap-1 transition-colors"
                                                 >

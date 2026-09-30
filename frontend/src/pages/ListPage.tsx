@@ -7,11 +7,9 @@ import { useListDetails } from '../hooks/useListDetails';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { ListItemCard } from '../components/ListItemCard';
 import { ProgressiveImage } from '../components/ProgressiveImage';
-import { MapView } from '../components/MapView';
-import { AddReviewForm } from '../components/AddReviewForm';
+import { LazyMapView as MapView, LazyAddReviewForm as AddReviewForm, LazyShareModal as ShareModal } from '../components/lazy';
 import { FilterModal } from '../components/FilterModal';
 import { ShareListModal } from '../components/ShareListModal';
-import { ShareModal } from '../components/ShareModal';
 import { SublistsModal } from '../components/SublistsModal';
 import { EditListModal } from '../components/EditListModal';
 import { useAuth } from '../context/AuthContext';
@@ -25,6 +23,9 @@ import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
 import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
 import { useAuthPrompt } from '../context/AuthPromptContext';
+import { isScoreValue, reviewScoreForList } from '../lib/scoring';
+import { scoreBadgeStyle } from '../lib/scoreScale';
+import { useStoredChoice } from '../hooks/useStoredChoice';
 
 export interface FilterState {
     minRating: number;
@@ -139,6 +140,30 @@ function getPrimaryReviewPhoto(review: any): string | null {
     return null;
 }
 
+interface ToolbarToggleProps {
+    label: string;
+    title: string;
+    pressed: boolean;
+    icon: React.ReactNode;
+    onClick: () => void;
+}
+
+// Botón de la barra de la lista: icono + texto corto, estado visible y accesible.
+const ToolbarToggle: React.FC<ToolbarToggleProps> = ({ label, title, pressed, icon, onClick }) => (
+    <button
+        type="button"
+        onClick={onClick}
+        title={title}
+        aria-pressed={pressed}
+        className={`h-11 min-w-[3rem] px-1.5 flex flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors active:scale-95 motion-reduce:active:scale-100 ${pressed
+            ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
+            : 'bg-[var(--lt-glass)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+    >
+        {icon}
+        <span className="text-[10px] font-semibold leading-none">{label}</span>
+    </button>
+);
+
 export const ListPage: React.FC = () => {
     const { listId } = useParams<{ listId: string }>();
     const routerLocation = useRouterLocation();
@@ -159,7 +184,7 @@ export const ListPage: React.FC = () => {
             el.setAttribute('content', content);
         };
         setMeta('og:title', title);
-        setMeta('og:description', (list as any).description || `${list.reviewCount} reseñas · ${list.name}`);
+        setMeta('og:description', (list as any).description || `${list.reviewCount} valoraciones · ${list.name}`);
         setMeta('og:url', window.location.href);
         setMeta('og:type', 'website');
         const img = (list as any).thumbnailUrl || (list as any).mainImageUrl || (list as any).photoUrl || (list as any).coverUrl || (list as any).imageUrl;
@@ -194,8 +219,9 @@ export const ListPage: React.FC = () => {
         accessibility: {},
         criteriaMin: {}
     });
-    const [viewMode, setViewMode] = useState<'list' | 'gallery'>('gallery');
-    const [groupingMode, setGroupingMode] = useState<'place' | 'dish'>('dish');
+    // Vista (Ranking / Mosaico) y agrupación: se recuerdan en este navegador.
+    const [viewMode, setViewMode] = useStoredChoice('listopic_list_view', ['list', 'gallery'] as const, 'gallery');
+    const [groupingMode, setGroupingMode] = useStoredChoice('listopic_list_grouping', ['place', 'dish'] as const, 'dish');
 
     // Check for editId param
     const queryParams = new URLSearchParams(routerLocation.search);
@@ -210,7 +236,7 @@ export const ListPage: React.FC = () => {
         const Eid = q.get('editId');
         if (Eid) {
             if (!user) {
-                openAuthPrompt('editar una reseña');
+                openAuthPrompt('editar una valoración');
                 return;
             }
             setEditingReviewId(Eid);
@@ -220,7 +246,7 @@ export const ListPage: React.FC = () => {
 
     const handleOpenAddReview = () => {
         if (!user) {
-            openAuthPrompt('añadir una reseña');
+            openAuthPrompt('añadir una valoración');
             return;
         }
         setIsAddModalOpen(true);
@@ -319,19 +345,19 @@ export const ListPage: React.FC = () => {
 
 
     // --- Aggregation Logic (Ranked List View & Map Data) ---
-    const groupedItems = useMemo(() => {
-        if (!reviews.length) return [];
+    // Filtros de autor (bots / solo críticos): mismos para ranking y mapa.
+    const visibleReviews = useMemo(() => reviews.filter(r => {
+        const uid = r.userId || (r as any).authorId;
+        const roles = authorRolesMap.get(uid) ?? [];
+        const isBot = roles.includes('bot');
+        const isCritico = roles.includes('critico');
+        if (isBot && !showBotReviews) return false;
+        if (criticOnly && !isCritico) return false;
+        return true;
+    }), [reviews, authorRolesMap, showBotReviews, criticOnly]);
 
-        // Apply user-role filters before grouping
-        const visibleReviews = reviews.filter(r => {
-            const uid = r.userId || (r as any).authorId;
-            const roles = authorRolesMap.get(uid) ?? [];
-            const isBot = roles.includes('bot');
-            const isCritico = roles.includes('critico');
-            if (isBot && !showBotReviews) return false;
-            if (criticOnly && !isCritico) return false;
-            return true;
-        });
+    const groupedItems = useMemo(() => {
+        if (!visibleReviews.length) return [];
 
         const groups: Record<string, {
             id: string;
@@ -346,6 +372,7 @@ export const ListPage: React.FC = () => {
             totalRating: number;
             count: number;
             criteriaSums: Record<string, number>;
+            criteriaCounts: Record<string, number>;
             placeClosedStatus?: string | null;
             accessibilityOptions: string[];
             petOptions: string[];
@@ -372,7 +399,7 @@ export const ListPage: React.FC = () => {
             }
 
             if (!groups[key]) {
-                const itemName = review.itemName ? review.itemName : (review.placeName || 'Item sin nombre');
+                const itemName = review.itemName ? review.itemName : (review.placeName || 'Elemento sin nombre');
                 groups[key] = {
                     id: key,
                     name: groupingMode === 'dish' ? itemName : (review.placeName || itemName),
@@ -384,6 +411,7 @@ export const ListPage: React.FC = () => {
                     totalRating: 0,
                     count: 0,
                     criteriaSums: {},
+                    criteriaCounts: {},
                     latestReviewAt: 0,
                     userHasReviewed: false,
                     items: [],
@@ -409,11 +437,13 @@ export const ListPage: React.FC = () => {
             }
 
             const g = groups[key];
-            g.totalRating += review.overallRating || 0;
+            // En la Lista madre, las valoraciones de Minilista cuentan solo con sus criterios.
+            const reviewScore = reviewScoreForList(review, list).score ?? 0;
+            g.totalRating += reviewScore;
             g.count += 1;
 
-            if ((review.overallRating || 0) > g.maxScore) {
-                g.maxScore = review.overallRating || 0;
+            if (reviewScore > g.maxScore) {
+                g.maxScore = reviewScore;
             }
 
             if (user && (review.userId === user.uid || review.authorId === user.uid)) {
@@ -421,8 +451,8 @@ export const ListPage: React.FC = () => {
             }
 
             g.items.push({
-                name: review.itemName || 'Item',
-                score: review.overallRating || 0
+                name: review.itemName || 'Elemento',
+                score: reviewScore
             });
 
             // Handle Review Time for sorting
@@ -456,7 +486,9 @@ export const ListPage: React.FC = () => {
             // Handle Criteria
             if (review.scores) {
                 Object.entries(review.scores).forEach(([k, v]) => {
+                    if (!isScoreValue(v)) return;
                     g.criteriaSums[k] = (g.criteriaSums[k] || 0) + v;
+                    g.criteriaCounts[k] = (g.criteriaCounts[k] || 0) + 1;
                 });
             }
 
@@ -498,7 +530,8 @@ export const ListPage: React.FC = () => {
 
             Object.keys(g.criteriaSums).forEach(k => {
                 if (allowedCriteria && !allowedCriteria.includes(k)) return;
-                criteriaAverages[k] = g.criteriaSums[k] / g.count;
+                // Media entre quienes puntuaron ese criterio (no entre todas las valoraciones).
+                criteriaAverages[k] = g.criteriaSums[k] / (g.criteriaCounts[k] || 1);
             });
 
             // 50% Rule for Tags
@@ -537,7 +570,7 @@ export const ListPage: React.FC = () => {
             }
             return 0;
         });
-    }, [reviews, list, groupingMode, sortMode, user, authorRolesMap, showBotReviews, criticOnly]);
+    }, [visibleReviews, list, groupingMode, sortMode, user]);
 
     // Unique Tags for Filter UI
     const availableGroupTags = useMemo(() => {
@@ -559,7 +592,7 @@ export const ListPage: React.FC = () => {
 
     // Map Specific Data - Always grouped by Place, always has Items list
     const mapItems = useMemo(() => {
-        if (!reviews.length) return [];
+        if (!visibleReviews.length) return [];
         const placeGroups: Record<string, {
             id: string;
             placeId: string;
@@ -576,8 +609,9 @@ export const ListPage: React.FC = () => {
             placeClosedStatus?: string | null;
         }> = {};
 
-        reviews.forEach(review => {
+        visibleReviews.forEach(review => {
             if (!review.placeId) return; // Skip items without placeId for map
+            const reviewScore = reviewScoreForList(review, list).score ?? 0;
 
             if (!placeGroups[review.placeId]) {
                 placeGroups[review.placeId] = {
@@ -609,7 +643,7 @@ export const ListPage: React.FC = () => {
 
             const g = placeGroups[review.placeId];
             // Accumulate Items
-            g.items.push({ name: review.itemName, score: review.overallRating });
+            g.items.push({ name: review.itemName, score: reviewScore });
             g.reviewsCount++;
             if (Array.isArray(review.tags)) g.allTags.push(...review.tags);
             if (Array.isArray(review.userTags)) g.allTags.push(...review.userTags);
@@ -630,8 +664,8 @@ export const ListPage: React.FC = () => {
                 if (!g.petOptions.includes(key)) g.petOptions.push(key);
             });
 
-            if (review.overallRating > g.maxScore) {
-                g.maxScore = review.overallRating;
+            if (reviewScore > g.maxScore) {
+                g.maxScore = reviewScore;
             }
 
             // Ensure coords
@@ -652,7 +686,7 @@ export const ListPage: React.FC = () => {
             rating: g.maxScore, // Override rating for Pin Color with Max Score
             items: g.items.sort((a, b) => b.score - a.score) // Sort items descending
         }));
-    }, [reviews]);
+    }, [visibleReviews, list]);
 
     // --- Filtering Logic ---
     // --- Filtering Logic ---
@@ -894,7 +928,7 @@ export const ListPage: React.FC = () => {
     }
 
     const listShareUrl = buildPublicRouteUrl(`/list/${list.id}`);
-    const listTypeLabel = list.parentListId ? 'Sublista' : 'Lista';
+    const listTypeLabel = list.parentListId ? 'Minilista' : 'Lista';
     const listShareSubtitle = list.parentListId && parentListName
         ? `${listTypeLabel} de ${parentListName}`
         : listTypeLabel;
@@ -934,11 +968,11 @@ export const ListPage: React.FC = () => {
                 <div className="lt-entity-hero-title w-full">
 
                     {/* Title & description */}
-                    <h1 className="text-2xl sm:text-4xl md:text-5xl font-display font-bold text-white leading-tight mb-1 drop-shadow-lg">
+                    <h1 className="text-2xl sm:text-4xl md:text-5xl font-display font-bold text-[var(--lt-hero-title)] leading-tight mb-1">
                         {list.name}
                     </h1>
                     {list.description && (
-                        <p className="text-gray-300/80 text-sm sm:text-base max-w-2xl line-clamp-2 leading-relaxed mb-3">
+                        <p className="text-[var(--lt-hero-text)] text-sm sm:text-base max-w-2xl line-clamp-2 leading-relaxed mb-3">
                             {list.description}
                         </p>
                     )}
@@ -946,7 +980,7 @@ export const ListPage: React.FC = () => {
                     {/* Status pills */}
                     <div className="flex flex-wrap items-center gap-1.5 mb-4">
                         <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm ${list.parentListId ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent-2)]' : 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'}`}>
-                            {list.parentListId ? 'Sublista' : 'Lista'}
+                            {list.parentListId ? 'Minilista' : 'Lista'}
                         </span>
                         {/* Public/private only shown on sublists (user-owned) or to jefe */}
                         {(list.parentListId || isJefe) && (
@@ -1002,7 +1036,7 @@ export const ListPage: React.FC = () => {
                                     className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
                                 >
                                     <Plus className="w-4 h-4" />
-                                    <span>+ Añadir reseña</span>
+                                    <span>Valorar</span>
                                 </button>
                             )}
 
@@ -1017,7 +1051,7 @@ export const ListPage: React.FC = () => {
                                 {!list.parentListId && (
                                     <button onClick={() => setIsSublistsModalOpen(true)} className="px-3 py-2 bg-[var(--lt-accent-soft)] hover:bg-[var(--lt-accent)]/20 text-[var(--lt-accent)] border border-[var(--lt-accent-border)] text-sm font-bold rounded-xl flex items-center gap-1.5 transition-all">
                                         <ListIcon className="w-4 h-4" />
-                                        Sublistas
+                                        Minilistas
                                         {sublists && sublists.length > 0 && (
                                             <span className="bg-[var(--lt-accent-soft)] px-1.5 py-0.5 rounded text-[10px] border border-[var(--lt-accent-border)] text-[var(--lt-accent)]">{sublists.length}</span>
                                         )}
@@ -1073,7 +1107,7 @@ export const ListPage: React.FC = () => {
                                                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors text-left"
                                             >
                                                 <ListIcon className="w-4 h-4 shrink-0 text-[var(--lt-accent)]" />
-                                                Sublistas
+                                                Minilistas
                                                 {sublists && sublists.length > 0 && (
                                                     <span className="ml-auto bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] text-[10px] font-bold px-1.5 py-0.5 rounded-full">{sublists.length}</span>
                                                 )}
@@ -1181,85 +1215,60 @@ export const ListPage: React.FC = () => {
                                     placeholder="Buscar en esta lista..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full bg-transparent border-none p-0 pl-7 text-sm text-white placeholder:text-gray-600 focus:ring-0 transition-colors"
+                                    className="w-full bg-transparent border-none p-0 pl-7 text-sm text-[var(--lt-text)] placeholder:text-[var(--lt-text-muted)] focus:ring-0 transition-colors"
                                 />
                             </div>
                         </div>
 
-                        {/* Actions Island */}
-                        <div className="flex items-center w-full border-t sm:border-t-0 border-white/5 pt-2 sm:pt-0">
-
-                            {/* Left: Filter */}
-                            <button
+                        {/* Barra de herramientas: cada botón dice lo que hace */}
+                        <div className="flex items-center gap-1.5 w-full border-t sm:border-t-0 border-white/5 pt-2 sm:pt-0">
+                            <ToolbarToggle
+                                label="Filtros"
+                                pressed={filters.minRating > 0 || filters.hasPhoto || filters.glutenFree || filters.petFriendly || filters.visited || selectedTags.length > 0 || Object.values(filters.accessibility || {}).some(Boolean) || Object.values(filters.criteriaMin || {}).some(v => v > 0)}
                                 onClick={() => setIsFilterModalOpen(true)}
-                                className={`h-9 w-9 flex-shrink-0 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
-                                    filters.minRating > 0 || filters.hasPhoto || filters.glutenFree || filters.petFriendly || filters.visited || selectedTags.length > 0 || Object.values(filters.accessibility || {}).some(Boolean) || Object.values(filters.criteriaMin || {}).some(v => v > 0)
-                                        ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
-                                        : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
-                                }`}
-                                title="Filtros"
-                            >
-                                <ArrowDownWideNarrow className="w-4 h-4 rotate-180" />
-                            </button>
+                                title="Filtrar y ordenar"
+                                icon={<ArrowDownWideNarrow className="w-4 h-4 rotate-180" />}
+                            />
+                            <ToolbarToggle
+                                label="Bots"
+                                pressed={showBotReviews}
+                                onClick={() => setShowBotReviews(prev => !prev)}
+                                title={showBotReviews ? 'Ocultar valoraciones de bots' : 'Mostrar valoraciones de bots'}
+                                icon={<Bot className="w-4 h-4" />}
+                            />
+                            <ToolbarToggle
+                                label="Críticos"
+                                pressed={criticOnly}
+                                onClick={() => setCriticOnly(prev => !prev)}
+                                title={criticOnly ? 'Mostrando solo críticos' : 'Ver solo valoraciones de críticos'}
+                                icon={<Star className="w-4 h-4" />}
+                            />
+                            <ToolbarToggle
+                                label="Por sitio"
+                                pressed={groupingMode === 'place'}
+                                onClick={() => setGroupingMode(prev => prev === 'place' ? 'dish' : 'place')}
+                                title={groupingMode === 'place' ? 'Agrupado por sitio: pulsa para ver cada elemento' : 'Agrupar los elementos por sitio'}
+                                icon={<Store className="w-4 h-4" />}
+                            />
 
-                            {/* Center: Bot, Críticos, Agrupación */}
-                            <div className="flex items-center gap-2 flex-1 justify-center">
-
-                                {/* Toggle bots */}
-                                <button
-                                    onClick={() => setShowBotReviews(prev => !prev)}
-                                    className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
-                                        showBotReviews
-                                            ? 'bg-cyan-500/20 border-cyan-500/30 text-cyan-400'
-                                            : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
-                                    }`}
-                                    title={showBotReviews ? 'Ocultar reseñas de bots' : 'Mostrar reseñas de bots'}
-                                >
-                                    <Bot className="w-3.5 h-3.5" />
-                                </button>
-
-                                {/* Toggle críticos */}
-                                <button
-                                    onClick={() => setCriticOnly(prev => !prev)}
-                                    className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all active:scale-95 ${
-                                        criticOnly
-                                            ? 'bg-amber-500/20 border-amber-500/30 text-amber-400'
-                                            : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'
-                                    }`}
-                                    title={criticOnly ? 'Mostrando solo críticos' : 'Ver solo reseñas de críticos'}
-                                >
-                                    <Star className="w-3.5 h-3.5" />
-                                </button>
-
-                                {/* Grouping Toggle */}
-                                <button
-                                    onClick={() => setGroupingMode(prev => prev === 'place' ? 'dish' : 'place')}
-                                    className={`h-9 w-9 flex items-center justify-center rounded-xl border transition-all ${groupingMode === 'place' ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)] shadow-[0_0_10px_rgba(99,102,241,0.2)]' : 'bg-white/5 border-white/5 text-gray-400 hover:text-white'}`}
-                                    title={groupingMode === 'place' ? "Agrupado por Lugar" : "Ver Platos Sueltos"}
-                                >
-                                    <Store className="w-4 h-4" />
-                                </button>
-
+                            {/* Vista: Ranking o Mosaico (el mapa va en su panel) */}
+                            <div role="group" aria-label="Vista" className="ml-auto flex-shrink-0 flex bg-[var(--lt-glass)] rounded-xl p-0.5 border border-[var(--lt-border)]">
+                                {([
+                                    { mode: 'list' as const, label: 'Ranking', icon: <ListIcon className="w-3.5 h-3.5" /> },
+                                    { mode: 'gallery' as const, label: 'Mosaico', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
+                                ]).map(({ mode, label, icon }) => (
+                                    <button
+                                        key={mode}
+                                        type="button"
+                                        onClick={() => setViewMode(mode)}
+                                        aria-pressed={viewMode === mode}
+                                        className={`h-11 min-w-[3.25rem] px-1.5 flex flex-col items-center justify-center gap-0.5 rounded-lg transition-colors ${viewMode === mode ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+                                    >
+                                        {icon}
+                                        <span className="text-[10px] font-semibold leading-none">{label}</span>
+                                    </button>
+                                ))}
                             </div>
-
-                            {/* Right: View Toggle */}
-                            <div className="flex-shrink-0 flex bg-black/20 rounded-xl p-0.5 border border-white/5">
-                                <button
-                                    onClick={() => setViewMode('list')}
-                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'list' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
-                                    title="Vista lista"
-                                >
-                                    <ListIcon className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                    onClick={() => setViewMode('gallery')}
-                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${viewMode === 'gallery' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
-                                    title="Vista galería"
-                                >
-                                    <LayoutGrid className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-
                         </div>
                     </div>
                 </div>
@@ -1272,7 +1281,6 @@ export const ListPage: React.FC = () => {
                                     {filteredItems.map((item, idx) => {
                                         const rank = idx + 1;
                                         const score = item.avgRating;
-                                        const scoreColor = score >= 8 ? 'bg-emerald-500' : score >= 6 ? 'bg-amber-500' : 'bg-red-500';
                                         const primaryName = groupingMode === 'dish' ? (item.placeName || item.name) : item.name;
                                         const secondaryName = groupingMode === 'dish' ? item.name : undefined;
                                         const reviewPhoto = (item as any).reviewPhotoUrl;
@@ -1305,14 +1313,14 @@ export const ListPage: React.FC = () => {
                                                 )}
                                                 {/* Gradient overlay */}
                                                 <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-6">
-                                                    <p className="text-[10px] sm:text-xs text-white font-bold line-clamp-1 leading-tight">{primaryName}</p>
+                                                    <p className="text-[10px] sm:text-xs text-[#fff] font-bold line-clamp-1 leading-tight">{primaryName}</p>
                                                     {secondaryName && (
-                                                        <p className="text-[9px] sm:text-[10px] text-gray-400 line-clamp-1 leading-tight mt-0.5">{secondaryName}</p>
+                                                        <p className="text-[9px] sm:text-[10px] text-[#fff]/75 line-clamp-1 leading-tight mt-0.5">{secondaryName}</p>
                                                     )}
                                                 </div>
                                                 {/* Score bubble top-right */}
-                                                <div className={`absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full ${scoreColor} flex items-center justify-center shadow-lg`}>
-                                                    <span className="text-[9px] sm:text-[10px] font-bold text-white">{score.toFixed(1)}</span>
+                                                <div className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center shadow-lg" style={scoreBadgeStyle(score)}>
+                                                    <span className="text-[9px] sm:text-[10px] font-bold">{score.toFixed(1)}</span>
                                                 </div>
                                                 {/* Rank badge top-left for top 3 */}
                                                 {rank <= 3 && (
@@ -1384,7 +1392,7 @@ export const ListPage: React.FC = () => {
                                     onClick={handleOpenAddReview}
                                     className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] font-bold hover:underline"
                                 >
-                                    ¡Añade la primera reseña!
+                                    ¡Añade la primera valoración!
                                 </button>
                             )}
                         </div>
@@ -1435,7 +1443,7 @@ export const ListPage: React.FC = () => {
                 onClose={() => setIsPublicShareModalOpen(false)}
                 title={`Compartir ${list.name}`}
                 url={listShareUrl}
-                text={`Mira esta ${list.parentListId ? 'sublista' : 'lista'} en Listopic: ${list.name}`}
+                text={`Mira esta ${list.parentListId ? 'minilista' : 'lista'} en Listopic: ${list.name}`}
                 shareEntity={{
                     type: list.parentListId ? 'sublist' : 'list',
                     id: list.id,

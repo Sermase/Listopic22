@@ -54,15 +54,13 @@ import { httpsCallable } from "firebase/functions";
 import { db, auth, storage, functions } from "../firebase";
 import { signOut, updateProfile } from "firebase/auth";
 import { ReviewCard } from "../components/ReviewCard";
-import { AddReviewForm } from "../components/AddReviewForm";
-import { ShareModal } from "../components/ShareModal";
+import { LazyAddReviewForm as AddReviewForm, LazyShareModal as ShareModal, LazyMapView as MapView } from "../components/lazy";
 import { Skeleton } from "../components/Skeleton";
 import { FastAverageColor } from "fast-average-color";
 import { ChatService } from "../services/ChatService";
 import { FollowingSection } from "../components/profile/FollowingSection";
 import { ProgressiveImage } from "../components/ProgressiveImage";
 import { BadgeDisplay } from "../components/profile/BadgeDisplay";
-import { MapView } from "../components/MapView";
 import {
   collection,
   collectionGroup,
@@ -94,6 +92,8 @@ import { buildPublicRouteUrl } from "../utils/publicUrl";
 import { getSelectedProfileReviewListId, selectProfileReviewResults } from "../utils/profileReviewFilter";
 import { EntityHero } from "../components/EntityHero";
 import { useAuthPrompt } from "../context/AuthPromptContext";
+import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from "../lib/storageCache";
+import { useToast } from "../context/ToastContext";
 
 interface ListRatingStats {
   listId: string;
@@ -250,6 +250,7 @@ const cleanupPreviousProfileImages = async (userId: string, currentStoragePath: 
 
 export const ProfilePage: React.FC = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const { openAuthPrompt } = useAuthPrompt();
   const { theme: activeTheme, setTheme: applyTheme, themes: availableThemes } = useTheme();
   const appConfig = useAppConfig();
@@ -928,16 +929,22 @@ export const ProfilePage: React.FC = () => {
           return;
         }
 
-        const pageSize = 200;
+        // Las reglas limitan las consultas de reseñas a 100 por página y, en el
+        // perfil de otra persona, solo permiten leer sus reseñas públicas.
+        const pageSize = 100;
         const maxReviews = 3000;
+        const viewingOwnStats = user?.uid === targetUserId;
         const allReviews: Array<Record<string, any>> = [];
         let cursor: any = null;
 
         while (allReviews.length < maxReviews) {
-          const constraints: any[] = [
-            where("userId", "==", targetUserId),
-            orderBy("createdAt", "desc"),
-          ];
+          const constraints: any[] = viewingOwnStats
+            ? [where("userId", "==", targetUserId), orderBy("createdAt", "desc")]
+            : [
+              where("visibility", "==", "public"),
+              where("userId", "==", targetUserId),
+              orderBy("createdAt", "desc"),
+            ];
 
           if (cursor) {
             constraints.push(startAfter(cursor));
@@ -1341,7 +1348,7 @@ export const ProfilePage: React.FC = () => {
     () => [
       {
         id: "stats" as DetailsModalTab,
-        label: "Reseñas",
+        label: "Valoraciones",
         value: displayedReviewsCount,
         accent: "default" as const,
       },
@@ -1522,7 +1529,7 @@ export const ProfilePage: React.FC = () => {
                   {list.name || "Lista"}
                 </div>
                 <div className="text-[11px] text-gray-400 truncate">
-                  {list.itemCount || 0} lugares
+                  {list.itemCount || 0} sitios
                   {list.description ? ` - ${list.description}` : ""}
                 </div>
               </div>
@@ -1584,12 +1591,12 @@ export const ProfilePage: React.FC = () => {
   const processFile = async (file: File) => {
     if (!user) return;
     if (!file.type.startsWith("image/")) {
-      alert("Solo se permiten archivos de imagen");
+      showToast({ variant: "error", message: "Solo se permiten archivos de imagen." });
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
       // 5MB limit
-      alert("La imagen no debe superar los 5MB");
+      showToast({ variant: "error", message: "La imagen no debe superar los 5 MB." });
       return;
     }
 
@@ -1601,11 +1608,11 @@ export const ProfilePage: React.FC = () => {
       let downloadURL = "";
 
       try {
-        await uploadBytes(storageRef, file, { contentType: file.type || "image/jpeg" });
+        await uploadBytes(storageRef, file, { contentType: file.type || "image/jpeg", cacheControl: IMMUTABLE_UPLOAD_CACHE_CONTROL });
         downloadURL = await getDownloadURL(storageRef);
       } catch (error) {
         console.error("Profile photo upload failed:", error);
-        alert(getProfileUploadErrorMessage(error));
+        showToast({ variant: "error", message: getProfileUploadErrorMessage(error) });
         return;
       }
 
@@ -1621,7 +1628,7 @@ export const ProfilePage: React.FC = () => {
         );
       } catch (error) {
         console.error("Profile photo profile save failed:", error);
-        alert(getProfileSaveErrorMessage(error));
+        showToast({ variant: "error", message: getProfileSaveErrorMessage(error) });
         return;
       }
 
@@ -1639,7 +1646,7 @@ export const ProfilePage: React.FC = () => {
       window.location.reload();
     } catch (error) {
       console.error("Error uploading image:", error);
-      alert("No se pudo cambiar la foto de perfil. Inténtalo de nuevo.");
+      showToast({ variant: "error", message: "No se pudo cambiar la foto de perfil. Inténtalo de nuevo." });
     } finally {
       setUploading(false);
       setDragActive(false);
@@ -1799,7 +1806,7 @@ export const ProfilePage: React.FC = () => {
       }
     } catch (error) {
       console.error("Follow error:", error);
-      alert("Error al seguir/dejar de seguir. Inténtalo de nuevo.");
+      showToast({ variant: "error", message: "No se pudo actualizar el seguimiento. Inténtalo de nuevo." });
       setIsFollowing(prevState); // Revert
     } finally {
       setFollowLoading(false);
@@ -2703,8 +2710,8 @@ export const ProfilePage: React.FC = () => {
                     {[
                       { key: "new_message", label: "Mensajes nuevos" },
                       { key: "new_follower", label: "Nuevos seguidores" },
-                      { key: "review_comment", label: "Comentarios en tus reseñas" },
-                      { key: "review_like", label: "Likes en tus reseñas" },
+                      { key: "review_comment", label: "Comentarios en tus valoraciones" },
+                      { key: "review_like", label: "Likes en tus valoraciones" },
                       { key: "list_follow", label: "Alguien sigue una lista tuya" },
                       { key: "level_up", label: "Subidas de nivel" },
                       { key: "badge_earned", label: "Medallas desbloqueadas" },
@@ -2861,8 +2868,8 @@ export const ProfilePage: React.FC = () => {
 
                     {/* Reseñas */}
                     <div>
-                      <label className="text-gray-400 text-xs uppercase font-bold block mb-1">¿Mantener tus reseñas de forma anónima?</label>
-                      <p className="text-gray-500 text-xs mb-2">Si dices que sí, tus reseñas quedarán en la app sin asociarse a ningún usuario.</p>
+                      <label className="text-gray-400 text-xs uppercase font-bold block mb-1">¿Mantener tus valoraciones de forma anónima?</label>
+                      <p className="text-gray-500 text-xs mb-2">Si dices que sí, tus valoraciones quedarán en la app sin asociarse a ningún usuario.</p>
                       <div className="flex gap-2">
                         {([true, false] as const).map((val) => (
                           <button
@@ -2882,8 +2889,8 @@ export const ProfilePage: React.FC = () => {
 
                     {/* Sublistas */}
                     <div>
-                      <label className="text-gray-400 text-xs uppercase font-bold block mb-1">¿Mantener tus sublistas?</label>
-                      <p className="text-gray-500 text-xs mb-2">Si dices que sí, tus sublistas quedarán en la app sin autor.</p>
+                      <label className="text-gray-400 text-xs uppercase font-bold block mb-1">¿Mantener tus minilistas?</label>
+                      <p className="text-gray-500 text-xs mb-2">Si dices que sí, tus minilistas quedarán en la app sin autor.</p>
                       <div className="flex gap-2">
                         {([true, false] as const).map((val) => (
                           <button
@@ -3097,7 +3104,7 @@ export const ProfilePage: React.FC = () => {
             )
           ) : sortedProfileReviews.length === 0 ? (
             <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-xl">
-              <p className="text-gray-500">No hay reseñas recientes.</p>
+              <p className="text-gray-500">No hay valoraciones recientes.</p>
             </div>
           ) : (
             <>
@@ -3183,7 +3190,7 @@ export const ProfilePage: React.FC = () => {
                   onClick={() => setDetailsModalTab("stats")}
                   className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "stats" ? "border-[var(--lt-accent-border)] text-[var(--lt-accent)]" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
-                  <BarChart3 className="w-4 h-4" /> Reseñas
+                  <BarChart3 className="w-4 h-4" /> Valoraciones
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("followers")}
@@ -3323,7 +3330,7 @@ export const ProfilePage: React.FC = () => {
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                       <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
                         <div className="text-[11px] uppercase tracking-wide text-gray-400">
-                          Reseñas que cuentan
+                          Valoraciones que cuentan
                         </div>
                         <div className="mt-2 text-3xl font-black text-white">
                           {gamificationMetrics.reviewsCount}
@@ -3331,7 +3338,7 @@ export const ProfilePage: React.FC = () => {
                       </div>
                       <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
                         <div className="text-[11px] uppercase tracking-wide text-gray-400">
-                          Reseñas con foto
+                          Valoraciones con foto
                         </div>
                         <div className="mt-2 text-3xl font-black text-white">
                           {gamificationMetrics.photosCount}
@@ -3339,7 +3346,7 @@ export const ProfilePage: React.FC = () => {
                       </div>
                       <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
                         <div className="text-[11px] uppercase tracking-wide text-gray-400">
-                          Lugares valorados
+                          Sitios valorados
                         </div>
                         <div className="mt-2 text-3xl font-black text-white">
                           {gamificationMetrics.placeCount}
@@ -3402,7 +3409,7 @@ export const ProfilePage: React.FC = () => {
                               : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
                               }`}
                           >
-                            Sublistas seguidas ({subFollowedLists.length})
+                            Minilistas seguidas ({subFollowedLists.length})
                           </button>
                           <button
                             type="button"
@@ -3412,7 +3419,7 @@ export const ProfilePage: React.FC = () => {
                               : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
                               }`}
                           >
-                            Sublistas creadas ({subCreatedLists.length})
+                            Minilistas creadas ({subCreatedLists.length})
                           </button>
                         </div>
 
@@ -3426,14 +3433,14 @@ export const ProfilePage: React.FC = () => {
                         {listSubTab === "followed_sublists" &&
                           renderMinimalListRows(
                             subFollowedLists,
-                            "No sigues sublistas.",
+                            "No sigues minilistas.",
                             true,
                           )}
 
                         {listSubTab === "created_sublists" &&
                           renderMinimalListRows(
                             subCreatedLists,
-                            "No has creado sublistas todavía.",
+                            "No has creado minilistas todavía.",
                             true,
                           )}
                       </div>
@@ -3483,9 +3490,9 @@ export const ProfilePage: React.FC = () => {
           imageUrls: profile.photoUrl ? [profile.photoUrl] : [],
           profileStats: [
             { key: "level", label: "Nivel", value: levelInfo.level },
-            { key: "reviews", label: "Reseñas", value: gamificationMetrics.reviewsCount },
+            { key: "reviews", label: "Valoraciones", value: gamificationMetrics.reviewsCount },
             { key: "photos", label: "Fotos", value: gamificationMetrics.photosCount },
-            { key: "places", label: "Lugares", value: gamificationMetrics.placeCount },
+            { key: "places", label: "Sitios", value: gamificationMetrics.placeCount },
             { key: "lists", label: "Listas", value: profileListsCount },
             { key: "followers", label: "Seguidores", value: profile.followersCount || 0 },
           ],

@@ -48,7 +48,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                 const lng = location?.longitude;
 
                 if (lat && lng) {
-                    setStatusMessage("Buscando lugares cercanos...");
+                    setStatusMessage("Buscando sitios cercanos...");
                     const data = await PlaceService.searchNearby(lat, lng);
 
                     // Sort by distance
@@ -60,7 +60,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
 
                     setResults(data);
                     setIsOpen(true);
-                    if (data.length === 0) setStatusMessage("No se encontraron lugares cercanos.");
+                    if (data.length === 0) setStatusMessage("No se encontraron sitios cercanos.");
                     else setStatusMessage(null);
                 } else {
                     // Force refresh if hook didn't catch it yet
@@ -77,7 +77,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                         setResults(data);
                         setIsOpen(true);
                         setLoading(false);
-                        if (data.length === 0) setStatusMessage("No se encontraron lugares cercanos.");
+                        if (data.length === 0) setStatusMessage("No se encontraron sitios cercanos.");
                         else setStatusMessage(null);
                     }, (err) => {
                         console.warn("Geo error", err);
@@ -193,6 +193,8 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                     <div className="absolute right-3 top-3.5 flex items-center gap-2">
                         {query ? (
                             <button
+                                type="button"
+                                aria-label="Borrar búsqueda"
                                 onClick={() => { setQuery(''); setResults([]); setStatusMessage(null); }}
                                 className="text-gray-500 hover:text-white"
                             >
@@ -257,9 +259,9 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                         </div>
                     ))}
                     <div className="p-2 bg-[var(--lt-bg)]/50 text-center flex justify-between items-center text-[10px] text-gray-500 px-4">
-                        <span>OpenStreetMap Data</span>
+                        <span>Resultados de Google</span>
                         {onManualToggle && (
-                            <button onClick={onManualToggle} className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] underline">
+                            <button type="button" onClick={onManualToggle} className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] underline">
                                 ¿No lo encuentras? Añadir manual
                             </button>
                         )}

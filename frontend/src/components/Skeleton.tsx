@@ -10,7 +10,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
     variant = 'rounded',
     ...props
 }) => {
-    let baseClass = 'bg-[#1c2438] animate-pulse';
+    let baseClass = 'lt-skeleton';
 
     switch (variant) {
         case 'text':

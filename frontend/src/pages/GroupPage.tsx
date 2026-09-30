@@ -10,9 +10,8 @@ import { NonPonderableGauge } from '../components/NonPonderableGauge';
 import { ReportModal } from '../components/ReportModal';
 import { ReviewCard } from '../components/ReviewCard';
 import { ReviewCardList } from '../components/ReviewCardList';
-import { AddReviewForm } from '../components/AddReviewForm';
+import { LazyAddReviewForm as AddReviewForm, LazyShareModal as ShareModal } from '../components/lazy';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
-import { ShareModal } from '../components/ShareModal';
 import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import { type ReviewEntity } from '../hooks/useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
@@ -20,13 +19,7 @@ import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
 import { useAuthPrompt } from '../context/AuthPromptContext';
 
-// Helper for Criteria Colors
-const getScoreColor = (score: number) => {
-    if (score >= 9) return 'from-emerald-400 to-emerald-600';
-    if (score >= 7) return 'from-indigo-400 to-indigo-600';
-    if (score >= 5) return 'from-yellow-400 to-yellow-600';
-    return 'from-red-400 to-red-600';
-};
+import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
 
 
 const toMillis = (value: any): number => {
@@ -115,7 +108,6 @@ export const GroupPage: React.FC = () => {
         if (!placeId || !decodedName) return;
         setLoading(true);
         try {
-            console.log("Fetching Group Data for:", { placeId, decodedName });
 
             // 1. Fetch Place Details First to get authoritative Name
             const pSnap = await getDoc(doc(db, 'places', placeId));
@@ -175,7 +167,6 @@ export const GroupPage: React.FC = () => {
             }
 
             const allPlaceReviews = Array.from(reviewMap.values());
-            console.log("Group query candidate reviews:", allPlaceReviews.length);
 
             // Robust normalization for filtering
             const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -193,7 +184,6 @@ export const GroupPage: React.FC = () => {
                 })
                 .sort((a: any, b: any) => toMillis(b.createdAt) - toMillis(a.createdAt));
 
-            console.log("Group query filtered matches:", feats.length);
 
             // --- Enrichment: Users & Lists (FIX for missing names) ---
             const userIds = [...new Set(feats.map(r => r.userId || r.authorId).filter(Boolean))] as string[];
@@ -374,7 +364,7 @@ export const GroupPage: React.FC = () => {
 
     const openAddReviewFlow = () => {
         if (!user) {
-            openAuthPrompt('añadir una reseña');
+            openAuthPrompt('añadir una valoración');
             return;
         }
         setSelectedListId(lockedListId);
@@ -474,7 +464,14 @@ export const GroupPage: React.FC = () => {
                         || review.ownerId === user.uid;
                 };
 
-                const nestedSnap = await getDocs(collection(db, 'lists', primaryId, 'reviews')).catch(() => null);
+                // Solo reseñas públicas y con límite: leer la subcolección entera no
+                // escala y, si la lista contiene alguna privada, las reglas deniegan
+                // la consulta completa a quien no es el dueño.
+                const nestedSnap = await getDocs(query(
+                    collection(db, 'lists', primaryId, 'reviews'),
+                    where('visibility', '==', 'public'),
+                    limit(300),
+                )).catch(() => null);
 
                 const reviewMap = new Map<string, ReviewEntity>();
                 const append = (snap: any) => {
@@ -586,7 +583,7 @@ export const GroupPage: React.FC = () => {
 
                         {/* Title & Place Info */}
                         <div className="lt-entity-hero-title flex-1">
-                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 leading-tight line-clamp-2">{decodedName}</h1>
+                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-[var(--lt-hero-title)] mb-2 leading-tight line-clamp-2">{decodedName}</h1>
                             {placeClosedStatus && (
                                 <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold mb-2 border ${placeClosedStatus === 'permanently_closed'
                                     ? 'bg-red-500/20 border-red-500/40 text-red-300'
@@ -627,7 +624,7 @@ export const GroupPage: React.FC = () => {
                                         className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all ml-2"
                                     >
                                         <Plus className="w-4 h-4" />
-                                        <span>Añadir Reseña</span>
+                                        <span>Valorar</span>
                                     </button>
                                 </div>
 
@@ -635,7 +632,7 @@ export const GroupPage: React.FC = () => {
                                 {stats.tags && stats.tags.length > 0 && (
                                     <div className="flex flex-wrap items-center gap-2 mt-2 md:justify-end">
                                         {stats.tags.map(tag => (
-                                            <span key={tag} className="px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 text-white/90 text-xs font-medium backdrop-blur-md">
+                                            <span key={tag} className="px-2.5 py-0.5 rounded-full bg-[var(--lt-glass)] border border-[var(--lt-border-strong)] text-[var(--lt-text)] text-xs font-medium backdrop-blur-md">
                                                 #{tag}
                                             </span>
                                         ))}
@@ -694,14 +691,14 @@ export const GroupPage: React.FC = () => {
                                                 <span className="text-gray-400 text-xs font-medium">{c.label}</span>
                                                 <div className="flex items-center gap-2">
                                                     {listAvg && (
-                                                        <span className="text-[10px] text-gray-500 font-mono" title={`Media de la lista: ${listAvg.toFixed(1)}`}>
-                                                            (L: {listAvg.toFixed(1)})
+                                                        <span className="text-[10px] text-[var(--lt-text-muted)]" title="Media de este criterio en toda la lista">
+                                                            media lista {listAvg.toFixed(1)}
                                                         </span>
                                                     )}
-                                                    <span className="text-emerald-400 font-bold font-mono text-sm">{c.avg.toFixed(1)}</span>
+                                                    <span className="font-bold font-mono text-sm" style={{ color: scoreTextColor(c.avg) }}>{c.avg.toFixed(1)}</span>
                                                 </div>
                                             </div>
-                                            <div className="h-2 bg-gray-800 rounded-full overflow-hidden relative">
+                                            <div className="h-2 bg-[var(--lt-border)] rounded-full overflow-hidden relative">
                                                 {/* List Avg Marker */}
                                                 {listAvg && (
                                                     <div
@@ -710,8 +707,8 @@ export const GroupPage: React.FC = () => {
                                                     />
                                                 )}
                                                 <div
-                                                    className={`h-full rounded-full bg-gradient-to-r ${getScoreColor(c.avg)}`}
-                                                    style={{ width: `${c.avg * 10}%` }}
+                                                    className="h-full rounded-full"
+                                                    style={{ width: `${c.avg * 10}%`, backgroundColor: scoreBadge(c.avg).bg }}
                                                 />
                                             </div>
                                         </div>
@@ -795,7 +792,7 @@ export const GroupPage: React.FC = () => {
                                 : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
                                 }`}
                         >
-                            <MessageSquare className="w-4 h-4" /> Opiniones ({reviews.length})
+                            <MessageSquare className="w-4 h-4" /> Valoraciones ({reviews.length})
                         </button>
                         {stats && stats.photos.length > 0 && (
                             <button
@@ -904,10 +901,10 @@ export const GroupPage: React.FC = () => {
                                                     <button
                                                         onClick={() => setExpandedReviewId(null)}
                                                         className="self-center mb-3 flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-gray-200 hover:text-white text-sm font-semibold rounded-full transition-all border border-[var(--lt-accent-border)] shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]"
-                                                        aria-label="Plegar reseña"
+                                                        aria-label="Plegar valoración"
                                                     >
                                                         <ChevronUp className="w-4 h-4" />
-                                                        <span>Cerrar reseña</span>
+                                                        <span>Cerrar valoración</span>
                                                     </button>
                                                     <ReviewCard review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} placeClosedStatus={placeClosedStatus || undefined} />
                                                 </div>
@@ -975,12 +972,12 @@ export const GroupPage: React.FC = () => {
                             <div className="p-8 bg-[var(--lt-card-strong)] rounded-xl border border-white/10 text-center animate-fade-in">
                                 <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                                 <h3 className="text-lg font-bold text-white mb-2">Sé el primero en opinar</h3>
-                                <p className="text-gray-400 mb-6 text-sm">Nadie ha escrito una reseña detallada sobre este plato aún.</p>
+                                <p className="text-gray-400 mb-6 text-sm">Nadie ha escrito una valoración detallada sobre este plato aún.</p>
                                 <button
                                     onClick={openAddReviewFlow}
                                     className="px-6 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white rounded-full font-bold transition-all shadow-lg shadow-[var(--lt-accent-shadow)]"
                                 >
-                                    Añadir Reseña
+                                    Valorar
                                 </button>
                             </div>
                         )}

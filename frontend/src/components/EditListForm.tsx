@@ -21,6 +21,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Save, Loader, X, Smile } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
+import { orderedCriteriaEntries } from '../lib/criteria';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -31,6 +34,7 @@ type CriteriaDefinitionValue = {
     labelMax?: string;
     ponderable?: boolean;
     step?: number;
+    order?: number;
 };
 
 type CriteriaDefinitionMap = Record<string, CriteriaDefinitionValue>;
@@ -61,6 +65,8 @@ interface EditListFormProps {
 
 export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, onCancel, onDeleted, formId, onSavingChange }) => {
     const { user } = useAuth();
+    const { showToast } = useToast();
+    const confirm = useConfirm();
     const queryClient = useQueryClient();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
 
@@ -98,7 +104,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 const docSnap = await getDoc(docRef);
 
                 if (!docSnap.exists()) {
-                    alert('Lista no encontrada');
+                    showToast({ variant: 'error', message: 'Lista no encontrada.' });
                     onCancel();
                     return;
                 }
@@ -108,7 +114,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 // Permission check: jefe can edit any list; for sublists owner can edit
                 const isOwner = user && data.userId === user.uid;
                 if (!isJefe && !isOwner) {
-                    alert('No tienes permiso para editar esta lista');
+                    showToast({ variant: 'error', message: 'No tienes permiso para editar esta lista.' });
                     onCancel();
                     return;
                 }
@@ -136,7 +142,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
                 if (data.criteriaDefinition) {
                     const loadedCriteria: Criterion[] = [];
-                    Object.entries(data.criteriaDefinition).forEach(([key, val]) => {
+                    orderedCriteriaEntries(data.criteriaDefinition).forEach(([key, val]) => {
                         if (val.type === 'slider') {
                             loadedCriteria.push({
                                 id: key,
@@ -157,7 +163,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             }
         };
         fetchList();
-    }, [listId, loadingProfile, isJefe, onCancel, user]);
+    }, [listId, loadingProfile, isJefe, onCancel, user, showToast]);
 
     const addTag = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && tagInput.trim()) {
@@ -233,8 +239,9 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             const newVisibility = isPublic ? 'public' : 'private';
 
             const criteriaDefinitionMap: CriteriaDefinitionMap = {};
-            criteria.forEach(c => {
+            criteria.forEach((c, index) => {
                 criteriaDefinitionMap[c.id] = {
+                    order: index,
                     type: 'slider',
                     label: c.label,
                     min: 0,
@@ -332,7 +339,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             onSuccess();
         } catch (error) {
             console.error('Error updating list:', error);
-            alert('Error al guardar cambios');
+            showToast({ variant: 'error', title: 'No se guardaron los cambios', message: 'Revisa tu conexión e inténtalo otra vez.' });
         } finally {
             setSaving(false);
             onSavingChange?.(false);
@@ -340,7 +347,13 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     };
 
     const handleDelete = async () => {
-        if (!window.confirm('¿Eliminar esta lista permanentemente? Esta acción no se puede deshacer.')) return;
+        const confirmed = await confirm({
+            title: '¿Eliminar esta lista?',
+            message: 'Se elimina de forma permanente. Esta acción no se puede deshacer.',
+            confirmLabel: 'Eliminar',
+            destructive: true,
+        });
+        if (!confirmed) return;
         setSaving(true);
         try {
             await deleteDoc(doc(db, 'lists', listId));
@@ -349,7 +362,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             (onDeleted || onSuccess)();
         } catch (error) {
             console.error('Error deleting list:', error);
-            alert('Error al eliminar la lista');
+            showToast({ variant: 'error', message: 'No se pudo eliminar la lista.' });
             setSaving(false);
         }
     };
@@ -411,7 +424,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                                 className="w-4 h-4 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] border-gray-600" />
                             <div>
                                 <span className="block text-sm font-medium text-white">Solo Lectura</span>
-                                <span className="block text-xs text-gray-500">Los visitantes pueden ver pero solo editores añaden reseñas.</span>
+                                <span className="block text-xs text-gray-500">Los visitantes pueden ver pero solo editores añaden valoraciones.</span>
                             </div>
                         </label>
                         <label className="flex items-center gap-3 cursor-pointer">
@@ -419,7 +432,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                                 className="w-4 h-4 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] border-gray-600" />
                             <div>
                                 <span className="block text-sm font-medium text-white">Colaborativa (Escritura)</span>
-                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir reseñas.</span>
+                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir valoraciones.</span>
                             </div>
                         </label>
                     </div>
@@ -434,7 +447,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
                 <div>
                     <h3 className="text-lg font-bold text-white mb-2">Etiquetas</h3>
-                    <p className="text-sm text-gray-400 mb-3">Define qué etiquetas estarán disponibles para clasificar las reseñas.</p>
+                    <p className="text-sm text-gray-400 mb-3">Define qué etiquetas estarán disponibles para clasificar las valoraciones.</p>
                     <div className="flex flex-wrap gap-2 mb-3">
                         {customTags.map(tag => {
                             const isLocked = inheritedTags.includes(tag);

@@ -62,10 +62,13 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
     )}
 
     {children && (
-      <div className={cn(
-        'absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-transparent px-4 pb-12 pt-24 sm:px-8 sm:pb-14',
-        contentClassName,
-      )}>
+      <div
+        className={cn('absolute inset-x-0 bottom-0 z-20 px-4 pb-12 pt-24 sm:px-8 sm:pb-14', contentClassName)}
+        // Degradado en línea (no con bg-gradient-to-*): en el tema claro hay reglas
+        // que fuerzan texto blanco dentro de cualquier bg-gradient-to-* y aquí el
+        // fondo acaba siendo claro.
+        style={{ background: 'linear-gradient(to top, var(--lt-bg) 0%, color-mix(in srgb, var(--lt-bg) 60%, transparent) 50%, transparent 100%)' }}
+      >
         <div className="relative z-30 mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-end md:justify-between">
           {children}
         </div>

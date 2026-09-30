@@ -108,34 +108,17 @@ const adminRecalculateAllLists = onCall({ timeoutSeconds: 540, memory: '1GiB' },
   const listsSnap = await db.collection('lists').get();
   const results = { total: listsSnap.size, success: 0, failed: 0, errors: [] };
 
+  // Mismo cálculo que el trigger (lib/list-metrics): sabe leer las valoraciones
+  // de una Minilista en su madre y no deja sus contadores a 0.
   for (const doc of listsSnap.docs) {
     try {
-      const listId = doc.id;
-      const reviewsSnap = await db.collection('lists').doc(listId).collection('reviews').get();
-      const reviews = reviewsSnap.docs.map(r => r.data());
-
-      let totalScore = 0;
-      let count = 0;
-      reviews.forEach(r => {
-        if (typeof r.overallRating === 'number') {
-          totalScore += r.overallRating;
-          count++;
-        }
-      });
-      const avgScore = count > 0 ? parseFloat((totalScore / count).toFixed(1)) : 0;
-
-      const uniqueItems = new Set();
-      reviews.forEach(r => {
-        const key = r.placeId ? `${r.placeId}_${r.itemName || ''}` : r.id;
-        uniqueItems.add(key);
-      });
-
-      await db.collection('lists').doc(listId).update({
-        avgScore,
-        reviewCount: count,
-        itemCount: uniqueItems.size
-      });
-
+      const metrics = await recalculateListReviewMetrics(doc.id);
+      if (metrics) {
+        // Campo antiguo que todavía lee ListCard.
+        await doc.ref.update({
+          avgScore: typeof metrics.averageRating === 'number' ? Number(metrics.averageRating.toFixed(1)) : 0
+        });
+      }
       results.success++;
     } catch (error) {
       results.failed++;

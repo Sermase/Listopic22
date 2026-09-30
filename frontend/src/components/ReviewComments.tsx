@@ -6,6 +6,8 @@ import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Send, Trash2 } from 'lucide-react';
 import { useAuthPrompt } from '../context/AuthPromptContext';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 interface Comment {
     id: string;
@@ -26,6 +28,8 @@ interface ReviewCommentsProps {
 
 export const ReviewComments: React.FC<ReviewCommentsProps> = ({ listId, reviewId, placeId, onClose, onCommentChange }) => {
     const { user } = useAuth();
+    const { showToast } = useToast();
+    const confirm = useConfirm();
     const { openAuthPrompt } = useAuthPrompt();
     const [comments, setComments] = useState<Comment[]>([]);
     const [newComment, setNewComment] = useState('');
@@ -84,12 +88,14 @@ export const ReviewComments: React.FC<ReviewCommentsProps> = ({ listId, reviewId
     };
 
     const handleDelete = async (commentId: string) => {
-        if (!confirm("¿Borrar comentario?") || !listId || !reviewId) return;
+        if (!listId || !reviewId) return;
+        if (!await confirm({ title: '¿Borrar el comentario?', confirmLabel: 'Borrar', destructive: true })) return;
         try {
             await deleteDoc(doc(db, 'lists', listId, 'reviews', reviewId, 'comments', commentId));
             if (onCommentChange) onCommentChange(-1);
         } catch (error) {
             console.error(error);
+            showToast({ variant: 'error', message: 'No se pudo borrar el comentario.' });
         }
     };
 
@@ -162,7 +168,7 @@ export const ReviewComments: React.FC<ReviewCommentsProps> = ({ listId, reviewId
             ) : (
                 <button
                     type="button"
-                    onClick={() => openAuthPrompt('comentar esta reseña')}
+                    onClick={() => openAuthPrompt('comentar esta valoración')}
                     className="w-full rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-4 py-2 text-sm font-bold text-[var(--lt-accent)] transition-colors hover:bg-[var(--lt-accent)]/20"
                 >
                     Inicia sesión para comentar

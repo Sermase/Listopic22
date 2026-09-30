@@ -9,7 +9,7 @@ import { doc, setDoc, deleteDoc, getDoc, collection, onSnapshot, query, where, g
 import { Link, useNavigate } from 'react-router-dom';
 import { type ReviewEntity } from '../hooks/useListDetails';
 import { useAuth } from '../context/AuthContext';
-import { ShareModal } from './ShareModal';
+import { LazyShareModal as ShareModal } from './lazy';
 import { SaveToArchiveModal } from './SaveToArchiveModal';
 import { ReviewService } from '../services/ReviewService';
 import { ReportModal } from './ReportModal';
@@ -21,6 +21,10 @@ import { buildShareCriteriaGroups } from '../utils/shareCriteria';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { CategoryService } from '../services/CategoryService';
 import { useAuthPrompt } from '../context/AuthPromptContext';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
+import { compareCriteria } from '../lib/criteria';
+import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
 
 interface ReviewCardProps {
     review: ReviewEntity;
@@ -32,6 +36,8 @@ interface ReviewCardProps {
 
 
 export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp }) => {
+    const { showToast } = useToast();
+    const confirm = useConfirm();
     const placeClosedStatus = placeClosedStatusProp || (review as any).placeClosedStatus || undefined;
     const { user } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
@@ -91,13 +97,6 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const likeText = resolvedReactionConfig?.like || "¡Me gusta!";
     const dislikeText = resolvedReactionConfig?.dislike || "No me gusta";
 
-    // ... (Score Logic Omitted for Brevity - keeping existing) ...
-    const getScoreColor = (score: number) => {
-        if (score >= 9) return 'from-emerald-400 to-teal-500 shadow-emerald-500/50';
-        if (score >= 7) return 'from-indigo-400 to-blue-500 shadow-[var(--lt-accent-shadow)]';
-        if (score >= 5) return 'from-yellow-400 to-amber-500 shadow-amber-500/50';
-        return 'from-red-400 to-rose-500 shadow-red-500/50';
-    };
 
     // Extract Criteria for Visualization
     const { ponderable, nonPonderable } = React.useMemo(() => {
@@ -129,7 +128,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
             orderedKeys.push(
                 ...Object.keys(defAny)
                     .filter((key) => scoreKeySet.has(key))
-                    .sort((a, b) => collator.compare(getLabel(a), getLabel(b)))
+                    .sort((a, b) => compareCriteria(a, defAny[a], b, defAny[b]))
             );
         }
 
@@ -190,7 +189,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const handleLike = async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('indicar que te gusta esta reseña');
+            openAuthPrompt('indicar que te gusta esta valoración');
             return;
         }
         if (!review.id || !review.listId) return;
@@ -223,7 +222,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const handleSaveClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('guardar esta reseña');
+            openAuthPrompt('guardar esta valoración');
             return;
         }
         setIsSaveModalOpen(true);
@@ -236,13 +235,14 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
     const handleDelete = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (window.confirm("¿Eliminar reseña?")) {
+        if (await confirm({ title: '¿Eliminar esta valoración?', message: 'No se puede deshacer.', confirmLabel: 'Eliminar', destructive: true })) {
             setIsDeleting(true);
             try {
                 await ReviewService.deleteReview(review.listId, review.id, queryClient);
                 if (onDelete) onDelete(review.id);
             } catch (error) {
                 console.error(error);
+                showToast({ variant: 'error', message: 'No se pudo eliminar la valoración.' });
                 setIsDeleting(false);
             }
         }
@@ -251,7 +251,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const handleReportClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('reportar esta reseña');
+            openAuthPrompt('reportar esta valoración');
             return;
         }
         setShowReportModal(true);
@@ -395,21 +395,19 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             {ponderable.length > 0 && (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
                                     {ponderable.map((crit, idx) => {
-                                        const barColor = `bg-gradient-to-r ${getScoreColor(crit.score).split(' ')[0]} ${getScoreColor(crit.score).split(' ')[1]}`;
-                                        const scoreColor = crit.score >= 8 ? 'text-emerald-400' : crit.score >= 5 ? 'text-[var(--lt-accent)]' : 'text-rose-400';
 
                                         return (
                                             <div key={idx} className="flex flex-col">
                                                 <div className="flex justify-between items-end text-xs mb-1">
                                                     <span className="text-gray-400 font-medium truncate opacity-90">{crit.label}</span>
-                                                    <span className={`font-mono font-bold ${scoreColor}`}>
+                                                    <span className="font-mono font-bold" style={{ color: scoreTextColor(crit.score) }}>
                                                         {crit.score.toFixed(1)}
                                                     </span>
                                                 </div>
-                                                <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                                                <div className="h-1.5 bg-[var(--lt-border)] rounded-full overflow-hidden">
                                                     <div
-                                                        className={`h-full rounded-full ${barColor}`}
-                                                        style={{ width: `${crit.score * 10}%` }}
+                                                        className="h-full rounded-full"
+                                                        style={{ width: `${crit.score * 10}%`, backgroundColor: scoreBadge(crit.score).bg }}
                                                     />
                                                 </div>
                                             </div>
@@ -484,14 +482,14 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
                     <div className="flex items-center gap-3">
                         <button
-                            aria-label="Guardar en archivo"
+                            aria-label="Guardar en una colección"
                             className="text-gray-500 hover:text-[var(--lt-accent)] transition-colors p-1"
                             onClick={handleSaveClick}
                         >
                             <Bookmark className="w-5 h-5 stroke-[1.5]" />
                         </button>
                         <button
-                            aria-label="Compartir reseña"
+                            aria-label="Compartir valoración"
                             className="text-gray-500 hover:text-white transition-colors p-1"
                             onClick={handleShareClick}
                         >
@@ -529,16 +527,16 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
             <ShareModal
                 isOpen={isShareOpen}
                 onClose={() => setIsShareOpen(false)}
-                title={`Compartir Reseña`}
+                title={`Compartir valoración`}
                 url={reviewShareUrl}
-                text={`¡Mira esta reseña de ${review.itemName} en ${review.placeName}!`}
+                text={`¡Mira esta valoración de ${review.itemName} en ${review.placeName}!`}
                 review={review}
                 shareEntity={(() => {
                     const shareCriteria = buildShareCriteriaGroups(review.scores, review.criteriaDefinition);
                     return {
                     type: 'review',
                     id: review.id,
-                    title: review.itemName || 'Reseña',
+                    title: review.itemName || 'Valoración',
                     subtitle: review.placeName || 'Lugar',
                     description: review.comment,
                     route: review.placeId && review.itemName ? reviewRoute : undefined,
@@ -562,7 +560,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 isOpen={showReportModal}
                 onClose={() => setShowReportModal(false)}
                 targetId={review.id || ''}
-                targetName={review.itemName || 'Reseña'}
+                targetName={review.itemName || 'Valoración'}
                 itemName={review.placeName}
                 targetType="review"
                 targetOwnerId={review.userId || review.authorId}

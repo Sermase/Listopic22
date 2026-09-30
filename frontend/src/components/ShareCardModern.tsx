@@ -6,6 +6,7 @@ import { Check, Download, Share2, X } from 'lucide-react';
 import { getShareEntityLabel, type ShareCriteriaStat, type ShareEntityPayload, type ShareProfileStat } from '../types/share';
 import { buildShareText } from '../utils/shareTexts';
 import { buildShareRouteUrl } from '../utils/publicUrl';
+import { SCORE_TEXT_ON_DARK, scoreBand } from '../lib/scoreScale';
 
 export type ModernCardVariant = 'story' | 'portrait' | 'square' | 'landscape';
 
@@ -26,13 +27,8 @@ const DIMENSIONS: Record<ModernCardVariant, { width: number; height: number }> =
 const FONT = "'Manrope', 'Poppins', system-ui, -apple-system, sans-serif";
 const BRAND_LOGO_URL = '/images/listopic-app-icon.png';
 
-const scoreColor = (score?: number): string => {
-    if (!Number.isFinite(score as number)) return '#94a3b8';
-    if ((score as number) >= 9) return '#34d399';
-    if ((score as number) >= 7) return '#84cc16';
-    if ((score as number) >= 5) return '#facc15';
-    return '#fb7185';
-};
+// Escala única de notas (lib/scoreScale), variante para fondo oscuro.
+const scoreColor = (score?: number): string => SCORE_TEXT_ON_DARK[scoreBand(score)];
 
 const loadImage = async (url?: string): Promise<HTMLImageElement | null> => {
     if (!url) return null;
@@ -520,7 +516,7 @@ const drawVerticalContent = (
     }
 
     const metaParts = [
-        entity.reviewCount ? `${entity.reviewCount} reseña${entity.reviewCount === 1 ? '' : 's'}` : '',
+        entity.reviewCount ? `${entity.reviewCount} ${entity.reviewCount === 1 ? 'valoración' : 'valoraciones'}` : '',
         entity.city || '',
     ].filter(Boolean);
     if (metaParts.length) {

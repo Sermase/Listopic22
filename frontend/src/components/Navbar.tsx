@@ -290,7 +290,7 @@ export const Navbar: React.FC = () => {
                     <nav className="lt-nav-pill hidden md:flex items-center bg-white/5 backdrop-blur-xl rounded-full px-2 py-1.5 border border-white/5 shadow-inner">
                         <NavItem to="/search" icon={Search} label="Buscar" isActive={location.pathname === '/search'} />
                         <div className="w-px h-4 bg-white/10 mx-1" />
-                        <NavItem to="/archive" icon={Archive} label="Archivo" isActive={location.pathname === '/archive'} onClick={guardProtectedLink('ver tu archivo')} />
+                        <NavItem to="/archive" icon={Archive} label="Colecciones" isActive={location.pathname === '/archive'} onClick={guardProtectedLink('ver tus colecciones')} />
                         {user && managedBusinessCount > 0 && (
                             <NavItem to="/businesses" icon={Building2} label="Negocios" isActive={location.pathname === '/businesses'} />
                         )}
@@ -298,9 +298,9 @@ export const Navbar: React.FC = () => {
                     </nav>
 
                     <div className="hidden md:flex items-center gap-4">
-                        <Link to="/create-sublist" onClick={guardProtectedLink('crear una sublista')} className="btn-primary">
+                        <Link to="/create-sublist" onClick={guardProtectedLink('crear una minilista')} className="btn-primary">
                             <Plus className="w-4 h-4" />
-                            <span>Crear Sublista</span>
+                            <span>Crear Minilista</span>
                         </Link>
 
                         {isJefe && isTrackableAnalyticsPath(location.pathname) && (
@@ -433,11 +433,11 @@ export const Navbar: React.FC = () => {
                         )}
 
                         <div className="grid grid-cols-1 gap-3">
-                            <Link to="/create-sublist" onClick={guardProtectedLink('crear una sublista')} className={mobileCreateButtonClass} style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' }}>
-                                <Plus className="w-6 h-6" /> Crear Sublista
+                            <Link to="/create-sublist" onClick={guardProtectedLink('crear una minilista')} className={mobileCreateButtonClass} style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' }}>
+                                <Plus className="w-6 h-6" /> Crear Minilista
                             </Link>
-                            <Link to="/create-review" onClick={guardProtectedLink('crear una reseña')} className={mobileCreateButtonClass} style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' }}>
-                                <Plus className="w-6 h-6" /> Crear Reseña
+                            <Link to="/create-review" onClick={guardProtectedLink('crear una valoración')} className={mobileCreateButtonClass} style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' }}>
+                                <Plus className="w-6 h-6" /> Nueva valoración
                             </Link>
                         </div>
 
@@ -490,8 +490,8 @@ export const Navbar: React.FC = () => {
                                     <Eye className="w-5 h-5" /> Ojo mágico · Estadísticas
                                 </button>
                             )}
-                            <Link to="/archive" onClick={guardProtectedLink('ver tu archivo')} className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
-                                <Archive className="w-5 h-5 text-[var(--lt-accent)]" /> Archivo
+                            <Link to="/archive" onClick={guardProtectedLink('ver tus colecciones')} className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
+                                <Archive className="w-5 h-5 text-[var(--lt-accent)]" /> Colecciones
                             </Link>
                             {user && managedBusinessCount > 0 && (
                                 <Link to="/businesses" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)] justify-between">

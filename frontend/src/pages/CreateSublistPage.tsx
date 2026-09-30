@@ -7,6 +7,8 @@ import { db } from '../firebase';
 import { ArrowLeft, Save, Loader, Image as ImageIcon, X, Search, ChevronRight, UserPlus, Globe, Lock as LockIcon, Smile } from 'lucide-react';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from '../components/TagEmojiPicker';
 import { CriteriaBuilder, type Criterion } from '../components/CriteriaBuilder';
+import { isInlineImage, uploadListCover } from '../lib/listCover';
+import { orderedCriteriaEntries } from '../lib/criteria';
 
 export const CreateSublistPage: React.FC = () => {
     const { user } = useAuth();
@@ -27,7 +29,8 @@ export const CreateSublistPage: React.FC = () => {
     const [isPublicWritable, setIsPublicWritable] = useState(false);
 
     // Image
-    const [_imageFile, setImageFile] = useState<File | null>(null); // Prefix with _ or remove if truly unused. used in handler but state never read.
+    // Archivo elegido: se sube a Storage tras crear la minilista (nunca en base64 en el documento).
+    const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
 
     // Advanced
@@ -88,7 +91,7 @@ export const CreateSublistPage: React.FC = () => {
                         // Prefill criteria
                         if (data.criteriaDefinition) {
                             const inheritedCriteria: Criterion[] = [];
-                            Object.entries(data.criteriaDefinition).forEach(([key, val]: [string, any]) => {
+                            orderedCriteriaEntries(data.criteriaDefinition).forEach(([key, val]: [string, any]) => {
                                 if (val.type === 'slider') {
                                     inheritedCriteria.push({
                                         id: key,
@@ -96,6 +99,7 @@ export const CreateSublistPage: React.FC = () => {
                                         minLabel: val.labelMin,
                                         maxLabel: val.labelMax,
                                         isPonderable: val.ponderable !== false,
+                                        step: typeof val.step === 'number' ? val.step : undefined,
                                         locked: true // Inherited criteria are locked
                                     });
                                 }
@@ -212,16 +216,21 @@ export const CreateSublistPage: React.FC = () => {
         setLoading(true);
 
         try {
-            const finalPhotoUrl = imagePreview || parentList.thumbnailUrl || parentList.mainImageUrl || parentList.photoUrl || parentList.coverUrl || parentList.imageUrl || '';
+            const parentPhotoUrl = parentList.thumbnailUrl || parentList.mainImageUrl || parentList.photoUrl || parentList.coverUrl || parentList.imageUrl || '';
+            // La vista previa puede ser base64: mientras se sube la foto propia se usa la de la lista madre.
+            const finalPhotoUrl = imagePreview && !isInlineImage(imagePreview)
+                ? imagePreview
+                : (isInlineImage(parentPhotoUrl) ? '' : parentPhotoUrl);
 
             const criteriaDefinitionMap: Record<string, any> = {};
-            criteria.forEach(c => {
+            criteria.forEach((c, index) => {
                 criteriaDefinitionMap[c.id] = {
+                    order: index,
                     type: 'slider',
                     label: c.label,
                     min: 0,
                     max: 10,
-                    step: 0.5,
+                    step: c.step ?? 0.5,
                     labelMin: c.minLabel,
                     labelMax: c.maxLabel,
                     ponderable: c.isPonderable
@@ -265,18 +274,27 @@ export const CreateSublistPage: React.FC = () => {
             };
 
             const docRef = await addDoc(collection(db, 'lists'), newListData);
+
+            if (imageFile) {
+                try {
+                    await uploadListCover(docRef.id, imageFile);
+                } catch (coverError) {
+                    console.error('Error uploading minilist cover:', coverError);
+                    showToast({ variant: 'error', message: 'La minilista se creó, pero no se pudo subir la portada.' });
+                }
+            }
             showToast({
                 variant: 'success',
-                title: 'Sublista creada',
-                message: 'Sublista publicada. Ya puedes empezar el debate serio.',
+                title: 'Minilista creada',
+                message: 'Minilista publicada. Ya puedes empezar el debate serio.',
             });
             navigate(`/list/${docRef.id}`);
         } catch (error) {
             console.error("Error creating sublist:", error);
             showToast({
                 variant: 'error',
-                title: 'No se pudo crear la sublista',
-                message: 'No conseguimos guardar la sublista. Inténtalo otra vez.',
+                title: 'No se pudo crear la minilista',
+                message: 'No conseguimos guardar la minilista. Inténtalo otra vez.',
             });
         } finally {
             setLoading(false);
@@ -293,7 +311,7 @@ export const CreateSublistPage: React.FC = () => {
                         <ArrowLeft className="w-4 h-4" /> Volver
                     </button>
 
-                    <h1 className="text-2xl sm:text-3xl font-bold font-display text-white mb-1">Nueva Sublista</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold font-display text-white mb-1">Nueva Minilista</h1>
                     <p className="text-gray-400 text-sm mb-6">Elige una lista base para construir tu versión personal.</p>
 
                     <div className="relative mb-5">
@@ -330,7 +348,7 @@ export const CreateSublistPage: React.FC = () => {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="font-semibold text-white truncate group-hover:text-[var(--lt-accent)] transition-colors">{list.name}</div>
-                                        <div className="text-xs text-gray-500 mt-0.5">{list.itemCount || 0} lugares · {list.authorName || 'Anónimo'}</div>
+                                        <div className="text-xs text-gray-500 mt-0.5">{list.itemCount || 0} sitios · {list.authorName || 'Anónimo'}</div>
                                     </div>
                                     <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-[var(--lt-accent)] transition-colors shrink-0" />
                                 </button>
@@ -371,7 +389,7 @@ export const CreateSublistPage: React.FC = () => {
                     </div>
                 </div>
 
-                <h1 className="text-2xl sm:text-3xl font-bold font-display text-white mb-6">Nueva Sublista</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold font-display text-white mb-6">Nueva Minilista</h1>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -514,7 +532,7 @@ export const CreateSublistPage: React.FC = () => {
                             <div className="p-3 bg-[var(--lt-bg)] rounded-xl border border-white/5 flex items-center justify-between gap-3">
                                 <div className="min-w-0">
                                     <div className="text-sm font-semibold text-gray-200">Colaboración pública</div>
-                                    <div className="text-xs text-gray-500 mt-0.5">Cualquier usuario puede añadir reseñas</div>
+                                    <div className="text-xs text-gray-500 mt-0.5">Cualquier usuario puede añadir valoraciones</div>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer shrink-0">
                                     <input
@@ -563,7 +581,7 @@ export const CreateSublistPage: React.FC = () => {
                             {guestLookupError && (
                                 <p className="text-xs text-red-400">{guestLookupError}</p>
                             )}
-                            <p className="text-xs text-gray-600">Los colaboradores pueden ver y añadir reseñas aunque la lista sea privada.</p>
+                            <p className="text-xs text-gray-600">Los colaboradores pueden ver y añadir valoraciones aunque la lista sea privada.</p>
                         </div>
                     </div>
 
@@ -573,7 +591,7 @@ export const CreateSublistPage: React.FC = () => {
                         className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         {loading ? <Loader className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        {loading ? 'Creando...' : 'Crear Sublista'}
+                        {loading ? 'Creando...' : 'Crear Minilista'}
                     </button>
                 </form>
             </div>

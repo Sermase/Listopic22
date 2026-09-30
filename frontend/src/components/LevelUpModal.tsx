@@ -8,7 +8,7 @@ interface LevelUpModalProps {
     levelInfo: LevelInfo;
     previousLevel: number;
     xpGained: number;
-    trigger?: string; // e.g. "Has publicado una reseña" 
+    trigger?: string; // e.g. "Has publicado una valoración" 
 }
 
 /**

@@ -1,6 +1,7 @@
-import { BrowserRouter as Router, Routes, Route, useLocation as useRouterLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation as useRouterLocation } from 'react-router-dom';
 import React, { Suspense } from 'react';
 import { ToastProvider } from './context/ToastContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Navbar } from './components/Navbar';
 import { App as CapApp } from '@capacitor/app';
@@ -16,6 +17,7 @@ import { NotificationBanner } from './components/NotificationBanner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthPromptProvider } from './context/AuthPromptContext';
 import { PageAnalyticsTracker } from './components/PageAnalyticsTracker';
+import { useScrollRestoration } from './hooks/useScrollRestoration';
 
 // Lazy Load Pages
 const HomePage = React.lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
@@ -27,7 +29,6 @@ const CreateSublistPage = React.lazy(() => import('./pages/CreateSublistPage').t
 const UsersPage = React.lazy(() => import('./pages/UsersPage').then(m => ({ default: m.UsersPage })));
 const PlacePage = React.lazy(() => import('./pages/PlacePage').then(m => ({ default: m.PlacePage })));
 const GroupPage = React.lazy(() => import('./pages/GroupPage').then(m => ({ default: m.GroupPage })));
-const DebugView = React.lazy(() => import('./pages/DebugView').then(m => ({ default: m.DebugView })));
 const DeveloperPage = React.lazy(() => import('./pages/DeveloperPage').then(m => ({ default: m.DeveloperPage })));
 const LoginPage = React.lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage').then(m => ({ default: m.ProfilePage })));
@@ -42,6 +43,16 @@ const ChildSafetyPage = React.lazy(() => import('./pages/ChildSafetyPage').then(
 const IstariCorePage = React.lazy(() => import('./pages/IstariCorePage').then(m => ({ default: m.IstariCorePage })));
 const TermsPage = React.lazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
 const LabPage = React.lazy(() => import('./pages/LabPage').then(m => ({ default: m.LabPage })));
+const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
+
+// Los enlaces compartidos /s/... los sirve una Cloud Function con la vista
+// previa (Open Graph). Si la app Android intercepta el enlace, o alguien llega
+// aquí dentro de la web, basta con quitar el prefijo /s.
+const SharedLinkRedirect = () => {
+  const location = useRouterLocation();
+  const target = location.pathname.replace(/^\/s(?=\/)/, '') || '/';
+  return <Navigate to={`${target}${location.search}`} replace />;
+};
 
 // Hide Navbar on fullscreen routes like /lab
 const NavbarWrapper = () => {
@@ -50,12 +61,9 @@ const NavbarWrapper = () => {
   return <Navbar />;
 };
 
-// Scroll to top on every route change
-const ScrollToTop = () => {
-  const location = useRouterLocation();
-  React.useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
+// Arriba al entrar en otra página; al volver atrás, donde estaba el usuario.
+const ScrollManager = () => {
+  useScrollRestoration();
   return null;
 };
 
@@ -223,7 +231,6 @@ const AppRoutes = () => {
               <Route path="/place/:placeId" element={<PlacePage />} />
               <Route path="/group/:placeId" element={<GroupPage />} />
               <Route path="/group/:placeId/:itemName" element={<GroupPage />} />
-              <Route path="/debug" element={<DebugView />} />
               <Route path="/developer" element={<ProtectedRoute><DeveloperPage /></ProtectedRoute>} />
               <Route path="/login" element={<LoginPage />} />
 
@@ -246,6 +253,9 @@ const AppRoutes = () => {
 
               {/* Lab / Easter egg — visibility gated by config.showLab */}
               <Route path="/lab" element={<LabPage />} />
+
+              <Route path="/s/*" element={<SharedLinkRedirect />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </ErrorBoundary>
         </div>
@@ -257,10 +267,11 @@ const AppRoutes = () => {
 function App() {
   return (
     <ToastProvider>
+      <ConfirmProvider>
       <NotificationBannerProvider>
         <Router>
           <AuthPromptProvider>
-            <ScrollToTop />
+            <ScrollManager />
             <PageAnalyticsTracker />
             <div className="min-h-screen font-sans selection:bg-[var(--lt-accent-soft)]"
               style={{
@@ -277,6 +288,7 @@ function App() {
           </AuthPromptProvider>
         </Router>
       </NotificationBannerProvider>
+      </ConfirmProvider>
     </ToastProvider>
   );
 }

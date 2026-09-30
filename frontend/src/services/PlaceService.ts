@@ -1,5 +1,6 @@
 import { serverTimestamp, type FieldValue } from 'firebase/firestore';
 import { ListopicConfig } from '../config';
+import { haversineMeters } from '../utils/geo';
 
 export interface PlaceResult {
     id: string; // Google Place ID
@@ -131,12 +132,37 @@ declare global {
     }
 }
 
+// Google Maps JS (~300 KB) ya no se carga en todas las páginas desde
+// index.html: se inyecta la primera vez que alguien busca un sitio.
+let mapsScriptPromise: Promise<void> | null = null;
+
+const loadGoogleMaps = (): Promise<void> => {
+    if (window.google?.maps?.importLibrary) return Promise.resolve();
+    if (!mapsScriptPromise) {
+        mapsScriptPromise = new Promise<void>((resolve, reject) => {
+            const callbackName = '__listopicGoogleMapsReady';
+            (window as unknown as Record<string, unknown>)[callbackName] = () => resolve();
+            const script = document.createElement('script');
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(ListopicConfig.GOOGLE_MAPS_BROWSER_KEY)}&libraries=places&loading=async&callback=${callbackName}`;
+            script.async = true;
+            script.onerror = () => {
+                mapsScriptPromise = null; // permitir reintentar más tarde
+                script.remove();
+                reject(new Error('No se pudo cargar Google Maps'));
+            };
+            document.head.appendChild(script);
+        });
+    }
+    return mapsScriptPromise;
+};
+
 // Cache the library promise
 let placesLibPromise: Promise<PlacesLibraryLike> | null = null;
 
-const getPlacesLib = (): Promise<PlacesLibraryLike> => {
-    if (!window.google || !window.google.maps) {
-        return Promise.reject("Google Maps API not loaded");
+const getPlacesLib = async (): Promise<PlacesLibraryLike> => {
+    await loadGoogleMaps();
+    if (!window.google?.maps) {
+        throw new Error("Google Maps API not loaded");
     }
     if (!placesLibPromise) {
         placesLibPromise = window.google.maps.importLibrary("places") as Promise<PlacesLibraryLike>;
@@ -217,10 +243,7 @@ export const PlaceService = {
                 type: (place.types && place.types[0]) ? place.types[0] : 'establishment',
                 types: place.types || [],
                 distance: (userLat && userLng && place.location)
-                    ? window.google.maps?.geometry?.spherical?.computeDistanceBetween(
-                        new window.google.maps.LatLng(userLat, userLng),
-                        place.location
-                    ) ?? undefined
+                    ? haversineMeters(userLat, userLng, place.location.lat(), place.location.lng())
                     : undefined
             }));
 
@@ -259,10 +282,7 @@ export const PlaceService = {
                 type: (place.types && place.types[0]) ? place.types[0] : 'establishment',
                 types: place.types || [],
                 distance: (place.location)
-                    ? window.google.maps?.geometry?.spherical?.computeDistanceBetween(
-                        new window.google.maps.LatLng(lat, lng),
-                        place.location
-                    ) ?? undefined
+                    ? haversineMeters(lat, lng, place.location.lat(), place.location.lng())
                     : undefined
             }));
 

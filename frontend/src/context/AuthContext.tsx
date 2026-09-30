@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useMemo, useState } from '
 import { type User, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../firebase';
 import { db } from '../firebase';
-import { doc, onSnapshot, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 export type UserTypeValue = 'jefe' | 'user' | 'business' | string;
 
@@ -59,41 +59,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const isJefe = useMemo(() => userTypes.includes('jefe'), [userTypes]);
 
-    useEffect(() => {
-        if (!user) return;
-
-        const userRef = doc(db, 'users', user.uid);
-
-        const setPresence = async (isOnline: boolean) => {
-            try {
-                await setDoc(userRef, {
-                    isOnline,
-                    lastActiveAt: serverTimestamp()
-                }, { merge: true });
-            } catch (error) {
-                console.warn('Failed to update presence:', error);
-            }
-        };
-
-        const handleVisibility = () => {
-            void setPresence(document.visibilityState === 'visible');
-        };
-
-        void setPresence(document.visibilityState === 'visible');
-        document.addEventListener('visibilitychange', handleVisibility);
-
-        const handleBeforeUnload = () => {
-            void setPresence(false);
-        };
-
-        window.addEventListener('beforeunload', handleBeforeUnload);
-
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibility);
-            window.removeEventListener('beforeunload', handleBeforeUnload);
-            void setPresence(false);
-        };
-    }, [user]);
+    // Antes se escribía isOnline/lastActiveAt en users/{uid} en cada cambio de
+    // visibilidad de la app. Nadie podía leerlo (no se copia a publicProfiles) y
+    // cada escritura disparaba triggers y reindexaba el usuario en Algolia.
 
     return (
         <AuthContext.Provider value={{ user, loading, userTypes, isJefe }}>

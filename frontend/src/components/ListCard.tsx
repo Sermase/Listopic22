@@ -6,6 +6,7 @@ import { useLike } from '../hooks/useLike';
 import { SublistsModal } from './SublistsModal';
 import { collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { db } from '../firebase';
+import { scoreBadgeStyle } from '../lib/scoreScale';
 
 interface ListCardProps {
     list: ListEntity;
@@ -33,13 +34,6 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
         fetchSublistCount();
     }, [list.id]);
 
-    // Dynamic Color for Score
-    const getScoreColor = (score: number) => {
-        if (score >= 9) return 'bg-emerald-500 shadow-emerald-500/50';
-        if (score >= 7) return 'bg-[var(--lt-accent)] shadow-[var(--lt-accent-shadow)]';
-        if (score >= 5) return 'bg-yellow-500 shadow-yellow-500/50';
-        return 'bg-red-500 shadow-red-500/50';
-    };
 
     return (
         <>
@@ -55,7 +49,7 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
 
                     {/* Score Badge */}
                     {list.avgScore !== undefined && list.avgScore > 0 && (
-                        <div className={`absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shadow-lg ${getScoreColor(list.avgScore)}`}>
+                        <div className="absolute top-3 right-3 w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-lg" style={scoreBadgeStyle(list.avgScore)}>
                             {list.avgScore.toFixed(1)}
                         </div>
                     )}
@@ -112,7 +106,7 @@ export const ListCard: React.FC<ListCardProps> = ({ list }) => {
                                 setIsSublistsModalOpen(true);
                             }}
                             className="flex items-center gap-1 hover:text-[var(--lt-accent)] transition-colors p-1 rounded-md hover:bg-white/5"
-                            title="Sublistas"
+                            title="Minilistas"
                         >
                             <Layers className="w-3 h-3" />
                             {sublistCount}

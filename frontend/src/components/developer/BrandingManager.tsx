@@ -6,6 +6,7 @@ import { db, storage } from '../../firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Upload, Save, Layout, Image as ImageIcon, Type, Globe, CheckCircle, AlertCircle, X } from 'lucide-react';
+import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from '../../lib/storageCache';
 
 type ThemeLogoKey = `logoUrl${Capitalize<ThemeId>}`;
 
@@ -94,14 +95,14 @@ export const BrandingManager: React.FC = () => {
             if (logoInputRef.current?.files?.length) {
                 const file = logoInputRef.current.files[0];
                 const storageRef = ref(storage, `branding/logo_${Date.now()}.png`);
-                await uploadBytes(storageRef, file, { contentType: file.type || 'image/png' });
+                await uploadBytes(storageRef, file, { contentType: file.type || 'image/png', cacheControl: IMMUTABLE_UPLOAD_CACHE_CONTROL });
                 newLogoUrl = await getDownloadURL(storageRef);
             }
 
             if (faviconInputRef.current?.files?.length) {
                 const file = faviconInputRef.current.files[0];
                 const storageRef = ref(storage, `branding/favicon_${Date.now()}.png`);
-                await uploadBytes(storageRef, file, { contentType: file.type || 'image/png' });
+                await uploadBytes(storageRef, file, { contentType: file.type || 'image/png', cacheControl: IMMUTABLE_UPLOAD_CACHE_CONTROL });
                 newFaviconUrl = await getDownloadURL(storageRef);
             }
 
@@ -112,7 +113,7 @@ export const BrandingManager: React.FC = () => {
                 if (pendingThemeFiles[theme.id]) {
                     const file = pendingThemeFiles[theme.id]!;
                     const storageRef = ref(storage, `branding/logo_${theme.id}_${Date.now()}.png`);
-                    await uploadBytes(storageRef, file, { contentType: file.type || 'image/png' });
+                    await uploadBytes(storageRef, file, { contentType: file.type || 'image/png', cacheControl: IMMUTABLE_UPLOAD_CACHE_CONTROL });
                     themeLogoUpdates[key] = await getDownloadURL(storageRef);
                 } else if (themePreviews[theme.id] === null && (config as any)[key]) {
                     // Explicitly cleared

@@ -99,8 +99,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
 
     const getTypeLabel = () => {
         switch (targetType) {
-            case 'place': return 'Lugar';
-            case 'review': return 'Reseña';
+            case 'place': return 'Sitio';
+            case 'review': return 'Valoración';
             case 'list': return 'Lista';
             case 'group': return 'Grupo';
             case 'user': return 'Usuario';
@@ -170,17 +170,17 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
                             <option value="fake">Información falsa / engañosa</option>
                             {(targetType === 'place' || targetType === 'review') && (
                                 <>
-                                    <option value="place_closed">El lugar ha cerrado</option>
+                                    <option value="place_closed">El sitio ha cerrado</option>
                                     <option value="item_missing">El item ya no existe</option>
-                                    <option value="duplicate">Lugar duplicado</option>
+                                    <option value="duplicate">Sitio duplicado</option>
                                 </>
                             )}
                             {targetType === 'group' && (
                                 <>
                                     <option value="item_not_available">El elemento ya no está disponible</option>
-                                    <option value="place_closed">El lugar ha cerrado</option>
+                                    <option value="place_closed">El sitio ha cerrado</option>
                                     <option value="incorrect_info">Información incorrecta sobre el elemento</option>
-                                    <option value="wrong_place">Elemento asociado al lugar incorrecto</option>
+                                    <option value="wrong_place">Elemento asociado al sitio incorrecto</option>
                                 </>
                             )}
                             {targetType === 'user' && (

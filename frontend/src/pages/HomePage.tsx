@@ -13,7 +13,7 @@ import { SponsoredHomeSpotlight } from '../components/business/SponsoredHomeSpot
 import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
 import { computeTasteMatch } from '../utils/tasteMatch';
 import { WeeklyDuelBanner } from '../components/WeeklyDuelBanner';
-import { MapView } from '../components/MapView';
+import { LazyMapView as MapView } from '../components/lazy';
 import { UserAvatar } from '../components/UserAvatar';
 import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, Flame, TrendingUp, Gem, HeartHandshake, Rows3 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -144,7 +144,9 @@ const HIDDEN_GEM_MIN_RATING = 8.4;
 const FAVORITE_REVIEW_MIN_RATING = 7.5;
 
 export const HomePage: React.FC = () => {
-    const { user, loading: authLoading } = useAuth();
+    // No se espera a la sesión para pintar: el contenido público carga en
+    // paralelo y las secciones personales aparecen cuando se resuelve.
+    const { user } = useAuth();
     const appConfig = useAppConfig();
     const { location, calculateDistance, requestLocation } = useLocation();
     const { showToast } = useToast();
@@ -1022,7 +1024,7 @@ export const HomePage: React.FC = () => {
                 label: `${review.itemName} · ${review.placeName || 'Grupo'}`,
                 reason: likes > 0
                     ? `${rating ? rating.toFixed(1) : 'Buena nota'} y ${likes} me gusta`
-                    : `${rating ? rating.toFixed(1) : 'Buena nota'} en una reseña cercana`,
+                    : `${rating ? rating.toFixed(1) : 'Buena nota'} en una valoración cercana`,
                 score,
                 badge: likes >= 3 ? 'Está gustando' : undefined,
             });
@@ -1039,10 +1041,10 @@ export const HomePage: React.FC = () => {
             const score = rating * 10 + Math.log1p(reviewsCount) * 10 + distanceBoost + (isHiddenGem ? 18 : 0);
             addCandidate({
                 route: `/place/${placeId}`,
-                label: place?.name || 'Lugar sorpresa',
+                label: place?.name || 'Sitio sorpresa',
                 reason: isHiddenGem
-                    ? `Joya oculta: ${rating.toFixed(1)} con pocas reseñas`
-                    : `${rating ? rating.toFixed(1) : 'Buena pinta'} · ${reviewsCount || 1} reseña${reviewsCount === 1 ? '' : 's'}`,
+                    ? `Joya oculta: ${rating.toFixed(1)} con pocas valoraciones`
+                    : `${rating ? rating.toFixed(1) : 'Buena pinta'} · ${reviewsCount || 1} ${reviewsCount === 1 ? 'valoración' : 'valoraciones'}`,
                 score,
                 badge: isHiddenGem ? 'Joya oculta' : undefined,
             });
@@ -1058,7 +1060,7 @@ export const HomePage: React.FC = () => {
                 route: `/list/${list.id}`,
                 label: list?.name || 'Lista sorpresa',
                 reason: reviewsCount > 0
-                    ? `${reviewsCount} reseña${reviewsCount === 1 ? '' : 's'} en esta lista`
+                    ? `${reviewsCount} ${reviewsCount === 1 ? 'valoración' : 'valoraciones'} en esta lista`
                     : 'Lista con buena actividad',
                 score,
                 badge: followers >= 5 ? 'Popular' : undefined,
@@ -1122,14 +1124,6 @@ export const HomePage: React.FC = () => {
         }
         return `/search?${params.toString()}`;
     }, [range]);
-
-    if (authLoading) {
-        return (
-            <div className="min-h-screen bg-[var(--lt-bg)] flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-[var(--lt-accent)] animate-spin" />
-            </div>
-        );
-    }
 
     return (
         <>
@@ -1267,7 +1261,8 @@ export const HomePage: React.FC = () => {
                                 <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isMapOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                                     <div className="overflow-hidden min-h-0">
                                         <div className="h-[400px] border-t border-white/10 relative">
-                                            <MapView items={filteredPlaces} mode="global" range={range} />
+                                            {/* Solo se monta (y descarga Leaflet) cuando el usuario abre el mapa. */}
+                                            {isMapOpen && <MapView items={filteredPlaces} mode="global" range={range} />}
                                         </div>
                                     </div>
                                 </div>
@@ -1281,7 +1276,7 @@ export const HomePage: React.FC = () => {
                         {activeTab === 'explore' && (<>
                             {/* 1. Listas */}
                             <CardCarousel
-                                title={activeTab === 'explore' ? "Listas con más reseñas" : "Listas recientes"}
+                                title={activeTab === 'explore' ? "Listas con más valoraciones" : "Listas recientes"}
                                 viewAllLink={buildCarouselSearchLink('lists', activeTab === 'explore' ? 'most_reviewed' : 'latest')}
                                 items={activeTab === 'explore'
                                     ? listCarouselItems
@@ -1312,7 +1307,7 @@ export const HomePage: React.FC = () => {
 
                                             {/* Stats Row: Reviews, Followers */}
                                             <div className="flex items-center gap-4 opacity-90 text-xs text-gray-300 font-medium">
-                                                <div className="flex items-center gap-1.5" title="Reseñas dentro de tu rango de distancia">
+                                                <div className="flex items-center gap-1.5" title="Valoraciones dentro de tu rango de distancia">
                                                     <MessageCircle className="w-3.5 h-3.5 text-[var(--lt-accent)]" />
                                                     <span>{list.reviewsInRangeCount !== undefined ? list.reviewsInRangeCount : (list.reviewCount || list.reviewsCount || 0)}</span>
                                                 </div>
@@ -1328,7 +1323,7 @@ export const HomePage: React.FC = () => {
 
                             {/* 2. Items */}
                             <CardCarousel
-                                title={activeTab === 'explore' ? "Mejor en Listopic" : "Últimos Items"}
+                                title={activeTab === 'explore' ? "Mejor en Listopic" : "Últimos elementos"}
                                 viewAllLink={buildCarouselSearchLink('items', activeTab === 'explore' ? 'top_rated' : 'latest')}
                                 items={filteredItems}
                                 loading={loadingReviews}
@@ -1342,7 +1337,7 @@ export const HomePage: React.FC = () => {
                             {/* 2b. Joyas ocultas */}
                             <CardCarousel
                                 title="Joyas ocultas"
-                                subtitle="Buena nota y pocas reseñas."
+                                subtitle="Buena nota y pocas valoraciones."
                                 viewAllLink={buildCarouselSearchLink('places', 'rating')}
                                 items={hiddenGemPlaces}
                                 loading={loadingReviews}
@@ -1379,10 +1374,10 @@ export const HomePage: React.FC = () => {
                                                 </div>
                                                 <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4">
                                                     <h3 className="line-clamp-1 text-sm font-black leading-tight text-white drop-shadow sm:line-clamp-2 sm:text-base">
-                                                        {place.name || 'Lugar por descubrir'}
+                                                        {place.name || 'Sitio por descubrir'}
                                                     </h3>
                                                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-gray-200 sm:mt-2 sm:gap-2 sm:text-xs">
-                                                        <span>{place.reviewsCount} reseña{place.reviewsCount === 1 ? '' : 's'}</span>
+                                                        <span>{place.reviewsCount} {place.reviewsCount === 1 ? 'valoración' : 'valoraciones'}</span>
                                                         {place.distanceKm !== null && (
                                                             <>
                                                                 <span className="text-gray-500">·</span>
@@ -1404,7 +1399,7 @@ export const HomePage: React.FC = () => {
 
                             {/* 3. Reseñas Recientes */}
                             <CardCarousel
-                                title="Reseñas recientes"
+                                title="Valoraciones recientes"
                                 viewAllLink={buildCarouselSearchLink('items', 'latest')}
                                 items={recentReviewsInRange}
                                 loading={loadingReviews}
@@ -1451,7 +1446,7 @@ export const HomePage: React.FC = () => {
                                                         {u.affinityReason}
                                                     </p>
                                                     <p className="mt-2 text-[10px] font-bold text-[var(--lt-accent)]">
-                                                        {u.reviewsInRangeCount ?? 0} reseña{u.reviewsInRangeCount === 1 ? '' : 's'} en el radar
+                                                        {u.reviewsInRangeCount ?? 0} {u.reviewsInRangeCount === 1 ? 'valoración' : 'valoraciones'} en el radar
                                                     </p>
                                                 </div>
                                             </div>
@@ -1481,7 +1476,7 @@ export const HomePage: React.FC = () => {
                                             <h4 className="text-white font-bold text-xs truncate w-full">{u.displayName}</h4>
                                             <p className="text-gray-500 text-[10px] truncate">@{u.username || 'user'}</p>
                                             <p className="text-[9px] text-[var(--lt-accent)] font-medium mt-0.5">
-                                                {u.reviewsInRangeCount ?? 0} Reseñas
+                                                {u.reviewsInRangeCount ?? 0} Valoraciones
                                             </p>
                                         </div>
                                     </Link>
@@ -1490,7 +1485,7 @@ export const HomePage: React.FC = () => {
 
                             {/* 6. Lugares top */}
                             <CardCarousel
-                                title={activeTab === 'explore' ? "Lugares top" : "Nuevos Lugares"}
+                                title={activeTab === 'explore' ? "Sitios top" : "Nuevos sitios"}
                                 viewAllLink={buildCarouselSearchLink('places', activeTab === 'explore' ? 'rating' : 'latest')}
                                 items={filteredPlaces}
                                 loading={loadingReviews}
@@ -1535,7 +1530,7 @@ export const HomePage: React.FC = () => {
                                 ) : filteredItems.length === 0 ? (
                                     <div className="text-gray-500 py-10 border border-white/5 rounded-xl bg-white/5 mx-4 px-4">
                                         <p className="font-bold text-white mb-1 text-center">Tu feed está tranquilo</p>
-                                        <p className="text-sm text-center mb-4">Sigue a estas personas para ver sus reseñas aquí</p>
+                                        <p className="text-sm text-center mb-4">Sigue a estas personas para ver sus valoraciones aquí</p>
                                         {topUsers.length > 0 && !loadingUsers && (
                                             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                                                 {topUsers
@@ -1593,7 +1588,7 @@ export const HomePage: React.FC = () => {
                         ) : (
 
                             <CardCarousel
-                                title="Reseñas que gustan"
+                                title="Valoraciones que gustan"
                                 viewAllLink={buildCarouselSearchLink('items', 'top_liked')}
                                 items={carouselReviews}
                                 loading={loadingReviews}

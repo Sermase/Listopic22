@@ -6,8 +6,28 @@
 const logger = require('firebase-functions/logger');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { buildGroupedItemsForList } = require('../grouped-aggregator');
+const { reviewScoreForList } = require('./scoring');
 
 const db = getFirestore();
+
+// Las valoraciones de una Minilista se guardan en su Lista madre con
+// `sublistId`; las más antiguas pueden estar en la subcolección de la Minilista.
+async function fetchListReviews(listRef, listData) {
+  const parentListId = typeof listData.parentListId === 'string' && listData.parentListId
+    ? listData.parentListId
+    : null;
+  if (!parentListId) {
+    const snap = await listRef.collection('reviews').get();
+    return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  }
+  const [inParentSnap, ownSnap] = await Promise.all([
+    db.collection('lists').doc(parentListId).collection('reviews').where('sublistId', '==', listRef.id).get(),
+    listRef.collection('reviews').get()
+  ]);
+  const byId = new Map();
+  [...inParentSnap.docs, ...ownSnap.docs].forEach((doc) => byId.set(doc.id, { id: doc.id, ...doc.data() }));
+  return Array.from(byId.values());
+}
 
 async function recalculateListReviewMetrics(listId) {
   if (!listId) {
@@ -35,18 +55,25 @@ async function recalculateListReviewMetrics(listId) {
   }
 
   const listRef = db.collection('lists').doc(listId);
-  const reviewsSnap = await listRef.collection('reviews').get();
+  const listSnap = await listRef.get();
+  if (!listSnap.exists) {
+    logger.warn(`recalculateListReviewMetrics: la lista ${listId} no existe`);
+    return null;
+  }
+  const listData = listSnap.data() || {};
+  const reviews = await fetchListReviews(listRef, listData);
 
   const criteriaTotals = {};
   const criteriaCounts = {};
   let totalOverall = 0;
   let overallCount = 0;
 
-  reviewsSnap.forEach((doc) => {
-    const data = doc.data() || {};
-    const overall = data.overallRating;
-    if (typeof overall === 'number' && Number.isFinite(overall)) {
-      totalOverall += overall;
+  reviews.forEach((data) => {
+    // Madre: las valoraciones de Minilista cuentan solo con sus criterios.
+    // Minilista: la nota guardada, con sus criterios extra.
+    const { score } = reviewScoreForList(data, listData);
+    if (score !== null) {
+      totalOverall += score;
       overallCount += 1;
     }
 
@@ -71,27 +98,26 @@ async function recalculateListReviewMetrics(listId) {
     ? Number((totalOverall / overallCount).toFixed(2))
     : null;
 
-  const listSnap = await listRef.get();
-  const existingTags = listSnap.exists && Array.isArray(listSnap.data().availableTags)
-    ? listSnap.data().availableTags
-    : [];
+  const existingTags = Array.isArray(listData.availableTags) ? listData.availableTags : [];
   existingTags.forEach(tag => availableTags.add(tag));
 
   const updateData = {
-    reviewCount: reviewsSnap.size,
+    reviewCount: reviews.length,
     averageRating,
     criteriaAverages,
     criteriaAveragesUpdatedAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
     availableTags: Array.from(availableTags).sort(),
-    itemCount: itemCount > 0 ? itemCount : undefined
+    // Con 0 reseñas también hay que escribir 0: `undefined` hace fallar el
+    // update y las métricas se quedaban con los valores anteriores.
+    itemCount
   };
 
   await listRef.update(updateData);
   logger.info(`recalculateListReviewMetrics: ${listId} => r:${updateData.reviewCount} avg:${averageRating} tags:${updateData.availableTags?.length}`);
 
   return {
-    reviewCount: reviewsSnap.size,
+    reviewCount: reviews.length,
     averageRating,
     criteriaAverages,
     availableTags: updateData.availableTags

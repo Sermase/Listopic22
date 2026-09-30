@@ -1,4 +1,5 @@
 import L from 'leaflet';
+import { SCORE_TEXT_ON_LIGHT, scoreBand } from '../lib/scoreScale';
 
 // ─── Capas de mapa disponibles ────────────────────────────────────────────────
 export type MapLayerId = 'standard' | 'light' | 'dark' | 'satellite';
@@ -11,25 +12,33 @@ export interface MapLayerConfig {
     tileFilter?: string; // filtro CSS opcional para el tile pane
 }
 
+// CARTO dejó de servir sus mapas base sin clave: devolvía mosaicos con la marca
+// "API KEY REQUIRED" en lugar de calles (comprobado el 30/09/2026). Mientras se
+// decide un proveedor definitivo (ver Mejoras/siguiente-fase.md), las capas usan
+// el callejero público de Esri, el mismo proveedor que ya servía la vista satélite.
+const ESRI_STREET_MAP_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+const ESRI_STREET_MAP_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Source: Esri, HERE, Garmin, USGS, NGA, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, and the GIS User Community';
+
 export const MAP_LAYERS: Record<MapLayerId, MapLayerConfig> = {
     standard: {
         label: 'Estándar',
         emoji: '🗺️',
-        url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        url: ESRI_STREET_MAP_URL,
+        attribution: ESRI_STREET_MAP_ATTRIBUTION,
     },
     light: {
         label: 'Claro',
         emoji: '☀️',
-        url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        tileFilter: 'brightness(0.84) saturate(0.55) contrast(1.05)',
+        url: ESRI_STREET_MAP_URL,
+        attribution: ESRI_STREET_MAP_ATTRIBUTION,
+        tileFilter: 'saturate(0.35) brightness(1.06) contrast(0.95)',
     },
     dark: {
         label: 'Oscuro',
         emoji: '🌑',
-        url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        url: ESRI_STREET_MAP_URL,
+        attribution: ESRI_STREET_MAP_ATTRIBUTION,
+        tileFilter: 'invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.45)',
     },
     satellite: {
         label: 'Satelital',
@@ -47,12 +56,10 @@ export const MAP_LAYER_STORAGE_KEY = 'listopic_map_layer';
  */
 export const getRatingColor = (score: number | string): { bg: string; glow: string; border: string } => {
     const s = parseFloat(String(score));
-    if (isNaN(s) || s === 0) return { bg: '#94a3b8', glow: 'rgba(148,163,184,0.4)', border: '#94a3b8' };
-    if (s >= 8.5) return { bg: '#059669', glow: 'rgba(5,150,105,0.5)', border: '#059669' };
-    if (s >= 7) return { bg: '#10b981', glow: 'rgba(16,185,129,0.45)', border: '#10b981' };
-    if (s >= 5.5) return { bg: '#f59e0b', glow: 'rgba(245,158,11,0.45)', border: '#f59e0b' };
-    if (s >= 4) return { bg: '#f97316', glow: 'rgba(249,115,22,0.45)', border: '#f97316' };
-    return { bg: '#ef4444', glow: 'rgba(239,68,68,0.45)', border: '#ef4444' };
+    // En el mapa un 0 significa "sin nota". Color legible sobre blanco (escala única, lib/scoreScale).
+    const color = SCORE_TEXT_ON_LIGHT[isNaN(s) || s === 0 ? 'none' : scoreBand(s)];
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+    return { bg: color, glow: `rgba(${r},${g},${b},0.45)`, border: color };
 };
 
 /** @deprecated */

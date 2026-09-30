@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useQueryClient } from '@tanstack/react-query';
 import { Save, Loader, Image as ImageIcon, X, Smile } from 'lucide-react';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { type ListEntity } from '../hooks/useLists';
+import { isInlineImage, uploadListCover } from '../lib/listCover';
+import { orderedCriteriaEntries } from '../lib/criteria';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -18,6 +20,7 @@ type CriteriaDefinitionValue = {
     labelMax?: string;
     ponderable?: boolean;
     step?: number;
+    order?: number;
 };
 
 type CriteriaDefinitionMap = Record<string, CriteriaDefinitionValue>;
@@ -61,6 +64,8 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
 
     // Image
     const [imagePreview, setImagePreview] = useState<string | null>(initialData?.photoUrl || initialData?.mainImageUrl || null);
+    // Archivo elegido: se sube a Storage tras crear la lista (nunca en base64 en el documento).
+    const [imageFile, setImageFile] = useState<File | null>(null);
 
     // Advanced
     // Advanced
@@ -68,7 +73,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
         if (parentCriteria) {
             // Convert parent map to array
             const inherited: Criterion[] = [];
-            Object.entries(parentCriteria).forEach(([key, val]) => {
+            orderedCriteriaEntries(parentCriteria).forEach(([key, val]) => {
                 if (isSliderCriterion(val)) {
                     inherited.push({
                         id: key,
@@ -133,7 +138,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
             // 2. Prefill Criteria
             if (selectedCat.defaultCriteria) {
                 const newCriteria: Criterion[] = [];
-                Object.entries(selectedCat.defaultCriteria).forEach(([key, val]) => {
+                orderedCriteriaEntries(selectedCat.defaultCriteria).forEach(([key, val]) => {
                     // Skip 'like'/'dislike' non-slider keys if present
                     if (isSliderCriterion(val)) {
                         newCriteria.push({
@@ -156,6 +161,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            setImageFile(file);
             const reader = new FileReader();
             reader.onloadend = () => setImagePreview(reader.result as string);
             reader.readAsDataURL(file);
@@ -194,12 +200,14 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
         setLoading(true);
 
         try {
-            const finalPhotoUrl = imagePreview || '';
+            // La vista previa puede ser base64: solo se guarda una URL real.
+            const finalPhotoUrl = imagePreview && !isInlineImage(imagePreview) ? imagePreview : '';
 
             // Transform criteria array back to Map/Object for DB
             const criteriaDefinitionMap: CriteriaDefinitionMap = {};
-            criteria.forEach(c => {
+            criteria.forEach((c, index) => {
                 criteriaDefinitionMap[c.id] = {
+                    order: index,
                     type: 'slider',
                     label: c.label,
                     min: 0,
@@ -254,18 +262,24 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
 
             const docRef = await addDoc(collection(db, 'lists'), newListData);
 
-            // Update User's listsCount
-            const userRef = doc(db, 'users', user.uid);
-            await updateDoc(userRef, {
-                listsCount: increment(1)
-            }).catch(e => console.warn("Could not increment user list count", e));
+            if (imageFile) {
+                try {
+                    await uploadListCover(docRef.id, imageFile);
+                } catch (coverError) {
+                    console.error('Error uploading list cover:', coverError);
+                    showToast({ variant: 'error', message: 'La lista se creó, pero no se pudo subir la portada. Puedes añadirla al editarla.' });
+                }
+            }
+
+            // El contador de listas del usuario lo mantiene Cloud Functions
+            // (updateUserStatsOnListChange).
 
             queryClient.invalidateQueries({ queryKey: ['lists'] });
             showToast({
                 variant: 'success',
-                title: parentListId ? 'Sublista creada' : 'Lista creada',
+                title: parentListId ? 'Minilista creada' : 'Lista creada',
                 message: parentListId
-                    ? 'Tu sublista ya está lista para recibir comparaciones finas.'
+                    ? 'Tu minilista ya está lista para recibir comparaciones finas.'
                     : 'Lista publicada. El orden acaba de ganar otra batalla.',
             });
             onSuccess(docRef.id);
@@ -296,7 +310,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                         )}
                     </div>
                     <div>
-                        <h2 className="text-xl font-bold font-display text-white">Nueva Sublista</h2>
+                        <h2 className="text-xl font-bold font-display text-white">Nueva Minilista</h2>
                         <p className="text-gray-400 text-sm">Basada en <span className="text-[var(--lt-accent)]">{parentListName}</span></p>
                     </div>
                 </div>
@@ -312,7 +326,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[var(--lt-accent-border)]"
-                        placeholder={parentListId ? "Ej: Sushi (Sublista)" : "Ej: Mejores Ramen de Madrid"}
+                        placeholder={parentListId ? "Ej: Sushi (Minilista)" : "Ej: Mejores Ramen de Madrid"}
                         required
                     />
                 </div>
@@ -479,7 +493,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                             />
                             <div>
                                 <span className="block text-sm font-medium text-white">Solo Lectura</span>
-                                <span className="block text-xs text-gray-500">Los visitantes pueden ver la lista pero solo tú (y editores) pueden añadir reseñas.</span>
+                                <span className="block text-xs text-gray-500">Los visitantes pueden ver la lista pero solo tú (y editores) pueden añadir valoraciones.</span>
                             </div>
                         </label>
                         <label className="flex items-center gap-3 cursor-pointer">
@@ -493,7 +507,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                             />
                             <div>
                                 <span className="block text-sm font-medium text-white">Colaborativa (Escritura)</span>
-                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir sus propias reseñas a esta lista.</span>
+                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir sus propias valoraciones a esta lista.</span>
                             </div>
                         </label>
                     </div>
@@ -514,7 +528,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                     className="btn-primary w-full flex-1 py-4 text-base disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                     {loading ? <Loader className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                    {loading ? 'Guardando...' : parentListId ? 'Crear Sublista' : 'Guardar Lista'}
+                    {loading ? 'Guardando...' : parentListId ? 'Crear Minilista' : 'Guardar Lista'}
                 </button>
             </div>
         </form>

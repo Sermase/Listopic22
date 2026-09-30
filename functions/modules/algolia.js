@@ -7,6 +7,8 @@ const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const algoliasearch = require("algoliasearch");
 const { buildGroupedItemsForList } = require("./grouped-aggregator");
+// Media bayesiana compartida con el frontend (lib/scoring.js ↔ frontend/src/lib/scoring.ts).
+const { bayesianRating } = require("./lib/scoring");
 
 const ADMIN_CALL_OPTIONS = { cors: true, timeoutSeconds: 540, memory: "1GiB" };
 
@@ -170,14 +172,6 @@ function logBoost(value) {
     return Math.log1p(Math.max(0, safeNumber(value)));
 }
 
-function bayesianRating(average, count, priorAverage = 7, priorWeight = 5) {
-    const reviewCount = Math.max(0, safeNumber(count));
-    if (reviewCount <= 0) {
-        return 0;
-    }
-    const rating = Math.max(0, Math.min(10, safeNumber(average)));
-    return ((rating * reviewCount) + (priorAverage * priorWeight)) / (reviewCount + priorWeight);
-}
 
 function roundScore(value) {
     return Number(Math.max(0, value).toFixed(4));

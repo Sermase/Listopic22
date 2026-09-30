@@ -3,10 +3,17 @@ import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { initSentry } from './lib/sentry'
+import { reloadOnceForNewVersion } from './lib/chunkErrors'
 import './index.css'
 import App from './App.tsx'
 
 initSentry();
+
+// Tras un despliegue, los trozos de la versión anterior ya no existen: en vez
+// de dejar la pantalla rota, se recarga una vez para bajar la versión nueva.
+window.addEventListener('vite:preloadError', (event) => {
+  if (reloadOnceForNewVersion()) event.preventDefault();
+});
 import { AppConfigProvider } from './context/AppConfigContext';
 import { SeoManager } from './components/SeoManager';
 import { AuthProvider } from './context/AuthContext';

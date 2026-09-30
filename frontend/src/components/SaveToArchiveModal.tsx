@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useArchives, type SavedItemEntity } from '../hooks/useArchives';
 import { Folder, Check, Plus, X } from 'lucide-react';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useToast } from '../context/ToastContext';
 
 interface SaveToArchiveModalProps {
     isOpen: boolean;
@@ -17,6 +18,7 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
     const [saving, setSaving] = useState(false);
     const [newArchiveName, setNewArchiveName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
+    const { showToast } = useToast();
     useBodyScrollLock(isOpen);
 
     useEffect(() => {
@@ -33,13 +35,19 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
 
     const init = async () => {
         setLoading(true);
-        // Refresh archives to be sure we have the latest list
-        await fetchArchives();
-        // Check where it is currently saved
-        const savedIds = await checkItemSavedStatus(item.itemId);
-        setInitialSelectedIds(savedIds);
-        setTempSelectedIds(savedIds);
-        setLoading(false);
+        try {
+            // Se usa la lista recién leída: el estado de React todavía no se
+            // ha actualizado y daría "no guardado" aunque lo esté.
+            const freshArchives = await fetchArchives();
+            const savedIds = await checkItemSavedStatus(item.itemId, freshArchives);
+            setInitialSelectedIds(savedIds);
+            setTempSelectedIds(savedIds);
+        } catch (error) {
+            console.error('Error loading collections:', error);
+            showToast({ variant: 'error', message: 'No pudimos cargar tus colecciones.' });
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleToggle = (archiveId: string) => {
@@ -64,6 +72,7 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
             }
         } catch (e) {
             console.error(e);
+            showToast({ variant: 'error', message: 'No se pudo crear la colección.' });
         } finally {
             setIsCreating(false);
         }
@@ -82,10 +91,20 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
                 ...toRemove.map(id => toggleItemInArchive(id, { ...item, id: '', savedAt: null }, false))
             ]);
 
+            if (toAdd.length > 0 || toRemove.length > 0) {
+                const addedNames = archives.filter(a => toAdd.includes(a.id)).map(a => a.name);
+                showToast({
+                    variant: 'success',
+                    message: addedNames.length > 0
+                        ? `Guardado en ${addedNames.join(', ')}`
+                        : 'Colecciones actualizadas',
+                    durationMs: 2500,
+                });
+            }
             onClose();
         } catch (e) {
             console.error("Error saving archives:", e);
-            alert("Hubo un error al guardar los cambios.");
+            showToast({ variant: 'error', title: 'No se pudo guardar', message: 'Revisa tu conexión e inténtalo otra vez.' });
         } finally {
             setSaving(false);
         }

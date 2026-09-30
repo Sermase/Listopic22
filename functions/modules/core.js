@@ -170,6 +170,29 @@ async function requireAuthFromRequest(req, res) {
   }
 }
 
+// Endpoints heredados que el frontend ya no usa. Siguen desplegados por
+// compatibilidad, pero solo los puede invocar un jefe: algunos devolvían
+// reseñas o datos de listas sin comprobar permisos y otros consumen cuota
+// de Google Places.
+async function requireJefeForLegacyRequest(req, res) {
+  const decoded = await requireAuthFromRequest(req, res);
+  if (!decoded) return null;
+  try {
+    await assertJefeAccess(decoded.uid);
+  } catch (error) {
+    res.status(403).json({ message: 'Endpoint restringido a administradores.' });
+    return null;
+  }
+  return decoded;
+}
+
+async function assertJefeForLegacyCall(request) {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+  }
+  await assertJefeAccess(request.auth.uid, 'Endpoint restringido a administradores.');
+}
+
 // Helper: fetch place docs by IDs in chunks of 10 (Firestore 'in' limit)
 async function getPlaceDocsByIds(ids) {
   if (!ids || ids.length === 0) return [];
@@ -880,6 +903,8 @@ async function fetchLocalPlacesByTypes(categoryTypes, {
 const groupedReviews = onRequest(
   async (req, res) => {
     cors(req, res, async () => {
+      const jefeAuth = await requireJefeForLegacyRequest(req, res);
+      if (!jefeAuth) return;
       const listId = req.query.listId;
       if (!listId || typeof listId !== 'string' || listId.length > 200) {
         return res.status(400).send({ error: "listId inválido." });
@@ -984,7 +1009,7 @@ const updateListReviewCount = onDocumentWritten("lists/{listId}/reviews/{reviewI
 // --- FUNCIÓN placesNearbyRestaurants (MEJORADA) ---
 const placesNearbyRestaurants = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET] }, async (req, res) => {
   cors(req, res, async () => {
-    const auth = await requireAuthFromRequest(req, res);
+    const auth = await requireJefeForLegacyRequest(req, res);
     if (!auth) return;
     const rl = await rateLimit('placesNearbyRestaurants', rateLimitKey(req, auth), 60, 60);
     if (!rl.allowed) return res.status(429).json({ message: 'Demasiadas peticiones.' });
@@ -1088,7 +1113,7 @@ const getDistance = (lat1, lon1, lat2, lon2) => {
 
 const placesTextSearch = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET] }, async (req, res) => {
   cors(req, res, async () => {
-    const auth = await requireAuthFromRequest(req, res);
+    const auth = await requireJefeForLegacyRequest(req, res);
     if (!auth) return;
     const rl = await rateLimit('placesTextSearch', rateLimitKey(req, auth), 60, 60);
     if (!rl.allowed) return res.status(429).json({ message: 'Demasiadas peticiones.' });
@@ -1600,7 +1625,7 @@ const updateListWithValidation = onCall(async (request) => {
 // NUEVA FUNCIÓN: reverseGeocode
 const reverseGeocode = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET] }, async (req, res) => {
   cors(req, res, async () => {
-    const auth = await requireAuthFromRequest(req, res);
+    const auth = await requireJefeForLegacyRequest(req, res);
     if (!auth) return;
     const rl = await rateLimit('reverseGeocode', rateLimitKey(req, auth), 60, 60);
     if (!rl.allowed) return res.status(429).json({ message: 'Demasiadas peticiones.' });
@@ -1799,6 +1824,20 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
     } catch (error) {
       logger.error(`updateAggregatesOnReviewChange: error al recalcular métricas de lista ${listId}`, error);
     }
+    // Las valoraciones de una Minilista se guardan en su Lista madre: hay que
+    // recalcular también la Minilista (antes nadie mantenía sus métricas).
+    const sublistIds = new Set(
+      [event.data.before.exists ? event.data.before.data()?.sublistId : null,
+        event.data.after.exists ? event.data.after.data()?.sublistId : null]
+        .filter((id) => typeof id === 'string' && id && id !== listId)
+    );
+    for (const sublistId of sublistIds) {
+      try {
+        await recalculateListReviewMetrics(sublistId);
+      } catch (error) {
+        logger.error(`updateAggregatesOnReviewChange: error al recalcular métricas de la Minilista ${sublistId}`, error);
+      }
+    }
     return null;
   }
 
@@ -1959,6 +1998,7 @@ const toggleFollowUser = onCall(async (request) => {
 });
 
 const resolveChatParticipants = onCall(async (request) => {
+  await assertJefeForLegacyCall(request);
   const contextAuth = request.auth;
   if (!contextAuth) {
     throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
@@ -2063,6 +2103,7 @@ const resolveChatParticipants = onCall(async (request) => {
 // En functions/index.js, reemplaza la función getPlacesForList entera por esta:
 
 const getPlacesForList = onCall({ cors: true }, async (request) => {
+  await assertJefeForLegacyCall(request);
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'El usuario debe estar autenticado.');
   }
@@ -2164,6 +2205,8 @@ const getPlaceDetails = onCall(async (request) => {
   // --- Usamos 'request' como parámetro, al estilo V2 ---
   logger.info("Función getPlaceDetails invocada. Payload recibido:", request.data);
 
+  await assertJefeForLegacyCall(request);
+
   // Obtenemos los datos de request.data
   const placeId = request.data.placeId;
 
@@ -2262,7 +2305,7 @@ const getPlaceDetails = onCall(async (request) => {
 const getGroupsForPlace = onRequest(async (req, res) => {
   cors(req, res, async () => {
     try {
-      const decoded = await requireAuthFromRequest(req, res);
+      const decoded = await requireJefeForLegacyRequest(req, res);
       if (!decoded) return;
 
       const rl = await rateLimit('getGroupsForPlace', rateLimitKey(req, decoded), 120, 60);
@@ -2791,7 +2834,7 @@ const refreshPlaceMainImage = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET
       return res.status(204).send('');
     }
 
-    const decoded = await requireAuthFromRequest(req, res);
+    const decoded = await requireJefeForLegacyRequest(req, res);
     if (!decoded) return;
 
     const rl = await rateLimit('refreshPlaceMainImage', rateLimitKey(req, decoded), 30, 60);

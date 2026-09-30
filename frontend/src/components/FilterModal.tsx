@@ -147,7 +147,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                                         <Star className="w-4 h-4 text-yellow-500 fill-current" /> Nota Global Mínima
                                     </label>
                                     <span className="text-sm font-bold text-white bg-white/10 px-2.5 py-1 rounded-md min-w-[3rem] text-center">
-                                        {filters.minRating > 0 ? filters.minRating.toFixed(1) : 'Anyone'}
+                                        {filters.minRating > 0 ? filters.minRating.toFixed(1) : 'Cualquiera'}
                                     </span>
                                 </div>
                                 <input
@@ -281,7 +281,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                                 { id: 'rating', label: 'Mejor Valorados', icon: <Star className="w-4 h-4" /> },
                                 { id: 'newest', label: 'Más Recientes', icon: <Check className="w-4 h-4" /> },
                                 { id: 'oldest', label: 'Más Antiguos', icon: <Check className="w-4 h-4" /> },
-                                { id: 'count', label: 'Más Reseñados', icon: <Check className="w-4 h-4" /> }
+                                { id: 'count', label: 'Con más valoraciones', icon: <Check className="w-4 h-4" /> }
                             ] satisfies Array<{ id: SortMode; label: string; icon: React.ReactNode }>).map(option => (
                                 <button
                                     key={option.id}
@@ -310,7 +310,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                     >
                         <Trash2 className="w-4 h-4" />
                         <span className="hidden sm:inline">Limpiar</span>
-                        <span className="sm:hidden">Reset</span>
+                        <span className="sm:hidden">Limpiar</span>
                     </button>
 
                     <button

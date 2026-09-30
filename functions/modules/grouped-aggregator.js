@@ -3,6 +3,8 @@
 const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 
+const { reviewScoreForList } = require('./lib/scoring');
+
 const db = getFirestore();
 
 function normalizeForObjectId(value) {
@@ -227,8 +229,11 @@ async function buildGroupedItemsForList(listId) {
         }
 
         group.itemCount += 1;
-        if (typeof review.overallRating === 'number') {
-            group.totalGeneralScore += review.overallRating;
+        // En la Lista madre, las valoraciones hechas desde una Minilista cuentan
+        // solo con los criterios de la madre (ver lib/scoring.js).
+        const { score } = reviewScoreForList(review, listData);
+        if (score !== null) {
+            group.totalGeneralScore += score;
         }
 
         // Thumbnail Logic: Pick image with most likes

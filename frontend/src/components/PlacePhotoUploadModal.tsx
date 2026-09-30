@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { addDoc, collection, doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { FirebaseError } from 'firebase/app';
 import type { User } from 'firebase/auth';
@@ -8,6 +8,7 @@ import { Camera, ImagePlus, Loader2, Trash2, X } from 'lucide-react';
 import { db, storage } from '../firebase';
 import { PhotoEditorModal, type ProcessedPhoto } from './PhotoEditorModal';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from '../lib/storageCache';
 
 
 
@@ -95,7 +96,7 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
 
     const handleUpload = async () => {
         if (!user) {
-            setError('Inicia sesión para subir fotos del lugar.');
+            setError('Inicia sesión para subir fotos del sitio.');
             return;
         }
         if (processedPhotos.length === 0) {
@@ -119,7 +120,7 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
                 const fileName = `${Date.now()}-${i}.jpg`;
                 const storagePath = `places/${placeId}/${user.uid}/${fileName}`;
                 const storageRef = ref(storage, storagePath);
-                const snapshot = await uploadBytes(storageRef, photo.blob, { contentType: 'image/jpeg' });
+                const snapshot = await uploadBytes(storageRef, photo.blob, { contentType: 'image/jpeg', cacheControl: IMMUTABLE_UPLOAD_CACHE_CONTROL });
                 const url = await getDownloadURL(snapshot.ref);
                 if (!firstUrl) firstUrl = url;
 
@@ -137,11 +138,22 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
                 });
             }
 
+            // La primera foto solo se usa como portada si el sitio aún no tiene
+            // una (igual que al publicar una reseña). Si falla, las fotos ya
+            // están subidas: no se muestra error por ello.
             if (firstUrl) {
-                await setDoc(doc(db, 'places', placeId), {
-                    userPhotoUrl: firstUrl,
-                    lastUserPhotoAt: serverTimestamp(),
-                }, { merge: true });
+                try {
+                    const placeRef = doc(db, 'places', placeId);
+                    const placeSnap = await getDoc(placeRef);
+                    if (placeSnap.exists() && !placeSnap.data()?.userPhotoUrl) {
+                        await setDoc(placeRef, {
+                            userPhotoUrl: firstUrl,
+                            lastUserPhotoAt: serverTimestamp(),
+                        }, { merge: true });
+                    }
+                } catch (coverError) {
+                    console.warn('No se pudo fijar la portada del sitio', coverError);
+                }
             }
 
             onUploaded();
@@ -165,7 +177,7 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
                                 <Camera className="w-5 h-5 text-[var(--lt-accent)]" />
                             </div>
                             <div className="min-w-0">
-                                <h2 className="text-lg font-bold text-white leading-tight">Fotos del lugar</h2>
+                                <h2 className="text-lg font-bold text-white leading-tight">Fotos del sitio</h2>
                                 <p className="text-xs text-gray-500 truncate">{placeName}</p>
                             </div>
                         </div>

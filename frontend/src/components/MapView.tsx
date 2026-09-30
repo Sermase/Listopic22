@@ -75,10 +75,10 @@ const CustomLocateControl = () => {
     };
 
     return (
-        <div className="absolute bottom-6 right-6 z-[1000]">
+        <div className="absolute bottom-10 right-4 z-[1000]">
             <button
                 onClick={handleLocate}
-                className="bg-[var(--lt-card-strong)] text-white hover:bg-[var(--lt-accent)] p-3 rounded-full shadow-lg cursor-pointer flex items-center justify-center transition-all border border-white/20 hover:scale-110 active:scale-95"
+                className="bg-[var(--lt-card-strong)] text-[var(--lt-text)] hover:bg-[var(--lt-accent)] hover:text-[#fff] p-3 rounded-full shadow-lg cursor-pointer flex items-center justify-center transition-all border border-[var(--lt-border-strong)] hover:scale-110 active:scale-95 motion-reduce:hover:scale-100"
                 title="Centrar en mi ubicación"
             >
                 <Locate className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
@@ -356,7 +356,7 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                                             </div>
                                             {item.reviewsCount ? (
                                                 <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
-                                                    {item.reviewsCount} {item.reviewsCount === 1 ? 'reseña' : 'reseñas'}
+                                                    {item.reviewsCount} {item.reviewsCount === 1 ? 'valoración' : 'valoraciones'}
                                                 </div>
                                             ) : null}
 

@@ -9,6 +9,7 @@ import {
     useCurrentRefinements,
     useClearRefinements,
     useStats,
+    useInstantSearch,
     Index
 } from 'react-instantsearch';
 import { Link } from 'react-router-dom';
@@ -16,7 +17,7 @@ import {
     Search, Map as MapIcon, Users, List as ListIcon, MessageCircle,
     X, Clock, ChevronRight, Star, LocateFixed, Loader2,
     ArrowUpDown, ChevronDown, SlidersHorizontal, ShieldCheck, Bot, Utensils,
-    Coffee, Wine, Accessibility, Tags, MapPin, CircleDollarSign, Camera, EyeOff, PawPrint
+    Coffee, Wine, Accessibility, Tags, MapPin, CircleDollarSign, Camera, EyeOff, PawPrint, AlertTriangle
 } from 'lucide-react';
 
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
@@ -32,7 +33,7 @@ import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/pl
 const RECENT_SEARCHES_KEY = 'listopic_recent_searches';
 
 const TAB_LABELS: Record<string, string> = {
-    lists: 'Listas', places: 'Lugares', users: 'Usuarios', items: 'Items',
+    lists: 'Listas', places: 'Sitios', users: 'Usuarios', items: 'Elementos',
 };
 const TAB_ICONS: Record<string, React.ElementType> = {
     lists: ListIcon, places: MapIcon, users: Users, items: MessageCircle,
@@ -107,7 +108,7 @@ const FACET_VALUE_LABELS: Record<string, Record<string, string>> = {
 
 const EMPTY_MESSAGES: Record<string, { title: string; hint: string }> = {
     lists: { title: 'No hay listas', hint: 'Prueba por nombre, etiqueta o categoría.' },
-    places: { title: 'No hay lugares', hint: 'Prueba otra ciudad o tipo.' },
+    places: { title: 'No hay sitios', hint: 'Prueba otra ciudad o tipo.' },
     users: { title: 'No hay usuarios', hint: 'Busca por nombre o prueba @nombre.' },
     items: { title: 'No hay items', hint: 'Prueba #etiqueta o el nombre del plato.' },
     grouped_items: { title: 'No hay items', hint: 'Prueba #etiqueta o el nombre del plato.' },
@@ -182,7 +183,7 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
         { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
         { attribute: 'types', label: 'Tipo', icon: Utensils, defaultOpen: true },
         { attribute: 'itemTags', label: 'Etiquetas de items', icon: Tags },
-        { attribute: 'closedStatus', label: 'Estado del lugar', icon: EyeOff },
+        { attribute: 'closedStatus', label: 'Estado del sitio', icon: EyeOff },
         { attribute: 'priceLevel', label: 'Precio', icon: CircleDollarSign },
         { attribute: 'serviceOptions', label: 'Servicios', icon: Coffee },
     ],
@@ -201,7 +202,7 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
         { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
         { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
         { attribute: 'itemTags', label: 'Todas las etiquetas', icon: Tags },
-        { attribute: 'placeClosedStatus', label: 'Estado del lugar', icon: EyeOff },
+        { attribute: 'placeClosedStatus', label: 'Estado del sitio', icon: EyeOff },
     ],
     grouped_items: [
         { attribute: 'listCategoryName', label: 'Categoría', icon: Tags, defaultOpen: true },
@@ -214,7 +215,7 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
         { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
         { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
         { attribute: 'itemTags', label: 'Todas las etiquetas', icon: Tags },
-        { attribute: 'placeClosedStatus', label: 'Estado del lugar', icon: EyeOff },
+        { attribute: 'placeClosedStatus', label: 'Estado del sitio', icon: EyeOff },
     ],
 };
 
@@ -232,24 +233,24 @@ const SORT_OPTIONS: Record<string, SortOption[]> = {
     lists: [
         { value: 'lists', indexName: 'lists', label: 'Destacadas' },
         { value: 'lists_by_followers', indexName: 'lists_by_followers', label: 'Seguidores' },
-        { value: 'lists_by_reviews', indexName: 'lists_by_reviews', label: 'Reseñas' },
+        { value: 'lists_by_reviews', indexName: 'lists_by_reviews', label: 'Valoraciones' },
     ],
     places: [
         { value: 'places', indexName: 'places', label: 'Destacados' },
         { value: 'places_by_rating', indexName: 'places_by_rating', label: 'Valoración' },
-        { value: 'places_by_reviews', indexName: 'places_by_reviews', label: 'Reseñas' },
+        { value: 'places_by_reviews', indexName: 'places_by_reviews', label: 'Valoraciones' },
         { value: 'places_distance', indexName: 'places', label: 'Más cerca', requiresLocation: true },
     ],
     users: [
         { value: 'users', indexName: 'users', label: 'Destacados' },
         { value: 'users_by_level', indexName: 'users_by_level', label: 'Nivel' },
         { value: 'users_by_followers', indexName: 'users_by_followers', label: 'Seguidores' },
-        { value: 'users_by_reviews', indexName: 'users_by_reviews', label: 'Reseñas' },
+        { value: 'users_by_reviews', indexName: 'users_by_reviews', label: 'Valoraciones' },
     ],
     items: [
         { value: 'grouped_items', indexName: 'grouped_items', label: 'Destacados' },
         { value: 'grouped_items_by_score', indexName: 'grouped_items_by_score', label: 'Puntuación' },
-        { value: 'grouped_items_by_reviews', indexName: 'grouped_items_by_reviews', label: 'Reseñas' },
+        { value: 'grouped_items_by_reviews', indexName: 'grouped_items_by_reviews', label: 'Valoraciones' },
         { value: 'items_distance', indexName: 'grouped_items', label: 'Más cerca', requiresLocation: true },
     ],
 };
@@ -387,7 +388,7 @@ const CustomSearchBox = ({ rawQuery = '', onQueryChange, ...props }: CustomSearc
                     onChange={e => setVal(e.target.value)}
                     onFocus={() => { setRecents(getRecentSearches()); setFocused(true); }}
                     onBlur={() => setTimeout(() => setFocused(false), 150)}
-                    placeholder="Buscar listas, lugares, usuarios... (@user, #tag)"
+                    placeholder="Buscar listas, sitios, platos o personas"
                     className="w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl py-4 pl-14 pr-10 text-white text-base focus:outline-none focus:border-[var(--lt-accent-border)] focus:bg-white/10 placeholder-gray-500 transition-all"
                 />
                 <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
@@ -514,6 +515,11 @@ function getDefaultClosedFilter(tab: string) {
     }
     return '';
 }
+
+// La pestaña Lugares solo muestra sitios con al menos una reseña. Filtrarlo en
+// Algolia (y no en el cliente) evita páginas vacías que cortaban el scroll
+// infinito y contadores que no coincidían con lo visible.
+const PLACES_WITH_REVIEWS_FILTER = 'reviewsCount > 0';
 
 function isClosedStatus(value?: string | null) {
     return isClosedPlaceStatus(value);
@@ -643,6 +649,47 @@ const FilterContent = ({
     );
 };
 
+// ─── Estados de carga y error ─────────────────────────────────────────────────
+
+const SearchResultsSkeleton = ({ listLayout }: { listLayout: boolean }) => (
+    <div
+        className={listLayout ? 'flex flex-col gap-3' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4'}
+        aria-busy="true"
+        aria-label="Cargando resultados"
+    >
+        {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="lt-skeleton-card h-28 rounded-2xl" />
+        ))}
+    </div>
+);
+
+// Si Algolia falla (red, credenciales), avisamos en vez de dejar la página en blanco.
+const SearchErrorNotice = () => {
+    const { status, error, refresh } = useInstantSearch({ catchError: true });
+    if (status !== 'error' || !error) return null;
+    return (
+        <div role="alert" className="mx-4 lg:mx-8 mb-6 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+                <p className="text-[var(--lt-text)] font-bold text-sm">La búsqueda no responde ahora mismo</p>
+                <p className="text-[var(--lt-text-muted)] text-xs mt-0.5">Comprueba tu conexión e inténtalo de nuevo.</p>
+            </div>
+            <button type="button" onClick={() => refresh()} className="btn-glass text-xs shrink-0">Reintentar</button>
+        </div>
+    );
+};
+
+// En "Todo" cada sección se oculta si no tiene resultados; si ninguna tiene,
+// hay que decirlo en lugar de dejar la pantalla vacía.
+const AllTabEmptyState = ({ hasQuery }: { hasQuery: boolean }) => {
+    const { scopedResults, status } = useInstantSearch();
+    if (!hasQuery || status === 'loading' || status === 'stalled' || status === 'error') return null;
+    const sections = scopedResults.slice(1); // el primero es el índice raíz
+    if (sections.length === 0) return null;
+    const allEmpty = sections.every(section => section.results && section.results.nbHits === 0);
+    return allEmpty ? <EmptyState activeTab="all" /> : null;
+};
+
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
 const EmptyState = ({ activeTab, onTabChange }: { activeTab: string; onTabChange?: (t: string) => void }) => {
@@ -715,6 +762,7 @@ interface HitsProps {
 
 const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false, includeClosed = false }) => {
     const { hits, isLastPage, showMore } = useInfiniteHits();
+    const { status, results } = useInstantSearch();
     const sentinelRef = useRef<HTMLDivElement>(null);
     const hover = onHoverHit ?? (() => {});
     const typedHits = useMemo(() => hits as SearchHit[], [hits]);
@@ -752,8 +800,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                 const placeId = activeTab === 'places' ? hit.objectID : hit.placeId;
                 return !placeId || !closedPlaceIds.has(placeId);
             });
-        if (activeTab !== 'places') return openHits;
-        return openHits.filter(hit => (hit.reviewsCount ?? hit.reviewCount ?? 0) > 0);
+        return openHits;
     }, [activeTab, closedPlaceIds, includeClosed, typedHits]);
 
     useEffect(() => {
@@ -767,6 +814,11 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
 
     if (visibleHits.length === 0) {
         if (activeTab === 'all') return null;
+        // Sin respuesta todavía (o buscando): esqueleto, no un falso "no hay".
+        const awaitingResults = (results as { __isArtificial?: boolean } | undefined)?.__isArtificial
+            || status === 'loading' || status === 'stalled';
+        if (awaitingResults) return <SearchResultsSkeleton listLayout={listLayout} />;
+        if (status === 'error') return null; // SearchErrorNotice ya lo explica
         return <EmptyState activeTab={activeTab} onTabChange={onTabChange} />;
     }
 
@@ -833,9 +885,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
 
 const FedSectionContent = ({ title, type, icon: Icon, onViewAll }: { title: string; type: string; icon: React.ElementType; onViewAll: () => void }) => {
     const { hits } = useInfiniteHits();
-    const visibleCount = type === 'places'
-        ? (hits as SearchHit[]).filter(hit => (hit.reviewsCount ?? hit.reviewCount ?? 0) > 0).length
-        : hits.length;
+    const visibleCount = hits.length;
     if (visibleCount === 0) return null;
     return (
         <div className="mb-10">
@@ -1177,8 +1227,12 @@ export const SearchPage: React.FC = () => {
     ), [activeTab, includeClosedPlaces]);
 
     const algoliaFilters = useMemo(() => (
-        joinAlgoliaFilters([parsedAlgoliaFilters, defaultClosedFilter])
-    ), [parsedAlgoliaFilters, defaultClosedFilter]);
+        joinAlgoliaFilters([
+            parsedAlgoliaFilters,
+            defaultClosedFilter,
+            activeTab === 'places' ? PLACES_WITH_REVIEWS_FILTER : '',
+        ])
+    ), [parsedAlgoliaFilters, defaultClosedFilter, activeTab]);
 
     const activeGeoConfig = useMemo(() => {
         if (!isGeoTab || !effectiveGeoActive || !location) {
@@ -1235,13 +1289,16 @@ export const SearchPage: React.FC = () => {
                     </div>
                 </div>
 
+                <SearchErrorNotice />
+
                 {/* ── Federated: "Todo" ─────────────────────────────────────── */}
                 {activeTab === 'all' ? (
                     <div className="px-4 lg:px-8">
+                        <AllTabEmptyState hasQuery={parsedQuery.cleanedQuery.trim().length > 0} />
                         <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" type="lists" icon={ListIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('lists')} />
-                        <FederatedSection indexName={INDEX_NAMES.places} title="Lugares" type="places" icon={MapIcon} query={parsedQuery.cleanedQuery} filters={getDefaultClosedFilter('places')} onViewAll={() => handleTabChange('places')} />
+                        <FederatedSection indexName={INDEX_NAMES.places} title="Sitios" type="places" icon={MapIcon} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('places'), PLACES_WITH_REVIEWS_FILTER])} onViewAll={() => handleTabChange('places')} />
                         <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" type="users" icon={Users} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('users')} />
-                        <FederatedSection indexName={INDEX_NAMES.items} title="Items" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} filters={getDefaultClosedFilter('items')} onViewAll={() => handleTabChange('items')} />
+                        <FederatedSection indexName={INDEX_NAMES.items} title="Elementos" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} filters={getDefaultClosedFilter('items')} onViewAll={() => handleTabChange('items')} />
                     </div>
                 ) : (
                     <Index indexName={activeIndexName}>

@@ -20,6 +20,12 @@ jobs:
         run: npm run lint
         working-directory: frontend
         continue-on-error: true
+      - name: Tests unitarios del frontend
+        run: npm test
+        working-directory: frontend
+      - name: Tests de notas del servidor (mismos vectores que el frontend)
+        run: npm test
+        working-directory: functions
       - name: Build frontend
         run: npm run build
         working-directory: frontend
@@ -31,3 +37,19 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LISTOPIC }}
           projectId: listopic
+  rules_tests:
+    # Tests de las reglas de Firestore con el emulador (no despliega nada).
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install rules test deps
+        run: npm ci
+        working-directory: firestore-tests
+      - name: Firestore rules tests
+        run: npm test
+        working-directory: firestore-tests

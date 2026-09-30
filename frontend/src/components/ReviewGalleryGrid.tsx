@@ -59,10 +59,10 @@ const ExpandedReview: React.FC<{
                 <button
                     onClick={(e) => { e.stopPropagation(); onClose(); }}
                     className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-gray-200 hover:text-white text-sm font-semibold rounded-full transition-all border border-[var(--lt-accent-border)] hover:border-[var(--lt-accent-border)] shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]"
-                    aria-label="Cerrar reseña"
+                    aria-label="Cerrar valoración"
                 >
                     <ChevronUp className="w-4 h-4" />
-                    <span>Cerrar reseña</span>
+                    <span>Cerrar valoración</span>
                 </button>
             </div>
             <ReviewCard

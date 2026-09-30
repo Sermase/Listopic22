@@ -4,10 +4,13 @@ import { Link } from 'react-router-dom';
 import { MapPin, ChevronRight, Users, Star } from 'lucide-react';
 import { PlacePhotoPlaceholder } from './PlacePhotoPlaceholder';
 import { ProgressiveImage } from './ProgressiveImage';
+import { compareCriteria } from '../lib/criteria';
+import { scoreBadge, scoreBadgeStyle } from '../lib/scoreScale';
 
 type CriteriaDefinitionEntry = {
     id?: string;
     label?: string;
+    order?: number;
 };
 
 interface ListItemCardProps {
@@ -44,20 +47,6 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
     const isPermanentlyClosed = normalizedClosedStatus === 'permanently_closed' || normalizedClosedStatus === 'closed_permanently';
     const photoPlaceholderVariant = groupingMode === 'dish' ? 'group' : 'place';
 
-    // Helper for score colors (Legacy logic)
-    const getScoreColor = (score: number) => {
-        if (score >= 9) return 'bg-emerald-500 text-emerald-50';
-        if (score >= 7) return 'bg-[var(--lt-accent)] text-indigo-50';
-        if (score >= 5) return 'bg-amber-500 text-amber-50';
-        return 'bg-red-500 text-red-50';
-    };
-
-    const getBarColor = (score: number) => {
-        if (score >= 9) return 'bg-emerald-500';
-        if (score >= 7) return 'bg-[var(--lt-accent)]';
-        if (score >= 5) return 'bg-amber-500';
-        return 'bg-red-500';
-    };
 
     // New format for stats (similar to Carousels)
     const renderStats = () => {
@@ -70,12 +59,12 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
             <div className="flex items-center gap-3 mt-2 text-xs text-gray-400 font-medium">
                 {item.reviewCount !== undefined && (
                     <span className="flex items-center gap-1">
-                        <Star className="w-3 h-3" /> {item.reviewCount} reseñas
+                        <Star className="w-3 h-3" /> {item.reviewCount} valoraciones
                     </span>
                 )}
                 {item.itemCount !== undefined && (
                     <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3" /> {item.itemCount} lugares
+                        <MapPin className="w-3 h-3" /> {item.itemCount} sitios
                     </span>
                 )}
                 {item.followersCount !== undefined && (
@@ -118,7 +107,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
             orderedKeys.push(
                 ...Object.keys(definition)
                     .filter((key) => keySet.has(key))
-                    .sort((a, b) => collator.compare(getLabel(a), getLabel(b)))
+                    .sort((a, b) => compareCriteria(a, definition[a], b, definition[b]))
             );
         }
 
@@ -265,7 +254,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                                 )}
                             </div>
                             {groupingMode !== 'list' && (
-                                <div className={`flex items-center justify-center w-7 h-7 rounded-lg ${getScoreColor(item.avgRating)} font-bold text-white text-xs shrink-0`}>
+                                <div className="flex items-center justify-center w-7 h-7 rounded-lg font-bold text-xs shrink-0" style={scoreBadgeStyle(item.avgRating)}>
                                     {item.avgRating.toFixed(1)}
                                 </div>
                             )}
@@ -359,7 +348,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                                 </div>
 
                                 <div className="text-xs text-gray-500 mt-1">
-                                    {item.reviewCount > 0 && `${item.reviewCount} ${item.reviewCount === 1 ? 'reseña' : 'reseñas'}`}
+                                    {item.reviewCount > 0 && `${item.reviewCount} ${item.reviewCount === 1 ? 'valoración' : 'valoraciones'}`}
                                 </div>
 
                                 {/* List Stats */}
@@ -368,8 +357,8 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
 
                             {/* Score Box - Visible on Mobile List View now */}
                             {groupingMode !== 'list' && (
-                                <div className={`flex flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg ${getScoreColor(item.avgRating)} shadow-lg shrink-0`}>
-                                    <span className="font-display font-bold text-base sm:text-lg text-white">{item.avgRating.toFixed(1)}</span>
+                                <div className="flex flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-lg shrink-0" style={scoreBadgeStyle(item.avgRating)}>
+                                    <span className="font-display font-bold text-base sm:text-lg">{item.avgRating.toFixed(1)}</span>
                                 </div>
                             )}
                         </div>
@@ -395,10 +384,10 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                                                 <span className="truncate max-w-[70%] opacity-80">{label}</span>
                                                 <span className="font-mono opacity-100 font-bold">{score.toFixed(1)}</span>
                                             </div>
-                                            <div className="h-0.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                                            <div className="h-0.5 bg-[var(--lt-border)] rounded-full overflow-hidden">
                                                 <div
-                                                    className={`h-full rounded-full ${getBarColor(score)}`}
-                                                    style={{ width: `${score * 10}%` }}
+                                                    className="h-full rounded-full"
+                                                    style={{ width: `${score * 10}%`, backgroundColor: scoreBadge(score).bg }}
                                                 />
                                             </div>
                                         </div>

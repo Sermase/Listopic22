@@ -1,10 +1,44 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { arrayUnion, doc, onSnapshot, updateDoc } from 'firebase/firestore';
+import { arrayUnion, doc, getDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 import { getLevelInfo, normalizeEarnedBadgeIds, type LevelInfo } from '../utils/gamification';
 import { LevelUpModal } from '../components/LevelUpModal';
 import { AchievementToast } from '../components/AchievementToast';
+import { BADGE_PRESET_PACKS } from '../config/badgePresets';
+
+const PRESET_BADGES = new Map(
+    BADGE_PRESET_PACKS.flatMap(pack => pack.badges).map(badge => [badge.id, badge] as const),
+);
+
+const prettifyBadgeId = (id: string) => id.replace(/_/g, ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase());
+
+/** Nombre y emoji reales de una insignia: primero la colección `badges`, luego los presets. */
+async function resolveBadgeNotification(id: string): Promise<BadgeNotification> {
+    const preset = PRESET_BADGES.get(id);
+    try {
+        const snap = await getDoc(doc(db, 'badges', id));
+        if (snap.exists()) {
+            const data = snap.data() as { name?: string; icon?: string; descriptionPublic?: string; xpReward?: number };
+            return {
+                id,
+                name: data.name || preset?.name || prettifyBadgeId(id),
+                emoji: data.icon || preset?.icon || '🏆',
+                description: data.descriptionPublic || preset?.descriptionPublic,
+                xpReward: data.xpReward ?? preset?.xpReward,
+            };
+        }
+    } catch {
+        // Sin conexión o sin permiso: se usa el preset.
+    }
+    return {
+        id,
+        name: preset?.name || prettifyBadgeId(id),
+        emoji: preset?.icon || '🏆',
+        description: preset?.descriptionPublic,
+        xpReward: preset?.xpReward,
+    };
+}
 
 interface BadgeNotification {
     id: string;
@@ -120,12 +154,10 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
             const newBadgeEntries = newBadges.filter(id => !notifiedBadgeSet.has(id));
             if (newBadgeEntries.length > 0) {
                 updateDoc(userRef, { notifiedBadges: arrayUnion(...newBadgeEntries) }).catch(() => { /* ignore */ });
-                const notifications: BadgeNotification[] = newBadgeEntries.map(id => ({
-                    id,
-                    name: id.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-                    emoji: '🏆',
-                }));
-                setBadgeQueue(prev => [...prev, ...notifications]);
+                // Antes el aviso mostraba el id interno (p. ej. "CRITICO_DE_BARRIO");
+                // ahora usa el nombre, emoji y descripción reales de la insignia.
+                void Promise.all(newBadgeEntries.map(resolveBadgeNotification))
+                    .then(notifications => setBadgeQueue(prev => [...prev, ...notifications]));
             }
         }, (error) => {
             console.warn('GamificationProvider: onSnapshot error', error);
