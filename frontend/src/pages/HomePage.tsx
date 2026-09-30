@@ -585,10 +585,11 @@ export const HomePage: React.FC = () => {
     // Un punto por sitio (el número de cada zona son sitios, como en el mapa).
     const reviewGeoPoints = useMemo(() => {
         const byPlace = new Map<string, GeoFields & { lat?: number; lng?: number }>();
-        reviews.forEach((r: any) => {
+        reviews.forEach((r) => {
             const key = r.placeId || r.id;
             if (byPlace.has(key)) return;
-            byPlace.set(key, { city: r.placeCity, province: r.placeProvince, region: r.placeRegion, country: r.placeCountry, lat: r.placeLat, lng: r.placeLng });
+            const { placeLat, placeLng } = r as { placeLat?: number; placeLng?: number };
+            byPlace.set(key, { city: r.placeCity, province: r.placeProvince, region: r.placeRegion, country: r.placeCountry, lat: placeLat, lng: placeLng });
         });
         return [...byPlace.values()];
     }, [reviews]);
@@ -638,7 +639,7 @@ export const HomePage: React.FC = () => {
             const matchesCategory = checkCategory(r);
             const lat = (r as any).placeLat || (r as any).lat;
             const lng = (r as any).placeLng || (r as any).lng;
-            const matchesDist = checkDistance(lat, lng, { city: (r as any).placeCity, province: (r as any).placeProvince, region: (r as any).placeRegion, country: (r as any).placeCountry });
+            const matchesDist = checkDistance(lat, lng, { city: r.placeCity, province: r.placeProvince, region: r.placeRegion, country: r.placeCountry });
             return matchesCategory && matchesDist;
         });
     }, [reviews, activeFilter, range, location, botUserIds, checkDistance]);
