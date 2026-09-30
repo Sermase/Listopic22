@@ -63,6 +63,23 @@ async function seed() {
       reviewCount: 1, averageRating: 9,
     });
 
+    // B1: listas con pesos y valoraciones, y una madre con una Minilista.
+    await put('lists/pesada', {
+      name: 'Croquetas', userId: 'alice', isPublic: true, visibility: 'public', publicAccess: 'reader',
+      editors: ['carol'], guests: [], criteriaDefinition: criteria, scoringWeights: { carne: 1, pan: 1 },
+      reviewCount: 4, averageRating: 8,
+    });
+    await put('lists/vacia', {
+      name: 'Gyozas', userId: 'alice', isPublic: true, visibility: 'public', publicAccess: 'reader',
+      editors: [], guests: [], criteriaDefinition: criteria, scoringWeights: { carne: 1, pan: 1 }, reviewCount: 0,
+    });
+    await put('lists/miniPesada', {
+      name: 'Croquetas · Valladolid', userId: 'bob', isPublic: true, visibility: 'public', publicAccess: 'reader',
+      parentListId: 'pesada', isSublist: true, editors: [], guests: [],
+      criteriaDefinition: { ...criteria, relleno: { type: 'slider', label: 'Relleno', ponderable: true } },
+      scoringWeights: { carne: 1, pan: 1, relleno: 1 }, reviewCount: 0,
+    });
+
     const review = (extra) => ({
       userId: 'alice', authorId: 'alice', itemName: 'Smash', placeId: 'p1', overallRating: 8,
       scores: { carne: 8, pan: 8 }, comment: 'Muy buena', commentsCount: 0,
@@ -439,5 +456,71 @@ describe('V8 · Guardarraíles de regresión', () => {
 
   it('✅ alice borra su propia reseña', async () => {
     await assertSucceeds(deleteDoc(doc(as('alice'), 'lists/pub/reviews/rPub')));
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('V9 · Criterios y pesos (B1): Minilistas comparables y nota bloqueada', () => {
+  const extra = { type: 'slider', label: 'Bechamel', min: 0, max: 10, step: 0.5, ponderable: true };
+  const miniPayload = (criteriaDefinition, extraFields = {}) => ({
+    name: 'Croquetas · León', description: '', categoryId: 'comida', parentListId: 'pesada', isSublist: true,
+    userId: 'bob', isPublic: true, visibility: 'public', publicAccess: 'reader', editors: [], authorName: 'Bob',
+    photoUrl: '', mainImageUrl: '', criteriaDefinition, availableTags: [],
+    createdAt: serverTimestamp(), updatedAt: serverTimestamp(), itemCount: 0, viewCount: 0, likes: 0,
+    followersCount: 0, averageRating: 0, criteriaAverages: {}, criteriaAveragesUpdatedAt: serverTimestamp(),
+    ...extraFields,
+  });
+
+  it('✅ crear Minilista con todos los criterios de la madre y pesos (CreateSublistPage)', async () => {
+    await assertSucceeds(setDoc(doc(as('bob'), 'lists/miniOk'), miniPayload(
+      { ...criteria, bechamel: extra }, { scoringWeights: { carne: 1, pan: 1, bechamel: 1 } },
+    )));
+  });
+
+  it('❌ crear Minilista sin algún criterio de la madre', async () => {
+    await assertFails(setDoc(doc(as('bob'), 'lists/miniMal'), miniPayload({ carne: criteria.carne })));
+  });
+
+  it('❌ quitar a una Minilista un criterio heredado', async () => {
+    await assertFails(updateDoc(doc(as('bob'), 'lists/miniPesada'), {
+      criteriaDefinition: { carne: criteria.carne, relleno: { type: 'slider', label: 'Relleno', ponderable: true } },
+    }));
+  });
+
+  it('✅ renombrar y añadir criterios en una lista con valoraciones (no cambian notas)', async () => {
+    await assertSucceeds(updateDoc(doc(as('alice'), 'lists/pesada'), {
+      criteriaDefinition: { ...criteria, carne: { ...criteria.carne, label: 'Carne (jugosidad)' }, bechamel: extra },
+      scoringWeights: { carne: 1, pan: 1, bechamel: 1 },
+    }));
+  });
+
+  it('❌ con valoraciones: quitar un criterio', async () => {
+    await assertFails(updateDoc(doc(as('alice'), 'lists/pesada'), {
+      criteriaDefinition: { carne: criteria.carne }, scoringWeights: { carne: 1 },
+    }));
+  });
+
+  it('❌ con valoraciones: cambiar si un criterio cuenta (peso) o su peso', async () => {
+    const db = as('alice');
+    await assertFails(updateDoc(doc(db, 'lists/pesada'), { scoringWeights: { carne: 1, pan: 0 } }));
+    await assertFails(updateDoc(doc(db, 'lists/pesada'), { scoringWeights: { carne: 3, pan: 1 } }));
+    await assertFails(updateDoc(doc(as('carol'), 'lists/pesada'), { scoringWeights: { carne: 1, pan: 0 } }));
+  });
+
+  it('✅ sin valoraciones: el dueño cambia criterios y pesos libremente', async () => {
+    await assertSucceeds(updateDoc(doc(as('alice'), 'lists/vacia'), {
+      criteriaDefinition: { carne: criteria.carne }, scoringWeights: { carne: 1 },
+    }));
+  });
+
+  it('✅ lista antigua con valoraciones y sin pesos: primera edición guarda los pesos (EditListForm)', async () => {
+    await assertSucceeds(updateDoc(doc(as('alice'), 'lists/pub'), {
+      name: 'Hamburguesas', criteriaDefinition: { ...criteria, carne: { ...criteria.carne, order: 0 } },
+      scoringWeights: { carne: 1, pan: 1 },
+    }));
+  });
+
+  it('✅ jefe (migración del servidor) puede cambiar pesos con valoraciones', async () => {
+    await assertSucceeds(updateDoc(doc(jefe(), 'lists/pesada'), { scoringWeights: { carne: 2, pan: 1 } }));
   });
 });

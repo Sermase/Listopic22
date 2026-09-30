@@ -75,7 +75,7 @@ service cloud.firestore {
         'updatedAt', 'itemCount', 'groupedItemsCount', 'viewCount', 'likes',
         'followersCount', 'commentsCount', 'reviewCount', 'averageRating',
         'criteriaAverages', 'criteriaAveragesUpdatedAt', 'reactions',
-        'lastActivityAt', 'lastReviewAt'
+        'lastActivityAt', 'lastReviewAt', 'scoringWeights'
       ];
     }
 
@@ -90,7 +90,7 @@ service cloud.firestore {
         'followersCount', 'commentsCount', 'reviewCount', 'averageRating',
         'criteriaAverages', 'criteriaAveragesUpdatedAt', 'reactions',
         'lastActivityAt', 'lastReviewAt', 'ownerId', 'mainImagePath', 'slug',
-        'deletedAt'
+        'deletedAt', 'scoringWeights'
       ];
     }
 
@@ -137,6 +137,37 @@ service cloud.firestore {
       return ['editors', 'guests', 'isPublic', 'visibility', 'publicAccess', 'deletedAt'];
     }
 
+    // Una Minilista contiene SIEMPRE todos los criterios de su Lista madre.
+    // (Las propias puede añadirlas; los cambios de la madre los propaga el servidor.)
+    function minilistKeepsParentCriteria(data) {
+      let parentId = data.get('parentListId', null);
+      return parentId == null || parentId == ''
+        || !exists(/databases/$(database)/documents/lists/$(parentId))
+        || data.get('criteriaDefinition', {}).keys().hasAll(
+             get(/databases/$(database)/documents/lists/$(parentId)).data.get('criteriaDefinition', {}).keys());
+    }
+
+    // Con valoraciones, la forma de calcular la nota queda bloqueada: se pueden
+    // añadir criterios (no cambian notas ya puestas) pero no quitarlos ni
+    // cambiar pesos existentes. Eso lo hace una migración del servidor.
+    // Listas antiguas sin `scoringWeights`: se acepta la primera escritura de pesos
+    // (el formulario los deriva de «cuenta / no cuenta», que ya no se puede cambiar);
+    // desde ahí quedan bloqueados. El backfill del servidor los rellena en todas.
+    function listScoringLockRespected() {
+      let beforeCriteria = resource.data.get('criteriaDefinition', {});
+      let afterCriteria = request.resource.data.get('criteriaDefinition', {});
+      let beforeWeights = resource.data.get('scoringWeights', {});
+      let afterWeights = request.resource.data.get('scoringWeights', {});
+      let weightsDiff = afterWeights.diff(beforeWeights);
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return resource.data.get('reviewCount', 0) == 0 || (
+        afterCriteria.keys().hasAll(beforeCriteria.keys())
+        && weightsDiff.changedKeys().size() == 0
+        && weightsDiff.removedKeys().size() == 0
+        && (beforeWeights.size() > 0 || afterWeights.size() > 0 || !changed.hasAny(['criteriaDefinition']))
+      );
+    }
+
     function listUpdateIsAllowedFor(uid) {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       let isOwner = resource.data.userId == uid;
@@ -146,7 +177,9 @@ service cloud.firestore {
         (
           !changed.hasAny(listServerKeys()) &&
           !changed.hasAny(listIdentityKeys()) &&
-          (isOwner || (isEditor && !changed.hasAny(listOwnerOnlyKeys())))
+          (isOwner || (isEditor && !changed.hasAny(listOwnerOnlyKeys()))) &&
+          listScoringLockRespected() &&
+          (!changed.hasAny(['criteriaDefinition']) || minilistKeepsParentCriteria(request.resource.data))
         )
       );
     }
@@ -526,7 +559,9 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && request.resource.data.userId == request.auth.uid
                     && listCreateHasOnlyAllowedFields()
-                    && (isJefe(request.auth.uid) || listMetricsAreInitial(request.resource.data));
+                    && (isJefe(request.auth.uid) || (
+                         listMetricsAreInitial(request.resource.data)
+                         && minilistKeepsParentCriteria(request.resource.data)));
       // El dueño de la lista O un jefe pueden borrarla.
       allow delete: if request.auth != null && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid));
 

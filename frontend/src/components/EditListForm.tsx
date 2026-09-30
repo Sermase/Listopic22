@@ -161,7 +161,10 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                                 label: val.label || key,
                                 minLabel: val.labelMin || 'Malo',
                                 maxLabel: val.labelMax || 'Excelente',
-                                isPonderable: val.ponderable !== false,
+                                // Si la lista ya tiene pesos, mandan ellos (ver lib/scoring).
+                                isPonderable: typeof data.scoringWeights?.[key] === 'number'
+                                    ? data.scoringWeights[key] > 0
+                                    : val.ponderable !== false,
                                 step: val.step ?? 0.5
                             });
                         }
