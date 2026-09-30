@@ -9,6 +9,8 @@ import {
     matchesArea,
     normalizeCcaa,
     primaryContextRank,
+    inferUserGeo,
+    localAreaOptions,
 } from './geoAreas';
 
 const vll = { city: 'Valladolid', province: 'Valladolid', region: 'Castilla y León', country: 'España' };
@@ -77,11 +79,49 @@ describe('geoAreas', () => {
         const ranks = contextualRanks(items).get('m3');
         // Mirando «Madrid» (3 elementos): «Madrid provincia» y la CCAA son lo mismo → se muestra España.
         expect(primaryContextRank(ranks, { kind: 'city', value: 'Madrid' }, 3)!.label).toBe('#1 en España');
+        // Mirando toda la Lista (4 elementos): «#… en España» sobra.
+        expect(primaryContextRank(contextualRanks(items).get('v'), { kind: 'near' }, 4)).toBeNull();
     });
 
     it('sin repeticiones cuando ciudad, provincia, CCAA y país son el mismo conjunto', () => {
         const items = [1, 2, 3].map((n) => ({ id: `v${n}`, ...vll, average: 7 + n, count: 3 }));
         const labels = distinctContextRanks(contextualRanks(items).get('v3')!).map((r) => r.label);
         expect(labels).toEqual(['#1 en Valladolid']);
+    });
+});
+
+describe('geoAreas: contexto local', () => {
+    const vllPlace = { ...vll, lat: 41.6523, lng: -4.7245 };
+    const medina = { city: 'Medina del Campo', province: 'Valladolid', region: 'Castilla y León', country: 'España', lat: 41.312, lng: -4.914 };
+    const madPlace = { ...mad, lat: 40.4168, lng: -3.7038 };
+    const leonPlace = { ...leon, lat: 42.5987, lng: -5.5671 };
+
+    it('deduce ciudad, comunidad y país del sitio cercano', () => {
+        expect(inferUserGeo({ latitude: 41.65, longitude: -4.72 }, [madPlace, vllPlace, leonPlace]))
+            .toEqual({ city: 'Valladolid', province: 'Valladolid', region: 'Castilla y León', country: 'España' });
+    });
+
+    it('lejos de todo: ni ciudad ni comunidad, sí país', () => {
+        // En Madrid con una Lista solo de Valladolid (≈ 160 km).
+        expect(inferUserGeo({ latitude: 40.4168, longitude: -3.7038 }, [vllPlace, medina]))
+            .toEqual({ country: 'España' });
+    });
+
+    it('sin ubicación no hay contexto', () => {
+        expect(inferUserGeo(null, [vllPlace])).toBeNull();
+    });
+
+    it('en la Lista solo se ofrecen tu ciudad, tu comunidad y tu país', () => {
+        const all = buildAreaOptions([vll, vll, vll, medina, leon, mad]);
+        const local = localAreaOptions(all, { city: 'Valladolid', province: 'Valladolid', region: 'Castilla y León', country: 'España' });
+        expect(local.city.map((o) => o.label)).toEqual(['Valladolid']);
+        expect(local.province).toEqual([]);
+        expect(local.region.map((o) => `${o.label} ${o.count}`)).toEqual(['Castilla y León 5']);
+        expect(local.country.map((o) => o.label)).toEqual(['España']);
+        // Sin ubicación: solo país; nada de ciudades lejanas.
+        const none = localAreaOptions(all, null);
+        expect(none.city).toEqual([]);
+        expect(none.region).toEqual([]);
+        expect(none.country.map((o) => o.label)).toEqual(['España']);
     });
 });

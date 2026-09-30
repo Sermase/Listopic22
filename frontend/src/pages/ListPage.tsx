@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useParams, Link, useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
@@ -26,7 +26,7 @@ import { useAuthPrompt } from '../context/AuthPromptContext';
 import { compareByRank, isScoreValue, reviewScoreForList } from '../lib/scoring';
 import { scoreBadgeStyle } from '../lib/scoreScale';
 import { useStoredChoice } from '../hooks/useStoredChoice';
-import { AREA_STORAGE_KEY, buildAreaOptions, contextualRanks, decodeArea, distanceLabel, encodeArea, geoAreaLabel, matchesArea, primaryContextRank, type GeoFields, type ListArea } from '../lib/geoAreas';
+import { AREA_STORAGE_KEY, buildAreaOptions, contextualRanks, decodeArea, distanceLabel, encodeArea, geoAreaLabel, inferUserGeo, localAreaOptions, matchesArea, primaryContextRank, type GeoFields, type ListArea } from '../lib/geoAreas';
 import { AreaSelect } from '../components/AreaSelect';
 
 export interface FilterState {
@@ -600,8 +600,22 @@ export const ListPage: React.FC = () => {
 
     // Filter Items
     // Filter Items by Tag
-    // Zonas presentes en la Lista y zona efectiva (si la guardada no existe aquí, vuelve a «cerca»).
-    const areaOptions = useMemo(() => buildAreaOptions(groupedItems.map(item => item.geo)), [groupedItems]);
+    // Contexto local: solo radios y la ciudad, comunidad y país donde está la
+    // persona (deducidos del sitio más cercano). Otras zonas, en Buscar.
+    // Si la zona guardada no es de aquí, vuelve a «cerca».
+    const userGeo = useMemo(
+        () => inferUserGeo(location, groupedItems.map(item => ({ ...item.geo, lat: item.lat, lng: item.lng }))),
+        [location, groupedItems],
+    );
+    const areaOptions = useMemo(
+        () => localAreaOptions(buildAreaOptions(groupedItems.map(item => item.geo)), userGeo),
+        [groupedItems, userGeo],
+    );
+    const exploreInSearch = useCallback(() => {
+        if (!listId) return;
+        const params = new URLSearchParams({ type: 'items', sort: 'grouped_items_by_score', listId, listName: list?.name || '' });
+        navigate(`/search?${params.toString()}`);
+    }, [listId, list?.name, navigate]);
     const effectiveArea = useMemo<ListArea>(() => {
         if (area.kind === 'near') return area;
         return areaOptions[area.kind].some(option => option.value === area.value) ? area : { kind: 'near' };
@@ -1190,25 +1204,27 @@ export const ListPage: React.FC = () => {
                     <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[var(--lt-card-strong)]/60 border-b border-white/5">
                         <button
                             onClick={() => setIsMapOpen(!isMapOpen)}
-                            className="flex items-center gap-2 hover:text-white transition-colors flex-1"
+                            className="flex items-center gap-2 hover:text-white transition-colors shrink-0"
                         >
-                            <MapIcon className="w-5 h-5 text-gray-400" />
-                            <span className="font-bold text-sm">Mapa de la Lista</span>
+                            <MapIcon className="w-5 h-5 text-gray-400 shrink-0" />
+                            <span className="font-bold text-sm whitespace-nowrap">Mapa<span className="hidden sm:inline"> de la Lista</span></span>
                         </button>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-end gap-2 sm:gap-3 min-w-0 flex-1 ml-2">
                             <AreaSelect
                                 value={effectiveArea.kind === 'near' ? `r:${range ?? 'all'}` : encodeArea(effectiveArea)}
                                 range={range}
                                 options={areaOptions}
                                 onChange={handleAreaSelect}
+                                onExplore={exploreInSearch}
                             />
 
                             <button
+                                aria-label={isMapOpen ? 'Ocultar mapa' : 'Ver mapa'}
                                 onClick={() => setIsMapOpen(!isMapOpen)}
-                                className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-white transition-colors"
+                                className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-white transition-colors whitespace-nowrap shrink-0"
                             >
-                                {isMapOpen ? 'Ocultar' : 'Ver Mapa'}
+                                <span className="hidden sm:inline">{isMapOpen ? 'Ocultar' : 'Ver mapa'}</span>
                                 <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapOpen ? 'rotate-180' : ''}`} />
                             </button>
                         </div>

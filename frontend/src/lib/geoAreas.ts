@@ -169,8 +169,8 @@ export function contextualRanks(items: ReadonlyArray<RankableGeoItem>): Map<stri
 
 /**
  * El puesto principal: el contexto más concreto que aporte algo. Se salta la
- * zona que ya se está mirando y cualquier contexto que tenga exactamente los
- * mismos elementos (p. ej. «Madrid» y «Madrid provincia» cuando coinciden).
+ * zona que ya se está mirando y cualquier contexto con tantos elementos como
+ * los que se ven (p. ej. «#4 en España» mirando toda la Lista).
  */
 export function primaryContextRank(
     ranks: ReadonlyArray<ContextRank> | undefined,
@@ -183,7 +183,8 @@ export function primaryContextRank(
         if (activeArea.kind === level) continue;
         const found = ranks.find((r) => r.level === level);
         if (!found) continue;
-        if (activeArea.kind !== 'near' && activeAreaTotal !== undefined && found.total === activeAreaTotal) continue;
+        // Mismos elementos que los que ya se ven: el número de la tarjeta ya lo dice.
+        if (activeAreaTotal !== undefined && found.total === activeAreaTotal) continue;
         return found;
     }
     return null;
@@ -197,4 +198,62 @@ export function distinctContextRanks(ranks: ReadonlyArray<ContextRank>): Context
         seenTotals.add(rank.total);
         return true;
     });
+}
+
+// --- Contexto local (Lista y Home) -------------------------------------------
+// En la Lista y la Home solo se ofrece lo que rodea a la persona: radios de
+// distancia y SU ciudad, SU comunidad y SU país. Explorar otras zonas se hace
+// en Buscar. «Dónde estás» se deduce de los sitios más cercanos con ubicación
+// (sin llamar a Google): la ciudad, si hay uno a menos de 15 km; la comunidad,
+// a menos de 120 km; el país, a menos de 600 km.
+
+export const LOCAL_LEVELS: GeoLevel[] = ['city', 'region', 'country'];
+const LOCAL_MAX_KM: Record<GeoLevel, number> = { city: 15, province: 60, region: 120, country: 600 };
+
+export interface LocatedGeo extends GeoFields {
+    lat?: number | null;
+    lng?: number | null;
+}
+
+export function haversineKm(a: { latitude: number; longitude: number }, lat: number, lng: number): number {
+    const toRad = (v: number) => (v * Math.PI) / 180;
+    const dLat = toRad(lat - a.latitude);
+    const dLng = toRad(lng - a.longitude);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.latitude)) * Math.cos(toRad(lat)) * Math.sin(dLng / 2) ** 2;
+    return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+/** Ciudad, comunidad y país de la persona, deducidos de los sitios cercanos. */
+export function inferUserGeo(
+    location: { latitude: number; longitude: number } | null | undefined,
+    places: ReadonlyArray<LocatedGeo>,
+): GeoFields | null {
+    if (!location) return null;
+    const located = places
+        .filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number' && Number.isFinite(p.lat) && Number.isFinite(p.lng))
+        .map((p) => ({ p, km: haversineKm(location, p.lat as number, p.lng as number) }))
+        .sort((a, b) => a.km - b.km);
+    const result: GeoFields = {};
+    GEO_LEVELS.forEach((level) => {
+        const nearest = located.find(({ p, km }) => km <= LOCAL_MAX_KM[level] && geoValue(p, level));
+        if (nearest) result[level] = geoValue(nearest.p, level);
+    });
+    return Object.values(result).some(Boolean) ? result : null;
+}
+
+/**
+ * Opciones de zona en contexto local: solo la ciudad, la comunidad y el país de
+ * la persona. Sin ubicación: solo el país (o los países) de la Lista.
+ */
+export function localAreaOptions(all: Record<GeoLevel, AreaOption[]>, userGeo: GeoFields | null): Record<GeoLevel, AreaOption[]> {
+    const pick = (level: GeoLevel) => {
+        const mine = userGeo ? geoValue(userGeo, level) : '';
+        return mine ? all[level].filter((o) => o.value === mine) : [];
+    };
+    return {
+        city: pick('city'),
+        province: [],
+        region: pick('region'),
+        country: userGeo ? pick('country') : all.country,
+    };
 }
