@@ -15,6 +15,7 @@ import { ListSearch } from './ListSearch';
 import { useQueryClient } from '@tanstack/react-query';
 import { isGooglePlacePhotoUrl } from '../utils/placeImages';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from '../lib/storageCache';
 
 interface AddReviewFormProps {
     listId: string | null;
@@ -732,7 +733,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             const fileName = `${user.uid}_${Date.now()}_${pi}.jpg`;
                             const storagePath = `reviews/${user.uid}/${fileName}`;
                             const storageRef = ref(storage, storagePath);
-                            const snapshot = await uploadBytes(storageRef, photosToUpload[pi].blob, { contentType: 'image/jpeg' });
+                            const snapshot = await uploadBytes(storageRef, photosToUpload[pi].blob, { contentType: 'image/jpeg', cacheControl: IMMUTABLE_UPLOAD_CACHE_CONTROL });
                             finalPhotoUrls.push(await getDownloadURL(snapshot.ref));
                             finalPhotoStoragePaths.push(storagePath);
                         }

@@ -54,15 +54,13 @@ import { httpsCallable } from "firebase/functions";
 import { db, auth, storage, functions } from "../firebase";
 import { signOut, updateProfile } from "firebase/auth";
 import { ReviewCard } from "../components/ReviewCard";
-import { AddReviewForm } from "../components/AddReviewForm";
-import { ShareModal } from "../components/ShareModal";
+import { LazyAddReviewForm as AddReviewForm, LazyShareModal as ShareModal, LazyMapView as MapView } from "../components/lazy";
 import { Skeleton } from "../components/Skeleton";
 import { FastAverageColor } from "fast-average-color";
 import { ChatService } from "../services/ChatService";
 import { FollowingSection } from "../components/profile/FollowingSection";
 import { ProgressiveImage } from "../components/ProgressiveImage";
 import { BadgeDisplay } from "../components/profile/BadgeDisplay";
-import { MapView } from "../components/MapView";
 import {
   collection,
   collectionGroup,
@@ -94,6 +92,7 @@ import { buildPublicRouteUrl } from "../utils/publicUrl";
 import { getSelectedProfileReviewListId, selectProfileReviewResults } from "../utils/profileReviewFilter";
 import { EntityHero } from "../components/EntityHero";
 import { useAuthPrompt } from "../context/AuthPromptContext";
+import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from "../lib/storageCache";
 
 interface ListRatingStats {
   listId: string;
@@ -1607,7 +1606,7 @@ export const ProfilePage: React.FC = () => {
       let downloadURL = "";
 
       try {
-        await uploadBytes(storageRef, file, { contentType: file.type || "image/jpeg" });
+        await uploadBytes(storageRef, file, { contentType: file.type || "image/jpeg", cacheControl: IMMUTABLE_UPLOAD_CACHE_CONTROL });
         downloadURL = await getDownloadURL(storageRef);
       } catch (error) {
         console.error("Profile photo upload failed:", error);

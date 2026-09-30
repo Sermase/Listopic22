@@ -13,7 +13,7 @@ import { SponsoredHomeSpotlight } from '../components/business/SponsoredHomeSpot
 import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
 import { computeTasteMatch } from '../utils/tasteMatch';
 import { WeeklyDuelBanner } from '../components/WeeklyDuelBanner';
-import { MapView } from '../components/MapView';
+import { LazyMapView as MapView } from '../components/lazy';
 import { UserAvatar } from '../components/UserAvatar';
 import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, Flame, TrendingUp, Gem, HeartHandshake, Rows3 } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
@@ -144,7 +144,9 @@ const HIDDEN_GEM_MIN_RATING = 8.4;
 const FAVORITE_REVIEW_MIN_RATING = 7.5;
 
 export const HomePage: React.FC = () => {
-    const { user, loading: authLoading } = useAuth();
+    // No se espera a la sesión para pintar: el contenido público carga en
+    // paralelo y las secciones personales aparecen cuando se resuelve.
+    const { user } = useAuth();
     const appConfig = useAppConfig();
     const { location, calculateDistance, requestLocation } = useLocation();
     const { showToast } = useToast();
@@ -1123,14 +1125,6 @@ export const HomePage: React.FC = () => {
         return `/search?${params.toString()}`;
     }, [range]);
 
-    if (authLoading) {
-        return (
-            <div className="min-h-screen bg-[var(--lt-bg)] flex items-center justify-center">
-                <Loader2 className="w-8 h-8 text-[var(--lt-accent)] animate-spin" />
-            </div>
-        );
-    }
-
     return (
         <>
             <div className="min-h-screen bg-[var(--lt-bg)] pb-20 font-sans">
@@ -1267,7 +1261,8 @@ export const HomePage: React.FC = () => {
                                 <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isMapOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
                                     <div className="overflow-hidden min-h-0">
                                         <div className="h-[400px] border-t border-white/10 relative">
-                                            <MapView items={filteredPlaces} mode="global" range={range} />
+                                            {/* Solo se monta (y descarga Leaflet) cuando el usuario abre el mapa. */}
+                                            {isMapOpen && <MapView items={filteredPlaces} mode="global" range={range} />}
                                         </div>
                                     </div>
                                 </div>

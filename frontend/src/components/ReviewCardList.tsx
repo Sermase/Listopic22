@@ -8,7 +8,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
 import { type ReviewEntity } from '../hooks/useListDetails';
 import { useAuth } from '../context/AuthContext';
-import { ShareModal } from './ShareModal';
+import { LazyShareModal as ShareModal } from './lazy';
 import { SaveToArchiveModal } from './SaveToArchiveModal';
 import { ReviewService } from '../services/ReviewService';
 import { ReportModal } from './ReportModal';

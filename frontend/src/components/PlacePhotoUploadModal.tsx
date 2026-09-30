@@ -8,6 +8,7 @@ import { Camera, ImagePlus, Loader2, Trash2, X } from 'lucide-react';
 import { db, storage } from '../firebase';
 import { PhotoEditorModal, type ProcessedPhoto } from './PhotoEditorModal';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from '../lib/storageCache';
 
 
 
@@ -119,7 +120,7 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
                 const fileName = `${Date.now()}-${i}.jpg`;
                 const storagePath = `places/${placeId}/${user.uid}/${fileName}`;
                 const storageRef = ref(storage, storagePath);
-                const snapshot = await uploadBytes(storageRef, photo.blob, { contentType: 'image/jpeg' });
+                const snapshot = await uploadBytes(storageRef, photo.blob, { contentType: 'image/jpeg', cacheControl: IMMUTABLE_UPLOAD_CACHE_CONTROL });
                 const url = await getDownloadURL(snapshot.ref);
                 if (!firstUrl) firstUrl = url;
 

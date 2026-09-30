@@ -4,19 +4,17 @@ import {
     MapPin, MessageSquare, List as ListIcon, Share2,
     Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby, Megaphone
 } from 'lucide-react';
-import { ShareModal } from '../components/ShareModal';
+import { LazyShareModal as ShareModal, LazyMapView as MapView, LazyAddReviewForm as AddReviewForm } from '../components/lazy';
 import { ProgressiveImage } from '../components/ProgressiveImage';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
 import { usePlaceDetails } from '../hooks/usePlaceDetails';
 import { PlaceService } from '../services/PlaceService';
 import { ReviewCard } from '../components/ReviewCard';
 import { ReviewCardList } from '../components/ReviewCardList';
-import { MapView } from '../components/MapView';
 import { useAuth } from '../context/AuthContext';
 import { useAuthPrompt } from '../context/AuthPromptContext';
 import { collection, doc, getDoc, getDocs, query, setDoc, deleteDoc, serverTimestamp, where } from 'firebase/firestore';
 import { db } from '../firebase';
-import { AddReviewForm } from '../components/AddReviewForm';
 import { ReportModal } from '../components/ReportModal';
 import { Lightbox } from '../components/Lightbox';
 import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
