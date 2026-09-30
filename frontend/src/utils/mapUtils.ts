@@ -11,25 +11,33 @@ export interface MapLayerConfig {
     tileFilter?: string; // filtro CSS opcional para el tile pane
 }
 
+// CARTO dejó de servir sus mapas base sin clave: devolvía mosaicos con la marca
+// "API KEY REQUIRED" en lugar de calles (comprobado el 30/09/2026). Mientras se
+// decide un proveedor definitivo (ver Mejoras/siguiente-fase.md), las capas usan
+// el callejero público de Esri, el mismo proveedor que ya servía la vista satélite.
+const ESRI_STREET_MAP_URL = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
+const ESRI_STREET_MAP_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Source: Esri, HERE, Garmin, USGS, NGA, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, and the GIS User Community';
+
 export const MAP_LAYERS: Record<MapLayerId, MapLayerConfig> = {
     standard: {
         label: 'Estándar',
         emoji: '🗺️',
-        url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        url: ESRI_STREET_MAP_URL,
+        attribution: ESRI_STREET_MAP_ATTRIBUTION,
     },
     light: {
         label: 'Claro',
         emoji: '☀️',
-        url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        tileFilter: 'brightness(0.84) saturate(0.55) contrast(1.05)',
+        url: ESRI_STREET_MAP_URL,
+        attribution: ESRI_STREET_MAP_ATTRIBUTION,
+        tileFilter: 'saturate(0.35) brightness(1.06) contrast(0.95)',
     },
     dark: {
         label: 'Oscuro',
         emoji: '🌑',
-        url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        url: ESRI_STREET_MAP_URL,
+        attribution: ESRI_STREET_MAP_ATTRIBUTION,
+        tileFilter: 'invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88) saturate(0.45)',
     },
     satellite: {
         label: 'Satelital',
