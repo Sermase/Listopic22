@@ -66,6 +66,7 @@ interface ListMetadata {
     parentListId?: string | null;
     visibility?: string;
     criteriaDefinition?: ReviewCriterion[] | Record<string, ReviewCriterion>;
+    scoringWeights?: Record<string, number>;
     availableTags?: string[];
 }
 
@@ -262,7 +263,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     }, [itemName, comment, criteriaScores, isNew, internalListId]);
 
     // Nota en vivo: media de los criterios que cuentan (lib/scoring).
-    const scoreSummary = useMemo(() => computeReviewScore(criteriaScores, criteriaList), [criteriaScores, criteriaList]);
+    // Pesos de la lista (hoy ×1 / ×0); en listas antiguas sin ellos se usa `ponderable`.
+    const scoringOptions = useMemo(() => ({ weights: listData?.scoringWeights ?? null }), [listData?.scoringWeights]);
+    const scoreSummary = useMemo(() => computeReviewScore(criteriaScores, criteriaList, scoringOptions), [criteriaScores, criteriaList, scoringOptions]);
     const overallRating = scoreSummary.score ?? storedOverallRating;
     const criteriaLoaded = criteriaList.length > 0;
     const hasComputingCriteria = scoreSummary.requiredCount > 0;
@@ -1024,8 +1027,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     }
 
     // Criterios que cuentan para la nota (obligatorios) y detalles opcionales.
-    const ponderableCriteria = criteriaList.filter(c => isComputingCriterion(c));
-    const nonPonderableCriteria = criteriaList.filter(c => !isComputingCriterion(c));
+    const ponderableCriteria = criteriaList.filter(c => isComputingCriterion(c, scoringOptions));
+    const nonPonderableCriteria = criteriaList.filter(c => !isComputingCriterion(c, scoringOptions));
     const setCriterionScore = (criterionId: string, value: number | undefined) => {
         setCriteriaScores(prev => {
             const next = { ...prev };

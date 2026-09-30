@@ -15,9 +15,14 @@ interface CriteriaBuilderProps {
     criteria: Criterion[];
     onChange: (criteria: Criterion[]) => void;
     lockedIds?: string[];
+    /**
+     * Criterios que ya tienen valoraciones: no se pueden quitar ni cambiar si
+     * cuentan para la nota (eso exige recalcular). El nombre y las etiquetas sí.
+     */
+    scoringLockedIds?: string[];
 }
 
-export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onChange, lockedIds = [] }) => {
+export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onChange, lockedIds = [], scoringLockedIds = [] }) => {
 
     const addCriterion = () => {
         const newCriterion: Criterion = {
@@ -33,13 +38,14 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
 
     const removeCriterion = (id: string) => {
         const item = criteria.find(c => c.id === id);
-        if (lockedIds.includes(id) || item?.locked) return;
+        if (lockedIds.includes(id) || item?.locked || scoringLockedIds.includes(id)) return;
         onChange(criteria.filter(c => c.id !== id));
     };
 
     const updateCriterion = <K extends keyof Criterion>(id: string, field: K, value: Criterion[K]) => {
         const item = criteria.find(c => c.id === id);
         if (lockedIds.includes(id) || item?.locked) return;
+        if (field === 'isPonderable' && scoringLockedIds.includes(id)) return;
         onChange(criteria.map(c =>
             c.id === id ? { ...c, [field]: value } : c
         ));
@@ -54,15 +60,24 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
             <p className="text-sm text-gray-400">
                 Define qué aspectos se valorarán en esta lista (ej. Sabor, Ambiente, Precio).
             </p>
+            {scoringLockedIds.length > 0 && (
+                <p role="note" className="text-xs rounded-lg border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-text)] px-3 py-2">
+                    Esta lista ya tiene valoraciones. Puedes añadir criterios nuevos (no cambian las notas ya puestas)
+                    y renombrar los existentes, pero no quitarlos ni cambiar si cuentan para la nota: eso obliga a
+                    recalcular todas las valoraciones y se hace con una migración aparte.
+                </p>
+            )}
 
             <div className="space-y-3">
                 {criteria.map((criterion) => {
                     const isLocked = lockedIds.includes(criterion.id) || criterion.locked;
+                    const isScoringLocked = !isLocked && scoringLockedIds.includes(criterion.id);
                     return (
                         <div key={criterion.id} className={`bg-[var(--lt-card-strong)] p-4 rounded-xl border ${isLocked ? 'border-[var(--lt-accent-border)]' : 'border-white/5'} animate-fade-in relative group`}>
-                            {!isLocked && (
+                            {!isLocked && !isScoringLocked && (
                                 <button
                                     type="button"
+                                    aria-label={`Quitar criterio ${criterion.label || ''}`.trim()}
                                     onClick={() => removeCriterion(criterion.id)}
                                     className="absolute top-2 right-2 p-1 text-gray-500 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
                                 >
@@ -93,15 +108,15 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
                                     </div>
 
                                     <div className="flex items-center gap-4 mt-6 flex-wrap">
-                                        <label className={`flex items-center gap-2 ${isLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
+                                        <label className={`flex items-center gap-2 ${isLocked || isScoringLocked ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
                                             <input
                                                 type="checkbox"
                                                 checked={criterion.isPonderable}
                                                 onChange={(e) => updateCriterion(criterion.id, 'isPonderable', e.target.checked)}
-                                                disabled={isLocked}
-                                                className={`w-4 h-4 rounded border-gray-600 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] ${isLocked ? 'cursor-not-allowed' : ''}`}
+                                                disabled={isLocked || isScoringLocked}
+                                                className={`w-4 h-4 rounded border-gray-600 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] ${isLocked || isScoringLocked ? 'cursor-not-allowed' : ''}`}
                                             />
-                                            <span className="text-sm text-gray-300">Afecta al promedio {isLocked && '(Fijo)'}</span>
+                                            <span className="text-sm text-gray-300">Cuenta para la nota {(isLocked || isScoringLocked) && '(Fijo)'}</span>
                                         </label>
                                         <div className={`flex items-center gap-2 ${isLocked ? 'opacity-50' : ''}`}>
                                             <span className="text-xs text-gray-400">Paso:</span>

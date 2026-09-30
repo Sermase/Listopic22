@@ -45,7 +45,9 @@ export interface ReviewEntity {
     placePetOptions?: Record<string, unknown> | string[];
     placePets?: Record<string, unknown> | string[];
     placeAverageRating?: number;
-    criteriaDefinition?: Record<string, { label: string; min?: number; max?: number; step?: number; ponderable?: boolean }>;
+    criteriaDefinition?: Record<string, { label: string; min?: number; max?: number; step?: number; ponderable?: boolean; order?: number }>;
+    /** Peso de cada criterio (0 = no cuenta). Fuente de verdad de la nota; ver lib/scoring. */
+    scoringWeights?: Record<string, number>;
     authorId?: string;
     tags?: string[];
     userTags?: string[];

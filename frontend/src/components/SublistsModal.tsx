@@ -14,10 +14,11 @@ interface SublistsModalProps {
     onClose: () => void;
     sublists?: ListEntity[] | null;
     parentCriteria?: Record<string, any>; // Criteria from parent list
+    parentScoringWeights?: Record<string, number>;
     parentTags?: string[]; // Tags from parent list
 }
 
-export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, isOpen, onClose, sublists: initialSublists, parentCriteria, parentTags }) => {
+export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, isOpen, onClose, sublists: initialSublists, parentCriteria, parentScoringWeights, parentTags }) => {
     const [view, setView] = useState<'list' | 'create'>('list');
     const [sublists, setSublists] = useState<ListEntity[]>([]);
     const [loading, setLoading] = useState(true);
@@ -146,6 +147,7 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                             parentListId={listId}
                             parentListName={listName}
                             parentCriteria={parentCriteria}
+                            parentScoringWeights={parentScoringWeights}
                             parentTags={parentTags}
                             onSuccess={handleCreateSuccess}
                             onCancel={() => setView('list')}

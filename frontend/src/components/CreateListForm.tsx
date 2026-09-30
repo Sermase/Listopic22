@@ -10,6 +10,8 @@ import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { type ListEntity } from '../hooks/useLists';
 import { isInlineImage, uploadListCover } from '../lib/listCover';
 import { orderedCriteriaEntries } from '../lib/criteria';
+import { writeWithOptionalFields } from '../lib/optionalFields';
+import { deriveScoringWeights } from '../lib/scoring';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -41,13 +43,14 @@ interface CreateListFormProps {
     parentListName?: string; // Name of parent list for display
     parentListImage?: string; // Image of parent list for display
     parentCriteria?: CriteriaDefinitionMap; // Criteria from parent list
+    parentScoringWeights?: Record<string, number>; // Pesos de la madre (se heredan tal cual)
     parentTags?: string[]; // Tags from parent list
     initialData?: Partial<ListEntity>; // For editing in the future
     onSuccess: (newListId: string) => void;
     onCancel: () => void;
 }
 
-export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, parentListName, parentListImage, parentCriteria, parentTags, initialData, onSuccess, onCancel }) => {
+export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, parentListName, parentListImage, parentCriteria, parentScoringWeights, parentTags, initialData, onSuccess, onCancel }) => {
     const { user } = useAuth();
     const { showToast } = useToast();
     const queryClient = useQueryClient();
@@ -203,8 +206,9 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
             // La vista previa puede ser base64: solo se guarda una URL real.
             const finalPhotoUrl = imagePreview && !isInlineImage(imagePreview) ? imagePreview : '';
 
-            // Transform criteria array back to Map/Object for DB
-            const criteriaDefinitionMap: CriteriaDefinitionMap = {};
+            // Transform criteria array back to Map/Object for DB. Una Minilista hereda
+            // SIEMPRE todos los criterios de su madre (también los de otros tipos).
+            const criteriaDefinitionMap: CriteriaDefinitionMap = { ...(parentCriteria || {}) };
             criteria.forEach((c, index) => {
                 criteriaDefinitionMap[c.id] = {
                     order: index,
@@ -260,7 +264,15 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 reactions: {},
             };
 
-            const docRef = await addDoc(collection(db, 'lists'), newListData);
+            // scoringWeights: ×1 lo que cuenta, ×0 lo que no (fuente de verdad de la nota).
+            const scoringWeights = {
+                ...deriveScoringWeights(criteriaDefinitionMap),
+                ...(parentCriteria ? deriveScoringWeights(parentCriteria, parentScoringWeights ?? null) : {}),
+            };
+            const docRef = await writeWithOptionalFields((includeWeights) => addDoc(
+                collection(db, 'lists'),
+                includeWeights ? { ...newListData, scoringWeights } : newListData,
+            ));
 
             if (imageFile) {
                 try {

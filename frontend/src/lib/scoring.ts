@@ -6,8 +6,12 @@
  * - Lista madre: solo se compara con SUS criterios. Una valoración hecha desde
  *   una Minilista puede tener criterios extra; para la madre no cuentan.
  * - Minilista: usa todos sus criterios (los heredados + los suyos).
- * - Ponderaciones futuras (×0 a ×3): preparadas, pero APAGADAS por defecto.
- *   Hoy un criterio cuenta ×1 o no cuenta (`ponderable: false`).
+ * - Pesos: la fuente de verdad es `scoringWeights` de la lista (id → 0..3).
+ *   Hoy solo hay ×1 (cuenta) y ×0 (no cuenta). Si una lista antigua no tiene
+ *   `scoringWeights`, se usa `ponderable`. Los pesos ×2/×3 están APAGADOS.
+ * - Un criterio sin puntuar en una valoración (p. ej. porque se añadió después)
+ *   no cuenta para la media de esa valoración.
+ * - Ranking: una sola fórmula bayesiana para toda la app (`rankPosition`).
  *
  * Espejo en servidor: functions/modules/lib/scoring.js (mismos vectores de test).
  */
@@ -37,8 +41,13 @@ export type CriteriaInput =
 export type ScoresInput = Readonly<Record<string, unknown>> | null | undefined;
 
 export interface ScoringOptions {
+    /** Activa ×2/×3. Por defecto WEIGHTS_ENABLED (apagado): cualquier peso > 0 cuenta ×1. */
     useWeights?: boolean;
+    /** `scoringWeights` de la lista (id → 0..3). Si trae el criterio, manda sobre `ponderable`. */
+    weights?: Readonly<Record<string, unknown>> | null;
 }
+
+export type ScoringWeights = Record<string, number>;
 
 export interface ReviewScoreResult {
     /** Nota 0–10 con 1 decimal, o null si no hay ningún criterio que cuente puntuado. */
@@ -83,14 +92,34 @@ export function normalizeCriteria(criteria: CriteriaInput): ScoringCriterion[] {
         .map(([id, def]) => ({ ...(def as CriterionFields), id }));
 }
 
+const clampWeight = (value: number): number => Math.min(MAX_CRITERION_WEIGHT, Math.max(0, Math.round(value)));
+
 /** Peso efectivo: 0 = no cuenta para la nota. Sin ponderaciones activas solo existe 0 o 1. */
 export function criterionWeight(criterion: CriterionFields, options: ScoringOptions = {}): number {
     const useWeights = options.useWeights ?? WEIGHTS_ENABLED;
-    if (criterion.ponderable === false || criterion.isPonderable === false) return 0;
-    if (useWeights && isScoreValue(criterion.weight)) {
-        return Math.min(MAX_CRITERION_WEIGHT, Math.max(0, Math.round(criterion.weight)));
+    const listWeight = criterion.id ? options.weights?.[criterion.id] : undefined;
+    if (isScoreValue(listWeight)) {
+        const weight = clampWeight(listWeight);
+        return useWeights ? weight : (weight > 0 ? 1 : 0);
     }
+    if (criterion.ponderable === false || criterion.isPonderable === false) return 0;
+    if (useWeights && isScoreValue(criterion.weight)) return clampWeight(criterion.weight);
     return 1;
+}
+
+/**
+ * `scoringWeights` a partir de los criterios: ×1 lo que cuenta, ×0 lo que no.
+ * Es lo que se guarda al crear o editar una lista y lo que rellena el script de backfill.
+ */
+export function deriveScoringWeights(criteria: CriteriaInput, existing?: Readonly<Record<string, unknown>> | null): ScoringWeights {
+    const weights: ScoringWeights = {};
+    normalizeCriteria(criteria).forEach((criterion) => {
+        const previous = existing?.[criterion.id];
+        weights[criterion.id] = isScoreValue(previous)
+            ? clampWeight(previous)
+            : (criterion.ponderable === false || criterion.isPonderable === false ? 0 : 1);
+    });
+    return weights;
 }
 
 export const isComputingCriterion = (criterion: CriterionFields, options: ScoringOptions = {}): boolean =>
@@ -183,13 +212,13 @@ export function reviewScoreForMinilist(review: ReviewLike): ListScoreResult {
 /** Nota de una valoración según la lista que se está mirando. */
 export function reviewScoreForList(
     review: ReviewLike,
-    list: { criteriaDefinition?: CriteriaInput; parentListId?: unknown } | null | undefined,
+    list: { criteriaDefinition?: CriteriaInput; parentListId?: unknown; scoringWeights?: Readonly<Record<string, unknown>> | null } | null | undefined,
     options: ScoringOptions = {},
 ): ListScoreResult {
     const isMinilist = typeof list?.parentListId === 'string' && list.parentListId.length > 0;
     return isMinilist
         ? reviewScoreForMinilist(review)
-        : reviewScoreForParentList(review, list?.criteriaDefinition, options);
+        : reviewScoreForParentList(review, list?.criteriaDefinition, { weights: list?.scoringWeights, ...options });
 }
 
 /** Media simple sin redondear (el redondeo es cosa de quien la muestra). */
@@ -199,37 +228,48 @@ export function averageScore(values: ReadonlyArray<number | null | undefined>): 
     return valid.reduce((sum, v) => sum + v, 0) / valid.length;
 }
 
-// --- Ranking agregado (índice de búsqueda y futura clasificación) ------------
-// Idéntico a functions/modules/algolia.js. No cambiar sin actualizar ambos lados.
+// --- Ranking único ------------------------------------------------------------
+// Una sola fórmula para ordenar por nota en toda la app (Lista, Home, Sitio,
+// búsqueda). Se MUESTRA siempre la media real; esta posición solo ordena.
+// Espejo exacto en functions/modules/lib/scoring.js.
+//
+//   posición = (n · media + m · C) / (n + m),   m = 3,   C = 7
+//
+//   m = 3: con m = 2 un 10 con 1 valoración empata con un 8,5 con 10.
+//   C fijo en 7 (no la media de cada lista): con C = media de una lista
+//   exigente (8) un 10 con 1 valoración volvía a encabezar. Mostrar siempre la
+//   media real; este número solo ordena.
 
-export const RANKING_PRIOR_AVERAGE = 7;
-export const RANKING_PRIOR_WEIGHT = 5;
-const RANKING_BAYES_FACTOR = 8;
-const RANKING_VOLUME_FACTOR = 4;
+export const RANK_PRIOR_WEIGHT = 3;
+export const RANK_PRIOR = 7;
 
-// Como en algolia.js: solo números reales; cualquier otra cosa cuenta como 0.
 const safeNumber = (value: unknown): number => (isScoreValue(value) ? value : 0);
 
-/** Media bayesiana: con pocas valoraciones la nota se acerca a 7; con muchas, a la media real. */
-export function bayesianRating(
+/** Posición bayesiana de un elemento. Sin valoraciones → 0 (va al final). */
+export function rankPosition(
     average: unknown,
     count: unknown,
-    priorAverage = RANKING_PRIOR_AVERAGE,
-    priorWeight = RANKING_PRIOR_WEIGHT,
+    prior: number = RANK_PRIOR,
+    priorWeight: number = RANK_PRIOR_WEIGHT,
 ): number {
-    const reviewCount = Math.max(0, safeNumber(count));
-    if (reviewCount <= 0) return 0;
+    const n = Math.max(0, safeNumber(count));
+    if (n <= 0) return 0;
     const rating = Math.max(SCORE_MIN, Math.min(SCORE_MAX, safeNumber(average)));
-    return ((rating * reviewCount) + (priorAverage * priorWeight)) / (reviewCount + priorWeight);
+    return ((rating * n) + (prior * priorWeight)) / (n + priorWeight);
 }
 
-export const rankingVolumeBoost = (count: unknown): number => Math.log1p(Math.max(0, safeNumber(count)));
-
-const roundRankingScore = (value: number): number => Number(Math.max(0, value).toFixed(4));
-
-/** rankingScore = bayesiana × 8 + ln(1 + nº valoraciones) × 4 (4 decimales). */
-export function rankingScore(average: unknown, count: unknown): number {
-    return roundRankingScore(
-        (bayesianRating(average, count) * RANKING_BAYES_FACTOR) + (rankingVolumeBoost(count) * RANKING_VOLUME_FACTOR),
-    );
+export interface RankableStats {
+    average: unknown;
+    count: unknown;
 }
+
+/** Comparador para `.sort`: mejor posición primero; a igualdad, más valoraciones. */
+export function compareByRank(a: RankableStats, b: RankableStats): number {
+    const diff = rankPosition(b.average, b.count) - rankPosition(a.average, a.count);
+    if (diff !== 0) return diff;
+    return safeNumber(b.count) - safeNumber(a.count);
+}
+
+/** Valor guardado en Algolia como `rankingScore` (4 decimales). */
+export const rankingIndexScore = (average: unknown, count: unknown): number =>
+    Number(rankPosition(average, count).toFixed(4));

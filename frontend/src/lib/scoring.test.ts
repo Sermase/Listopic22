@@ -2,11 +2,13 @@ import { describe, expect, it } from 'vitest';
 import vectors from './scoring.vectors.json';
 import {
     averageScore,
-    bayesianRating,
+    compareByRank,
     computeReviewScore,
     criterionWeight,
+    deriveScoringWeights,
     mergeMinilistCriteria,
-    rankingScore,
+    rankingIndexScore,
+    rankPosition,
     reviewScoreForList,
     reviewScoreForParentList,
     WEIGHTS_ENABLED,
@@ -53,9 +55,16 @@ describe('scoring: vectores compartidos con el servidor', () => {
         expect(reviewScoreForList(review as ReviewLike, list as Parameters<typeof reviewScoreForList>[1])).toEqual(expected);
     });
 
-    it.each(vectors.ranking)('ranking: media $average con $count valoraciones', ({ average, count, bayesian, rankingScore: expected }) => {
-        expect(bayesianRating(average, count)).toBeCloseTo(bayesian, 9);
-        expect(rankingScore(average, count)).toBe(expected);
+    it.each(vectors.ranking)('ranking: media $average con $count valoraciones (C=$prior)', ({ average, count, prior, position }) => {
+        expect(rankPosition(average, count, prior)).toBeCloseTo(position, 9);
+    });
+
+    it.each(vectors.ranking.filter((r) => r.prior === 7))('índice de búsqueda: media $average con $count', ({ average, count, indexScore }) => {
+        expect(rankingIndexScore(average, count)).toBe(indexScore);
+    });
+
+    it.each(vectors.deriveWeights)('pesos derivados: $name', ({ criteria, existing, expected }) => {
+        expect(deriveScoringWeights(criteria as CriteriaInput, existing as Record<string, unknown> | null)).toEqual(expected);
     });
 });
 
@@ -114,13 +123,46 @@ describe('scoring: medias', () => {
     });
 });
 
-describe('ranking: una sola valoración no basta para encabezar', () => {
-    it('10 con 1 valoración queda por debajo de 8,5 con 10 valoraciones', () => {
-        expect(rankingScore(10, 1)).toBeLessThan(rankingScore(8.5, 10));
+describe('ranking único: una sola valoración no basta para encabezar', () => {
+    it('10 con 1 valoración queda por debajo de 8,5 con 10 valoraciones (C = 7)', () => {
+        expect(rankPosition(10, 1)).toBeCloseTo(7.75, 10);
+        expect(rankPosition(8.5, 10)).toBeGreaterThan(rankPosition(10, 1));
+    });
+
+    it('cualquier media de 8 o más con 10 valoraciones supera a un 10 con 1', () => {
+        for (const avg of [8, 8.5, 9, 9.5]) {
+            expect(rankPosition(avg, 10)).toBeGreaterThan(rankPosition(10, 1));
+        }
     });
 
     it('con muchas valoraciones manda la media real', () => {
-        expect(bayesianRating(9, 1000)).toBeGreaterThan(8.95);
-        expect(rankingScore(9, 100)).toBeGreaterThan(rankingScore(7.5, 100));
+        expect(rankPosition(9, 1000)).toBeGreaterThan(8.95);
+        expect(rankPosition(9, 100)).toBeGreaterThan(rankPosition(7.5, 100));
+    });
+
+    it('el volumen ya no compra posiciones: 6,0 con 100 queda detrás de 9,0 con 2', () => {
+        expect(rankPosition(9, 2)).toBeGreaterThan(rankPosition(6, 100));
+    });
+
+    it('compareByRank ordena por posición y desempata por número de valoraciones', () => {
+        const items = [
+            { id: 'uno-de-10', average: 10, count: 1 },
+            { id: 'diez-de-8.5', average: 8.5, count: 10 },
+            { id: 'empate-a', average: 8, count: 3 },
+            { id: 'empate-b', average: 8, count: 3 },
+            { id: 'sin-valoraciones', average: null, count: 0 },
+        ];
+        const order = [...items].sort(compareByRank).map((i) => i.id);
+        expect(order[0]).toBe('diez-de-8.5');
+        expect(order[order.length - 1]).toBe('sin-valoraciones');
+    });
+});
+
+describe('scoringWeights', () => {
+    it('hoy ×1 / ×0 da lo mismo que ponderable', () => {
+        const criteria = { a: {}, b: { ponderable: false }, c: {} };
+        const scores = { a: 7, b: 2, c: 9 };
+        expect(computeReviewScore(scores, criteria, { weights: deriveScoringWeights(criteria) }))
+            .toEqual(computeReviewScore(scores, criteria));
     });
 });

@@ -9,6 +9,8 @@ import { TagEmojiPicker, splitTagEmoji, buildTagString } from '../components/Tag
 import { CriteriaBuilder, type Criterion } from '../components/CriteriaBuilder';
 import { isInlineImage, uploadListCover } from '../lib/listCover';
 import { orderedCriteriaEntries } from '../lib/criteria';
+import { writeWithOptionalFields } from '../lib/optionalFields';
+import { deriveScoringWeights } from '../lib/scoring';
 
 export const CreateSublistPage: React.FC = () => {
     const { user } = useAuth();
@@ -222,7 +224,9 @@ export const CreateSublistPage: React.FC = () => {
                 ? imagePreview
                 : (isInlineImage(parentPhotoUrl) ? '' : parentPhotoUrl);
 
-            const criteriaDefinitionMap: Record<string, any> = {};
+            // Una Minilista hereda SIEMPRE todos los criterios de su madre: los que
+            // el formulario no muestra (otros tipos) se copian tal cual.
+            const criteriaDefinitionMap: Record<string, any> = { ...(parentList.criteriaDefinition || {}) };
             criteria.forEach((c, index) => {
                 criteriaDefinitionMap[c.id] = {
                     order: index,
@@ -273,7 +277,15 @@ export const CreateSublistPage: React.FC = () => {
                 criteriaAveragesUpdatedAt: serverTimestamp(),
             };
 
-            const docRef = await addDoc(collection(db, 'lists'), newListData);
+            // Pesos: los heredados, iguales que en la madre; los propios, ×1 / ×0.
+            const scoringWeights = {
+                ...deriveScoringWeights(criteriaDefinitionMap),
+                ...deriveScoringWeights(parentList.criteriaDefinition || {}, parentList.scoringWeights || null),
+            };
+            const docRef = await writeWithOptionalFields((includeWeights) => addDoc(
+                collection(db, 'lists'),
+                includeWeights ? { ...newListData, scoringWeights } : newListData,
+            ));
 
             if (imageFile) {
                 try {

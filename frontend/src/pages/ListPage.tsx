@@ -1472,6 +1472,7 @@ export const ListPage: React.FC = () => {
                         listId={list.id}
                         listName={list.name}
                         parentCriteria={list.criteriaDefinition}
+                        parentScoringWeights={list.scoringWeights}
                         parentTags={list.availableTags}
                     />
                 )

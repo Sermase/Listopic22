@@ -24,6 +24,8 @@ import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker'
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { orderedCriteriaEntries } from '../lib/criteria';
+import { deriveScoringWeights } from '../lib/scoring';
+import { writeWithOptionalFields } from '../lib/optionalFields';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -48,6 +50,8 @@ interface EditableListData {
     parentListId?: string | null;
     availableTags?: string[];
     criteriaDefinition?: CriteriaDefinitionMap;
+    reviewCount?: number;
+    scoringWeights?: Record<string, number>;
 }
 
 const isPermissionDenied = (error: unknown): boolean => {
@@ -94,6 +98,11 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
     const [tagRenames, setTagRenames] = useState<Map<string, string>>(new Map());
     const [inheritedCriteriaIds, setInheritedCriteriaIds] = useState<string[]>([]);
+    // Con valoraciones, los criterios existentes no se quitan ni cambian de peso.
+    const [scoringLockedIds, setScoringLockedIds] = useState<string[]>([]);
+    const [existingWeights, setExistingWeights] = useState<Record<string, number> | null>(null);
+    // Criterios de otro tipo (no deslizador): se conservan tal cual al guardar.
+    const [preservedCriteria, setPreservedCriteria] = useState<CriteriaDefinitionMap>({});
     const [inheritedTags, setInheritedTags] = useState<string[]>([]);
 
     useEffect(() => {
@@ -142,8 +151,11 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
                 if (data.criteriaDefinition) {
                     const loadedCriteria: Criterion[] = [];
+                    const preserved: CriteriaDefinitionMap = {};
                     orderedCriteriaEntries(data.criteriaDefinition).forEach(([key, val]) => {
-                        if (val.type === 'slider') {
+                        if (val.type && val.type !== 'slider') {
+                            preserved[key] = val;
+                        } else {
                             loadedCriteria.push({
                                 id: key,
                                 label: val.label || key,
@@ -155,6 +167,11 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                         }
                     });
                     setCriteria(loadedCriteria);
+                    setPreservedCriteria(preserved);
+                    if ((data.reviewCount ?? 0) > 0) {
+                        setScoringLockedIds(Object.keys(data.criteriaDefinition));
+                        setExistingWeights(data.scoringWeights ?? null);
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching list:', error);
@@ -238,7 +255,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             const docRef = doc(db, 'lists', listId);
             const newVisibility = isPublic ? 'public' : 'private';
 
-            const criteriaDefinitionMap: CriteriaDefinitionMap = {};
+            const criteriaDefinitionMap: CriteriaDefinitionMap = { ...preservedCriteria };
             criteria.forEach((c, index) => {
                 criteriaDefinitionMap[c.id] = {
                     order: index,
@@ -253,15 +270,19 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 };
             });
 
-            await updateDoc(docRef, {
+            // Pesos de la nota: ×1 lo que cuenta, ×0 lo que no. Con valoraciones se
+            // conservan los ya guardados (cambiarlos exige una migración).
+            const scoringWeights = deriveScoringWeights(criteriaDefinitionMap, scoringLockedIds.length > 0 ? existingWeights : null);
+            await writeWithOptionalFields((includeWeights) => updateDoc(docRef, {
                 name,
                 description,
                 isPublic,
                 publicAccess: isPublic ? publicAccess : 'reader',
                 visibility: newVisibility,
                 criteriaDefinition: criteriaDefinitionMap,
+                ...(includeWeights ? { scoringWeights } : {}),
                 availableTags: finalTags
-            });
+            }));
 
             // Propagate tag renames to reviews
             if (tagRenames.size > 0) {
@@ -441,7 +462,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
             {/* Criteria & Tags */}
             <div className="bg-[var(--lt-card-strong)] p-6 rounded-xl border border-white/10 shadow-xl space-y-8">
-                <CriteriaBuilder criteria={criteria} onChange={setCriteria} lockedIds={inheritedCriteriaIds} />
+                <CriteriaBuilder criteria={criteria} onChange={setCriteria} lockedIds={inheritedCriteriaIds} scoringLockedIds={scoringLockedIds} />
 
                 <div className="border-t border-white/5 pt-6" />
 

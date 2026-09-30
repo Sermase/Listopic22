@@ -28,11 +28,19 @@ test('según la lista', async (t) => {
   }
 });
 
-test('ranking', async (t) => {
+test('ranking único', async (t) => {
   for (const v of vectors.ranking) {
-    await t.test(`media ${v.average} con ${v.count}`, () => {
-      assert.ok(Math.abs(scoring.bayesianRating(v.average, v.count) - v.bayesian) < 1e-9);
-      assert.equal(scoring.rankingScore(v.average, v.count), v.rankingScore);
+    await t.test(`media ${v.average} con ${v.count} (C=${v.prior})`, () => {
+      assert.ok(Math.abs(scoring.rankPosition(v.average, v.count, v.prior) - v.position) < 1e-9);
+      if (v.prior === 7) assert.equal(scoring.rankingIndexScore(v.average, v.count), v.indexScore);
+    });
+  }
+});
+
+test('pesos derivados', async (t) => {
+  for (const v of vectors.deriveWeights) {
+    await t.test(v.name, () => {
+      assert.deepEqual(scoring.deriveScoringWeights(v.criteria, v.existing), v.expected);
     });
   }
 });
