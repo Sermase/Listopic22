@@ -121,6 +121,19 @@ const isStaleSync = (place: PlaceRecord): boolean => {
     return Date.now() - lastSync > GOOGLE_SYNC_STALE_DAYS * 24 * 60 * 60 * 1000;
 };
 
+// Coste de «Actualizar desde Google» (verificado en la documentación de Google,
+// 30/09/2026; ver Mejoras/google-places-skus.md). Por sitio, 2 llamadas:
+//  1) Place Details heredado → Places Details (5.000 gratis/mes) + Basic Data
+//     (gratis) + Contact Data (1.000/mes) + Atmosphere Data (1.000/mes).
+//  2) Place Details (New) accessibilityOptions,allowsDogs → Enterprise +
+//     Atmosphere (1.000/mes).
+// El cupo gratis más bajo es 1.000 sitios al MES (compartido con altas de sitios).
+const GOOGLE_UPDATE_BATCH_LIMIT = 25;
+const googleUpdateCostMessage = (count: number) =>
+    `¿Actualizar ${count} sitio(s) desde Google?\n\n`
+    + `Son ${count * 2} llamadas: ${count} Place Details (heredado) y ${count} Place Details (New).\n`
+    + `Consumen cupo gratuito MENSUAL de: Contact Data, Atmosphere Data y Enterprise + Atmosphere (1.000 al mes cada uno, compartido con las altas de sitios).`;
+
 // Sin ciudad, provincia o CCAA: no entra en rankings por ámbito geográfico.
 const isMissingLocation = (place: PlaceRecord): boolean =>
     !['city', 'province', 'region'].every((key) => typeof place[key] === 'string' && (place[key] as string).trim().length > 0);
@@ -465,9 +478,56 @@ export const PlacesManagerTab: React.FC = () => {
         }
     };
 
+    // Solo ubicación: 1 llamada barata (Place Details Essentials, 10.000 gratis/mes)
+    // que rellena ciudad, provincia, CCAA, país y código postal. Nada más.
+    const handleRefreshLocationSelected = async () => {
+        if (selected.size === 0) return;
+        if (selected.size > GOOGLE_UPDATE_BATCH_LIMIT) {
+            addLog(`⛔ Máximo ${GOOGLE_UPDATE_BATCH_LIMIT} sitios por tanda (has seleccionado ${selected.size}). Reduce la selección.`);
+            return;
+        }
+        if (!confirm(`¿Traer SOLO la ubicación de ${selected.size} sitio(s) desde Google?\n\n`
+            + `Son ${selected.size} llamadas a Place Details (New) Essentials (10.000 gratis al mes). `
+            + 'Solo se escriben ciudad, provincia, comunidad autónoma, país y código postal.')) return;
+
+        setUpdating(true);
+        const fn = httpsCallable(getFunctions(undefined, FUNCTIONS_REGION), 'adminRefreshPlaceLocation');
+        let success = 0;
+        let errors = 0;
+        for (const id of Array.from(selected)) {
+            const place = places.find(p => p.id === id);
+            if (!place) continue;
+            const googlePlaceId = place.googlePlaceId || place.id;
+            setUpdatingIds(prev => new Set([...prev, id]));
+            try {
+                const result = await fn({ documentId: place.id, googlePlaceId });
+                const data = result.data as { success?: boolean; message?: string; location?: Record<string, string> };
+                if (data?.success) {
+                    success++;
+                    addLog(`📍 ${place.name || id}: ${Object.values(data.location || {}).join(' · ')}`);
+                } else {
+                    errors++;
+                    addLog(`⚠️ ${place.name || id}: ${data?.message || 'sin datos de ubicación'}`);
+                }
+                await refreshPlaceInList(id);
+            } catch (err: unknown) {
+                errors++;
+                addLog(`❌ ${place.name || id}: ${getErrorMessage(err)}`);
+            } finally {
+                setUpdatingIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+            }
+        }
+        addLog(`Ubicación: ${success} actualizados, ${errors} sin datos o con error`);
+        setUpdating(false);
+    };
+
     const handleUpdateSelected = async () => {
         if (selected.size === 0) return;
-        if (!confirm(`¿Actualizar ${selected.size} lugar(es) desde Google? Puede tardar un momento.`)) return;
+        if (selected.size > GOOGLE_UPDATE_BATCH_LIMIT) {
+            addLog(`⛔ Máximo ${GOOGLE_UPDATE_BATCH_LIMIT} sitios por tanda (has seleccionado ${selected.size}). Reduce la selección.`);
+            return;
+        }
+        if (!confirm(googleUpdateCostMessage(selected.size))) return;
 
         setUpdating(true);
         let success = 0;
@@ -747,6 +807,15 @@ export const PlacesManagerTab: React.FC = () => {
                                     Fix IDs ({wrongIdCount})
                                 </button>
                             )}
+                            <button
+                                onClick={handleRefreshLocationSelected}
+                                disabled={selected.size === 0 || updating}
+                                className="px-4 py-2 text-sm rounded-lg font-bold bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white flex items-center gap-2 transition-colors"
+                                title="1 llamada barata por sitio (Essentials). Solo ciudad, provincia, CCAA, país y código postal."
+                            >
+                                <MapPin className="w-4 h-4" />
+                                Solo ubicación{selected.size > 0 ? ` (${selected.size})` : ''}
+                            </button>
                             <button
                                 onClick={handleUpdateSelected}
                                 disabled={selected.size === 0 || updating}
