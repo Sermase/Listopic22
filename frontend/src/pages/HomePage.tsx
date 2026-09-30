@@ -866,7 +866,7 @@ export const HomePage: React.FC = () => {
         if (nextRange !== range) {
             setRange(nextRange);
         }
-    }, [activeTab, range, location, loadingReviews, hasHomeMapCandidates, filteredPlaces.length, setRange]);
+    }, [activeTab, range, location, loadingReviews, hasHomeMapCandidates, filteredPlaces.length, setRange, areaFilter.kind]);
 
     // 6. Derived Users (Synthesized from content IN RANGE)
     const activeUsersInRange = useMemo(() => {
