@@ -1,8 +1,55 @@
 # Plan FASE B1 — criterios, pesos, ranking único y ámbito
 
-Rama: `Mejoras-Opus-5.5-29-09-2026` (seguimos en ella tras el PR de FASE A + B0).
-Estado: **plan cerrado, sin implementar**. Clasificación de riesgo como en FASE A:
+Rama: `Mejoras-Opus-5.5-29-09-2026` (seguimos en ella tras el PR #259 de FASE A + B0).
+Clasificación de riesgo como en FASE A:
 **A** seguro · **B** requiere migración de datos · **C** puede romper o cambia lo que se ve.
+
+## Estado (30/09/2026, tarde) — primera tanda implementada, nada desplegado
+
+### Decisiones añadidas
+- «Croquetas pucelanas» eliminada: ya no hay Minilistas incoherentes en datos públicos.
+- Si la madre cambia, sus Minilistas cambian igual (propagación del servidor).
+- Pesos hoy: lo que cuenta ×1, lo que no ×0.
+- **Criterio sin puntuar en una valoración (p. ej. porque es nuevo) = no cuenta en su media.** Consecuencia: **añadir** un criterio a una lista con valoraciones **no cambia ninguna nota** y ya no necesita migración. Solo **quitar** criterios o **cambiar pesos** la necesitan.
+
+### Mediciones (solo lectura, datos públicos)
+- **Ubicación de sitios** (141): ciudad 93 %, provincia 95 %, CCAA 99 %, país 99 %. En los sitios guardados, `region` es siempre la CCAA; el problema real son los alias («País Vasco» / «Euskadi», «Catalunya»). Faltan unos 10 sitios: coste de Google despreciable.
+- **Minilistas públicas**: 1, coherente con su madre.
+- **Simulación del ranking** con valoraciones reales: 110 elementos para 119 valoraciones (casi todo tiene una sola). La fórmula nueva mueve 11–15 posiciones de 110 y cambia el #1 de 1 de 9 listas.
+
+### Cambio respecto al plan: C fijo en 7 (no la media de cada lista)
+Los tests lo demostraron: con C = media de una lista exigente (8), un 10 con una sola
+valoración (8,5) vuelve a superar a un 8,5 con diez (8,38). Con **C = 7 y m = 3**, cualquier
+media ≥ 8 con diez valoraciones queda por encima de un 10 con una. Además es más simple:
+una fórmula de verdad única. `posición = (n·media + 3·7) / (n + 3)`.
+
+### Hecho (commits en la rama)
+| Plan | Qué | Dónde |
+|---|---|---|
+| 2.2 | `rankPosition` / `compareByRank` / `rankingIndexScore`, mismos vectores web + servidor | `lib/scoring.ts`, `functions/modules/lib/scoring.js` |
+| 2.3–2.5 | Ranking único en Lista, «La Carta», Home («Mejor en Listopic» y mapa), estadísticas del perfil, agregador y Algolia (sitios y elementos, índice y réplicas por nota). Se muestra la media real | `ListPage`, `PlacePage`, `HomePage`, `ProfilePage`, `grouped-aggregator.js`, `algolia.js` |
+| 3.1 | `scoringWeights` es la fuente de verdad (si falta, `ponderable`) | `lib/scoring.*` |
+| 3.2 | Backfill ×1/×0 + reparación de Minilistas (simulación por defecto) | `functions/scripts/backfill-scoring-weights.js` |
+| 3.3 | Reglas: con valoraciones no se quitan criterios ni se cambian pesos (sí añadir y renombrar); primera escritura de pesos aceptada | `firestore.rules` + 9 tests (V9) |
+| 3.4 | Formulario: con valoraciones, «cuenta para la nota» fijo y sin botón de quitar; aviso explicado | `CriteriaBuilder`, `EditListForm` |
+| 1.1–1.3 | Minilista hereda **todos** los criterios y pesos; regla que lo exige; trigger que propaga cambios de la madre | formularios, `firestore.rules`, `functions/modules/minilist-sync.js` |
+| 4.1 (parcial) | CCAA con nombre único y ciudad con alternativas al guardar desde Google | `functions/modules/lib/geo-areas.js`, `core.js` |
+| 0.1, 0.2 | Auditorías de solo lectura | `functions/scripts/audit-*.js` |
+| — | Developer → Sitios: «Sel. sin ubicación (N)» para actualizar solo esos desde Google | `PlacesManagerTab.tsx` |
+| — | Red de seguridad: si las reglas desplegadas aún no aceptan `scoringWeights`, la web guarda sin ese campo | `lib/optionalFields.ts` |
+
+### Pendiente
+- **3.5–3.8**: herramienta de migración (simular → comparar → aplicar) para quitar criterios o cambiar pesos, y activar ×2/×3.
+- **4.2–4.5**: backfill de CCAA normalizada en sitios antiguos, facetas en Algolia, selector de ámbito (Ciudad · Provincia · CCAA · España + radios) y «#3 en Valladolid».
+- **5.x**: nota del sitio con nº de valoraciones y aviso «provisional» en la ficha.
+
+### Despliegue de esta tanda (orden obligatorio; nada desplegado)
+1. `cd functions && npm ci && npm test` → `firebase deploy --only functions --project listopic` (trigger de Minilistas, ranking en Algolia, ubicación).
+2. Backfill **en simulación** y luego `--apply`: `GOOGLE_APPLICATION_CREDENTIALS=… node scripts/backfill-scoring-weights.js [--apply]`.
+3. Reglas: `cd firestore-tests && npm test` (55/55) → `firebase deploy --only firestore:rules --project listopic`.
+4. Hosting: fusionar en `main`. Si se fusiona antes de desplegar las reglas, la web guarda las listas sin `scoringWeights` (no se rompe nada) y el backfill los rellena después.
+5. Algolia: `adminBackfillAlgolia` (botón de Developer) para recalcular `rankingScore` en todos los registros. La configuración de orden y réplicas se aplica sola al primer uso del índice tras desplegar (`ensureIndexSettings`).
+6. Developer → «Recalcular TODAS las Listas».
 
 ## Decisiones del dueño (30/09/2026)
 

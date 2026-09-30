@@ -47,7 +47,15 @@ notificaciones que genera el servidor todavía dicen «reseña» (ver `siguiente
 Borradores: los guardados antes de este cambio traían un 5 en todos los criterios
 aunque no se hubieran tocado. Esas notas no se recuperan; el nombre y el comentario sí.
 
-### Pesos (×0 · ×1 · ×2 · ×3) — preparados, apagados
+### Pesos (×0 · ×1 · ×2 · ×3)
+
+**Actualización B1**: la fuente de verdad es `lists.scoringWeights` (id → 0..3). Hoy solo
+×1 (cuenta) y ×0 (no cuenta), rellenados desde `ponderable` (script de backfill). Con
+valoraciones, las reglas bloquean quitar criterios y cambiar pesos; añadir y renombrar
+sí se puede. Un criterio sin puntuar en una valoración no cuenta en su media, así que
+añadir un criterio nuevo no cambia ninguna nota.
+
+Diseño original (sigue válido para ×2/×3):
 
 - Campo previsto: `criteriaDefinition.{id}.weight` (0–3). `ponderable: false` equivale a ×0 y manda sobre `weight`.
 - Interruptor: `WEIGHTS_ENABLED = false` en los dos `scoring`. Con él apagado, `weight` se ignora
@@ -110,6 +118,13 @@ hoy solo comparte «Sabor». Sus valoraciones contarían en la madre solo por Sa
 ---
 
 ## 4. Ranking
+
+> **Actualización B1 (implementado)**: una sola fórmula en toda la app:
+> `posición = (n·media + 3·7) / (n + 3)`, sin término de volumen, desempate por nº de
+> valoraciones. Se muestra siempre la media real. Se usa en la Lista, «La Carta» del
+> sitio, la Home, el perfil, el agregador y Algolia (sitios y elementos). C fijo en 7
+> (no la media de cada lista: con C = 8 un 10 con una valoración volvía a encabezar).
+> Lo que sigue es el estado anterior y la simulación que llevó a esta decisión.
 
 ### 4.1 Qué hay hoy (sin cambios de resultado en esta fase)
 
@@ -203,6 +218,7 @@ Conclusión:
 - **Hoy A, B, C y E son prácticamente iguales**: con tan pocos datos la elección no cambia nada visible.
 - **Recomendación: A para mostrar** (coincide con la decisión tomada), siempre junto al número de valoraciones, y **D solo para ordenar** sitios.
 - **Estado: provisional** (decisión del 30/09/2026). Revisar cuando haya ≥ 50 sitios con ≥ 5 valoraciones.
+- Para **ordenar** sitios (búsqueda, Home) se usa la fórmula única del §4, no la media simple.
 - Reevaluar **E** (una persona = un voto) cuando haya sitios con muchas valoraciones de la misma persona. Es la mejor defensa contra que alguien infle un sitio.
 - Detalle por lista (B) en las estadísticas del sitio, como se decidió.
 
