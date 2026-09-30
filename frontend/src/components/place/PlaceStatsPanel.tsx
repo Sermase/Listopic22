@@ -1,13 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
 import { Info } from 'lucide-react';
-import { fetchListDetails, listDetailsQueryKey, type ReviewEntity } from '../../hooks/useListDetails';
+import { type ReviewEntity } from '../../hooks/useListDetails';
+import { useListRanks } from '../../hooks/useListRanks';
 import { distinctContextRanks } from '../../lib/geoAreas';
-import { rankListElements, type RankedElement } from '../../lib/listElements';
 import { averageScore } from '../../lib/scoring';
 import { formatScore, scoreBadgeStyle } from '../../lib/scoreScale';
-import { fetchBotAuthorIds } from '../../utils/authorRoles';
 
 interface PlaceStatsPanelProps {
     placeId: string;
@@ -23,11 +21,6 @@ interface ListBreakdown {
     average: number | null;
 }
 
-type RanksState =
-    | { status: 'loading' }
-    | { status: 'ready'; byList: Record<string, RankedElement[]> }
-    | { status: 'error' };
-
 /**
  * Estadísticas de un sitio: nota Listopic global (provisional), desglose por
  * Lista y puesto de sus elementos en cada Lista (misma fórmula y mismos
@@ -35,8 +28,6 @@ type RanksState =
  * pestaña porque exigen leer las Listas completas.
  */
 export const PlaceStatsPanel: React.FC<PlaceStatsPanelProps> = ({ placeId, reviews, globalScore, reviewCount }) => {
-    const queryClient = useQueryClient();
-    const [ranks, setRanks] = useState<RanksState>({ status: 'loading' });
 
     const breakdown = useMemo<ListBreakdown[]>(() => {
         const byList = new Map<string, { name: string; scores: number[] }>();
@@ -51,38 +42,7 @@ export const PlaceStatsPanel: React.FC<PlaceStatsPanelProps> = ({ placeId, revie
             .sort((a, b) => b.count - a.count);
     }, [reviews]);
 
-    const listIdsKey = breakdown.map((b) => b.listId).join('|');
-
-    useEffect(() => {
-        let cancelled = false;
-        const listIds = listIdsKey ? listIdsKey.split('|') : [];
-        (async () => {
-            try {
-                const details = await Promise.all(listIds.map(async (listId) => {
-                    try {
-                        return [listId, await queryClient.fetchQuery({
-                            queryKey: listDetailsQueryKey(listId),
-                            queryFn: () => fetchListDetails(listId),
-                            staleTime: 5 * 60 * 1000,
-                        })] as const;
-                    } catch {
-                        return [listId, null] as const; // Lista privada o borrada: sin puestos.
-                    }
-                }));
-                const authors = details.flatMap(([, d]) => d?.reviews.map((r) => r.userId || r.authorId || '') ?? []);
-                const bots = await fetchBotAuthorIds(authors);
-                const byList: Record<string, RankedElement[]> = {};
-                details.forEach(([listId, d]) => {
-                    if (!d) return;
-                    byList[listId] = rankListElements(d.reviews, d.list, { excludeAuthorIds: bots });
-                });
-                if (!cancelled) setRanks({ status: 'ready', byList });
-            } catch {
-                if (!cancelled) setRanks({ status: 'error' });
-            }
-        })();
-        return () => { cancelled = true; };
-    }, [listIdsKey, queryClient]);
+    const ranks = useListRanks(breakdown.map((b) => b.listId));
 
     return (
         <div className="space-y-4">

@@ -17,6 +17,7 @@ import { type ReviewEntity } from '../hooks/useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
+import { ElementRanks } from '../components/ElementRanks';
 import { useAuthPrompt } from '../context/AuthPromptContext';
 
 import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
@@ -646,6 +647,16 @@ export const GroupPage: React.FC = () => {
             <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-8 flex flex-col lg:grid lg:grid-cols-12 gap-8">
 
                 <div className="order-1 lg:col-span-4 lg:order-last space-y-6">
+
+                    {/* Puesto principal y, en pequeño, los más amplios */}
+                    {placeId && (
+                        <ElementRanks
+                            placeId={placeId}
+                            itemName={decodedName}
+                            listIds={lockedListId ? [lockedListId, ...relatedLists.filter((id) => id !== lockedListId)] : relatedLists}
+                            listNames={Object.fromEntries(listsDetails.map((l) => [l.id, l.name]))}
+                        />
+                    )}
 
                     {/* Actions Row */}
                     <div className="bg-[var(--lt-card-strong)] p-3 rounded-xl border border-white/10 grid grid-cols-3 gap-3">
