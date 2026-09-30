@@ -1232,7 +1232,8 @@ export const ListPage: React.FC = () => {
 
                     <div className={`transition-all duration-500 ease-in-out ${isMapOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
                         <div className="h-[400px] w-full relative z-0">
-                            {isMapOpen && <MapView items={filteredMapItems} mode="list" range={range} />}
+                            {/* Con una zona (ciudad, comunidad, país) el mapa encuadra sus sitios, no el radio. */}
+                            {isMapOpen && <MapView items={filteredMapItems} mode="list" range={effectiveArea.kind === 'near' ? range : null} />}
                         </div>
                     </div>
                 </div>

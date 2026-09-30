@@ -7,6 +7,7 @@ import { type ReviewEntity } from './useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
 import { getCachedDocs } from '../lib/queryCache';
 import { fetchUserReviewsFromAccessibleLists } from '../lib/reviewFallbacks';
+import { normalizeCcaa } from '../lib/geoAreas';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -55,6 +56,10 @@ const enrichRawReviews = async (rawReviews: ReviewEntity[]): Promise<ReviewEntit
             placeLat: place?.location?.latitude || place?.lat || reviewAny.lat || reviewAny.placeLat,
             placeLng: place?.location?.longitude || place?.lng || reviewAny.lng || reviewAny.placeLng,
             placeCity: place?.city || (place?.address ? place.address.split(',').pop()?.trim() : ''),
+            // Para filtrar por zona (Home): mismos campos que la Lista.
+            placeProvince: place?.province || '',
+            placeRegion: normalizeCcaa(place?.region),
+            placeCountry: place?.country || '',
         };
     }) as ReviewEntity[];
 };

@@ -34,6 +34,8 @@ import {
 import { USERNAME_MAX_LENGTH, isUsernameValid } from '../utils/username';
 import { fetchUserReviewsFromAccessibleLists } from '../lib/reviewFallbacks';
 import { compareByRank } from '../lib/scoring';
+import { AreaSelect } from '../components/AreaSelect';
+import { AREA_STORAGE_KEY, buildAreaOptions, decodeArea, encodeArea, inferUserGeo, localAreaOptions, matchesArea, type GeoFields, type ListArea } from '../lib/geoAreas';
 
 /* 
     HOMEPAGE (Legacy Screenshot Match + Functional Logic: Categories & Range)
@@ -159,7 +161,15 @@ export const HomePage: React.FC = () => {
     const [activeFilter, setActiveFilter] = useState('Todo'); // Category Filter
 
     // Global Distance Range State
-    const { range, setRange, toggleRange, getRangeLabel } = useFilters();
+    const { range, setRange } = useFilters();
+
+    // Zona (compartida con la Lista): radio o tu ciudad / comunidad / país.
+    const [area, setArea] = useState<ListArea>(() => {
+        try { return decodeArea(localStorage.getItem(AREA_STORAGE_KEY)); } catch { return { kind: 'near' }; }
+    });
+    useEffect(() => {
+        try { localStorage.setItem(AREA_STORAGE_KEY, encodeArea(area)); } catch { /* opcional */ }
+    }, [area]);
 
     const [isMapOpen, setIsMapOpen] = useState(false);
     const [gateLoading, setGateLoading] = useState(true);
@@ -570,22 +580,54 @@ export const HomePage: React.FC = () => {
         return false;
     }, [activeFilter]);
 
+    // Zona en contexto local: tu ciudad, comunidad y país, deducidos de los
+    // sitios valorados más cercanos. Otras zonas, en Buscar.
+    // Un punto por sitio (el número de cada zona son sitios, como en el mapa).
+    const reviewGeoPoints = useMemo(() => {
+        const byPlace = new Map<string, GeoFields & { lat?: number; lng?: number }>();
+        reviews.forEach((r: any) => {
+            const key = r.placeId || r.id;
+            if (byPlace.has(key)) return;
+            byPlace.set(key, { city: r.placeCity, province: r.placeProvince, region: r.placeRegion, country: r.placeCountry, lat: r.placeLat, lng: r.placeLng });
+        });
+        return [...byPlace.values()];
+    }, [reviews]);
+    const userGeo = useMemo(() => inferUserGeo(location, reviewGeoPoints), [location, reviewGeoPoints]);
+    const areaOptions = useMemo(() => localAreaOptions(buildAreaOptions(reviewGeoPoints), userGeo), [reviewGeoPoints, userGeo]);
+    const areaFilter = useMemo<ListArea>(() => {
+        if (area.kind === 'near') return area;
+        return areaOptions[area.kind].some((o) => o.value === area.value) ? area : { kind: 'near' };
+    }, [area, areaOptions]);
+    const handleAreaSelect = (value: string) => {
+        if (value.startsWith('r:')) {
+            const raw = value.slice(2);
+            setArea({ kind: 'near' });
+            setRange(raw === 'all' ? null : Number(raw));
+            if (raw !== 'all' && !location) requestLocation();
+            return;
+        }
+        setArea(decodeArea(value));
+    };
+
     // 2. Helper: Check Distance
-    const checkDistance = useCallback((lat?: number, lng?: number) => {
+    const checkDistance = useCallback((lat?: number, lng?: number, geo?: GeoFields) => {
+        // Zona elegida (tu ciudad, comunidad o país): manda sobre el radio.
+        if (areaFilter.kind !== 'near') return geo ? matchesArea(geo, areaFilter) : true;
         if (!range || !location || !lat || !lng) return true;
         const dist = calculateDistance(lat, lng);
         if (dist === null) return true;
         return dist <= range;
-    }, [range, location, calculateDistance]);
+    }, [range, location, calculateDistance, areaFilter]);
 
     // 3. Derived & Filtered Lists
     const filteredLists = useMemo(() => {
         return lists.filter(l => {
             const matchesCategory = checkCategory(l);
-            const matchesDist = checkDistance(l.lat, l.lng);
+            // Las listas no tienen zona: con una zona elegida no se filtran.
+            const matchesDist = areaFilter.kind !== 'near' || checkDistance(l.lat, l.lng);
             return matchesCategory && matchesDist;
         });
-    }, [lists, activeFilter, range, location]);
+    }, [lists, activeFilter, range, location, areaFilter, checkDistance]);
 
     // 4. Derived & Filtered Items (Reviews)
     // We need the FULL list for calcs, not just the sliced one for display
@@ -596,10 +638,10 @@ export const HomePage: React.FC = () => {
             const matchesCategory = checkCategory(r);
             const lat = (r as any).placeLat || (r as any).lat;
             const lng = (r as any).placeLng || (r as any).lng;
-            const matchesDist = checkDistance(lat, lng);
+            const matchesDist = checkDistance(lat, lng, { city: (r as any).placeCity, province: (r as any).placeProvince, region: (r as any).placeRegion, country: (r as any).placeCountry });
             return matchesCategory && matchesDist;
         });
-    }, [reviews, activeFilter, range, location, botUserIds]);
+    }, [reviews, activeFilter, range, location, botUserIds, checkDistance]);
 
     const filteredItems = useMemo(() => {
         const base = [...reviewsInRange];
@@ -677,6 +719,7 @@ export const HomePage: React.FC = () => {
                         reviewsCount: data.reviewsCount || 0,
                         closedStatus: data.closedStatus || null,
                         lat, lng,
+                        geo: { city: data.city || '', province: data.province || '', region: data.region || '', country: data.country || '' },
                         items: [] // No specific items for these unless we fetch subcollections
                     };
                 }).filter(p => p.lat && p.lng && p.reviewsCount > 0 && p.closedStatus !== 'permanently_closed'); // Only places with location AND reviews, exclude permanently closed
@@ -730,7 +773,7 @@ export const HomePage: React.FC = () => {
         extraPlaces.forEach(p => {
             if (!uniquePlaces.has(p.id)) {
                 // Check distance filter for these too!
-                if (checkDistance(p.lat, p.lng)) {
+                if (checkDistance(p.lat, p.lng, p.geo)) {
                     uniquePlaces.set(p.id, p);
                 }
             } else if (!uniquePlaces.get(p.id).photoUrl && p.photoUrl) {
@@ -813,7 +856,7 @@ export const HomePage: React.FC = () => {
 
     useEffect(() => {
         if (activeTab !== 'explore') return;
-        if (range === null || !location) return;
+        if (areaFilter.kind !== 'near' || range === null || !location) return;
         if (loadingReviews) return;
         if (!hasHomeMapCandidates) return;
         if (filteredPlaces.length > 0) return;
@@ -1115,13 +1158,6 @@ export const HomePage: React.FC = () => {
     }, [appConfig.showRandomChoiceButton, handleSurpriseChoice, searchParams, setSearchParams, surpriseCandidates.length]);
 
 
-    const handleToggleRange = () => {
-        if (!location) {
-            requestLocation();
-        }
-        toggleRange();
-    };
-
     const buildCarouselSearchLink = useCallback((type: 'lists' | 'places' | 'users' | 'items', sort?: string) => {
         const params = new URLSearchParams({ type });
         if (sort) {
@@ -1239,29 +1275,26 @@ export const HomePage: React.FC = () => {
                                 <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[var(--lt-card)]">
                                     <button
                                         onClick={() => setIsMapOpen(!isMapOpen)}
-                                        className="flex items-center gap-2 hover:text-white transition-colors flex-1 text-left"
+                                        className="flex items-center gap-2 hover:text-white transition-colors shrink-0 text-left"
                                     >
                                         <MapIcon className="w-5 h-5 text-gray-400" />
                                         <span className="font-bold text-sm">Mapa</span>
                                     </button>
 
-                                    <div className="flex items-center gap-3">
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); handleToggleRange(); }}
-                                            className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 flex items-center gap-1.5 ${range !== null
-                                                ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg'
-                                                : 'bg-[var(--lt-bg)] border-white/10 text-gray-400 hover:text-white hover:border-white/30'
-                                                }`}
-                                        >
-                                            <MapPin className="w-3 h-3" />
-                                            {getRangeLabel()}
-                                        </button>
+                                    <div className="flex items-center justify-end gap-2 sm:gap-3 min-w-0 flex-1 ml-2">
+                                        <AreaSelect
+                                            value={areaFilter.kind === 'near' ? `r:${range ?? 'all'}` : encodeArea(areaFilter)}
+                                            range={range}
+                                            options={areaOptions}
+                                            onChange={handleAreaSelect}
+                                            onExplore={() => navigate('/search?type=items&sort=grouped_items_by_score')}
+                                        />
 
                                         <button
                                             onClick={() => setIsMapOpen(!isMapOpen)}
-                                            className="flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-white transition-colors"
+                                            className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-white transition-colors whitespace-nowrap shrink-0" aria-label={isMapOpen ? 'Ocultar mapa' : 'Ver mapa'}
                                         >
-                                            {isMapOpen ? 'Ocultar' : 'Ver Mapa'}
+                                            <span className="hidden sm:inline">{isMapOpen ? 'Ocultar' : 'Ver mapa'}</span>
                                             <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapOpen ? 'rotate-180' : ''}`} />
                                         </button>
                                     </div>
@@ -1271,7 +1304,7 @@ export const HomePage: React.FC = () => {
                                     <div className="overflow-hidden min-h-0">
                                         <div className="h-[400px] border-t border-white/10 relative">
                                             {/* Solo se monta (y descarga Leaflet) cuando el usuario abre el mapa. */}
-                                            {isMapOpen && <MapView items={filteredPlaces} mode="global" range={range} />}
+                                            {isMapOpen && <MapView items={filteredPlaces} mode="global" range={areaFilter.kind === 'near' ? range : null} />}
                                         </div>
                                     </div>
                                 </div>
