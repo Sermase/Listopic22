@@ -48,11 +48,15 @@ una fórmula de verdad única. `posición = (n·media + 3·7) / (n + 3)`.
 | S5 | SKUs exactos de Google por actualización, tope de 25 por tanda con aviso de coste, botón «Solo ubicación» (1 llamada Essentials) | `Mejoras/google-places-skus.md`, `PlacesManagerTab.tsx`, `adminRefreshPlaceLocation` |
 | S6 | Migración de criterios/pesos: `simulateCriteriaChange` (dueño o jefe, solo lectura) y `applyCriteriaChange` (jefe; exige la huella de la simulación; guarda `overallRatingBefore`, sube `scoringVersion`, actualiza Minilistas, recalcula métricas, auditoría). Modal «Cambiar pesos o quitar criterios…» en Editar lista. Selector ×0–×3 en listas sin valoraciones y `WEIGHTS_ENABLED = true` (con los pesos guardados hoy, 0/1, no cambia ninguna nota) | `functions/modules/lib/criteria-migration.js`, `functions/modules/admin/criteria-migration.js`, `CriteriaMigrationModal.tsx`, `CriteriaBuilder.tsx` |
 
+### Tercera tanda (validación, 30/09/2026 noche)
+Validación funcional en emuladores, auditoría de ListopIA, revisión de Developer,
+zona local en Lista y Home, zona en Buscar, puestos en el elemento y pulido.
+Detalle en `validacion-funcional.md` y `developer-revision.md`.
+
 ### Pendiente
-- **4.2–4.3**: facetas de zona en Algolia y en Búsqueda (hoy la zona funciona dentro de la Lista, en cliente).
-- «#126 en España» en la ficha del elemento: se calcula ya en la Lista; falta llevarlo a la página del elemento.
-- Decidir si el **dueño** puede aplicar migraciones él solo (hoy solo simula; aplica un administrador).
-- Verificar la migración contra el emulador o un proyecto de pruebas antes de usarla en una Lista real.
+- **4.2–4.3**: hecho en código (facetas `region`/`placeRegion`, `country`/`placeCountry`). Falta desplegar, «Configurar índices» y reindexar.
+- Migraciones: decidido. De momento solo aplica un administrador; el dueño simula.
+- Migración verificada en el emulador (simular, cancelar sin cambios, aplicar).
 
 ### Despliegue de esta tanda (orden obligatorio; nada desplegado)
 1. `cd functions && npm ci && npm test` → `firebase deploy --only functions --project listopic`. Funciones nuevas: `propagateParentCriteriaToMinilists` (trigger), `adminRefreshPlaceLocation`, `simulateCriteriaChange`, `applyCriteriaChange`; cambian `adminUpdateSinglePlace`, el agregador y Algolia.

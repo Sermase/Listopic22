@@ -185,6 +185,21 @@ Qué existe hoy:
 | Radio en Búsqueda | `SearchPage`: 500 m – 50 km o sin límite | Algolia `aroundLatLng` / `aroundRadius` |
 | Ciudad / provincia / país del sitio | `places.city`, `province`/`region`, `country` (de Google) → `placeCity`… en `grouped_items` | Existen, pero no se usan para rankings |
 
+**Ajuste del 30/09/2026 (noche): Lista y Home = contexto local; Buscar = explorar.**
+
+- Lista y Home: radios y, en «Donde estás», **tu** ciudad, **tu** comunidad y
+  **tu** país. Se deducen del sitio más cercano (ciudad a menos de 15 km,
+  comunidad a menos de 120 km, país a menos de 600 km), sin llamar a Google.
+  Sin ubicación, solo el país. Ninguna ciudad lejana en el selector. Última
+  opción: «Explorar otra zona en Buscar…».
+- Buscar: Zona · Ciudad / Provincia / Comunidad / País, cualquiera. Con una sola
+  Lista, sin texto y ordenado por puntuación, cada resultado lleva «#N en <zona>».
+- Página del elemento: un puesto principal («#3 en Valladolid») y los más
+  amplios en pequeño.
+- Incertidumbre: cerca de una frontera entre comunidades, la deducida puede ser
+  la vecina. Es aceptable mientras no se use la geocodificación inversa de
+  Google, que cuesta dinero y hoy solo pueden usar los administradores.
+
 **Implementado (B1, sin desplegar):**
 
 1. Selector en la Lista, de cerca a lejos: radios («A menos de 5 km», …, «Sin límite de

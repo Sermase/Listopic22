@@ -140,7 +140,11 @@ async function ensureIndexSettings(indexName, index) {
                     const replicaIndex = getIndex(replicaName);
                     const replicaSettings = REPLICA_SETTINGS[replicaName];
                     if (replicaIndex && replicaSettings) {
-                        await replicaIndex.setSettings(replicaSettings);
+                        // Las réplicas no heredan cambios del principal: mismas facetas (zona en Buscar).
+                        await replicaIndex.setSettings({
+                            ...(settings.attributesForFaceting ? { attributesForFaceting: settings.attributesForFaceting } : {}),
+                            ...replicaSettings,
+                        });
                     }
                 }));
             } catch (error) {
