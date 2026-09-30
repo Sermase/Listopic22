@@ -68,7 +68,7 @@ export const SearchQueryParser = {
                     // Type might be a hint (place, user...) or a filter (restaurant, bar)
                     if (['user', 'usuario', 'users'].includes(rawValue)) parsed.typeHint = 'users';
                     else if (['list', 'lista', 'lists'].includes(rawValue)) parsed.typeHint = 'lists';
-                    else if (['place', 'lugar', 'places'].includes(rawValue)) parsed.typeHint = 'places';
+                    else if (['place', 'lugar', 'places', 'sitio', 'sitios', 'lugares'].includes(rawValue)) parsed.typeHint = 'places';
                     else if (['item', 'elemento', 'items'].includes(rawValue)) parsed.typeHint = 'items';
                     else addFilter('type', rawValue);
                     break;

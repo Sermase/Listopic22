@@ -96,7 +96,7 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
 
     const handleUpload = async () => {
         if (!user) {
-            setError('Inicia sesión para subir fotos del lugar.');
+            setError('Inicia sesión para subir fotos del sitio.');
             return;
         }
         if (processedPhotos.length === 0) {
@@ -177,7 +177,7 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
                                 <Camera className="w-5 h-5 text-[var(--lt-accent)]" />
                             </div>
                             <div className="min-w-0">
-                                <h2 className="text-lg font-bold text-white leading-tight">Fotos del lugar</h2>
+                                <h2 className="text-lg font-bold text-white leading-tight">Fotos del sitio</h2>
                                 <p className="text-xs text-gray-500 truncate">{placeName}</p>
                             </div>
                         </div>

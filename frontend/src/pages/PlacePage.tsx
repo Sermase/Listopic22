@@ -141,7 +141,7 @@ export const PlacePage: React.FC = () => {
             el.setAttribute('content', content);
         };
         setMeta('og:title', title);
-        setMeta('og:description', `${place.reviewCount} reseñas · ${place.address || place.name}`);
+        setMeta('og:description', `${place.reviewCount} valoraciones · ${place.address || place.name}`);
         setMeta('og:url', window.location.href);
         setMeta('og:type', 'website');
         if (place.photoUrl) setMeta('og:image', place.photoUrl);
@@ -279,7 +279,7 @@ export const PlacePage: React.FC = () => {
 
     const handleOpenReviewFlow = () => {
         if (!user) {
-            openAuthPrompt('añadir una reseña');
+            openAuthPrompt('añadir una valoración');
             return;
         }
         setSelectedListId(fromListId || null);
@@ -296,7 +296,7 @@ export const PlacePage: React.FC = () => {
 
     const handleOpenSave = () => {
         if (!user) {
-            openAuthPrompt('guardar este lugar');
+            openAuthPrompt('guardar este sitio');
             return;
         }
         setIsSaveModalOpen(true);
@@ -304,7 +304,7 @@ export const PlacePage: React.FC = () => {
 
     const handleOpenReport = () => {
         if (!user) {
-            openAuthPrompt('reportar este lugar');
+            openAuthPrompt('reportar este sitio');
             return;
         }
         setShowReportModal(true);
@@ -350,7 +350,7 @@ export const PlacePage: React.FC = () => {
 
     const handleFollowToggle = async () => {
         if (!user) {
-            openAuthPrompt('seguir este lugar');
+            openAuthPrompt('seguir este sitio');
             return;
         }
         if (!placeId) return;
@@ -517,7 +517,7 @@ export const PlacePage: React.FC = () => {
                     : [r.photoUrl];
                 reviewPhotos.forEach(photoUrl => {
                     addPhoto(photoUrl, {
-                        caption: r.itemName || r.authorName || 'Foto de reseña',
+                        caption: r.itemName || r.authorName || 'Foto de valoración',
                         source: 'review',
                     });
                 });
@@ -602,9 +602,9 @@ export const PlacePage: React.FC = () => {
         return (
             <div className="min-h-screen pt-safe-32 px-4 text-center bg-[var(--lt-bg)]">
                 <MapPin className="w-16 h-16 text-white/20 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-white mb-2">Lugar no encontrado</h2>
+                <h2 className="text-2xl font-bold text-white mb-2">Sitio no encontrado</h2>
                 <p className="text-gray-400 mb-6 max-w-sm mx-auto text-sm">
-                    Este lugar aún no está en Listopic.
+                    Este sitio aún no está en Listopic.
                     {user ? ' Puedes sincronizarlo desde Google Maps.' : ' Inicia sesión para añadirlo.'}
                 </p>
                 {syncError && <p className="text-red-400 text-sm mb-4">{syncError}</p>}
@@ -808,7 +808,7 @@ export const PlacePage: React.FC = () => {
 
                         {/* Title & Info */}
                         <div className="lt-entity-hero-title flex-1">
-                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-white mb-2 leading-tight line-clamp-2">
+                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-[var(--lt-hero-title)] mb-2 leading-tight line-clamp-2">
                                 {place.name}
                             </h1>
                             {place.closedStatus && (
@@ -821,7 +821,7 @@ export const PlacePage: React.FC = () => {
                                 </div>
                             )}
                             {place.address && (
-                                <p className="text-gray-200 flex items-center gap-2 text-sm sm:text-lg max-w-2xl font-light line-clamp-1">
+                                <p className="text-[var(--lt-hero-text)] flex items-center gap-2 text-sm sm:text-lg max-w-2xl font-light line-clamp-1">
                                     <MapPin className="w-4 h-4 text-[var(--lt-accent)] shrink-0" />
                                     {place.address}
                                 </p>
@@ -858,7 +858,7 @@ export const PlacePage: React.FC = () => {
                                     className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all ml-2"
                                 >
                                     <Plus className="w-4 h-4" />
-                                    <span>Añadir reseña</span>
+                                    <span>Valorar</span>
                                 </button>
                                 <button
                                     onClick={handleOpenPhotoUpload}
@@ -968,12 +968,12 @@ export const PlacePage: React.FC = () => {
                     {/* 2. Map */}
                     {place.coords && (
                         <div className="glass-card rounded-2xl overflow-hidden shadow-xl relative group">
-                            <div className="absolute top-3 right-3 z-10">
+                            <div className="absolute top-3 left-14 z-10">
                                 <a
                                     href={place.googleMapsUri || `https://www.google.com/maps/search/?api=1&query=${place.coords.lat},${place.coords.lng}`}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="px-3 py-1.5 bg-black/50 backdrop-blur-md rounded-lg text-white text-xs font-bold flex items-center gap-2 hover:bg-[var(--lt-accent)] transition-colors border border-white/10"
+                                    className="px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-lg text-[#fff] text-xs font-bold flex items-center gap-2 hover:bg-[var(--lt-accent)] transition-colors border border-white/10"
                                 >
                                     <MapPin className="w-3 h-3" />
                                     Abrir en Google Maps
@@ -1570,7 +1570,7 @@ export const PlacePage: React.FC = () => {
                                 : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
                                 }`}
                         >
-                            <MessageSquare className="w-4 h-4" /> Opiniones ({place.reviews.length})
+                            <MessageSquare className="w-4 h-4" /> Valoraciones ({place.reviews.length})
                         </button>
                         <button
                             onClick={() => setActiveTab('dishes')}
@@ -1665,10 +1665,10 @@ export const PlacePage: React.FC = () => {
                                                     <button
                                                         onClick={() => setExpandedReviewId(null)}
                                                         className="self-center mb-3 flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-gray-200 hover:text-white text-sm font-semibold rounded-full transition-all border border-[var(--lt-accent-border)] shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]"
-                                                        aria-label="Plegar reseña"
+                                                        aria-label="Plegar valoración"
                                                     >
                                                         <ChevronUp className="w-4 h-4" />
-                                                        <span>Cerrar reseña</span>
+                                                        <span>Cerrar valoración</span>
                                                     </button>
                                                     <ReviewCard
                                                         review={review}
@@ -1899,7 +1899,7 @@ export const PlacePage: React.FC = () => {
                                                             )}
                                                         </div>
                                                         <div className="flex items-center gap-2 flex-wrap">
-                                                            <span className="text-xs text-gray-500">{dish.count} {dish.count === 1 ? 'opinión' : 'opiniones'}</span>
+                                                            <span className="text-xs text-gray-500">{dish.count} {dish.count === 1 ? 'valoración' : 'valoraciones'}</span>
                                                             {official?.group && (
                                                                 <span className="text-[11px] text-gray-400">· {official.group}</span>
                                                             )}
@@ -1941,7 +1941,7 @@ export const PlacePage: React.FC = () => {
                                 if (mainLists.length === 0 && subLists.length === 0) {
                                     return (
                                         <div className="py-10 text-center text-gray-500 border border-dashed border-white/10 rounded-xl">
-                                            Este lugar aún no ha sido añadido a otras listas públicas.
+                                            Este sitio aún no está en otras listas públicas.
                                         </div>
                                     );
                                 }
@@ -1999,7 +1999,7 @@ export const PlacePage: React.FC = () => {
                                             <div>
                                                 <h3 className="text-white font-bold mb-4 flex items-center gap-2">
                                                     <div className="p-1 bg-[var(--lt-accent-soft)] rounded text-[var(--lt-accent-2)]"><ListIcon className="w-4 h-4" /></div>
-                                                    Sublistas ({subLists.length})
+                                                    Minilistas ({subLists.length})
                                                 </h3>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                     {subLists.map((list) => (
@@ -2024,7 +2024,7 @@ export const PlacePage: React.FC = () => {
                                                                         </div>
                                                                     )}
                                                                     <div className="absolute top-2 right-2 p-1 bg-black/50 rounded backdrop-blur-md">
-                                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--lt-accent-2)] bg-[var(--lt-accent-soft)] px-2 py-0.5 rounded">Sublista</span>
+                                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--lt-accent-2)] bg-[var(--lt-accent-soft)] px-2 py-0.5 rounded">Minilista</span>
                                                                     </div>
                                                                 </div>
                                                                 <div className="p-4 flex-1 flex flex-col justify-between">
@@ -2034,7 +2034,7 @@ export const PlacePage: React.FC = () => {
                                                                     </div>
                                                                     <div className="mt-4 pt-2 border-t border-white/5 flex items-center justify-between">
                                                                         {/* Hiding Author */}
-                                                                        <span className="text-xs text-[var(--lt-accent-2)] font-medium group-hover:underline">Ver Sublista</span>
+                                                                        <span className="text-xs text-[var(--lt-accent-2)] font-medium group-hover:underline">Ver Minilista</span>
                                                                         <span className="text-xs text-gray-500">{list.itemCount || 0} lugares</span>
                                                                     </div>
                                                                 </div>
@@ -2104,7 +2104,7 @@ export const PlacePage: React.FC = () => {
                                         >
                                             Subir fotos
                                         </button>
-                                        <p className="text-gray-500 text-sm">Aún no hay fotos de este lugar.</p>
+                                        <p className="text-gray-500 text-sm">Aún no hay fotos de este sitio.</p>
                                     </div>
                                 )}
                             </div>

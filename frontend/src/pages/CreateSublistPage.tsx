@@ -285,16 +285,16 @@ export const CreateSublistPage: React.FC = () => {
             }
             showToast({
                 variant: 'success',
-                title: 'Sublista creada',
-                message: 'Sublista publicada. Ya puedes empezar el debate serio.',
+                title: 'Minilista creada',
+                message: 'Minilista publicada. Ya puedes empezar el debate serio.',
             });
             navigate(`/list/${docRef.id}`);
         } catch (error) {
             console.error("Error creating sublist:", error);
             showToast({
                 variant: 'error',
-                title: 'No se pudo crear la sublista',
-                message: 'No conseguimos guardar la sublista. Inténtalo otra vez.',
+                title: 'No se pudo crear la minilista',
+                message: 'No conseguimos guardar la minilista. Inténtalo otra vez.',
             });
         } finally {
             setLoading(false);
@@ -311,7 +311,7 @@ export const CreateSublistPage: React.FC = () => {
                         <ArrowLeft className="w-4 h-4" /> Volver
                     </button>
 
-                    <h1 className="text-2xl sm:text-3xl font-bold font-display text-white mb-1">Nueva Sublista</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold font-display text-white mb-1">Nueva Minilista</h1>
                     <p className="text-gray-400 text-sm mb-6">Elige una lista base para construir tu versión personal.</p>
 
                     <div className="relative mb-5">
@@ -348,7 +348,7 @@ export const CreateSublistPage: React.FC = () => {
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="font-semibold text-white truncate group-hover:text-[var(--lt-accent)] transition-colors">{list.name}</div>
-                                        <div className="text-xs text-gray-500 mt-0.5">{list.itemCount || 0} lugares · {list.authorName || 'Anónimo'}</div>
+                                        <div className="text-xs text-gray-500 mt-0.5">{list.itemCount || 0} sitios · {list.authorName || 'Anónimo'}</div>
                                     </div>
                                     <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-[var(--lt-accent)] transition-colors shrink-0" />
                                 </button>
@@ -389,7 +389,7 @@ export const CreateSublistPage: React.FC = () => {
                     </div>
                 </div>
 
-                <h1 className="text-2xl sm:text-3xl font-bold font-display text-white mb-6">Nueva Sublista</h1>
+                <h1 className="text-2xl sm:text-3xl font-bold font-display text-white mb-6">Nueva Minilista</h1>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
 
@@ -532,7 +532,7 @@ export const CreateSublistPage: React.FC = () => {
                             <div className="p-3 bg-[var(--lt-bg)] rounded-xl border border-white/5 flex items-center justify-between gap-3">
                                 <div className="min-w-0">
                                     <div className="text-sm font-semibold text-gray-200">Colaboración pública</div>
-                                    <div className="text-xs text-gray-500 mt-0.5">Cualquier usuario puede añadir reseñas</div>
+                                    <div className="text-xs text-gray-500 mt-0.5">Cualquier usuario puede añadir valoraciones</div>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer shrink-0">
                                     <input
@@ -581,7 +581,7 @@ export const CreateSublistPage: React.FC = () => {
                             {guestLookupError && (
                                 <p className="text-xs text-red-400">{guestLookupError}</p>
                             )}
-                            <p className="text-xs text-gray-600">Los colaboradores pueden ver y añadir reseñas aunque la lista sea privada.</p>
+                            <p className="text-xs text-gray-600">Los colaboradores pueden ver y añadir valoraciones aunque la lista sea privada.</p>
                         </div>
                     </div>
 
@@ -591,7 +591,7 @@ export const CreateSublistPage: React.FC = () => {
                         className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold rounded-2xl shadow-lg transition-all active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                         {loading ? <Loader className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                        {loading ? 'Creando...' : 'Crear Sublista'}
+                        {loading ? 'Creando...' : 'Crear Minilista'}
                     </button>
                 </form>
             </div>

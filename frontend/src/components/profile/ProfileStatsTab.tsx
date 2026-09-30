@@ -77,7 +77,7 @@ const ProfileStatsTab: React.FC<Props> = ({
         </div>
         <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
           <div className="text-[11px] uppercase tracking-wider text-gray-400">
-            Reseñas analizadas
+            Valoraciones analizadas
           </div>
           <div className="text-3xl font-black text-white mt-1">
             {advancedStats.totalReviews}
@@ -96,7 +96,7 @@ const ProfileStatsTab: React.FC<Props> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
           <div className="text-[11px] uppercase tracking-wider text-gray-400">
-            Fotos en reseñas
+            Fotos en valoraciones
           </div>
           <div className="text-3xl font-black text-white mt-1">
             {advancedStats.reviewPhotosCount}
@@ -118,7 +118,7 @@ const ProfileStatsTab: React.FC<Props> = ({
             Media por lista
           </h3>
           <span className="text-[11px] text-gray-400">
-            Reseñas y valoración media
+            Valoraciones y nota media
           </span>
         </div>
         <div className="px-4 py-2 border-b border-white/10">
@@ -132,7 +132,7 @@ const ProfileStatsTab: React.FC<Props> = ({
                   : "text-gray-300 hover:text-white"
               }`}
             >
-              Más reseñas
+              Más valoraciones
             </button>
             <button
               type="button"
@@ -165,7 +165,7 @@ const ProfileStatsTab: React.FC<Props> = ({
                     {listStat.listName}
                   </div>
                   <div className="text-[11px] text-gray-400">
-                    {listStat.reviewsCount} reseñas
+                    {listStat.reviewsCount} valoraciones
                   </div>
                 </div>
                 <div className="shrink-0 text-right">

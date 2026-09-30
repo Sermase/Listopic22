@@ -36,3 +36,11 @@ describe('scoreScale', () => {
         expect(formatScore(null)).toBe('—');
     });
 });
+
+describe('scoreScale: texto sobre fondos fijos', () => {
+    it('sobre blanco y sobre fondo oscuro se lee (≥ 4.5:1)', async () => {
+        const { SCORE_TEXT_ON_LIGHT, SCORE_TEXT_ON_DARK } = await import('./scoreScale');
+        Object.values(SCORE_TEXT_ON_LIGHT).forEach((c) => expect(contrast(c, '#ffffff')).toBeGreaterThanOrEqual(4.5));
+        Object.values(SCORE_TEXT_ON_DARK).forEach((c) => expect(contrast(c, '#0b1021')).toBeGreaterThanOrEqual(4.5));
+    });
+});

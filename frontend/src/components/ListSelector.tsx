@@ -153,7 +153,7 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
                                             {list.parentListId && (
                                                 <div className="text-xs text-gray-500 truncate flex items-center gap-1">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-gray-600"></div>
-                                                    Sublista
+                                                    Minilista
                                                 </div>
                                             )}
                                         </div>

@@ -48,7 +48,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                 const lng = location?.longitude;
 
                 if (lat && lng) {
-                    setStatusMessage("Buscando lugares cercanos...");
+                    setStatusMessage("Buscando sitios cercanos...");
                     const data = await PlaceService.searchNearby(lat, lng);
 
                     // Sort by distance
@@ -60,7 +60,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
 
                     setResults(data);
                     setIsOpen(true);
-                    if (data.length === 0) setStatusMessage("No se encontraron lugares cercanos.");
+                    if (data.length === 0) setStatusMessage("No se encontraron sitios cercanos.");
                     else setStatusMessage(null);
                 } else {
                     // Force refresh if hook didn't catch it yet
@@ -77,7 +77,7 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
                         setResults(data);
                         setIsOpen(true);
                         setLoading(false);
-                        if (data.length === 0) setStatusMessage("No se encontraron lugares cercanos.");
+                        if (data.length === 0) setStatusMessage("No se encontraron sitios cercanos.");
                         else setStatusMessage(null);
                     }, (err) => {
                         console.warn("Geo error", err);

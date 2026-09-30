@@ -11,11 +11,11 @@ export const buildShareText = (entity: ShareEntityPayload): string => {
 
     switch (entity.type) {
         case 'review': {
-            const dish = entity.title || 'Mi reseña';
+            const dish = entity.title || 'Mi valoración';
             const place = entity.subtitle ? ` en ${entity.subtitle}` : '';
             return score
-                ? `⭐ ${score} · ${dish}${place}. Mi reseña en Listopic:`
-                : `${dish}${place} — mi reseña en Listopic:`;
+                ? `⭐ ${score} · ${dish}${place}. Mi valoración en Listopic:`
+                : `${dish}${place} — mi valoración en Listopic:`;
         }
         case 'place': {
             const name = entity.title || 'Este sitio';
@@ -25,7 +25,7 @@ export const buildShareText = (entity: ShareEntityPayload): string => {
         case 'list':
         case 'sublist': {
             const name = entity.title || 'Una lista';
-            const count = entity.reviewCount && entity.reviewCount > 0 ? ` · ${entity.reviewCount} reseñas` : '';
+            const count = entity.reviewCount && entity.reviewCount > 0 ? ` · ${entity.reviewCount} valoraciones` : '';
             return `📋 ${name}${count}, votada por la comunidad en Listopic:`;
         }
         case 'group': {
@@ -37,7 +37,7 @@ export const buildShareText = (entity: ShareEntityPayload): string => {
         }
         case 'profile': {
             const name = entity.title || 'Un perfil';
-            return `${name} en Listopic — sus reseñas y listas:`;
+            return `${name} en Listopic — sus valoraciones y listas:`;
         }
         default:
             return entity.title && entity.title !== 'Listopic'

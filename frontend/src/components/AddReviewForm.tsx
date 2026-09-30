@@ -34,7 +34,7 @@ interface AddReviewFormProps {
 
 const REVIEW_CREATE_TOASTS = [
     'Tu veredicto ya está en la mesa.',
-    'Reseña publicada: criterio fino y sin titubeos.',
+    'Valoración publicada: criterio fino y sin titubeos.',
     'Nuevo punto en el mapa del buen gusto.',
     'Anotado. El ranking acaba de ponerse interesante.',
 ] as const;
@@ -401,7 +401,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 );
             } catch (e) {
                 console.error("Error fetching review for edit:", e);
-                setError("Error cargando la reseña para editar");
+                setError("Error cargando la valoración para editar");
             }
         };
 
@@ -604,7 +604,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         }
 
         if (!selectedPlace && !prefillPlaceId && !editReviewId) {
-            setError("Por favor selecciona un lugar (Restaurante, etc.)");
+            setError("Elige un sitio (restaurante, playa…)");
             return;
         }
 
@@ -995,7 +995,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
             showToast({
                 variant: 'success',
-                title: isNew ? 'Reseña publicada' : 'Cambios guardados',
+                title: isNew ? 'Valoración publicada' : 'Cambios guardados',
                 message: isNew ? pickRandom(REVIEW_CREATE_TOASTS) : pickRandom(REVIEW_EDIT_TOASTS),
             });
             localStorage.removeItem(`listopic_review_draft_${finalListId || 'global'}`);
@@ -1008,7 +1008,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             showToast({
                 variant: 'error',
                 title: 'No se pudo guardar',
-                message: 'Hubo un problema al guardar la reseña. Inténtalo de nuevo en unos segundos.',
+                message: 'Hubo un problema al guardar la valoración. Inténtalo de nuevo en unos segundos.',
             });
         } finally {
             setLoading(false);
@@ -1065,7 +1065,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             </div>
                             <div>
                                 <h2 className="text-base font-bold text-white font-display leading-tight">
-                                    {isNew ? 'Nueva Reseña' : 'Editar Reseña'}
+                                    {isNew ? 'Nueva valoración' : 'Editar valoración'}
                                 </h2>
                                 {listData?.name && (
                                     <p className="text-xs text-[var(--lt-accent)]/60 mt-0.5">en {listData.name}</p>
@@ -1467,14 +1467,14 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             >
                                 {loading
                                     ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>
-                                    : isNew ? '✨ Publicar Reseña' : '💾 Guardar Cambios'
+                                    : isNew ? '✨ Publicar valoración' : '💾 Guardar Cambios'
                                 }
                             </button>
                         </div>
                         {!isValid && !loading && (
                             <p className="text-center text-[11px] text-[var(--lt-text-muted)] mt-2">
                                 {[
-                                    (!selectedPlace && !prefillPlaceId) && '📍 Elige un lugar',
+                                    (!selectedPlace && !prefillPlaceId) && '📍 Elige un sitio',
                                     !itemName.trim() && '🍽️ Añade qué probaste',
                                     !internalListId && '📋 Elige una lista',
                                     criteriaLoaded && hasComputingCriteria && !scoreSummary.complete

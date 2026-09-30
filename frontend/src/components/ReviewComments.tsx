@@ -168,7 +168,7 @@ export const ReviewComments: React.FC<ReviewCommentsProps> = ({ listId, reviewId
             ) : (
                 <button
                     type="button"
-                    onClick={() => openAuthPrompt('comentar esta reseña')}
+                    onClick={() => openAuthPrompt('comentar esta valoración')}
                     className="w-full rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-4 py-2 text-sm font-bold text-[var(--lt-accent)] transition-colors hover:bg-[var(--lt-accent)]/20"
                 >
                     Inicia sesión para comentar

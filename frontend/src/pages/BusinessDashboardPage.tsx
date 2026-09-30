@@ -230,7 +230,7 @@ export const BusinessDashboardPage: React.FC = () => {
                                         </div>
 
                                         <div className="mt-4 flex items-center gap-3 text-xs text-[var(--lt-text-muted)]">
-                                            <span>{place.reviewsCount ?? 0} reseñas</span>
+                                            <span>{place.reviewsCount ?? 0} valoraciones</span>
                                             {place.averageRating !== undefined && <span>{place.averageRating.toFixed(1)} media</span>}
                                         </div>
 

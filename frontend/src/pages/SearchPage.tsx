@@ -33,7 +33,7 @@ import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/pl
 const RECENT_SEARCHES_KEY = 'listopic_recent_searches';
 
 const TAB_LABELS: Record<string, string> = {
-    lists: 'Listas', places: 'Lugares', users: 'Usuarios', items: 'Items',
+    lists: 'Listas', places: 'Sitios', users: 'Usuarios', items: 'Elementos',
 };
 const TAB_ICONS: Record<string, React.ElementType> = {
     lists: ListIcon, places: MapIcon, users: Users, items: MessageCircle,
@@ -108,7 +108,7 @@ const FACET_VALUE_LABELS: Record<string, Record<string, string>> = {
 
 const EMPTY_MESSAGES: Record<string, { title: string; hint: string }> = {
     lists: { title: 'No hay listas', hint: 'Prueba por nombre, etiqueta o categoría.' },
-    places: { title: 'No hay lugares', hint: 'Prueba otra ciudad o tipo.' },
+    places: { title: 'No hay sitios', hint: 'Prueba otra ciudad o tipo.' },
     users: { title: 'No hay usuarios', hint: 'Busca por nombre o prueba @nombre.' },
     items: { title: 'No hay items', hint: 'Prueba #etiqueta o el nombre del plato.' },
     grouped_items: { title: 'No hay items', hint: 'Prueba #etiqueta o el nombre del plato.' },
@@ -183,7 +183,7 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
         { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
         { attribute: 'types', label: 'Tipo', icon: Utensils, defaultOpen: true },
         { attribute: 'itemTags', label: 'Etiquetas de items', icon: Tags },
-        { attribute: 'closedStatus', label: 'Estado del lugar', icon: EyeOff },
+        { attribute: 'closedStatus', label: 'Estado del sitio', icon: EyeOff },
         { attribute: 'priceLevel', label: 'Precio', icon: CircleDollarSign },
         { attribute: 'serviceOptions', label: 'Servicios', icon: Coffee },
     ],
@@ -202,7 +202,7 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
         { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
         { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
         { attribute: 'itemTags', label: 'Todas las etiquetas', icon: Tags },
-        { attribute: 'placeClosedStatus', label: 'Estado del lugar', icon: EyeOff },
+        { attribute: 'placeClosedStatus', label: 'Estado del sitio', icon: EyeOff },
     ],
     grouped_items: [
         { attribute: 'listCategoryName', label: 'Categoría', icon: Tags, defaultOpen: true },
@@ -215,7 +215,7 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
         { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
         { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
         { attribute: 'itemTags', label: 'Todas las etiquetas', icon: Tags },
-        { attribute: 'placeClosedStatus', label: 'Estado del lugar', icon: EyeOff },
+        { attribute: 'placeClosedStatus', label: 'Estado del sitio', icon: EyeOff },
     ],
 };
 
@@ -233,24 +233,24 @@ const SORT_OPTIONS: Record<string, SortOption[]> = {
     lists: [
         { value: 'lists', indexName: 'lists', label: 'Destacadas' },
         { value: 'lists_by_followers', indexName: 'lists_by_followers', label: 'Seguidores' },
-        { value: 'lists_by_reviews', indexName: 'lists_by_reviews', label: 'Reseñas' },
+        { value: 'lists_by_reviews', indexName: 'lists_by_reviews', label: 'Valoraciones' },
     ],
     places: [
         { value: 'places', indexName: 'places', label: 'Destacados' },
         { value: 'places_by_rating', indexName: 'places_by_rating', label: 'Valoración' },
-        { value: 'places_by_reviews', indexName: 'places_by_reviews', label: 'Reseñas' },
+        { value: 'places_by_reviews', indexName: 'places_by_reviews', label: 'Valoraciones' },
         { value: 'places_distance', indexName: 'places', label: 'Más cerca', requiresLocation: true },
     ],
     users: [
         { value: 'users', indexName: 'users', label: 'Destacados' },
         { value: 'users_by_level', indexName: 'users_by_level', label: 'Nivel' },
         { value: 'users_by_followers', indexName: 'users_by_followers', label: 'Seguidores' },
-        { value: 'users_by_reviews', indexName: 'users_by_reviews', label: 'Reseñas' },
+        { value: 'users_by_reviews', indexName: 'users_by_reviews', label: 'Valoraciones' },
     ],
     items: [
         { value: 'grouped_items', indexName: 'grouped_items', label: 'Destacados' },
         { value: 'grouped_items_by_score', indexName: 'grouped_items_by_score', label: 'Puntuación' },
-        { value: 'grouped_items_by_reviews', indexName: 'grouped_items_by_reviews', label: 'Reseñas' },
+        { value: 'grouped_items_by_reviews', indexName: 'grouped_items_by_reviews', label: 'Valoraciones' },
         { value: 'items_distance', indexName: 'grouped_items', label: 'Más cerca', requiresLocation: true },
     ],
 };
@@ -1296,9 +1296,9 @@ export const SearchPage: React.FC = () => {
                     <div className="px-4 lg:px-8">
                         <AllTabEmptyState hasQuery={parsedQuery.cleanedQuery.trim().length > 0} />
                         <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" type="lists" icon={ListIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('lists')} />
-                        <FederatedSection indexName={INDEX_NAMES.places} title="Lugares" type="places" icon={MapIcon} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('places'), PLACES_WITH_REVIEWS_FILTER])} onViewAll={() => handleTabChange('places')} />
+                        <FederatedSection indexName={INDEX_NAMES.places} title="Sitios" type="places" icon={MapIcon} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('places'), PLACES_WITH_REVIEWS_FILTER])} onViewAll={() => handleTabChange('places')} />
                         <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" type="users" icon={Users} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('users')} />
-                        <FederatedSection indexName={INDEX_NAMES.items} title="Items" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} filters={getDefaultClosedFilter('items')} onViewAll={() => handleTabChange('items')} />
+                        <FederatedSection indexName={INDEX_NAMES.items} title="Elementos" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} filters={getDefaultClosedFilter('items')} onViewAll={() => handleTabChange('items')} />
                     </div>
                 ) : (
                     <Index indexName={activeIndexName}>

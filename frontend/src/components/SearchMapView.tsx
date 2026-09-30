@@ -7,6 +7,7 @@ import { Maximize2, Minimize2, LocateFixed, Loader2, Layers } from 'lucide-react
 import { MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
 import type { MapLayerId, MapLayerConfig } from '../utils/mapUtils';
 import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/placeStatus';
+import { scoreBadge } from '../lib/scoreScale';
 
 type SearchMapHit = {
     objectID: string;
@@ -341,7 +342,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                         const href = isPlace
                             ? `/place/${hit.objectID}`
                             : `/group/${hit.placeId}/${encodeURIComponent(hit.itemName || hit.name || '')}`;
-                        const ratingColor = rating >= 9 ? '#10b981' : rating >= 7 ? '#6366f1' : rating >= 5 ? '#f59e0b' : '#ef4444';
+                        const ratingBadge = scoreBadge(rating);
 
                         return (
                             <Marker
@@ -377,10 +378,10 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                                                 <div style={{ fontWeight: 700, fontSize: 13, color: '#f9fafb', marginBottom: 5, lineHeight: 1.3 }}>{name}</div>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                                                     <span style={{ fontSize: 11, color: '#9ca3af' }}>
-                                                        {reviewCount > 0 ? `${reviewCount} reseñas` : 'Sin reseñas'}
+                                                        {reviewCount > 0 ? `${reviewCount} valoraciones` : 'Sin valoraciones'}
                                                     </span>
                                                     {rating > 0 && (
-                                                        <span style={{ background: ratingColor, color: '#fff', borderRadius: 6, padding: '2px 8px', fontWeight: 800, fontSize: 12 }}>
+                                                        <span style={{ background: ratingBadge.bg, color: ratingBadge.fg, borderRadius: 6, padding: '2px 8px', fontWeight: 800, fontSize: 12 }}>
                                                             ★ {rating.toFixed(1)}
                                                         </span>
                                                     )}

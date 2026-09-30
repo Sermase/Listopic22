@@ -37,7 +37,7 @@ export const UserCard: React.FC<UserCardProps> = ({ user }) => {
                 {user.reviewsCount !== undefined && (
                     <span className="flex items-center gap-1.5 border-l border-white/10 pl-4">
                         <MessageCircle className="w-3 h-3 text-emerald-400" />
-                        {user.reviewsCount} reseñas
+                        {user.reviewsCount} valoraciones
                     </span>
                 )}
             </div>

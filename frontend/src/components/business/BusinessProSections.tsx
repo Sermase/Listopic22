@@ -70,9 +70,9 @@ const BUSINESS_SHARE_CHANNEL_LABELS: Record<string, string> = {
 const BUSINESS_SHARE_ENTITY_LABELS: Record<string, string> = {
     place: 'Ficha del lugar',
     group: 'Grupo o elemento',
-    review: 'Reseña',
+    review: 'Valoración',
     list: 'Lista',
-    sublist: 'Sublista',
+    sublist: 'Minilista',
 };
 
 const inputClass = 'w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-[var(--lt-text)] outline-none transition-colors placeholder:text-[var(--lt-text-muted)] focus:border-[var(--lt-accent-border)]';
@@ -546,7 +546,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
     return (
         <ProSectionShell
             title="Elementos, carta y grupos"
-            text="La base son los elementos valorados por la comunidad. Enriquécelos con la ficha oficial, añade platos nuevos y propone correcciones (fusiones de duplicados por erratas, renombres o mover reseñas mal asignadas): los cambios sensibles pasan por revisión admin."
+            text="La base son los elementos valorados por la comunidad. Enriquécelos con la ficha oficial, añade platos nuevos y propone correcciones (fusiones de duplicados por erratas, renombres o mover valoraciones mal asignadas): los cambios sensibles pasan por revisión admin."
             icon={Tags}
         >
             <div className="mb-4 flex justify-end">
@@ -628,7 +628,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                         <div className="mb-3">
                             <h3 className="text-sm font-black text-[var(--lt-text)]">Añadir elemento a la carta</h3>
-                            <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Para platos que aún no tienen reseñas. Se crea al momento.</p>
+                            <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Para platos que aún no tienen valoraciones. Se crea al momento.</p>
                         </div>
                         <div className="flex gap-2">
                             <input
@@ -705,7 +705,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                         <div className="mb-4">
                             <h3 className="text-sm font-black text-[var(--lt-text)]">Elementos del lugar</h3>
-                            <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Toca un elemento para ver sus reseñas y editar su ficha.</p>
+                            <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Toca un elemento para ver sus valoraciones y editar su ficha.</p>
                         </div>
 
                         {loading ? (
@@ -715,7 +715,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                             </div>
                         ) : items.length === 0 ? (
                             <div className="rounded-xl border border-dashed border-white/10 bg-white/5 px-3 py-6 text-center text-sm text-[var(--lt-text-muted)]">
-                                Todavía no hay elementos. Añade el primero arriba o espera a que lleguen reseñas.
+                                Todavía no hay elementos. Añade el primero arriba o espera a que lleguen valoraciones.
                             </div>
                         ) : (
                             <div className="max-h-[440px] space-y-2 overflow-y-auto pr-1">
@@ -738,7 +738,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                                                 <div className="min-w-0">
                                                     <h4 className="truncate text-sm font-black text-[var(--lt-text)]">{item.canonicalName || item.id}</h4>
                                                     <p className="mt-1 text-xs text-[var(--lt-text-muted)]">
-                                                        {reviewRows.length || item.stats?.reviewCount || 0} reseñas
+                                                        {reviewRows.length || item.stats?.reviewCount || 0} valoraciones
                                                         {typeof item.stats?.averageRating === 'number' ? ` · ${item.stats.averageRating.toFixed(2)}` : ''}
                                                         {item.source === 'business' ? ' · añadido por el negocio' : ''}
                                                     </p>
@@ -908,11 +908,11 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                                 <div className="mb-3 flex items-center gap-2">
                                     <MessageSquare className="h-4 w-4 text-[var(--lt-accent)]" />
-                                    <h3 className="text-sm font-black text-[var(--lt-text)]">Reseñas de este elemento ({selectedReviews.length})</h3>
+                                    <h3 className="text-sm font-black text-[var(--lt-text)]">Valoraciones de este elemento ({selectedReviews.length})</h3>
                                 </div>
                                 {selectedReviews.length === 0 ? (
                                     <p className="rounded-xl border border-dashed border-white/10 bg-white/5 px-3 py-4 text-center text-xs text-[var(--lt-text-muted)]">
-                                        Este elemento aún no tiene reseñas asignadas.
+                                        Este elemento aún no tiene valoraciones asignadas.
                                     </p>
                                 ) : (
                                     <div className="max-h-[320px] space-y-2 overflow-y-auto pr-1">
@@ -979,7 +979,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                                 <h3 className="text-sm font-black text-[var(--lt-text)]">Proponer corrección</h3>
                                 <p className="text-xs text-[var(--lt-text-muted)]">
                                     Para duplicados por erratas (ej. "reggina rosa" y "regina rossa") o nombres mal escritos.
-                                    Las propuestas las revisa un administrador; las reseñas y sus nombres originales nunca se pierden.
+                                    Las propuestas las revisa un administrador; las valoraciones y sus nombres originales nunca se pierden.
                                 </p>
                                 <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
                                     <select
@@ -1723,13 +1723,13 @@ export const BusinessStatsSection: React.FC<{ placeId: string }> = ({ placeId })
     return (
         <ProSectionShell
             title="Estadísticas del negocio"
-            text="Resumen de la actividad de la comunidad en tu local: reseñas, evolución de la nota y elementos más valorados."
+            text="Resumen de la actividad de la comunidad en tu local: valoraciones, evolución de la nota y elementos más valorados."
             icon={BarChart3}
         >
             <div className="grid gap-4 sm:grid-cols-3">
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
                     <p className="text-3xl font-black text-[var(--lt-text)]">{stats.total}</p>
-                    <p className="mt-1 text-xs font-bold uppercase tracking-wider text-[var(--lt-text-muted)]">Reseñas recibidas</p>
+                    <p className="mt-1 text-xs font-bold uppercase tracking-wider text-[var(--lt-text-muted)]">Valoraciones recibidas</p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center">
                     <p className="text-3xl font-black text-[var(--lt-text)]">{stats.average !== null ? stats.average.toFixed(2) : '—'}</p>
@@ -1771,7 +1771,7 @@ export const BusinessStatsSection: React.FC<{ placeId: string }> = ({ placeId })
 
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <h3 className="mb-4 text-sm font-black text-[var(--lt-text)]">Reseñas por mes (últimos 6 meses)</h3>
+                    <h3 className="mb-4 text-sm font-black text-[var(--lt-text)]">Valoraciones por mes (últimos 6 meses)</h3>
                     <div className="flex h-36 items-end gap-2">
                         {stats.monthly.map((row) => (
                             <div key={row.key} className="flex flex-1 flex-col items-center gap-1">
@@ -1795,7 +1795,7 @@ export const BusinessStatsSection: React.FC<{ placeId: string }> = ({ placeId })
                 </div>
 
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                    <h3 className="mb-3 text-sm font-black text-[var(--lt-text)]">Elementos más reseñados</h3>
+                    <h3 className="mb-3 text-sm font-black text-[var(--lt-text)]">Elementos con más valoraciones</h3>
                     {stats.topItems.length === 0 ? (
                         <p className="rounded-xl border border-dashed border-white/10 bg-white/5 px-3 py-6 text-center text-xs text-[var(--lt-text-muted)]">
                             Aún no hay datos suficientes.
@@ -1806,7 +1806,7 @@ export const BusinessStatsSection: React.FC<{ placeId: string }> = ({ placeId })
                                 <div key={item.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
                                     <span className="w-4 text-right font-mono text-xs text-[var(--lt-text-muted)]">{index + 1}</span>
                                     <span className="min-w-0 flex-1 truncate text-sm font-bold text-[var(--lt-text)]">{item.canonicalName || item.id}</span>
-                                    <span className="text-xs text-[var(--lt-text-muted)]">{item.stats?.reviewCount || 0} reseñas</span>
+                                    <span className="text-xs text-[var(--lt-text-muted)]">{item.stats?.reviewCount || 0} valoraciones</span>
                                     {typeof item.stats?.averageRating === 'number' && (
                                         <span className="font-mono text-sm font-black text-emerald-400">{item.stats.averageRating.toFixed(1)}</span>
                                     )}

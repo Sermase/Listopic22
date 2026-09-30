@@ -5,21 +5,14 @@ import { type ReviewEntity } from '../hooks/useListDetails';
 import { getUserTypeGradient } from './UserAvatar';
 import { ProgressiveImage } from './ProgressiveImage';
 
+import { scoreBadgeStyle } from '../lib/scoreScale';
 interface ReviewCarouselItemProps {
     review: ReviewEntity;
     variant?: 'review' | 'item';
 }
 
 export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, variant = 'review' }) => {
-    // Helper for score color (same as ReviewCard)
-    const getScoreColor = (score: number) => {
-        if (score >= 9) return 'bg-emerald-500 shadow-emerald-500/50 text-white';
-        if (score >= 7) return 'bg-[#fcb900] shadow-amber-500/50 text-black'; // Specific yellow from image roughly
-        if (score >= 5) return 'bg-[var(--lt-accent)] shadow-[var(--lt-accent-shadow)] text-white';
-        return 'bg-rose-500 shadow-rose-500/50 text-white';
-    };
-
-    const scoreColorClass = getScoreColor(review.overallRating || 0);
+    const hasScore = typeof review.overallRating === 'number' && Number.isFinite(review.overallRating);
     const imageSrc = review.photoUrl || review.placeMainImage || '';
 
     return (
@@ -92,7 +85,7 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
                 )}
 
                 {/* Score Bubble */}
-                <div className={`w-9 h-9 rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm border border-white/10 ${scoreColorClass}`}>
+                <div className="w-9 h-9 rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm border border-white/10" style={scoreBadgeStyle(hasScore ? review.overallRating : null)}>
                     <span className="font-display font-bold text-sm">
                         {review.overallRating?.toFixed(1) || '-'}
                     </span>
@@ -138,7 +131,7 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
             <Link
                 to={review.placeId ? `/group/${review.placeId}/${encodeURIComponent(review.itemName || review.placeName || '')}` : '#'}
                 className="absolute inset-0 z-20"
-                aria-label={`Ver reseña de ${review.itemName || review.placeName}`}
+                aria-label={`Ver valoración de ${review.itemName || review.placeName}`}
             />
         </article >
     );

@@ -11,7 +11,7 @@ export const PlacePhotoPlaceholder: React.FC<PlacePhotoPlaceholderProps> = ({ cl
     const config = {
         place: {
             icon: MapPin,
-            label: 'Sin foto del lugar',
+            label: 'Sin foto del sitio',
             gradient: 'from-slate-900 via-slate-800 to-slate-900',
         },
         group: {
@@ -21,7 +21,7 @@ export const PlacePhotoPlaceholder: React.FC<PlacePhotoPlaceholderProps> = ({ cl
         },
         review: {
             icon: MessageSquare,
-            label: 'Sin foto de reseña',
+            label: 'Sin foto de valoración',
             gradient: 'from-indigo-950 via-slate-900 to-slate-950',
         },
     }[variant];

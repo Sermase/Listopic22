@@ -50,10 +50,10 @@ export interface ShareEntityPayload {
 }
 
 const SHARE_ENTITY_LABELS: Record<ShareEntityType, string> = {
-    place: 'Lugar',
+    place: 'Sitio',
     group: 'Grupo',
     list: 'Lista',
-    sublist: 'Sublista',
+    sublist: 'Minilista',
     profile: 'Perfil',
     app: 'App',
     review: 'Rese\u00f1a',

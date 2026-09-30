@@ -424,7 +424,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                                 className="w-4 h-4 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] border-gray-600" />
                             <div>
                                 <span className="block text-sm font-medium text-white">Solo Lectura</span>
-                                <span className="block text-xs text-gray-500">Los visitantes pueden ver pero solo editores añaden reseñas.</span>
+                                <span className="block text-xs text-gray-500">Los visitantes pueden ver pero solo editores añaden valoraciones.</span>
                             </div>
                         </label>
                         <label className="flex items-center gap-3 cursor-pointer">
@@ -432,7 +432,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                                 className="w-4 h-4 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] border-gray-600" />
                             <div>
                                 <span className="block text-sm font-medium text-white">Colaborativa (Escritura)</span>
-                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir reseñas.</span>
+                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir valoraciones.</span>
                             </div>
                         </label>
                     </div>
@@ -447,7 +447,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
                 <div>
                     <h3 className="text-lg font-bold text-white mb-2">Etiquetas</h3>
-                    <p className="text-sm text-gray-400 mb-3">Define qué etiquetas estarán disponibles para clasificar las reseñas.</p>
+                    <p className="text-sm text-gray-400 mb-3">Define qué etiquetas estarán disponibles para clasificar las valoraciones.</p>
                     <div className="flex flex-wrap gap-2 mb-3">
                         {customTags.map(tag => {
                             const isLocked = inheritedTags.includes(tag);

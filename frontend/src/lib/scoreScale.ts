@@ -27,6 +27,26 @@ export const SCORE_BADGE: Record<ScoreBand, { bg: string; fg: string }> = {
     none: { bg: '#94a3b8', fg: '#0f172a' },
 };
 
+/** Número de nota sobre fondo claro (mapas, popups, tema claro). Igual que --lt-score-* en .theme-light. */
+export const SCORE_TEXT_ON_LIGHT: Record<ScoreBand, string> = {
+    top: '#047857',
+    good: '#15803d',
+    ok: '#b45309',
+    low: '#c2410c',
+    bad: '#b91c1c',
+    none: '#475569',
+};
+
+/** Número de nota sobre fondo oscuro (tarjetas para compartir, temas oscuros). Igual que --lt-score-* oscuro. */
+export const SCORE_TEXT_ON_DARK: Record<ScoreBand, string> = {
+    top: '#34d399',
+    good: '#86efac',
+    ok: '#fbbf24',
+    low: '#fb923c',
+    bad: '#f87171',
+    none: '#94a3b8',
+};
+
 export const SCORE_BAND_LABEL: Record<ScoreBand, string> = {
     top: 'Excelente',
     good: 'Muy bueno',
@@ -55,6 +75,12 @@ export function scoreBand(score: unknown): ScoreBand {
 }
 
 export const scoreBadge = (score: unknown) => SCORE_BADGE[scoreBand(score)];
+
+/** Estilo para una chapa de nota (fondo + número). */
+export const scoreBadgeStyle = (score: unknown): { backgroundColor: string; color: string } => {
+    const { bg, fg } = scoreBadge(score);
+    return { backgroundColor: bg, color: fg };
+};
 
 /** Color para un número de nota escrito sobre el fondo del tema (cambia con el tema). */
 export const scoreTextColor = (score: unknown) => `var(--lt-score-${scoreBand(score)})`;

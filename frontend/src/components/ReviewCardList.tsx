@@ -154,7 +154,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
     const handleLike = async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('indicar que te gusta esta reseña');
+            openAuthPrompt('indicar que te gusta esta valoración');
             return;
         }
         if (!review.id || !review.listId) return;
@@ -179,7 +179,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
     const handleSaveClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('guardar esta reseña');
+            openAuthPrompt('guardar esta valoración');
             return;
         }
         setIsSaveModalOpen(true);
@@ -188,7 +188,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
     const handleReportClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('reportar esta reseña');
+            openAuthPrompt('reportar esta valoración');
             return;
         }
         setShowReportModal(true);
@@ -400,14 +400,14 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                     </div>
                     <div className="flex items-center gap-2">
                         <button
-                            aria-label="Guardar en archivo"
+                            aria-label="Guardar en una colección"
                             onClick={handleSaveClick}
                             className="text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)] transition-colors p-1"
                         >
                             <Bookmark className="w-4 h-4" />
                         </button>
                         <button
-                            aria-label="Compartir reseña"
+                            aria-label="Compartir valoración"
                             onClick={handleShareClick}
                             className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors p-1"
                         >
@@ -454,16 +454,16 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
             <ShareModal
                 isOpen={isShareOpen}
                 onClose={() => setIsShareOpen(false)}
-                title={`Compartir Reseña`}
+                title={`Compartir valoración`}
                 url={reviewShareUrl}
-                text={`¡Mira esta reseña de ${review.itemName} en ${review.placeName}!`}
+                text={`¡Mira esta valoración de ${review.itemName} en ${review.placeName}!`}
                 review={review}
                 shareEntity={(() => {
                     const shareCriteria = buildShareCriteriaGroups(review.scores, review.criteriaDefinition);
                     return {
                     type: 'review',
                     id: review.id,
-                    title: review.itemName || 'Reseña',
+                    title: review.itemName || 'Valoración',
                     subtitle: review.placeName || 'Lugar',
                     description: review.comment,
                     route: review.placeId && review.itemName ? reviewRoute : undefined,
@@ -487,7 +487,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                 isOpen={showReportModal}
                 onClose={() => setShowReportModal(false)}
                 targetId={review.id || ''}
-                targetName={review.itemName || 'Reseña'}
+                targetName={review.itemName || 'Valoración'}
                 itemName={review.placeName}
                 targetType="review"
                 targetOwnerId={review.userId || review.authorId}

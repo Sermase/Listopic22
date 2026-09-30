@@ -209,7 +209,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
                                 <h4 className="text-sm font-bold text-[var(--lt-accent)]">Roles de Acceso</h4>
                                 <ul className="text-xs text-[var(--lt-accent)]/70 mt-1 list-disc list-inside space-y-1">
                                     <li><strong>Lector:</strong> Puede ver la lista (si es privada).</li>
-                                    <li><strong>Escritor:</strong> Puede ver y <u>añadir reseñas</u>.</li>
+                                    <li><strong>Escritor:</strong> Puede ver y <u>añadir valoraciones</u>.</li>
                                 </ul>
                             </div>
                         </div>

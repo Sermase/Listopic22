@@ -1,4 +1,5 @@
 import L from 'leaflet';
+import { SCORE_TEXT_ON_LIGHT, scoreBand } from '../lib/scoreScale';
 
 // ─── Capas de mapa disponibles ────────────────────────────────────────────────
 export type MapLayerId = 'standard' | 'light' | 'dark' | 'satellite';
@@ -55,12 +56,10 @@ export const MAP_LAYER_STORAGE_KEY = 'listopic_map_layer';
  */
 export const getRatingColor = (score: number | string): { bg: string; glow: string; border: string } => {
     const s = parseFloat(String(score));
-    if (isNaN(s) || s === 0) return { bg: '#94a3b8', glow: 'rgba(148,163,184,0.4)', border: '#94a3b8' };
-    if (s >= 8.5) return { bg: '#059669', glow: 'rgba(5,150,105,0.5)', border: '#059669' };
-    if (s >= 7) return { bg: '#10b981', glow: 'rgba(16,185,129,0.45)', border: '#10b981' };
-    if (s >= 5.5) return { bg: '#f59e0b', glow: 'rgba(245,158,11,0.45)', border: '#f59e0b' };
-    if (s >= 4) return { bg: '#f97316', glow: 'rgba(249,115,22,0.45)', border: '#f97316' };
-    return { bg: '#ef4444', glow: 'rgba(239,68,68,0.45)', border: '#ef4444' };
+    // En el mapa un 0 significa "sin nota". Color legible sobre blanco (escala única, lib/scoreScale).
+    const color = SCORE_TEXT_ON_LIGHT[isNaN(s) || s === 0 ? 'none' : scoreBand(s)];
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+    return { bg: color, glow: `rgba(${r},${g},${b},0.45)`, border: color };
 };
 
 /** @deprecated */

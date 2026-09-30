@@ -34,13 +34,13 @@ const EMOJI_OPTIONS = [
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
     place: {
-        label: 'Lugar',
+        label: 'Sitio',
         color: 'text-blue-300',
         bg: 'bg-blue-500/20',
         icon: <MapPin className="w-3 h-3" />,
     },
     review: {
-        label: 'Reseña',
+        label: 'Valoración',
         color: 'text-[var(--lt-accent-2)]',
         bg: 'bg-[var(--lt-accent-soft)]',
         icon: <MessageSquare className="w-3 h-3" />,
@@ -111,16 +111,16 @@ const SECTION_TABS = [
 
 const PHOTO_FILTER_TABS = [
     { value: 'all' as const, label: 'Todas' },
-    { value: 'place' as const, label: 'Lugares' },
-    { value: 'review' as const, label: 'Reseñas' },
+    { value: 'place' as const, label: 'Sitios' },
+    { value: 'review' as const, label: 'Valoraciones' },
 ];
 
 const COLLECTION_FILTER_TABS = [
     { value: 'all' as const, label: 'Todo' },
-    { value: 'place' as const, label: 'Lugares' },
+    { value: 'place' as const, label: 'Sitios' },
     { value: 'list' as const, label: 'Listas' },
     { value: 'group' as const, label: 'Platos' },
-    { value: 'review' as const, label: 'Reseñas' },
+    { value: 'review' as const, label: 'Valoraciones' },
 ];
 
 function toMillis(value: any): number {
@@ -395,7 +395,7 @@ export const ArchivePage: React.FC = () => {
                                 reviewId: reviewDoc.id,
                                 listId,
                                 placeId: typeof data.placeId === 'string' ? data.placeId : undefined,
-                                itemName: typeof data.itemName === 'string' && data.itemName.trim() ? data.itemName.trim() : 'Reseña',
+                                itemName: typeof data.itemName === 'string' && data.itemName.trim() ? data.itemName.trim() : 'Valoración',
                                 placeName: typeof data.placeName === 'string' && data.placeName.trim() ? data.placeName.trim() : undefined,
                                 url: trimmedUrl,
                                 storagePath: explicitStoragePath || getStoragePathFromUrl(trimmedUrl),
@@ -789,7 +789,7 @@ export const ArchivePage: React.FC = () => {
         }
     };
 
-    if (!user) return <div className="pt-safe-32 text-center text-gray-500">Inicia sesión para ver tu archivo.</div>;
+    if (!user) return <div className="pt-safe-32 text-center text-gray-500">Inicia sesión para ver tus colecciones.</div>;
 
     // ── VISTA MAPA ────────────────────────────────────────────────────────────
     if (viewMode === 'map') {
@@ -806,7 +806,7 @@ export const ArchivePage: React.FC = () => {
                             className="rounded-full bg-black/60 text-white backdrop-blur-md"
                         />
                         <span className="rounded-full border border-white/10 bg-black/60 px-4 py-2 text-sm font-bold text-white backdrop-blur-md">
-                            {mapItems.length} lugares
+                            {mapItems.length} sitios
                         </span>
                         <Button
                             onClick={() => setShowMapFilters(v => !v)}
@@ -873,7 +873,7 @@ export const ArchivePage: React.FC = () => {
                 {/* Header */}
                 <header className="mb-6">
                     <div className="flex justify-between items-center mb-4">
-                        <h1 className="text-3xl font-bold text-white">Mi Archivo</h1>
+                        <h1 className="text-3xl font-bold text-white">Mis colecciones</h1>
                         {activeSection === 'collections' && (
                             <Button size="sm" leftIcon={<MapIcon className="w-4 h-4" />} onClick={() => setViewMode('map')}>
                                 Mapa
@@ -902,14 +902,14 @@ export const ArchivePage: React.FC = () => {
                         <div className="flex gap-1.5 overflow-x-auto custom-scrollbar shrink-0">
                             {(activeSection === 'photos' ? [
                                 { id: 'all', label: 'Todas' },
-                                { id: 'place', label: 'Lugares' },
-                                { id: 'review', label: 'Reseñas' },
+                                { id: 'place', label: 'Sitios' },
+                                { id: 'review', label: 'Valoraciones' },
                             ] : [
                                 { id: 'all', label: 'Todo' },
-                                { id: 'place', label: 'Lugares' },
+                                { id: 'place', label: 'Sitios' },
                                 { id: 'list', label: 'Listas' },
                                 { id: 'group', label: 'Platos' },
-                                { id: 'review', label: 'Reseñas' },
+                                { id: 'review', label: 'Valoraciones' },
                             ]).map(f => (
                                 <button
                                     key={f.id}
@@ -930,7 +930,7 @@ export const ArchivePage: React.FC = () => {
                         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-3">
                             <div className="min-w-0">
                                 <h2 className="text-sm font-bold text-white">Fotos</h2>
-                                <p className="text-xs text-gray-500">Fotos que has subido a reseñas y lugares</p>
+                                <p className="text-xs text-gray-500">Fotos que has subido a valoraciones y sitios</p>
                             </div>
                             <span className="text-xs font-bold text-gray-300 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1">
                                 {uploadedPlacePhotos.length + uploadedReviewPhotos.length}
@@ -971,7 +971,7 @@ export const ArchivePage: React.FC = () => {
                                                 <UploadedPhotoImage photo={item.photo} kind={item.kind} alt={title} />
                                                 <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide ${item.kind === 'place' ? 'bg-blue-500/20 text-blue-300' : 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)]'}`}>
                                                     {item.kind === 'place' ? <MapPin className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
-                                                    {item.kind === 'place' ? 'Lugar' : 'Reseña'}
+                                                    {item.kind === 'place' ? 'Sitio' : 'Valoración'}
                                                 </span>
                                             </Link>
                                             <div className="absolute top-1.5 right-1.5 z-20">

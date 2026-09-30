@@ -282,7 +282,7 @@ export const describeProposal = (proposal: ItemProposal): string => {
     if (proposal.type === 'rename') {
         return `Renombrar "${proposal.payload.currentName}" a "${proposal.payload.newName}"`;
     }
-    return `Mover la reseña "${proposal.payload.reviewItemName || ''}"${proposal.payload.reviewAuthorName ? ` de ${proposal.payload.reviewAuthorName}` : ''} a "${proposal.payload.targetItemName || proposal.payload.targetItemId}"`;
+    return `Mover la valoración "${proposal.payload.reviewItemName || ''}"${proposal.payload.reviewAuthorName ? ` de ${proposal.payload.reviewAuthorName}` : ''} a "${proposal.payload.targetItemName || proposal.payload.targetItemId}"`;
 };
 
 export const getMyItemProposals = async (placeId: string, uid: string): Promise<ItemProposal[]> => {
