@@ -59,6 +59,14 @@ const scoreWith = (review, list) => computeReviewScore(review.scores, list.crite
   useWeights: true,
 }).score;
 
+/** «Patatas bravas · Bar Pepe»: el elemento solo no distingue filas en una Lista de un plato. */
+function displayName(review) {
+  const item = String(review.itemName || '').trim();
+  const place = String(review.placeName || '').trim();
+  if (item && place && item.toLowerCase() !== place.toLowerCase()) return `${item} · ${place}`;
+  return item || place;
+}
+
 function elementKeyOf(review) {
   const item = String(review.itemName || '').trim().toLowerCase();
   return review.placeId ? `${review.placeId}_${item}` : item;
@@ -70,7 +78,7 @@ function rankElements(reviews, noteOf) {
     const note = noteOf(review);
     if (typeof note !== 'number') return;
     const key = elementKeyOf(review);
-    const g = groups.get(key) || { id: key, name: review.itemName || review.placeName || key, total: 0, count: 0 };
+    const g = groups.get(key) || { id: key, name: displayName(review) || key, total: 0, count: 0 };
     g.total += note;
     g.count += 1;
     groups.set(key, g);
@@ -126,7 +134,7 @@ function planCriteriaChange({ list, minilists = [], reviews = [], change }) {
     return {
       id: review.id,
       path: review.path,
-      itemName: review.itemName || '',
+      itemName: displayName(review),
       sublistId: review.sublistId || null,
       before: stored,
       after: after ?? stored,

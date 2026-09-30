@@ -187,7 +187,7 @@ export const CriteriaMigrationModal: React.FC<CriteriaMigrationModalProps> = ({
                                 {simulation.summary.changedReviews} de {simulation.summary.totalReviews} valoraciones cambian de nota
                                 {simulation.summary.changedReviews > 0 && <> · cambio máximo {formatScore(Number(simulation.summary.maxDelta.toFixed(1)))}</>}
                                 {' · '}{simulation.summary.rankingMoves} {simulation.summary.rankingMoves === 1 ? 'elemento cambia' : 'elementos cambian'} de puesto
-                                {simulation.summary.minilistsAffected > 0 && <> · {simulation.summary.minilistsAffected} Minilistas se actualizan</>}
+                                {simulation.summary.minilistsAffected > 0 && <> · {simulation.summary.minilistsAffected} {simulation.summary.minilistsAffected === 1 ? 'Minilista se actualiza' : 'Minilistas se actualizan'}</>}
                             </p>
                         )}
 

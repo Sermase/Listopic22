@@ -467,7 +467,12 @@ export const ProfilePage: React.FC = () => {
     const fetchExtra = async () => {
       setLoadingExtraLists(true);
       try {
-        // Followed Lists (From 'followingLists' subcollection)
+        // Followed Lists (From 'followingLists' subcollection). Las reglas solo
+        // dejan leerla con sesión iniciada: sin sesión no se pide (evita el error).
+        if (!user) {
+          setFollowedLists([]);
+          return;
+        }
         const qFollowed = query(
           collection(db, "users", targetUserId, "followingLists"),
         );
