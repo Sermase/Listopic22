@@ -36,13 +36,15 @@ interface ListItemCardProps {
         tags?: string[];
     };
     rank?: number;
+    /** Puesto con contexto, p. ej. «#3 en Valladolid» (uno solo, el principal). */
+    contextRankLabel?: string | null;
     isGrid?: boolean;
     groupingMode?: 'place' | 'dish' | 'list';
     listId?: string; // Outer phrasing, maybe redundant with item.listId but keeping for compat
     disableLift?: boolean;
 }
 
-export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, groupingMode = 'place', listId, disableLift = false }) => {
+export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextRankLabel, isGrid, groupingMode = 'place', listId, disableLift = false }) => {
     const normalizedClosedStatus = String(item.placeClosedStatus || '').trim().toLowerCase();
     const isPermanentlyClosed = normalizedClosedStatus === 'permanently_closed' || normalizedClosedStatus === 'closed_permanently';
     const photoPlaceholderVariant = groupingMode === 'dish' ? 'group' : 'place';
@@ -347,8 +349,11 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
                                     )}
                                 </div>
 
-                                <div className="text-xs text-gray-500 mt-1">
-                                    {item.reviewCount > 0 && `${item.reviewCount} ${item.reviewCount === 1 ? 'valoración' : 'valoraciones'}`}
+                                <div className="text-xs text-[var(--lt-text-muted)] mt-1 flex flex-wrap items-center gap-x-2">
+                                    {item.reviewCount > 0 && <span>{`${item.reviewCount} ${item.reviewCount === 1 ? 'valoración' : 'valoraciones'}`}</span>}
+                                    {contextRankLabel && (
+                                        <span className="font-semibold text-[var(--lt-accent)]">{contextRankLabel}</span>
+                                    )}
                                 </div>
 
                                 {/* List Stats */}
