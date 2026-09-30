@@ -806,7 +806,7 @@ export const PlacePage: React.FC = () => {
                 alt={place.name}
                 ready={heroReady}
                 onImageLoad={() => setHeroReady(true)}
-                fallback={<PlacePhotoPlaceholder />}
+                fallback={<PlacePhotoPlaceholder compact />}
             >
 
                         {/* Title & Info */}

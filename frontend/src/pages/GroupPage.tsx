@@ -579,7 +579,7 @@ export const GroupPage: React.FC = () => {
                 alt={decodedName}
                 ready={heroReady}
                 onImageLoad={() => setHeroReady(true)}
-                fallback={<PlacePhotoPlaceholder variant="group" />}
+                fallback={<PlacePhotoPlaceholder compact variant="group" />}
             >
 
                         {/* Title & Place Info */}
