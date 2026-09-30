@@ -1044,5 +1044,179 @@
       "existing": null,
       "expected": {}
     }
+  ],
+  "historic": [
+    {
+      "name": "valoración antigua sin el criterio nuevo: solo cuentan los puntuados (8 y 6 → 7)",
+      "kind": "review",
+      "list": {
+        "criteriaDefinition": {
+          "sabor": {
+            "type": "slider",
+            "label": "Sabor"
+          },
+          "textura": {
+            "type": "slider",
+            "label": "Textura"
+          },
+          "nuevo": {
+            "type": "slider",
+            "label": "Crujiente (nuevo)"
+          }
+        },
+        "scoringWeights": {
+          "sabor": 1,
+          "textura": 1,
+          "nuevo": 1
+        },
+        "parentListId": null
+      },
+      "scores": {
+        "sabor": 8,
+        "textura": 6
+      },
+      "notWith": {
+        "zero": 4.666666666666667,
+        "five": 6.333333333333333
+      },
+      "expected": 7
+    },
+    {
+      "name": "valoración nueva con el criterio nuevo: cuenta (8, 6 y 10 → 8)",
+      "kind": "review",
+      "list": {
+        "criteriaDefinition": {
+          "sabor": {
+            "type": "slider",
+            "label": "Sabor"
+          },
+          "textura": {
+            "type": "slider",
+            "label": "Textura"
+          },
+          "nuevo": {
+            "type": "slider",
+            "label": "Crujiente (nuevo)"
+          }
+        },
+        "scoringWeights": {
+          "sabor": 1,
+          "textura": 1,
+          "nuevo": 1
+        },
+        "parentListId": null
+      },
+      "scores": {
+        "sabor": 8,
+        "textura": 6,
+        "nuevo": 10
+      },
+      "expected": 8
+    },
+    {
+      "name": "criterio con peso ×0: nunca cuenta aunque esté puntuado (→ 7)",
+      "kind": "review",
+      "list": {
+        "criteriaDefinition": {
+          "sabor": {
+            "type": "slider",
+            "label": "Sabor"
+          },
+          "textura": {
+            "type": "slider",
+            "label": "Textura"
+          },
+          "nuevo": {
+            "type": "slider",
+            "label": "Crujiente (nuevo)"
+          }
+        },
+        "scoringWeights": {
+          "sabor": 1,
+          "textura": 1,
+          "nuevo": 0
+        },
+        "parentListId": null
+      },
+      "scores": {
+        "sabor": 8,
+        "textura": 6,
+        "nuevo": 10
+      },
+      "expected": 7
+    },
+    {
+      "name": "Minilista con criterio adicional: su nota incluye el propio (8, 6, 10 → 8)",
+      "kind": "review",
+      "list": {
+        "criteriaDefinition": {
+          "sabor": {
+            "type": "slider",
+            "label": "Sabor"
+          },
+          "textura": {
+            "type": "slider",
+            "label": "Textura"
+          },
+          "nuevo": {
+            "type": "slider",
+            "label": "Crujiente (nuevo)"
+          },
+          "relleno": {
+            "type": "slider",
+            "label": "Relleno"
+          }
+        },
+        "scoringWeights": {
+          "sabor": 1,
+          "textura": 1,
+          "nuevo": 1,
+          "relleno": 1
+        },
+        "parentListId": "madre"
+      },
+      "scores": {
+        "sabor": 8,
+        "textura": 6,
+        "relleno": 10
+      },
+      "expected": 8
+    },
+    {
+      "name": "Lista madre ignora el criterio propio de la Minilista (→ 7)",
+      "kind": "parent",
+      "list": {
+        "criteriaDefinition": {
+          "sabor": {
+            "type": "slider",
+            "label": "Sabor"
+          },
+          "textura": {
+            "type": "slider",
+            "label": "Textura"
+          },
+          "nuevo": {
+            "type": "slider",
+            "label": "Crujiente (nuevo)"
+          }
+        },
+        "scoringWeights": {
+          "sabor": 1,
+          "textura": 1,
+          "nuevo": 1
+        },
+        "parentListId": null
+      },
+      "review": {
+        "sublistId": "mini",
+        "overallRating": 8,
+        "scores": {
+          "sabor": 8,
+          "textura": 6,
+          "relleno": 10
+        }
+      },
+      "expected": 7
+    }
   ]
 }

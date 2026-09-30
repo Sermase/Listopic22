@@ -166,3 +166,36 @@ describe('scoringWeights', () => {
             .toEqual(computeReviewScore(scores, criteria));
     });
 });
+
+// Regla histórica (confirmada 30/09/2026): un criterio que no existía cuando se
+// hizo la valoración NO entra en su cálculo. Nunca se sustituye por 0, 5 ni nada.
+describe('regla histórica de criterios nuevos', () => {
+    const HAND_EXPECTED = [7, 8, 7, 8, 7];
+    type ListFixture = { criteriaDefinition: CriteriaInput; scoringWeights: Record<string, number>; parentListId: string | null };
+
+    it.each(vectors.historic.map((v, i) => ({ ...v, hand: HAND_EXPECTED[i] })))('$name', (v) => {
+        const list = v.list as ListFixture;
+        const score = v.kind === 'review'
+            ? computeReviewScore(v.scores as ScoresInput, list.criteriaDefinition, { weights: list.scoringWeights }).score
+            : reviewScoreForList(v.review as ReviewLike, list).score;
+        expect(score).toBe(v.hand);
+        expect(score).toBe(v.expected);
+    });
+
+    it('el criterio ausente no se trata como 0 ni como 5', () => {
+        const [old] = vectors.historic;
+        const list = old.list as ListFixture;
+        const score = computeReviewScore(old.scores as ScoresInput, list.criteriaDefinition, { weights: list.scoringWeights }).score;
+        expect(score).not.toBeCloseTo((old as { notWith: { zero: number } }).notWith.zero, 1);
+        expect(score).not.toBeCloseTo((old as { notWith: { five: number } }).notWith.five, 1);
+    });
+
+    it('la valoración antigua queda «incompleta» pero con nota válida', () => {
+        const [old] = vectors.historic;
+        const list = old.list as ListFixture;
+        const r = computeReviewScore(old.scores as ScoresInput, list.criteriaDefinition, { weights: list.scoringWeights });
+        expect(r.complete).toBe(false);
+        expect(r.missing).toEqual(['nuevo']);
+        expect(r.score).toBe(7);
+    });
+});

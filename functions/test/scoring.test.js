@@ -49,3 +49,16 @@ test('ponderaciones apagadas por defecto', () => {
   assert.equal(scoring.WEIGHTS_ENABLED, false);
   assert.equal(scoring.criterionWeight({ weight: 3 }), 1);
 });
+
+test('regla histórica de criterios nuevos', async (t) => {
+  const HAND = [7, 8, 7, 8, 7];
+  for (const [i, v] of vectors.historic.entries()) {
+    await t.test(v.name, () => {
+      const score = v.kind === 'review'
+        ? scoring.computeReviewScore(v.scores, v.list.criteriaDefinition, { weights: v.list.scoringWeights }).score
+        : scoring.reviewScoreForList(v.review, v.list).score;
+      assert.equal(score, HAND[i]);
+      assert.equal(score, v.expected);
+    });
+  }
+});
