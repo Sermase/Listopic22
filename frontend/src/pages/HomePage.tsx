@@ -615,7 +615,7 @@ export const HomePage: React.FC = () => {
 
         // "Mejor en Listopic": ranking único (lib/scoring) con la nota del sitio y
         // su número de valoraciones; si el sitio aún no tiene nota, la de la valoración.
-        const rankStats = (r: any) => (typeof r.placeAverageRating === 'number'
+        const rankStats = (r: { placeAverageRating?: unknown; placeReviewsCount?: unknown; overallRating?: unknown }) => (typeof r.placeAverageRating === 'number'
             ? { average: r.placeAverageRating, count: r.placeReviewsCount ?? 1 }
             : { average: r.overallRating, count: 1 });
         return base
@@ -716,7 +716,7 @@ export const HomePage: React.FC = () => {
                         address: r.placeAddress,
                         photoUrl: r.placeMainImage || r.photoUrl,
                         rating: r.placeAverageRating || r.overallRating,
-                        placeReviewsCount: (r as any).placeReviewsCount,
+                        placeReviewsCount: (r as { placeReviewsCount?: number }).placeReviewsCount,
                         reviewsCount: 1,
                         closedStatus: (r as any).placeClosedStatus || null,
                         lat, lng,

@@ -121,6 +121,10 @@ const isStaleSync = (place: PlaceRecord): boolean => {
     return Date.now() - lastSync > GOOGLE_SYNC_STALE_DAYS * 24 * 60 * 60 * 1000;
 };
 
+// Sin ciudad, provincia o CCAA: no entra en rankings por ámbito geográfico.
+const isMissingLocation = (place: PlaceRecord): boolean =>
+    !['city', 'province', 'region'].every((key) => typeof place[key] === 'string' && (place[key] as string).trim().length > 0);
+
 const getGoogleCompleteness = (place: PlaceRecord): { score: number; missing: string[] } => {
     const checks = [
         { ok: hasGoogleRating(place), label: 'sin rating Google' },
@@ -299,6 +303,7 @@ export const PlacesManagerTab: React.FC = () => {
         () => places.filter(p => getGoogleCompleteness(p).missing.length > 0).length,
         [places]
     );
+    const missingLocationCount = useMemo(() => places.filter(isMissingLocation).length, [places]);
     const noRatingCount = useMemo(
         () => places.filter(p => !hasGoogleRating(p)).length,
         [places]
@@ -404,6 +409,12 @@ export const PlacesManagerTab: React.FC = () => {
             .map(p => p.id);
         setSelected(new Set(ids));
         addLog(`Seleccionados ${ids.length} lugares con problemas`);
+    };
+
+    const selectMissingLocation = () => {
+        const ids = places.filter(isMissingLocation).map(p => p.id);
+        setSelected(new Set(ids));
+        addLog(`Seleccionados ${ids.length} lugares sin ciudad, provincia o CCAA (pulsa «Actualizar» para traerlas de Google)`);
     };
 
     const selectGoogleIncomplete = () => {
@@ -701,6 +712,14 @@ export const PlacesManagerTab: React.FC = () => {
                         })}
 
                         <div className="flex gap-2 ml-auto flex-wrap justify-end">
+                            <button
+                                onClick={selectMissingLocation}
+                                disabled={missingLocationCount === 0}
+                                className="px-3 py-1 text-xs rounded-lg font-bold bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 disabled:opacity-40 transition-colors"
+                                title="Sitios sin ciudad, provincia o CCAA. Actualizarlos consume Google Places (1 detalle + 1 consulta de accesibilidad por sitio)."
+                            >
+                                Sel. sin ubicación ({missingLocationCount})
+                            </button>
                             <button
                                 onClick={selectGoogleIncomplete}
                                 disabled={incompleteGoogleCount === 0}
