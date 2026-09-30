@@ -7,8 +7,8 @@ const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const algoliasearch = require("algoliasearch");
 const { buildGroupedItemsForList } = require("./grouped-aggregator");
-// Media bayesiana compartida con el frontend (lib/scoring.js ↔ frontend/src/lib/scoring.ts).
-const { bayesianRating } = require("./lib/scoring");
+// Ranking único compartido con el frontend (lib/scoring.js ↔ frontend/src/lib/scoring.ts).
+const { rankingIndexScore } = require("./lib/scoring");
 
 const ADMIN_CALL_OPTIONS = { cors: true, timeoutSeconds: 540, memory: "1GiB" };
 
@@ -74,7 +74,7 @@ const INDEX_SETTINGS = {
         searchableAttributes: ["unordered(name)", "unordered(address)", "unordered(city)", "unordered(types)", "unordered(itemTags)"],
         attributesForFaceting: ["filterOnly(city)", "filterOnly(province)", "serviceOptions", "accessibilityOptions", "petOptions", "types", "priceLevel", "closedStatus", "googleBusinessStatus", "businessStatus", "hasPhoto", "itemTags", "isGlutenFree"],
         replicas: ["places_by_rating", "places_by_reviews", "places_by_distance"],
-        customRanking: ["desc(rankingScore)", "desc(averageRating)", "desc(reviewsCount)", "desc(followersCount)"],
+        customRanking: ["desc(rankingScore)", "desc(reviewsCount)", "desc(followersCount)"],
         numericAttributesForFiltering: ["rankingScore", "averageRating", "reviewsCount", "followersCount"]
     },
     users: {
@@ -88,7 +88,7 @@ const INDEX_SETTINGS = {
         searchableAttributes: ["unordered(itemName)", "unordered(establishmentName)", "unordered(listName)", "unordered(listCategoryName)", "unordered(groupTags)", "unordered(itemTags)"],
         attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "listCategoryName", "filterOnly(listAvailableTags)", "groupTags", "itemTags", "placeCity", "placeProvince", "authorUserType", "accessibilityOptions", "petOptions", "placeClosedStatus", "placeGoogleBusinessStatus", "placeBusinessStatus", "hasPhoto", "isGlutenFree"],
         replicas: ["grouped_items_by_score", "grouped_items_by_reviews"],
-        customRanking: ["desc(rankingScore)", "desc(avgGeneralScore)", "desc(reviewCount)"],
+        customRanking: ["desc(rankingScore)", "desc(reviewCount)"],
         numericAttributesForFiltering: ["rankingScore", "avgGeneralScore", "reviewCount"]
     }
 };
@@ -96,13 +96,13 @@ const INDEX_SETTINGS = {
 const REPLICA_SETTINGS = {
     lists_by_followers: { customRanking: ["desc(followersCount)", "desc(reviewCount)", "desc(updatedAtTimestamp)"] },
     lists_by_reviews: { customRanking: ["desc(reviewCount)", "desc(followersCount)", "desc(updatedAtTimestamp)"] },
-    places_by_rating: { customRanking: ["desc(averageRating)", "desc(reviewsCount)", "desc(rankingScore)"] },
+    places_by_rating: { customRanking: ["desc(rankingScore)", "desc(reviewsCount)", "desc(averageRating)"] },
     places_by_reviews: { customRanking: ["desc(reviewsCount)", "desc(averageRating)", "desc(rankingScore)"] },
     places_by_distance: { customRanking: ["desc(rankingScore)", "desc(reviewsCount)", "desc(averageRating)"] },
     users_by_followers: { customRanking: ["desc(followersCount)", "desc(reviewsCount)", "desc(level)"] },
     users_by_reviews: { customRanking: ["desc(reviewsCount)", "desc(followersCount)", "desc(level)"] },
     users_by_level: { customRanking: ["desc(level)", "desc(xp)", "desc(followersCount)", "desc(reviewsCount)"] },
-    grouped_items_by_score: { customRanking: ["desc(avgGeneralScore)", "desc(reviewCount)", "desc(rankingScore)"] },
+    grouped_items_by_score: { customRanking: ["desc(rankingScore)", "desc(reviewCount)", "desc(avgGeneralScore)"] },
     grouped_items_by_reviews: { customRanking: ["desc(reviewCount)", "desc(avgGeneralScore)", "desc(rankingScore)"] }
 };
 
@@ -183,11 +183,10 @@ function calculateListRankingScore(data) {
     return roundScore((logBoost(reviewCount) * 5) + (logBoost(followersCount) * 4));
 }
 
+// Sitios y elementos: la misma posición bayesiana que el resto de la app
+// (sin término de volumen). Seguidores y nº de valoraciones solo desempatan.
 function calculatePlaceRankingScore(data) {
-    const reviewsCount = safeNumber(data?.reviewsCount);
-    const followersCount = safeNumber(data?.followersCount);
-    const averageRating = safeNumber(data?.averageRating);
-    return roundScore((bayesianRating(averageRating, reviewsCount) * 8) + (logBoost(reviewsCount) * 4) + (logBoost(followersCount) * 1.5));
+    return rankingIndexScore(safeNumber(data?.averageRating), safeNumber(data?.reviewsCount));
 }
 
 function calculateUserRankingScore(data) {
@@ -199,9 +198,7 @@ function calculateUserRankingScore(data) {
 }
 
 function calculateGroupedItemRankingScore(group) {
-    const reviewCount = safeNumber(group?.itemCount ?? group?.reviewCount);
-    const avgGeneralScore = safeNumber(group?.avgGeneralScore);
-    return roundScore((bayesianRating(avgGeneralScore, reviewCount) * 8) + (logBoost(reviewCount) * 4));
+    return rankingIndexScore(safeNumber(group?.avgGeneralScore), safeNumber(group?.itemCount ?? group?.reviewCount));
 }
 
 function trueObjectKeys(value) {

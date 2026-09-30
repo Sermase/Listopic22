@@ -94,6 +94,7 @@ import { EntityHero } from "../components/EntityHero";
 import { useAuthPrompt } from "../context/AuthPromptContext";
 import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from "../lib/storageCache";
 import { useToast } from "../context/ToastContext";
+import { compareByRank } from "../lib/scoring";
 
 interface ListRatingStats {
   listId: string;
@@ -1437,11 +1438,9 @@ export const ProfilePage: React.FC = () => {
   const sortedStatsPerList = useMemo(() => {
     const base = Object.values(advancedStats.statsByList || {});
     if (statsListSort === "rating_desc") {
-      return base.sort((a, b) => {
-        if (b.averageRating !== a.averageRating)
-          return b.averageRating - a.averageRating;
-        return b.reviewsCount - a.reviewsCount;
-      });
+      // Ranking único (lib/scoring).
+      return base.sort((a, b) =>
+        compareByRank({ average: a.averageRating, count: a.reviewsCount }, { average: b.averageRating, count: b.reviewsCount }));
     }
 
     return base.sort((a, b) => {

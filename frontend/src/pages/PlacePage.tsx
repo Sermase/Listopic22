@@ -26,6 +26,7 @@ import type { BusinessClaim } from '../services/BusinessClaimService';
 import { CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_LABELS, PET_POLICY_LABELS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { allergenLabel, itemDocIdFromName } from '../services/BusinessProService';
+import { compareByRank } from '../lib/scoring';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
@@ -432,7 +433,7 @@ export const PlacePage: React.FC = () => {
                 photo: d.photos[0],
                 listId: d.listId,
             };
-        }).sort((a, b) => b.avg - a.avg);
+        }).sort((a, b) => compareByRank({ average: a.avg, count: a.count }, { average: b.avg, count: b.count }));
     }, [place?.reviews]);
 
 

@@ -3,7 +3,7 @@
 const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 
-const { reviewScoreForList } = require('./lib/scoring');
+const { compareByRank, reviewScoreForList } = require('./lib/scoring');
 
 const db = getFirestore();
 
@@ -306,7 +306,11 @@ async function buildGroupedItemsForList(listId) {
         };
     });
 
-    groupedReviews.sort((a, b) => (b.avgGeneralScore || 0) - (a.avgGeneralScore || 0));
+    // Ranking único (lib/scoring): una valoración suelta no basta para encabezar.
+    groupedReviews.sort((a, b) => compareByRank(
+        { average: a.avgGeneralScore, count: a.itemCount },
+        { average: b.avgGeneralScore, count: b.itemCount }
+    ));
 
     return {
         listId,

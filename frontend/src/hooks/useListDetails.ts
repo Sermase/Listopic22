@@ -184,7 +184,7 @@ async function fetchListDetails(listId: string): Promise<{ list: ListEntity; rev
             placeAddress: place?.address || place?.formattedAddress || place?.vicinity,
             placeCity: city,
             placeMainImage: firstUsablePlaceImage(place?.userPhotoUrl, place?.mainImageUrl, place?.photos),
-            placeAverageRating: place?.rating || place?.avgScore,
+            placeAverageRating: place?.averageRating ?? place?.rating ?? place?.avgScore,
             placeClosedStatus: place?.closedStatus || place?.googleBusinessStatus || place?.businessStatus || null,
             placePetOptions: place?.businessPetOptions || place?.petOptions || place?.pets,
             authorName: user?.username || user?.displayName || user?.name || review.authorName,

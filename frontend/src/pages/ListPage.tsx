@@ -23,7 +23,7 @@ import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
 import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
 import { useAuthPrompt } from '../context/AuthPromptContext';
-import { isScoreValue, reviewScoreForList } from '../lib/scoring';
+import { compareByRank, isScoreValue, reviewScoreForList } from '../lib/scoring';
 import { scoreBadgeStyle } from '../lib/scoreScale';
 import { useStoredChoice } from '../hooks/useStoredChoice';
 
@@ -558,8 +558,8 @@ export const ListPage: React.FC = () => {
             };
         }).sort((a, b) => {
             if (sortMode === 'rating') {
-                if (b.avgRating !== a.avgRating) return b.avgRating - a.avgRating;
-                return b.reviewCount - a.reviewCount;
+                // Ranking único (lib/scoring): una valoración suelta no basta para encabezar.
+                return compareByRank({ average: a.avgRating, count: a.reviewCount }, { average: b.avgRating, count: b.reviewCount });
             }
             if (sortMode === 'count') {
                 return b.reviewCount - a.reviewCount;

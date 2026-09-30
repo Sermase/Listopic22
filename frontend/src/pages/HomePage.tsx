@@ -33,6 +33,7 @@ import {
 } from '../services/UserProfileService';
 import { USERNAME_MAX_LENGTH, isUsernameValid } from '../utils/username';
 import { fetchUserReviewsFromAccessibleLists } from '../lib/reviewFallbacks';
+import { compareByRank } from '../lib/scoring';
 
 /* 
     HOMEPAGE (Legacy Screenshot Match + Functional Logic: Categories & Range)
@@ -612,9 +613,13 @@ export const HomePage: React.FC = () => {
             });
         }
 
-        // "Mejor en Listopic" (Best Rated items/reviews in range)
+        // "Mejor en Listopic": ranking único (lib/scoring) con la nota del sitio y
+        // su número de valoraciones; si el sitio aún no tiene nota, la de la valoración.
+        const rankStats = (r: any) => (typeof r.placeAverageRating === 'number'
+            ? { average: r.placeAverageRating, count: r.placeReviewsCount ?? 1 }
+            : { average: r.overallRating, count: 1 });
         return base
-            .sort((a, b) => (b.placeAverageRating || b.overallRating || 0) - (a.placeAverageRating || a.overallRating || 0))
+            .sort((a, b) => compareByRank(rankStats(a), rankStats(b)))
             .slice(0, 15);
     }, [reviewsInRange, activeTab]);
 
@@ -711,6 +716,7 @@ export const HomePage: React.FC = () => {
                         address: r.placeAddress,
                         photoUrl: r.placeMainImage || r.photoUrl,
                         rating: r.placeAverageRating || r.overallRating,
+                        placeReviewsCount: (r as any).placeReviewsCount,
                         reviewsCount: 1,
                         closedStatus: (r as any).placeClosedStatus || null,
                         lat, lng,
@@ -737,7 +743,10 @@ export const HomePage: React.FC = () => {
         // Sort: "Los lugares de más nota a menos." — exclude permanently closed from map
         return Array.from(uniquePlaces.values())
             .filter(p => p.closedStatus !== 'permanently_closed')
-            .sort((a, b) => (b.rating || 0) - (a.rating || 0));
+            .sort((a, b) => compareByRank(
+                { average: a.rating, count: a.placeReviewsCount ?? a.reviewsCount ?? 1 },
+                { average: b.rating, count: b.placeReviewsCount ?? b.reviewsCount ?? 1 },
+            ));
     }, [reviewsInRange, extraPlaces, range, location, activeFilter]);
 
     const hasHomeMapCandidates = useMemo(() => {
