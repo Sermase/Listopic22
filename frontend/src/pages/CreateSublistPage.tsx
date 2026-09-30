@@ -8,6 +8,7 @@ import { ArrowLeft, Save, Loader, Image as ImageIcon, X, Search, ChevronRight, U
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from '../components/TagEmojiPicker';
 import { CriteriaBuilder, type Criterion } from '../components/CriteriaBuilder';
 import { isInlineImage, uploadListCover } from '../lib/listCover';
+import { orderedCriteriaEntries } from '../lib/criteria';
 
 export const CreateSublistPage: React.FC = () => {
     const { user } = useAuth();
@@ -90,7 +91,7 @@ export const CreateSublistPage: React.FC = () => {
                         // Prefill criteria
                         if (data.criteriaDefinition) {
                             const inheritedCriteria: Criterion[] = [];
-                            Object.entries(data.criteriaDefinition).forEach(([key, val]: [string, any]) => {
+                            orderedCriteriaEntries(data.criteriaDefinition).forEach(([key, val]: [string, any]) => {
                                 if (val.type === 'slider') {
                                     inheritedCriteria.push({
                                         id: key,
@@ -222,8 +223,9 @@ export const CreateSublistPage: React.FC = () => {
                 : (isInlineImage(parentPhotoUrl) ? '' : parentPhotoUrl);
 
             const criteriaDefinitionMap: Record<string, any> = {};
-            criteria.forEach(c => {
+            criteria.forEach((c, index) => {
                 criteriaDefinitionMap[c.id] = {
+                    order: index,
                     type: 'slider',
                     label: c.label,
                     min: 0,

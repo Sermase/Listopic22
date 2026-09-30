@@ -23,6 +23,7 @@ import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { orderedCriteriaEntries } from '../lib/criteria';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -33,6 +34,7 @@ type CriteriaDefinitionValue = {
     labelMax?: string;
     ponderable?: boolean;
     step?: number;
+    order?: number;
 };
 
 type CriteriaDefinitionMap = Record<string, CriteriaDefinitionValue>;
@@ -140,7 +142,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
                 if (data.criteriaDefinition) {
                     const loadedCriteria: Criterion[] = [];
-                    Object.entries(data.criteriaDefinition).forEach(([key, val]) => {
+                    orderedCriteriaEntries(data.criteriaDefinition).forEach(([key, val]) => {
                         if (val.type === 'slider') {
                             loadedCriteria.push({
                                 id: key,
@@ -237,8 +239,9 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             const newVisibility = isPublic ? 'public' : 'private';
 
             const criteriaDefinitionMap: CriteriaDefinitionMap = {};
-            criteria.forEach(c => {
+            criteria.forEach((c, index) => {
                 criteriaDefinitionMap[c.id] = {
+                    order: index,
                     type: 'slider',
                     label: c.label,
                     min: 0,

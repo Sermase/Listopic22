@@ -9,6 +9,7 @@ import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker'
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { type ListEntity } from '../hooks/useLists';
 import { isInlineImage, uploadListCover } from '../lib/listCover';
+import { orderedCriteriaEntries } from '../lib/criteria';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -19,6 +20,7 @@ type CriteriaDefinitionValue = {
     labelMax?: string;
     ponderable?: boolean;
     step?: number;
+    order?: number;
 };
 
 type CriteriaDefinitionMap = Record<string, CriteriaDefinitionValue>;
@@ -71,7 +73,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
         if (parentCriteria) {
             // Convert parent map to array
             const inherited: Criterion[] = [];
-            Object.entries(parentCriteria).forEach(([key, val]) => {
+            orderedCriteriaEntries(parentCriteria).forEach(([key, val]) => {
                 if (isSliderCriterion(val)) {
                     inherited.push({
                         id: key,
@@ -136,7 +138,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
             // 2. Prefill Criteria
             if (selectedCat.defaultCriteria) {
                 const newCriteria: Criterion[] = [];
-                Object.entries(selectedCat.defaultCriteria).forEach(([key, val]) => {
+                orderedCriteriaEntries(selectedCat.defaultCriteria).forEach(([key, val]) => {
                     // Skip 'like'/'dislike' non-slider keys if present
                     if (isSliderCriterion(val)) {
                         newCriteria.push({
@@ -203,8 +205,9 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
 
             // Transform criteria array back to Map/Object for DB
             const criteriaDefinitionMap: CriteriaDefinitionMap = {};
-            criteria.forEach(c => {
+            criteria.forEach((c, index) => {
                 criteriaDefinitionMap[c.id] = {
+                    order: index,
                     type: 'slider',
                     label: c.label,
                     min: 0,

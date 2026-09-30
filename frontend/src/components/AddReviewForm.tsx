@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useTheme } from '../context/ThemeContext';
 import { createPortal } from 'react-dom';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db, storage, functions } from '../firebase';
@@ -16,7 +15,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { isGooglePlacePhotoUrl } from '../utils/placeImages';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from '../lib/storageCache';
-import { computeReviewScore } from '../lib/scoring';
+import { computeReviewScore, isComputingCriterion } from '../lib/scoring';
+import { formatScore, SCORE_BADGE, SCORE_BAND_EMOJI, SCORE_BAND_LABEL, scoreBand, scoreTextColor } from '../lib/scoreScale';
+import { CriterionRating } from './CriterionRating';
+import { orderedCriteriaEntries } from '../lib/criteria';
 
 interface AddReviewFormProps {
     listId: string | null;
@@ -162,9 +164,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     useBodyScrollLock(true);
     const { user } = useAuth();
     const { showToast } = useToast();
-    const { theme } = useTheme();
     const queryClient = useQueryClient();
-    const isLight = theme === 'light';
 
     // Core Data
     // Core Data
@@ -174,7 +174,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const prefillItemNameRef = useRef(prefillItemName);
 
     const [comment, setComment] = useState('');
-    const [overallRating, setOverallRating] = useState(5);
+    // Nota guardada al editar (solo se usa si la valoración antigua no tiene puntuaciones).
+    const [storedOverallRating, setStoredOverallRating] = useState<number | null>(null);
 
     // Changed: Store full definition list to preserve ORDER
     const [criteriaList, setCriteriaList] = useState<ReviewCriterion[]>([]);
@@ -201,7 +202,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const [internalListId, setInternalListId] = useState<string | null>(listId);
 
     // UX States
-    const [ratingsTouched, setRatingsTouched] = useState(false);
     const [originalData, setOriginalData] = useState<string>(''); // JSON string for deep comparison
 
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -239,8 +239,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     const draft = JSON.parse(draftStr);
                     if (draft.itemName && !prefillItemName) setItemName(draft.itemName);
                     if (draft.comment) setComment(draft.comment);
-                    if (draft.criteriaScores) { setCriteriaScores(draft.criteriaScores); }
-                    if (draft.ratingsTouched) setRatingsTouched(draft.ratingsTouched);
+                    // Los borradores antiguos (sin v: 2) traían un 5 en todos los
+                    // criterios aunque no se hubieran tocado: esas notas no se recuperan.
+                    if (draft.v === 2 && draft.criteriaScores && typeof draft.criteriaScores === 'object') {
+                        setCriteriaScores(draft.criteriaScores);
+                    }
                 } catch {
                     // Ignore malformed local drafts.
                 }
@@ -250,13 +253,19 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
     // Draft Logic: Save
     useEffect(() => {
-        if (!isNew || (!ratingsTouched && !itemName && !comment)) return;
+        if (!isNew || (Object.keys(criteriaScores).length === 0 && !itemName && !comment)) return;
         const timeout = setTimeout(() => {
-            const draft = { itemName, comment, criteriaScores, ratingsTouched };
+            const draft = { v: 2, itemName, comment, criteriaScores };
             localStorage.setItem(`listopic_review_draft_${internalListId || 'global'}`, JSON.stringify(draft));
         }, 500);
         return () => clearTimeout(timeout);
-    }, [itemName, comment, criteriaScores, isNew, internalListId, ratingsTouched]);
+    }, [itemName, comment, criteriaScores, isNew, internalListId]);
+
+    // Nota en vivo: media de los criterios que cuentan (lib/scoring).
+    const scoreSummary = useMemo(() => computeReviewScore(criteriaScores, criteriaList), [criteriaScores, criteriaList]);
+    const overallRating = scoreSummary.score ?? storedOverallRating;
+    const criteriaLoaded = criteriaList.length > 0;
+    const hasComputingCriteria = scoreSummary.requiredCount > 0;
 
     const isValid = useMemo(() => {
         // 1. Place is required
@@ -268,12 +277,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         // 3. List is required (use internal state)
         if (!internalListId) return false;
 
-        // 4. Ratings Touched (Only for NEW reviews)
-        // If editing, we assume valid unless cleared (which isn't possible here easily)
-        if (isNew && !ratingsTouched) return false;
+        // 4. Todos los criterios que cuentan para la nota, puntuados a propósito
+        if (!criteriaLoaded || !scoreSummary.complete || overallRating === null) return false;
 
         return true;
-    }, [selectedPlace, itemName, internalListId, ratingsTouched, isNew]);
+    }, [selectedPlace, itemName, internalListId, criteriaLoaded, scoreSummary.complete, overallRating]);
 
     const isDirty = useMemo(() => {
         if (isNew) return true; // Always dirty if new (until saved)
@@ -298,7 +306,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             const hydrateReviewState = async (data: ReviewFormData, resolvedListId?: string, resolvedPath?: string) => {
                 setItemName(data.itemName || '');
                 setComment(data.comment || '');
-                setOverallRating(data.overallRating || 5);
+                setStoredOverallRating(typeof data.overallRating === 'number' ? data.overallRating : null);
                 if (data.scores) setCriteriaScores(data.scores);
                 const reviewTags = data.tags ?? data.userTags ?? [];
                 setCustomTags(reviewTags);
@@ -437,13 +445,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         hydratePrefillPlace();
     }, [prefillPlaceId, editReviewId, selectedPlace]);
 
-    // Recalculate Overall Rating
-    useEffect(() => {
-        if (criteriaList.length === 0 || Object.keys(criteriaScores).length === 0) return;
-        // Solo cuentan los criterios que suman a la nota (lib/scoring).
-        const { score } = computeReviewScore(criteriaScores, criteriaList);
-        if (score !== null) setOverallRating(score);
-    }, [criteriaScores, criteriaList]);
 
     // Fetch List Metadata
     useEffect(() => {
@@ -470,7 +471,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     const criteriaDefinition = data.criteriaDefinition;
                     if (criteriaDefinition) {
                         let cList: ReviewCriterion[] = [];
-                        const scores: Record<string, number> = {};
 
                         // Logic: Convert whatever is in DB to an ordered Array
                         if (Array.isArray(criteriaDefinition)) {
@@ -482,9 +482,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                 ponderable: c.isPonderable !== false // normalize to boolean (default true)
                             }));
                         } else {
-                            // Legacy MAP support: NO guaranteed order, just keys
-                            cList = Object.keys(criteriaDefinition).map(k => {
-                                const def = criteriaDefinition[k];
+                            // Mapa id → definición: orden por `order` y, si no hay, por nombre.
+                            cList = orderedCriteriaEntries(criteriaDefinition).map(([k, def]) => {
                                 return {
                                     ...def,
                                     id: k,
@@ -497,12 +496,13 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             });
                         }
 
-                        // Initialize scores if NEW
+                        // Valoración nueva: ningún criterio viene puntuado. Solo se
+                        // conservan notas de esta lista (p. ej. de un borrador).
                         if (!editReviewId) {
-                            cList.forEach(c => {
-                                scores[c.id] = 5; // Default score
-                            });
-                            setCriteriaScores(scores);
+                            const ids = new Set(cList.map(c => c.id));
+                            setCriteriaScores(prev => Object.fromEntries(
+                                Object.entries(prev).filter(([key, value]) => ids.has(key) && typeof value === 'number')
+                            ));
                         }
                         setCriteriaList(cList);
                     }
@@ -595,6 +595,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
         if (comment.length > 2000) {
             setError("La opinión no puede superar los 2000 caracteres");
+            return;
+        }
+
+        if (!scoreSummary.complete || overallRating === null) {
+            setError(`Puntúa todos los criterios que cuentan para la nota (${scoreSummary.scoredCount} de ${scoreSummary.requiredCount}).`);
             return;
         }
 
@@ -1018,32 +1023,20 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         );
     }
 
-    // Split Criteria for Display
-    const ponderableCriteria = criteriaList.filter(c => c.ponderable !== false);
-    const nonPonderableCriteria = criteriaList.filter(c => c.ponderable === false);
-
-    // Rating helpers
-    const getRatingEmoji = (r: number) => {
-        if (r >= 9) return '🤩';
-        if (r >= 7) return '😍';
-        if (r >= 5) return '😊';
-        if (r >= 3) return '😐';
-        return '😬';
+    // Criterios que cuentan para la nota (obligatorios) y detalles opcionales.
+    const ponderableCriteria = criteriaList.filter(c => isComputingCriterion(c));
+    const nonPonderableCriteria = criteriaList.filter(c => !isComputingCriterion(c));
+    const setCriterionScore = (criterionId: string, value: number | undefined) => {
+        setCriteriaScores(prev => {
+            const next = { ...prev };
+            if (value === undefined) delete next[criterionId];
+            else next[criterionId] = value;
+            return next;
+        });
     };
-
-    const getRatingLabel = (r: number) => {
-        if (r >= 9) return 'Increíble';
-        if (r >= 7) return 'Muy bueno';
-        if (r >= 5) return 'Bueno';
-        if (r >= 3) return 'Regular';
-        return 'Mejorable';
-    };
-
-    const getSliderBg = (val: number, ponderable = true) => {
-        const pct = (val / 10) * 100;
-        const activeColor = ponderable ? `hsl(${val * 12}, 90%, 55%)` : 'var(--lt-accent)';
-        return `linear-gradient(to right, ${activeColor} 0%, ${activeColor} ${pct}%, rgba(55,65,81,0.35) ${pct}%, rgba(55,65,81,0.35) 100%)`;
-    };
+    const overallBand = scoreBand(overallRating);
+    const overallBadge = SCORE_BADGE[overallBand];
+    const scoringProgress = scoreSummary.requiredCount > 0 ? scoreSummary.scoredCount / scoreSummary.requiredCount : 0;
 
     return createPortal(
         <>
@@ -1187,126 +1180,105 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             </div>
 
                             {/* ── Sección: Valoración ─────────────────── */}
-                            {criteriaList.length > 0 ? (
-                                <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-5">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-yellow-400 flex items-center gap-1.5">
-                                            <span>⭐</span> Valoración
+                            {criteriaLoaded && hasComputingCriteria ? (
+                                <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-4 space-y-5">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-accent)] flex items-center gap-1.5">
+                                            <span aria-hidden>⭐</span> Valoración
                                         </p>
-                                        {isNew && !ratingsTouched && (
-                                            <span className="text-[10px] text-amber-400/60 italic animate-pulse">
-                                                Mueve los sliders ↓
-                                            </span>
-                                        )}
+                                        <span
+                                            className={`text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full ${scoreSummary.complete
+                                                ? 'bg-emerald-500/15 text-[var(--lt-score-top)]'
+                                                : 'bg-[var(--lt-border)] text-[var(--lt-text-muted)]'}`}
+                                            aria-live="polite"
+                                        >
+                                            {scoreSummary.complete ? '✓ ' : ''}{scoreSummary.scoredCount} de {scoreSummary.requiredCount} criterios
+                                        </span>
                                     </div>
 
-                                    {/* Overall Rating Badge */}
+                                    {/* Nota en vivo */}
                                     <div
-                                        className="flex items-center gap-4 p-4 rounded-xl transition-all duration-500"
-                                        style={{
-                                            background: `linear-gradient(135deg, hsl(${overallRating * 12}, 80%, ${isLight ? 92 : 10}%) 0%, transparent 100%)`,
-                                            border: `1px solid hsl(${overallRating * 12}, 70%, ${isLight ? 65 : 25}%)`
-                                        }}
+                                        className="flex items-center gap-4 p-4 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-bg)] transition-colors duration-300"
+                                        style={scoreSummary.scoredCount > 0 ? { borderColor: overallBadge.bg } : undefined}
                                     >
                                         <div
-                                            className="text-5xl font-black font-display transition-all duration-300 tabular-nums"
-                                            style={{ color: `hsl(${overallRating * 12}, 90%, ${isLight ? 32 : 60}%)` }}
+                                            className="min-w-[4.5rem] text-center text-5xl font-black font-display tabular-nums transition-colors duration-300"
+                                            style={{ color: scoreSummary.scoredCount > 0 ? scoreTextColor(overallRating) : 'var(--lt-text-muted)' }}
                                         >
-                                            {overallRating.toFixed(1)}
+                                            {scoreSummary.scoredCount > 0 ? formatScore(overallRating) : '—'}
                                         </div>
-                                        <div>
-                                            <div className="text-2xl leading-none mb-1">{getRatingEmoji(overallRating)}</div>
-                                            <div className="text-sm font-bold text-[var(--lt-text)]">{getRatingLabel(overallRating)}</div>
-                                            <div className="text-[11px] text-[var(--lt-text-muted)] mt-0.5">Calculado automáticamente</div>
-                                        </div>
-                                    </div>
-
-                                    {/* PONDERABLE CRITERIA */}
-                                    <div className="space-y-5">
-                                        {ponderableCriteria.map((criterion) => {
-                                            const val = criteriaScores[criterion.id] ?? 0;
-                                            const color = `hsl(${val * 12}, 90%, 55%)`;
-                                            return (
-                                                <div key={criterion.id} className="space-y-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <label className="text-sm font-semibold text-gray-300">{criterion.label || criterion.id}</label>
-                                                        <span
-                                                            className="text-sm font-black font-display tabular-nums transition-colors duration-300"
-                                                            style={{ color }}
-                                                        >
-                                                            {val}
-                                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            {scoreSummary.scoredCount === 0 ? (
+                                                <>
+                                                    <div className="text-sm font-bold text-[var(--lt-text)]">Tu nota</div>
+                                                    <div className="text-[11px] text-[var(--lt-text-muted)] mt-0.5">
+                                                        Puntúa cada criterio: la nota es su media.
                                                     </div>
-                                                    <input
-                                                        type="range"
-                                                        min="0"
-                                                        max="10"
-                                                        step={criterion.step || 0.1}
-                                                        value={val}
-                                                        onChange={(e) => {
-                                                            const newVal = parseFloat(e.target.value);
-                                                            setCriteriaScores({ ...criteriaScores, [criterion.id]: newVal });
-                                                            setRatingsTouched(true);
-                                                            navigator.vibrate?.(10);
-                                                        }}
-                                                        className="custom-range-slider"
-                                                        style={{ background: getSliderBg(val, true), '--thumb-color': color } as React.CSSProperties}
-                                                    />
-                                                    {(criterion.labelMin || criterion.labelMax) && (
-                                                        <div className="flex justify-between gap-3">
-                                                            <span className="text-[10px] text-rose-500/70 italic leading-snug">{criterion.labelMin}</span>
-                                                            <span className="text-[10px] text-emerald-500/70 italic leading-snug text-right">{criterion.labelMax}</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className="text-sm font-bold text-[var(--lt-text)] flex items-center gap-1.5">
+                                                        <span aria-hidden>{SCORE_BAND_EMOJI[overallBand]}</span>
+                                                        {scoreSummary.complete ? SCORE_BAND_LABEL[overallBand] : 'Nota provisional'}
+                                                    </div>
+                                                    <div className="text-[11px] text-[var(--lt-text-muted)] mt-0.5">
+                                                        {scoreSummary.complete
+                                                            ? `Media de ${scoreSummary.requiredCount} ${scoreSummary.requiredCount === 1 ? 'criterio' : 'criterios'}`
+                                                            : `Faltan ${scoreSummary.requiredCount - scoreSummary.scoredCount} por puntuar`}
+                                                    </div>
+                                                </>
+                                            )}
+                                            <div className="mt-2 h-1 rounded-full bg-[var(--lt-border)] overflow-hidden" aria-hidden>
+                                                <div
+                                                    className="h-full rounded-full bg-[var(--lt-accent)] transition-[width] duration-300 motion-reduce:transition-none"
+                                                    style={{ width: `${Math.round(scoringProgress * 100)}%` }}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
 
-                                    {/* NON-PONDERABLE CRITERIA */}
+                                    {/* Criterios que cuentan: todos obligatorios */}
+                                    <div className="space-y-6">
+                                        {ponderableCriteria.map((criterion) => (
+                                            <CriterionRating
+                                                key={criterion.id}
+                                                criterion={criterion}
+                                                value={criteriaScores[criterion.id]}
+                                                counts
+                                                onChange={(value) => setCriterionScore(criterion.id, value)}
+                                            />
+                                        ))}
+                                    </div>
+
+                                    {/* Detalles opcionales: no cuentan para la nota */}
                                     {nonPonderableCriteria.length > 0 && (
-                                        <div className="border-t border-white/5 pt-5 space-y-5">
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Otros detalles</p>
-                                            {nonPonderableCriteria.map((criterion) => {
-                                                const val = criteriaScores[criterion.id] ?? 0;
-                                                return (
-                                                    <div key={criterion.id} className="space-y-2">
-                                                        <div className="flex items-center justify-between">
-                                                            <label className="text-sm font-semibold text-gray-300">{criterion.label || criterion.id}</label>
-                                                            <span className="text-sm font-black font-display tabular-nums text-[var(--lt-accent)]">{val}</span>
-                                                        </div>
-                                                        <input
-                                                            type="range"
-                                                            min="0"
-                                                            max="10"
-                                                            step={criterion.step || 0.5}
-                                                            value={val}
-                                                            onChange={(e) => {
-                                                                const newVal = parseFloat(e.target.value);
-                                                                setCriteriaScores({ ...criteriaScores, [criterion.id]: newVal });
-                                                                setRatingsTouched(true);
-                                                                navigator.vibrate?.(10);
-                                                            }}
-                                                            className="custom-range-slider"
-                                                            style={{ background: getSliderBg(val, false), '--thumb-color': 'var(--lt-accent)' } as React.CSSProperties}
-                                                        />
-                                                        {(criterion.labelMin || criterion.labelMax) && (
-                                                            <div className="flex justify-between gap-3">
-                                                                <span className="text-[10px] text-[var(--lt-accent)]/50 italic leading-snug">{criterion.labelMin}</span>
-                                                                <span className="text-[10px] text-[var(--lt-accent)]/70 italic leading-snug text-right">{criterion.labelMax}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
+                                        <div className="border-t border-[var(--lt-border)] pt-5 space-y-6">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-text-muted)]">
+                                                Otros detalles <span className="normal-case font-normal tracking-normal">· opcionales, no cuentan para la nota</span>
+                                            </p>
+                                            {nonPonderableCriteria.map((criterion) => (
+                                                <CriterionRating
+                                                    key={criterion.id}
+                                                    criterion={criterion}
+                                                    value={criteriaScores[criterion.id]}
+                                                    counts={false}
+                                                    onChange={(value) => setCriterionScore(criterion.id, value)}
+                                                />
+                                            ))}
                                         </div>
                                     )}
                                 </div>
+                            ) : criteriaLoaded ? (
+                                <div role="status" className="rounded-2xl border border-dashed border-[var(--lt-border-strong)] p-6 text-center space-y-2">
+                                    <div className="text-2xl" aria-hidden>⭐</div>
+                                    <p className="text-sm font-semibold text-[var(--lt-text)]">Esta lista no tiene criterios que cuenten para la nota.</p>
+                                    <p className="text-xs text-[var(--lt-text-muted)]">Quien la creó puede marcar al menos uno como «cuenta para la nota» al editarla.</p>
+                                </div>
                             ) : (
-                                <div className="rounded-2xl border border-dashed border-white/8 p-6 text-center space-y-2">
-                                    <div className="text-2xl">⭐</div>
-                                    <p className="text-gray-500 text-sm">
-                                        {internalListId ? 'Cargando criterios...' : 'Selecciona una lista para ver los criterios.'}
+                                <div className="rounded-2xl border border-dashed border-[var(--lt-border-strong)] p-6 text-center space-y-2">
+                                    <div className="text-2xl" aria-hidden>⭐</div>
+                                    <p className="text-[var(--lt-text-muted)] text-sm">
+                                        {internalListId ? 'Cargando criterios...' : 'Elige una lista para ver sus criterios.'}
                                     </p>
                                 </div>
                             )}
@@ -1500,11 +1472,14 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             </button>
                         </div>
                         {!isValid && !loading && (
-                            <p className="text-center text-[10px] text-gray-600 mt-2">
-                                {(!selectedPlace && !prefillPlaceId) ? '📍 Elige un lugar · ' : ''}
-                                {!itemName.trim() ? '🍽️ Añade qué probaste · ' : ''}
-                                {!internalListId ? '📋 Selecciona una lista · ' : ''}
-                                {isNew && !ratingsTouched ? '⭐ Ajusta los sliders' : ''}
+                            <p className="text-center text-[11px] text-[var(--lt-text-muted)] mt-2">
+                                {[
+                                    (!selectedPlace && !prefillPlaceId) && '📍 Elige un lugar',
+                                    !itemName.trim() && '🍽️ Añade qué probaste',
+                                    !internalListId && '📋 Elige una lista',
+                                    criteriaLoaded && hasComputingCriteria && !scoreSummary.complete
+                                        && `⭐ Puntúa todos los criterios (${scoreSummary.scoredCount}/${scoreSummary.requiredCount})`,
+                                ].filter(Boolean).join(' · ')}
                             </p>
                         )}
                     </div>

@@ -23,6 +23,7 @@ import { CategoryService } from '../services/CategoryService';
 import { useAuthPrompt } from '../context/AuthPromptContext';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { compareCriteria } from '../lib/criteria';
 
 interface ReviewCardProps {
     review: ReviewEntity;
@@ -133,7 +134,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
             orderedKeys.push(
                 ...Object.keys(defAny)
                     .filter((key) => scoreKeySet.has(key))
-                    .sort((a, b) => collator.compare(getLabel(a), getLabel(b)))
+                    .sort((a, b) => compareCriteria(a, defAny[a], b, defAny[b]))
             );
         }
 

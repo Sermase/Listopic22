@@ -4,10 +4,12 @@ import { Link } from 'react-router-dom';
 import { MapPin, ChevronRight, Users, Star } from 'lucide-react';
 import { PlacePhotoPlaceholder } from './PlacePhotoPlaceholder';
 import { ProgressiveImage } from './ProgressiveImage';
+import { compareCriteria } from '../lib/criteria';
 
 type CriteriaDefinitionEntry = {
     id?: string;
     label?: string;
+    order?: number;
 };
 
 interface ListItemCardProps {
@@ -118,7 +120,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, isGrid, 
             orderedKeys.push(
                 ...Object.keys(definition)
                     .filter((key) => keySet.has(key))
-                    .sort((a, b) => collator.compare(getLabel(a), getLabel(b)))
+                    .sort((a, b) => compareCriteria(a, definition[a], b, definition[b]))
             );
         }
 
