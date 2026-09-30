@@ -162,6 +162,11 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
 
                         {/* Context badges */}
                         <div className="flex flex-wrap gap-1 mb-1">
+                            {contextRankLabel && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black bg-[var(--lt-accent)] text-white border border-[var(--lt-accent-border)] whitespace-nowrap">
+                                    {contextRankLabel}
+                                </span>
+                            )}
                             {item.listName && (
                                 item.listId ? (
                                     <Link

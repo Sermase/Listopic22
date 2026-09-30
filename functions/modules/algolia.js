@@ -9,6 +9,7 @@ const algoliasearch = require("algoliasearch");
 const { buildGroupedItemsForList } = require("./grouped-aggregator");
 // Ranking único compartido con el frontend (lib/scoring.js ↔ frontend/src/lib/scoring.ts).
 const { rankingIndexScore } = require("./lib/scoring");
+const { normalizeCcaa } = require("./lib/geo-areas");
 
 const ADMIN_CALL_OPTIONS = { cors: true, timeoutSeconds: 540, memory: "1GiB" };
 
@@ -72,7 +73,8 @@ const INDEX_SETTINGS = {
     },
     places: {
         searchableAttributes: ["unordered(name)", "unordered(address)", "unordered(city)", "unordered(types)", "unordered(itemTags)"],
-        attributesForFaceting: ["filterOnly(city)", "filterOnly(province)", "serviceOptions", "accessibilityOptions", "petOptions", "types", "priceLevel", "closedStatus", "googleBusinessStatus", "businessStatus", "hasPhoto", "itemTags", "isGlutenFree"],
+        // Zona en Buscar: ciudad, provincia, comunidad y país se pueden listar (antes solo filtrar).
+        attributesForFaceting: ["searchable(city)", "searchable(province)", "region", "country", "serviceOptions", "accessibilityOptions", "petOptions", "types", "priceLevel", "closedStatus", "googleBusinessStatus", "businessStatus", "hasPhoto", "itemTags", "isGlutenFree"],
         replicas: ["places_by_rating", "places_by_reviews", "places_by_distance"],
         customRanking: ["desc(rankingScore)", "desc(reviewsCount)", "desc(followersCount)"],
         numericAttributesForFiltering: ["rankingScore", "averageRating", "reviewsCount", "followersCount"]
@@ -86,7 +88,7 @@ const INDEX_SETTINGS = {
     },
     grouped_items: {
         searchableAttributes: ["unordered(itemName)", "unordered(establishmentName)", "unordered(listName)", "unordered(listCategoryName)", "unordered(groupTags)", "unordered(itemTags)"],
-        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "listCategoryName", "filterOnly(listAvailableTags)", "groupTags", "itemTags", "placeCity", "placeProvince", "authorUserType", "accessibilityOptions", "petOptions", "placeClosedStatus", "placeGoogleBusinessStatus", "placeBusinessStatus", "hasPhoto", "isGlutenFree"],
+        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "listCategoryName", "filterOnly(listAvailableTags)", "groupTags", "itemTags", "searchable(placeCity)", "searchable(placeProvince)", "placeRegion", "placeCountry", "authorUserType", "accessibilityOptions", "petOptions", "placeClosedStatus", "placeGoogleBusinessStatus", "placeBusinessStatus", "hasPhoto", "isGlutenFree"],
         replicas: ["grouped_items_by_score", "grouped_items_by_reviews"],
         customRanking: ["desc(rankingScore)", "desc(reviewCount)"],
         numericAttributesForFiltering: ["rankingScore", "avgGeneralScore", "reviewCount"]
@@ -532,6 +534,7 @@ async function transformPlaceRecord(data, docId) {
         address: data.address || data.formatted_address || "",
         city: data.city || "",
         province: data.province || "",
+        region: normalizeCcaa(data.region),
         country: data.country || "",
         types: Array.isArray(data.types) ? data.types : [],
         serviceOptions: trueObjectKeys(data.serviceOptions),
@@ -656,6 +659,7 @@ function mapGroupToAlgoliaRecord(listId, listData, group, category = null) {
         placeName: group.establishmentName,
         placeCity: group.placeCity || null,
         placeProvince: group.placeProvince || null,
+        placeRegion: group.placeRegion || null,
         placeCountry: group.placeCountry || null,
         placeAddress: group.placeAddress || null,
         avgGeneralScore: typeof group.avgGeneralScore === "number" ? group.avgGeneralScore : 0,

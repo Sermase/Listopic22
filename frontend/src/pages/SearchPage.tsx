@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { ZoneExplorer } from '../components/search/ZoneExplorer';
+import { activeZoneLabel } from '../lib/searchZones';
 import {
     InstantSearch,
     Configure,
@@ -176,7 +178,6 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
         { attribute: 'availableTags', label: 'Etiquetas', icon: Tags, defaultOpen: true },
     ],
     places: [
-        { attribute: 'city', label: 'Ciudad', icon: MapPin, defaultOpen: true },
         { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
         { attribute: 'isGlutenFree', label: 'Sin gluten', icon: Utensils, defaultOpen: true },
         { attribute: 'petOptions', label: 'Mascotas', icon: PawPrint, defaultOpen: true },
@@ -195,7 +196,6 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
         { attribute: 'listCategoryName', label: 'Categoría', icon: Tags, defaultOpen: true },
         { attribute: 'listName', label: 'Lista', icon: ListIcon, dependsOn: 'listCategoryName' },
         { attribute: 'authorUserType', label: 'Tipo de usuario', icon: ShieldCheck, defaultOpen: true },
-        { attribute: 'placeCity', label: 'Ciudad', icon: MapPin, defaultOpen: true },
         { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
         { attribute: 'isGlutenFree', label: 'Sin gluten', icon: Utensils, defaultOpen: true },
         { attribute: 'petOptions', label: 'Mascotas', icon: PawPrint, defaultOpen: true },
@@ -208,7 +208,6 @@ const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
         { attribute: 'listCategoryName', label: 'Categoría', icon: Tags, defaultOpen: true },
         { attribute: 'listName', label: 'Lista', icon: ListIcon, dependsOn: 'listCategoryName' },
         { attribute: 'authorUserType', label: 'Tipo de usuario', icon: ShieldCheck, defaultOpen: true },
-        { attribute: 'placeCity', label: 'Ciudad', icon: MapPin, defaultOpen: true },
         { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
         { attribute: 'isGlutenFree', label: 'Sin gluten', icon: Utensils, defaultOpen: true },
         { attribute: 'petOptions', label: 'Mascotas', icon: PawPrint, defaultOpen: true },
@@ -758,11 +757,18 @@ interface HitsProps {
     /** Desactiva el scroll infinito (usado en sección federated) */
     noInfiniteScroll?: boolean;
     includeClosed?: boolean;
+    /**
+     * Los resultados están en el orden del ranking de una sola Lista (sin texto
+     * buscado, orden por puntuación): con una zona elegida se muestra «#3 en Valladolid».
+     */
+    rankEligible?: boolean;
 }
 
-const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false, includeClosed = false }) => {
+const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false, includeClosed = false, rankEligible = false }) => {
     const { hits, isLastPage, showMore } = useInfiniteHits();
     const { status, results } = useInstantSearch();
+    const { items: currentRefinements } = useCurrentRefinements();
+    const zoneLabel = rankEligible ? activeZoneLabel(activeTab, currentRefinements) : null;
     const sentinelRef = useRef<HTMLDivElement>(null);
     const hover = onHoverHit ?? (() => {});
     const typedHits = useMemo(() => hits as SearchHit[], [hits]);
@@ -825,7 +831,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
     return (
         <div>
             <div className={listLayout ? 'flex flex-col gap-3' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4'}>
-                {visibleHits.map(hit => {
+                {visibleHits.map((hit, index) => {
                     const selected = selectedHitId === hit.objectID;
                     if (activeTab === 'users') {
                         return <UserHitCard key={hit.objectID} hit={hit} selected={selected} onHover={hover} />;
@@ -863,6 +869,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                                 }}
                                 isGrid={!listLayout}
                                 disableLift={listLayout}
+                                contextRankLabel={zoneLabel ? `#${index + 1} en ${zoneLabel}` : undefined}
                                 groupingMode={
                                     activeTab === 'lists' ? 'list' :
                                     (activeTab === 'grouped_items' || activeTab === 'items') ? 'dish' : 'place'
@@ -1075,6 +1082,9 @@ const QuickFilters = ({
 export const SearchPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const queryParam = searchParams.get('q') || '';
+    // Llegada desde una Lista («Explorar otra zona en Buscar…»): se busca dentro de ella.
+    const listIdParam = searchParams.get('listId') || '';
+    const listNameParam = searchParams.get('listName') || '';
     const typeParam = normalizeSearchTab(searchParams.get('type') || 'all');
     const sortParam = searchParams.get('sort') || '';
     const geoParam = searchParams.get('geo') === '1';
@@ -1126,9 +1136,13 @@ export const SearchPage: React.FC = () => {
             nextParams.geo = '1';
             nextParams.radius = String(radiusValue);
         }
+        if (tab === 'items' && listIdParam) {
+            nextParams.listId = listIdParam;
+            if (listNameParam) nextParams.listName = listNameParam;
+        }
 
         return nextParams;
-    }, [activeSortOption.value, activeTab, effectiveGeoActive, geoRadius, queryParam]);
+    }, [activeSortOption.value, activeTab, effectiveGeoActive, geoRadius, queryParam, listIdParam, listNameParam]);
 
     const handleTabChange = useCallback((tab: string) => {
         const sortValue = resolveSortValue(tab, sortByTab[tab]);
@@ -1231,8 +1245,34 @@ export const SearchPage: React.FC = () => {
             parsedAlgoliaFilters,
             defaultClosedFilter,
             activeTab === 'places' ? PLACES_WITH_REVIEWS_FILTER : '',
+            activeTab === 'items' && listIdParam ? `listId:"${listIdParam.replace(/"/g, '')}"` : '',
         ])
-    ), [parsedAlgoliaFilters, defaultClosedFilter, activeTab]);
+    ), [parsedAlgoliaFilters, defaultClosedFilter, activeTab, listIdParam]);
+
+    // «#3 en Valladolid» solo cuando el orden es el ranking de una Lista.
+    const rankEligible = activeTab === 'items'
+        && Boolean(listIdParam)
+        && !parsedQuery.cleanedQuery.trim()
+        && (activeSortOption.value === 'grouped_items_by_score' || activeSortOption.value === 'grouped_items');
+    const clearListScope = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('listId');
+        next.delete('listName');
+        setSearchParams(next);
+    };
+    const zoneBar = isGeoTab ? (
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+            <ZoneExplorer key={activeTab} tab={activeTab as 'items' | 'places'} />
+            {activeTab === 'items' && listIdParam && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--lt-text)]">
+                    En la Lista «{listNameParam || 'elegida'}»
+                    <button type="button" onClick={clearListScope} aria-label="Buscar en todas las Listas" className="ml-0.5 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">
+                        <X className="w-3 h-3" />
+                    </button>
+                </span>
+            )}
+        </div>
+    ) : null;
 
     const activeGeoConfig = useMemo(() => {
         if (!isGeoTab || !effectiveGeoActive || !location) {
@@ -1361,6 +1401,7 @@ export const SearchPage: React.FC = () => {
                                         locLoading={locLoading}
                                         onToggleGeo={toggleGeo}
                                     />
+                                    {zoneBar}
                                     <div className="flex flex-wrap items-center gap-3 flex-shrink-0">
                                         <GeoControls
                                             isGeoTab={isGeoTab}
@@ -1397,6 +1438,7 @@ export const SearchPage: React.FC = () => {
                                             onSelectHit={id => setSelectedHitId(prev => prev === id ? null : id)}
                                             listLayout={true}
                                             includeClosed={includeClosedPlaces}
+                                            rankEligible={rankEligible}
                                         />
                                     </div>
                                 </div>
@@ -1442,6 +1484,7 @@ export const SearchPage: React.FC = () => {
                                     locLoading={locLoading}
                                     onToggleGeo={toggleGeo}
                                 />
+                                {zoneBar}
 
                                 {/* Controls bar */}
                                 <div className="flex flex-wrap items-center gap-3 mb-3 mt-3">
@@ -1498,6 +1541,7 @@ export const SearchPage: React.FC = () => {
                                         onHoverHit={setHoveredHitId}
                                         onSelectHit={id => setSelectedHitId(prev => prev === id ? null : id)}
                                         includeClosed={includeClosedPlaces}
+                                        rankEligible={rankEligible}
                                     />
                                 </div>
                             </div>
