@@ -23,6 +23,9 @@ jobs:
       - name: Tests unitarios del frontend
         run: npm test
         working-directory: frontend
+      - name: Tests de notas del servidor (mismos vectores que el frontend)
+        run: npm test
+        working-directory: functions
       - name: Build frontend
         run: npm run build
         working-directory: frontend

@@ -23,6 +23,7 @@ import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
 import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
 import { useAuthPrompt } from '../context/AuthPromptContext';
+import { isScoreValue, reviewScoreForList } from '../lib/scoring';
 
 export interface FilterState {
     minRating: number;
@@ -317,19 +318,19 @@ export const ListPage: React.FC = () => {
 
 
     // --- Aggregation Logic (Ranked List View & Map Data) ---
-    const groupedItems = useMemo(() => {
-        if (!reviews.length) return [];
+    // Filtros de autor (bots / solo críticos): mismos para ranking y mapa.
+    const visibleReviews = useMemo(() => reviews.filter(r => {
+        const uid = r.userId || (r as any).authorId;
+        const roles = authorRolesMap.get(uid) ?? [];
+        const isBot = roles.includes('bot');
+        const isCritico = roles.includes('critico');
+        if (isBot && !showBotReviews) return false;
+        if (criticOnly && !isCritico) return false;
+        return true;
+    }), [reviews, authorRolesMap, showBotReviews, criticOnly]);
 
-        // Apply user-role filters before grouping
-        const visibleReviews = reviews.filter(r => {
-            const uid = r.userId || (r as any).authorId;
-            const roles = authorRolesMap.get(uid) ?? [];
-            const isBot = roles.includes('bot');
-            const isCritico = roles.includes('critico');
-            if (isBot && !showBotReviews) return false;
-            if (criticOnly && !isCritico) return false;
-            return true;
-        });
+    const groupedItems = useMemo(() => {
+        if (!visibleReviews.length) return [];
 
         const groups: Record<string, {
             id: string;
@@ -344,6 +345,7 @@ export const ListPage: React.FC = () => {
             totalRating: number;
             count: number;
             criteriaSums: Record<string, number>;
+            criteriaCounts: Record<string, number>;
             placeClosedStatus?: string | null;
             accessibilityOptions: string[];
             petOptions: string[];
@@ -382,6 +384,7 @@ export const ListPage: React.FC = () => {
                     totalRating: 0,
                     count: 0,
                     criteriaSums: {},
+                    criteriaCounts: {},
                     latestReviewAt: 0,
                     userHasReviewed: false,
                     items: [],
@@ -407,11 +410,13 @@ export const ListPage: React.FC = () => {
             }
 
             const g = groups[key];
-            g.totalRating += review.overallRating || 0;
+            // En la Lista madre, las valoraciones de Minilista cuentan solo con sus criterios.
+            const reviewScore = reviewScoreForList(review, list).score ?? 0;
+            g.totalRating += reviewScore;
             g.count += 1;
 
-            if ((review.overallRating || 0) > g.maxScore) {
-                g.maxScore = review.overallRating || 0;
+            if (reviewScore > g.maxScore) {
+                g.maxScore = reviewScore;
             }
 
             if (user && (review.userId === user.uid || review.authorId === user.uid)) {
@@ -420,7 +425,7 @@ export const ListPage: React.FC = () => {
 
             g.items.push({
                 name: review.itemName || 'Item',
-                score: review.overallRating || 0
+                score: reviewScore
             });
 
             // Handle Review Time for sorting
@@ -454,7 +459,9 @@ export const ListPage: React.FC = () => {
             // Handle Criteria
             if (review.scores) {
                 Object.entries(review.scores).forEach(([k, v]) => {
+                    if (!isScoreValue(v)) return;
                     g.criteriaSums[k] = (g.criteriaSums[k] || 0) + v;
+                    g.criteriaCounts[k] = (g.criteriaCounts[k] || 0) + 1;
                 });
             }
 
@@ -496,7 +503,8 @@ export const ListPage: React.FC = () => {
 
             Object.keys(g.criteriaSums).forEach(k => {
                 if (allowedCriteria && !allowedCriteria.includes(k)) return;
-                criteriaAverages[k] = g.criteriaSums[k] / g.count;
+                // Media entre quienes puntuaron ese criterio (no entre todas las valoraciones).
+                criteriaAverages[k] = g.criteriaSums[k] / (g.criteriaCounts[k] || 1);
             });
 
             // 50% Rule for Tags
@@ -535,7 +543,7 @@ export const ListPage: React.FC = () => {
             }
             return 0;
         });
-    }, [reviews, list, groupingMode, sortMode, user, authorRolesMap, showBotReviews, criticOnly]);
+    }, [visibleReviews, list, groupingMode, sortMode, user]);
 
     // Unique Tags for Filter UI
     const availableGroupTags = useMemo(() => {
@@ -557,7 +565,7 @@ export const ListPage: React.FC = () => {
 
     // Map Specific Data - Always grouped by Place, always has Items list
     const mapItems = useMemo(() => {
-        if (!reviews.length) return [];
+        if (!visibleReviews.length) return [];
         const placeGroups: Record<string, {
             id: string;
             placeId: string;
@@ -574,8 +582,9 @@ export const ListPage: React.FC = () => {
             placeClosedStatus?: string | null;
         }> = {};
 
-        reviews.forEach(review => {
+        visibleReviews.forEach(review => {
             if (!review.placeId) return; // Skip items without placeId for map
+            const reviewScore = reviewScoreForList(review, list).score ?? 0;
 
             if (!placeGroups[review.placeId]) {
                 placeGroups[review.placeId] = {
@@ -607,7 +616,7 @@ export const ListPage: React.FC = () => {
 
             const g = placeGroups[review.placeId];
             // Accumulate Items
-            g.items.push({ name: review.itemName, score: review.overallRating });
+            g.items.push({ name: review.itemName, score: reviewScore });
             g.reviewsCount++;
             if (Array.isArray(review.tags)) g.allTags.push(...review.tags);
             if (Array.isArray(review.userTags)) g.allTags.push(...review.userTags);
@@ -628,8 +637,8 @@ export const ListPage: React.FC = () => {
                 if (!g.petOptions.includes(key)) g.petOptions.push(key);
             });
 
-            if (review.overallRating > g.maxScore) {
-                g.maxScore = review.overallRating;
+            if (reviewScore > g.maxScore) {
+                g.maxScore = reviewScore;
             }
 
             // Ensure coords
@@ -650,7 +659,7 @@ export const ListPage: React.FC = () => {
             rating: g.maxScore, // Override rating for Pin Color with Max Score
             items: g.items.sort((a, b) => b.score - a.score) // Sort items descending
         }));
-    }, [reviews]);
+    }, [visibleReviews, list]);
 
     // --- Filtering Logic ---
     // --- Filtering Logic ---

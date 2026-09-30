@@ -16,6 +16,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { isGooglePlacePhotoUrl } from '../utils/placeImages';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from '../lib/storageCache';
+import { computeReviewScore } from '../lib/scoring';
 
 interface AddReviewFormProps {
     listId: string | null;
@@ -439,23 +440,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     // Recalculate Overall Rating
     useEffect(() => {
         if (criteriaList.length === 0 || Object.keys(criteriaScores).length === 0) return;
-
-        let total = 0;
-        let count = 0;
-
-        criteriaList.forEach((c) => {
-            const val = criteriaScores[c.id];
-            // Only ponderable items count towards the global rating
-            if (c.ponderable !== false && val !== undefined) {
-                total += val;
-                count++;
-            }
-        });
-
-        if (count > 0) {
-            const avg = total / count;
-            setOverallRating(parseFloat(avg.toFixed(1)));
-        }
+        // Solo cuentan los criterios que suman a la nota (lib/scoring).
+        const { score } = computeReviewScore(criteriaScores, criteriaList);
+        if (score !== null) setOverallRating(score);
     }, [criteriaScores, criteriaList]);
 
     // Fetch List Metadata

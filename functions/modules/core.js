@@ -1824,6 +1824,20 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
     } catch (error) {
       logger.error(`updateAggregatesOnReviewChange: error al recalcular métricas de lista ${listId}`, error);
     }
+    // Las valoraciones de una Minilista se guardan en su Lista madre: hay que
+    // recalcular también la Minilista (antes nadie mantenía sus métricas).
+    const sublistIds = new Set(
+      [event.data.before.exists ? event.data.before.data()?.sublistId : null,
+        event.data.after.exists ? event.data.after.data()?.sublistId : null]
+        .filter((id) => typeof id === 'string' && id && id !== listId)
+    );
+    for (const sublistId of sublistIds) {
+      try {
+        await recalculateListReviewMetrics(sublistId);
+      } catch (error) {
+        logger.error(`updateAggregatesOnReviewChange: error al recalcular métricas de la Minilista ${sublistId}`, error);
+      }
+    }
     return null;
   }
 
