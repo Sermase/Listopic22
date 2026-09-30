@@ -27,6 +27,7 @@ import { useConfirm } from '../context/ConfirmContext';
 import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
 import { deriveScoringWeights } from '../lib/scoring';
 import { writeWithOptionalFields } from '../lib/optionalFields';
+import { syncListReviewVisibility } from '../lib/reviewVisibility';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -54,10 +55,6 @@ interface EditableListData {
     reviewCount?: number;
     scoringWeights?: Record<string, number>;
 }
-
-const isPermissionDenied = (error: unknown): boolean => {
-    return Boolean(error && typeof error === 'object' && 'code' in error && error.code === 'permission-denied');
-};
 
 interface EditListFormProps {
     listId: string;
@@ -336,33 +333,8 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 }
             }
 
-            // Sync visibility to reviews
-            const safeGetDocs = async (load: () => Promise<QuerySnapshot<DocumentData>>) => {
-                try { return await load(); } catch (e: unknown) {
-                    if (!isPermissionDenied(e)) console.warn('Failed to query reviews', e);
-                    return null;
-                }
-            };
-
-            const snapshots = parentListId
-                ? await Promise.all([
-                    safeGetDocs(() => getDocs(query(collection(db, 'lists', parentListId, 'reviews'), where('sublistId', '==', listId)))),
-                    safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews')))
-                ])
-                : [await safeGetDocs(() => getDocs(collection(db, 'lists', listId, 'reviews')))];
-
-            const reviewDocs = new Map<string, QueryDocumentSnapshot<DocumentData>>();
-            snapshots.forEach(snap => {
-                if (!snap) return;
-                snap.docs.forEach((d) => reviewDocs.set(d.ref.path, d));
-            });
-
-            const toUpdate = Array.from(reviewDocs.values()).filter((d) => d.data().visibility !== newVisibility);
-            for (let i = 0; i < toUpdate.length; i += 450) {
-                const batch = writeBatch(db);
-                toUpdate.slice(i, i + 450).forEach((d) => batch.update(d.ref, { visibility: newVisibility }));
-                await batch.commit();
-            }
+            // Las valoraciones siguen la visibilidad de su lista (ver lib/reviewVisibility).
+            await syncListReviewVisibility(listId, parentListId, newVisibility);
 
             queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
             queryClient.invalidateQueries({ queryKey: ['lists'] });
