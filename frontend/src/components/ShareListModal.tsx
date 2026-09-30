@@ -4,6 +4,7 @@ import { collection, query, where, getDocs, doc, getDoc, updateDoc, arrayUnion, 
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useToast } from '../context/ToastContext';
 
 interface ShareListModalProps {
     isOpen: boolean;
@@ -27,6 +28,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
     onUpdate
 }) => {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [searchResults, setSearchResults] = useState<any[]>([]);
     const [isSearching, setIsSearching] = useState(false);
@@ -143,7 +145,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
             setResolvedNames(prev => ({ ...prev, [uid]: displayName }));
         } catch (error) {
             console.error("Error adding user:", error);
-            alert("Error al añadir usuario");
+            showToast({ variant: "error", message: "No se pudo añadir a esa persona." });
         }
     };
 
@@ -162,7 +164,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
             }
         } catch (error) {
             console.error("Error removing user:", error);
-            alert("Error al eliminar usuario");
+            showToast({ variant: "error", message: "No se pudo quitar a esa persona." });
         }
     };
 

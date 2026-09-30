@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { reportError } from '../lib/sentry';
+import { isChunkLoadError, reloadOnceForNewVersion } from '../lib/chunkErrors';
 
 interface Props {
   children: ReactNode;
@@ -19,6 +20,8 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
+    // Un trozo de una versión anterior que ya no existe: basta con recargar.
+    if (isChunkLoadError(error) && reloadOnceForNewVersion()) return;
     console.error('[ErrorBoundary]', error, info);
     this.props.onError?.(error, info);
     reportError(error, { componentStack: info.componentStack });
@@ -33,17 +36,21 @@ class ErrorBoundary extends Component<Props, State> {
       return this.props.fallback(this.state.error, this.reset);
     }
 
+    const newVersion = isChunkLoadError(this.state.error);
+
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-neutral-50 dark:bg-neutral-900">
-        <div className="max-w-md w-full bg-white dark:bg-neutral-800 rounded-2xl shadow-lg p-6 text-center">
-          <h1 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-2">
-            Algo ha fallado
+      <div className="min-h-screen flex items-center justify-center p-6 bg-[var(--lt-bg)]">
+        <div role="alert" className="max-w-md w-full rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-lg p-6 text-center">
+          <h1 className="text-xl font-bold text-[var(--lt-text)] mb-2">
+            {newVersion ? 'Hay una versión nueva de Listopic' : 'Algo ha fallado'}
           </h1>
-          <p className="text-sm text-neutral-600 dark:text-neutral-300 mb-4">
-            Se ha producido un error inesperado. Puedes intentar recargar la pantalla.
+          <p className="text-sm text-[var(--lt-text-muted)] mb-5">
+            {newVersion
+              ? 'Actualiza para seguir donde estabas.'
+              : 'Se ha producido un error inesperado. Puedes reintentarlo o volver al inicio.'}
           </p>
           {import.meta.env.DEV && (
-            <pre className="text-xs text-left bg-neutral-100 dark:bg-neutral-900 p-3 rounded overflow-auto max-h-48 mb-4">
+            <pre className="text-xs text-left bg-[var(--lt-bg-deep)] text-[var(--lt-text-muted)] p-3 rounded-lg overflow-auto max-h-48 mb-4">
               {this.state.error.message}
               {'\n'}
               {this.state.error.stack}
@@ -51,14 +58,16 @@ class ErrorBoundary extends Component<Props, State> {
           )}
           <div className="flex gap-2 justify-center">
             <button
-              onClick={this.reset}
-              className="px-4 py-2 rounded-lg bg-primary-500 text-white text-sm font-medium hover:bg-primary-600 transition"
+              type="button"
+              onClick={newVersion ? () => window.location.reload() : this.reset}
+              className="btn-primary"
             >
-              Reintentar
+              {newVersion ? 'Actualizar' : 'Reintentar'}
             </button>
             <button
+              type="button"
               onClick={() => window.location.assign('/')}
-              className="px-4 py-2 rounded-lg bg-neutral-200 dark:bg-neutral-700 text-sm font-medium hover:bg-neutral-300 dark:hover:bg-neutral-600 transition"
+              className="btn-glass"
             >
               Ir al inicio
             </button>

@@ -13,6 +13,8 @@ import type { MapItem } from '../components/MapView';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { Button, Card, IconButton, Modal, Tabs } from '../components/ui';
 import { fetchUserReviewsFromAccessibleLists } from '../lib/reviewFallbacks';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const COLOR_OPTIONS = [
     '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
@@ -227,6 +229,8 @@ export const ArchivePage: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const { archives, fetchArchives, toggleItemInArchive, createArchive, updateArchive, deleteArchive } = useArchives();
+    const { showToast } = useToast();
+    const confirm = useConfirm();
 
     const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
     const [activeSection, setActiveSection] = useState<ArchiveSection>('collections');
@@ -632,7 +636,7 @@ export const ArchivePage: React.FC = () => {
             fetchItemsForArchive(targetId);
             fetchItemsForArchive(sourceId);
             if (!expandedIds.includes(targetId)) setExpandedIds(prev => [...prev, targetId]);
-        } catch { alert('Error moviendo el elemento.'); }
+        } catch { showToast({ variant: 'error', message: 'No se pudo mover el elemento.' }); }
     };
 
     const getFilteredItems = (items: SavedItemEntity[]) =>
@@ -661,7 +665,7 @@ export const ArchivePage: React.FC = () => {
             if (editMode === 'create') await createArchive(editName.trim(), editEmoji, editColor);
             else await updateArchive(editId, { name: editName.trim(), emoji: editEmoji, color: editColor });
             setShowEditModal(false);
-        } catch { alert('Error al guardar.'); }
+        } catch { showToast({ variant: 'error', message: 'No se pudo guardar la colección.' }); }
     };
 
     const makeDocRefFromPath = (path: string) => {
@@ -716,13 +720,13 @@ export const ArchivePage: React.FC = () => {
             setEditingCaption('');
         } catch (error) {
             console.error('Error updating place photo caption', error);
-            alert('No se pudo editar la foto.');
+            showToast({ variant: 'error', message: 'No se pudo editar la foto.' });
         }
     };
 
     const deleteUploadedPlacePhoto = async (photo: UploadedPlacePhoto) => {
         setOpenPhotoMenu(null);
-        if (!confirm('¿Borrar esta foto del lugar?')) return;
+        if (!await confirm({ title: '¿Borrar esta foto del sitio?', message: 'Dejará de verse en la ficha del sitio.', confirmLabel: 'Borrar', destructive: true })) return;
         try {
             if (photo.storagePath) {
                 await deleteObject(ref(storage, photo.storagePath)).catch((error: any) => {
@@ -734,13 +738,13 @@ export const ArchivePage: React.FC = () => {
             setOpenPhotoMenu(null);
         } catch (error) {
             console.error('Error deleting uploaded place photo', error);
-            alert('No se pudo borrar la foto.');
+            showToast({ variant: 'error', message: 'No se pudo borrar la foto.' });
         }
     };
 
     const deleteUploadedReviewPhoto = async (photo: UploadedReviewPhoto) => {
         setOpenPhotoMenu(null);
-        if (!confirm('¿Borrar esta foto de la reseña?')) return;
+        if (!await confirm({ title: '¿Borrar esta foto de la valoración?', confirmLabel: 'Borrar', destructive: true })) return;
         try {
             if (photo.storagePath) {
                 await deleteObject(ref(storage, photo.storagePath)).catch((error: any) => {
@@ -781,7 +785,7 @@ export const ArchivePage: React.FC = () => {
             setOpenPhotoMenu(null);
         } catch (error) {
             console.error('Error deleting uploaded review photo', error);
-            alert('No se pudo borrar la foto.');
+            showToast({ variant: 'error', message: 'No se pudo borrar la foto.' });
         }
     };
 
@@ -1124,12 +1128,17 @@ export const ArchivePage: React.FC = () => {
                                                                         onClick={async e => {
                                                                             e.preventDefault();
                                                                             e.stopPropagation();
-                                                                            if (confirm('¿Quitar de la colección?')) {
-                                                                                await toggleItemInArchive(arch.id, item, false);
-                                                                                fetchItemsForArchive(arch.id);
+                                                                            if (await confirm({ title: '¿Quitar de la colección?', message: `"${item.name}" dejará de estar en ${arch.name}.`, confirmLabel: 'Quitar', destructive: true })) {
+                                                                                try {
+                                                                                    await toggleItemInArchive(arch.id, item, false);
+                                                                                    fetchItemsForArchive(arch.id);
+                                                                                } catch {
+                                                                                    showToast({ variant: 'error', message: 'No se pudo quitar el elemento.' });
+                                                                                }
                                                                             }
                                                                         }}
-                                                                        className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/60 text-gray-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                                                                        aria-label="Quitar de la colección"
+                                                                        className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-black/60 text-gray-200 hover:text-red-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-all"
                                                                     >
                                                                         <Trash2 className="w-3 h-3" />
                                                                     </button>
@@ -1148,8 +1157,20 @@ export const ArchivePage: React.FC = () => {
 
                                             <div className="mt-4 pt-3 border-t border-white/5 flex justify-end">
                                                 <button
-                                                    onClick={() => {
-                                                        if (confirm(`¿Eliminar la colección "${arch.name}"?`)) deleteArchive(arch.id);
+                                                    onClick={async () => {
+                                                        const ok = await confirm({
+                                                            title: `¿Eliminar la colección "${arch.name}"?`,
+                                                            message: 'Se borra la colección y lo que tiene guardado. No se puede deshacer.',
+                                                            confirmLabel: 'Eliminar',
+                                                            destructive: true,
+                                                        });
+                                                        if (!ok) return;
+                                                        try {
+                                                            await deleteArchive(arch.id);
+                                                            showToast({ variant: 'success', message: 'Colección eliminada' });
+                                                        } catch {
+                                                            showToast({ variant: 'error', message: 'No se pudo eliminar la colección.' });
+                                                        }
                                                     }}
                                                     className="text-xs text-red-500/60 hover:text-red-400 flex items-center gap-1 transition-colors"
                                                 >

@@ -1,4 +1,6 @@
-const CACHE_NAME = 'listopic-shell-v4';
+// v5: purga cachés antiguas que pudieron guardar index.html como si fuera un
+// script (cuando un trozo de una versión anterior ya no existía).
+const CACHE_NAME = 'listopic-shell-v5';
 const APP_SHELL = [
   '/',
   '/index.html',
@@ -59,6 +61,13 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((networkResponse) => {
+          // Si en lugar de JS/CSS llega HTML (ruta reescrita a index.html), no
+          // se guarda ni se entrega como script: se devuelve un error para que
+          // la app detecte la versión nueva y recargue.
+          const contentType = networkResponse.headers.get('content-type') || '';
+          if (networkResponse.ok && contentType.includes('text/html')) {
+            return new Response('', { status: 404, statusText: 'Asset not found' });
+          }
           if (networkResponse.ok) {
             const responseClone = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {

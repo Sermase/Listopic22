@@ -93,6 +93,7 @@ import { getSelectedProfileReviewListId, selectProfileReviewResults } from "../u
 import { EntityHero } from "../components/EntityHero";
 import { useAuthPrompt } from "../context/AuthPromptContext";
 import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from "../lib/storageCache";
+import { useToast } from "../context/ToastContext";
 
 interface ListRatingStats {
   listId: string;
@@ -249,6 +250,7 @@ const cleanupPreviousProfileImages = async (userId: string, currentStoragePath: 
 
 export const ProfilePage: React.FC = () => {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const { openAuthPrompt } = useAuthPrompt();
   const { theme: activeTheme, setTheme: applyTheme, themes: availableThemes } = useTheme();
   const appConfig = useAppConfig();
@@ -1589,12 +1591,12 @@ export const ProfilePage: React.FC = () => {
   const processFile = async (file: File) => {
     if (!user) return;
     if (!file.type.startsWith("image/")) {
-      alert("Solo se permiten archivos de imagen");
+      showToast({ variant: "error", message: "Solo se permiten archivos de imagen." });
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
       // 5MB limit
-      alert("La imagen no debe superar los 5MB");
+      showToast({ variant: "error", message: "La imagen no debe superar los 5 MB." });
       return;
     }
 
@@ -1610,7 +1612,7 @@ export const ProfilePage: React.FC = () => {
         downloadURL = await getDownloadURL(storageRef);
       } catch (error) {
         console.error("Profile photo upload failed:", error);
-        alert(getProfileUploadErrorMessage(error));
+        showToast({ variant: "error", message: getProfileUploadErrorMessage(error) });
         return;
       }
 
@@ -1626,7 +1628,7 @@ export const ProfilePage: React.FC = () => {
         );
       } catch (error) {
         console.error("Profile photo profile save failed:", error);
-        alert(getProfileSaveErrorMessage(error));
+        showToast({ variant: "error", message: getProfileSaveErrorMessage(error) });
         return;
       }
 
@@ -1644,7 +1646,7 @@ export const ProfilePage: React.FC = () => {
       window.location.reload();
     } catch (error) {
       console.error("Error uploading image:", error);
-      alert("No se pudo cambiar la foto de perfil. Inténtalo de nuevo.");
+      showToast({ variant: "error", message: "No se pudo cambiar la foto de perfil. Inténtalo de nuevo." });
     } finally {
       setUploading(false);
       setDragActive(false);
@@ -1804,7 +1806,7 @@ export const ProfilePage: React.FC = () => {
       }
     } catch (error) {
       console.error("Follow error:", error);
-      alert("Error al seguir/dejar de seguir. Inténtalo de nuevo.");
+      showToast({ variant: "error", message: "No se pudo actualizar el seguimiento. Inténtalo de nuevo." });
       setIsFollowing(prevState); // Revert
     } finally {
       setFollowLoading(false);

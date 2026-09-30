@@ -21,6 +21,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Save, Loader, X, Smile } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -61,6 +63,8 @@ interface EditListFormProps {
 
 export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, onCancel, onDeleted, formId, onSavingChange }) => {
     const { user } = useAuth();
+    const { showToast } = useToast();
+    const confirm = useConfirm();
     const queryClient = useQueryClient();
     const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
 
@@ -98,7 +102,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 const docSnap = await getDoc(docRef);
 
                 if (!docSnap.exists()) {
-                    alert('Lista no encontrada');
+                    showToast({ variant: 'error', message: 'Lista no encontrada.' });
                     onCancel();
                     return;
                 }
@@ -108,7 +112,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 // Permission check: jefe can edit any list; for sublists owner can edit
                 const isOwner = user && data.userId === user.uid;
                 if (!isJefe && !isOwner) {
-                    alert('No tienes permiso para editar esta lista');
+                    showToast({ variant: 'error', message: 'No tienes permiso para editar esta lista.' });
                     onCancel();
                     return;
                 }
@@ -157,7 +161,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             }
         };
         fetchList();
-    }, [listId, loadingProfile, isJefe, onCancel, user]);
+    }, [listId, loadingProfile, isJefe, onCancel, user, showToast]);
 
     const addTag = (e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && tagInput.trim()) {
@@ -332,7 +336,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             onSuccess();
         } catch (error) {
             console.error('Error updating list:', error);
-            alert('Error al guardar cambios');
+            showToast({ variant: 'error', title: 'No se guardaron los cambios', message: 'Revisa tu conexión e inténtalo otra vez.' });
         } finally {
             setSaving(false);
             onSavingChange?.(false);
@@ -340,7 +344,13 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     };
 
     const handleDelete = async () => {
-        if (!window.confirm('¿Eliminar esta lista permanentemente? Esta acción no se puede deshacer.')) return;
+        const confirmed = await confirm({
+            title: '¿Eliminar esta lista?',
+            message: 'Se elimina de forma permanente. Esta acción no se puede deshacer.',
+            confirmLabel: 'Eliminar',
+            destructive: true,
+        });
+        if (!confirmed) return;
         setSaving(true);
         try {
             await deleteDoc(doc(db, 'lists', listId));
@@ -349,7 +359,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
             (onDeleted || onSuccess)();
         } catch (error) {
             console.error('Error deleting list:', error);
-            alert('Error al eliminar la lista');
+            showToast({ variant: 'error', message: 'No se pudo eliminar la lista.' });
             setSaving(false);
         }
     };

@@ -10,9 +10,11 @@ import type { ShareEntityPayload } from '../types/share';
 import { getShareEntityLabel } from '../types/share';
 import { getLocalRouteFromUrl } from '../utils/publicUrl';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useToast } from '../context/ToastContext';
 
 export const ChatsPage: React.FC = () => {
     const { user } = useAuth();
+    const { showToast } = useToast();
     const navigate = useNavigate();
     const { chatId } = useParams();
     const [chats, setChats] = useState<Chat[]>([]);
@@ -177,13 +179,6 @@ export const ChatsPage: React.FC = () => {
         return null; // Default
     };
 
-    const isPrivateUserOnline = (chat: Chat) => {
-        if (chat.type !== 'private') return false;
-        const targetId = chat.participants.find(p => p !== user?.uid);
-        if (!targetId) return false;
-        return Boolean(usersMap[targetId]?.isOnline);
-    };
-
     const activeChatObj = chats.find(c => c.id === activeChat);
     const activePrivateParticipantId = useMemo(() => {
         if (!activeChatObj || activeChatObj.type !== 'private') return null;
@@ -305,12 +300,6 @@ export const ChatsPage: React.FC = () => {
                                                 {getChatName(chat).charAt(0).toUpperCase()}
                                             </div>
                                         )}
-                                        {chat.type === 'private' && isPrivateUserOnline(chat) && (
-                                            <span
-                                                className="absolute right-0 bottom-0 w-3 h-3 rounded-full border-2 border-[var(--lt-card-strong)] bg-emerald-500"
-                                                title="En línea"
-                                            />
-                                        )}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-start mb-0.5">
@@ -371,10 +360,11 @@ export const ChatsPage: React.FC = () => {
                                         {activeChatObj?.type === 'group' ? (
                                             <span className="text-xs text-gray-500">{activeChatObj.participants.length} participantes</span>
                                         ) : (
-                                            <span className={`text-xs flex items-center gap-1 ${activePrivateUser?.isOnline ? 'text-green-500' : 'text-gray-500'}`}>
-                                                <span className={`w-2 h-2 rounded-full ${activePrivateUser?.isOnline ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></span>
-                                                {activePrivateUser?.isOnline ? 'En línea' : 'Desconectado'}
-                                            </span>
+                                            // El indicador "En línea" siempre decía "Desconectado" (la presencia
+                                            // no llegaba al perfil público); se muestra el @usuario.
+                                            activePrivateUser?.username ? (
+                                                <span className="text-xs text-gray-500 truncate block">@{activePrivateUser.username}</span>
+                                            ) : null
                                         )}
                                     </div>
                                 </button>
@@ -600,7 +590,7 @@ export const ChatsPage: React.FC = () => {
                                                             key={hit.objectID}
                                                             onClick={async () => {
                                                                 if (activeChatObj.participants.includes(hit.objectID)) {
-                                                                    alert("Este usuario ya está en el chat");
+                                                                    showToast({ variant: "info", message: "Esa persona ya está en el chat." });
                                                                     return;
                                                                 }
 
@@ -612,7 +602,7 @@ export const ChatsPage: React.FC = () => {
                                                                     // Optional: Close modal or show success feedback
                                                                 } catch (e) {
                                                                     console.error(e);
-                                                                    alert("Error al añadir participante");
+                                                                    showToast({ variant: "error", message: "No se pudo añadir a esa persona." });
                                                                 } finally {
                                                                     setAddingParticipant(false);
                                                                 }

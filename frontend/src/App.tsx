@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation as useRouterLocation } from 'react-router-dom';
 import React, { Suspense } from 'react';
 import { ToastProvider } from './context/ToastContext';
+import { ConfirmProvider } from './context/ConfirmContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Navbar } from './components/Navbar';
 import { App as CapApp } from '@capacitor/app';
@@ -16,6 +17,7 @@ import { NotificationBanner } from './components/NotificationBanner';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthPromptProvider } from './context/AuthPromptContext';
 import { PageAnalyticsTracker } from './components/PageAnalyticsTracker';
+import { useScrollRestoration } from './hooks/useScrollRestoration';
 
 // Lazy Load Pages
 const HomePage = React.lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
@@ -59,12 +61,9 @@ const NavbarWrapper = () => {
   return <Navbar />;
 };
 
-// Scroll to top on every route change
-const ScrollToTop = () => {
-  const location = useRouterLocation();
-  React.useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [location.pathname]);
+// Arriba al entrar en otra página; al volver atrás, donde estaba el usuario.
+const ScrollManager = () => {
+  useScrollRestoration();
   return null;
 };
 
@@ -268,10 +267,11 @@ const AppRoutes = () => {
 function App() {
   return (
     <ToastProvider>
+      <ConfirmProvider>
       <NotificationBannerProvider>
         <Router>
           <AuthPromptProvider>
-            <ScrollToTop />
+            <ScrollManager />
             <PageAnalyticsTracker />
             <div className="min-h-screen font-sans selection:bg-[var(--lt-accent-soft)]"
               style={{
@@ -288,6 +288,7 @@ function App() {
           </AuthPromptProvider>
         </Router>
       </NotificationBannerProvider>
+      </ConfirmProvider>
     </ToastProvider>
   );
 }

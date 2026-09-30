@@ -21,6 +21,8 @@ import { buildShareCriteriaGroups } from '../utils/shareCriteria';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { CategoryService } from '../services/CategoryService';
 import { useAuthPrompt } from '../context/AuthPromptContext';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 interface ReviewCardListProps {
     review: ReviewEntity;
@@ -46,6 +48,8 @@ const formatScore = (score: number | undefined) => {
 };
 
 export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp, hidePlaceName }) => {
+    const { showToast } = useToast();
+    const confirm = useConfirm();
     const placeClosedStatus = placeClosedStatusProp || (review as any).placeClosedStatus || undefined;
     const { user } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
@@ -193,13 +197,14 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
 
     const handleDelete = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (window.confirm('¿Eliminar reseña?')) {
+        if (await confirm({ title: '¿Eliminar esta valoración?', message: 'No se puede deshacer.', confirmLabel: 'Eliminar', destructive: true })) {
             setIsDeleting(true);
             try {
                 await ReviewService.deleteReview(review.listId, review.id, queryClient);
                 if (onDelete) onDelete(review.id);
             } catch (error) {
                 console.error(error);
+                showToast({ variant: 'error', message: 'No se pudo eliminar la valoración.' });
                 setIsDeleting(false);
             }
         }
