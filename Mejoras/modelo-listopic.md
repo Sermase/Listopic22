@@ -202,6 +202,7 @@ Conclusión:
 
 - **Hoy A, B, C y E son prácticamente iguales**: con tan pocos datos la elección no cambia nada visible.
 - **Recomendación: A para mostrar** (coincide con la decisión tomada), siempre junto al número de valoraciones, y **D solo para ordenar** sitios.
+- **Estado: provisional** (decisión del 30/09/2026). Revisar cuando haya ≥ 50 sitios con ≥ 5 valoraciones.
 - Reevaluar **E** (una persona = un voto) cuando haya sitios con muchas valoraciones de la misma persona. Es la mejor defensa contra que alguien infle un sitio.
 - Detalle por lista (B) en las estadísticas del sitio, como se decidió.
 
@@ -217,7 +218,18 @@ Conclusión:
 
 ---
 
-## 8. Preguntas abiertas
+## 8. Decisiones del 30/09/2026 (plan en `plan-fase-B1.md`)
+
+- Las Minilistas comparten **siempre** todos los criterios de la madre.
+- Al activar pesos, las valoraciones históricas **se recalculan**, con simulación y comparación antes/después.
+- Con valoraciones, «cuenta / no cuenta» y el peso quedan **bloqueados** salvo una migración explícita.
+- **Ranking único** bayesiano en toda la app.
+- Ámbito: ciudad → provincia / CCAA → España, más los radios de distancia.
+- Nota global del sitio: **media simple, provisional** mientras haya pocos datos.
+
+Las preguntas siguientes quedan como registro; las que siguen vivas están en `plan-fase-B1.md`.
+
+## 9. Preguntas abiertas (históricas)
 
 1. **Minilista con criterios viejos de la madre** (caso parcial de §3.3): ¿contar en la madre solo con los criterios comunes (lo implementado) o no contar en la madre hasta que se valoren todos los criterios actuales de la madre?
 2. **Pesos**: al activarlos, ¿se recalculan las notas guardadas con los pesos nuevos o se respeta la nota que la persona vio al publicar? Recomiendo respetarla (guardar `weightsVersion` en la valoración) y recalcular solo la Nota Listopic.
