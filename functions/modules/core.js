@@ -89,6 +89,7 @@ const {
   buildHttpsErrorFrom,
 } = require("./lib/https-errors");
 const { recalculateListReviewMetrics } = require("./lib/list-metrics");
+const { normalizeCcaa, pickCity } = require("./lib/geo-areas");
 const { logApiUsage } = require("./lib/apiLogger");
 
 const db = getFirestore();
@@ -392,11 +393,8 @@ function extractAddressFields(addressComponents) {
     if (!component || !Array.isArray(component.types)) {
       continue;
     }
-    if (component.types.includes('locality')) {
-      output.city = component.long_name;
-    }
     if (component.types.includes('administrative_area_level_1')) {
-      output.region = component.long_name;
+      output.region = normalizeCcaa(component.long_name);
     }
     if (component.types.includes('country')) {
       output.country = component.long_name;
@@ -405,6 +403,9 @@ function extractAddressFields(addressComponents) {
       output.postalCode = component.long_name;
     }
   }
+
+  // Ciudad con alternativas para pueblos sin «locality» (ver lib/geo-areas).
+  output.city = pickCity(addressComponents) || null;
 
   if (output.postalCode) {
     const provinceCode = output.postalCode.substring(0, 2);
@@ -1265,12 +1266,12 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
         let city = '', region = '', country = '', postalCode = '', province = '';
         if (result.address_components) {
           for (const component of result.address_components) {
-            if (component.types.includes('locality')) city = component.long_name;
-            if (component.types.includes('administrative_area_level_1')) region = component.long_name;
+            if (component.types.includes('administrative_area_level_1')) region = normalizeCcaa(component.long_name);
             if (component.types.includes('country')) country = component.long_name;
             if (component.types.includes('postal_code')) postalCode = component.long_name;
           }
         }
+        city = pickCity(result.address_components);
         if (postalCode) {
           const provinceCode = postalCode.substring(0, 2);
           province = provinceMap[provinceCode] || '';
