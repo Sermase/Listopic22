@@ -323,6 +323,9 @@
         "scoredCount": 2,
         "requiredCount": 2,
         "missing": []
+      },
+      "options": {
+        "useWeights": false
       }
     },
     {
@@ -515,7 +518,8 @@
         "weights": {
           "a": 3,
           "b": 1
-        }
+        },
+        "useWeights": false
       },
       "expected": {
         "score": 7,

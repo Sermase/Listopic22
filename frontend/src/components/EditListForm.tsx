@@ -23,7 +23,7 @@ import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
-import { orderedCriteriaEntries } from '../lib/criteria';
+import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
 import { deriveScoringWeights } from '../lib/scoring';
 import { writeWithOptionalFields } from '../lib/optionalFields';
 
@@ -165,6 +165,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                                 isPonderable: typeof data.scoringWeights?.[key] === 'number'
                                     ? data.scoringWeights[key] > 0
                                     : val.ponderable !== false,
+                                weight: typeof data.scoringWeights?.[key] === 'number' ? data.scoringWeights[key] : undefined,
                                 step: val.step ?? 0.5
                             });
                         }
@@ -275,7 +276,10 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
             // Pesos de la nota: ×1 lo que cuenta, ×0 lo que no. Con valoraciones se
             // conservan los ya guardados (cambiarlos exige una migración).
-            const scoringWeights = deriveScoringWeights(criteriaDefinitionMap, scoringLockedIds.length > 0 ? existingWeights : null);
+            const scoringWeights = deriveScoringWeights(criteriaDefinitionMap, {
+                ...weightsFromCriteria(criteria),
+                ...(scoringLockedIds.length > 0 ? existingWeights ?? {} : {}),
+            });
             await writeWithOptionalFields((includeWeights) => updateDoc(docRef, {
                 name,
                 description,

@@ -88,11 +88,22 @@ describe('scoring: compatibilidad con las notas ya guardadas', () => {
         }
     });
 
-    it('las ponderaciones están apagadas por defecto', () => {
-        expect(WEIGHTS_ENABLED).toBe(false);
-        expect(criterionWeight({ weight: 3 })).toBe(1);
-        expect(criterionWeight({ weight: 0 })).toBe(1);
+    it('los pesos ×0–×3 están activos; con useWeights: false todo lo que cuenta es ×1', () => {
+        expect(WEIGHTS_ENABLED).toBe(true);
+        expect(criterionWeight({ weight: 3 })).toBe(3);
+        expect(criterionWeight({ weight: 0 })).toBe(0);
         expect(criterionWeight({ ponderable: false, weight: 3 })).toBe(0);
+        expect(criterionWeight({ weight: 3 }, { useWeights: false })).toBe(1);
+        expect(criterionWeight({ id: 'a' }, { weights: { a: 2 } })).toBe(2);
+    });
+
+    it('con pesos ×0/×1 (los guardados hoy) la nota no cambia al activar pesos', () => {
+        const definition = { a: { ponderable: true }, b: { ponderable: true }, c: { ponderable: false } };
+        const scores = { a: 9, b: 6, c: 1 };
+        const weights = { a: 1, b: 1, c: 0 };
+        expect(computeReviewScore(scores, definition, { weights }).score)
+            .toBe(computeReviewScore(scores, definition, { weights, useWeights: false }).score);
+        expect(computeReviewScore(scores, definition, { weights: { ...weights, a: 3 } }).score).toBe(8.3);
     });
 });
 

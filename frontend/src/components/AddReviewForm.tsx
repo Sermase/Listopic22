@@ -15,7 +15,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { isGooglePlacePhotoUrl } from '../utils/placeImages';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from '../lib/storageCache';
-import { computeReviewScore, isComputingCriterion } from '../lib/scoring';
+import { computeReviewScore, criterionWeight, isComputingCriterion } from '../lib/scoring';
 import { formatScore, SCORE_BADGE, SCORE_BAND_EMOJI, SCORE_BAND_LABEL, scoreBand, scoreTextColor } from '../lib/scoreScale';
 import { CriterionRating } from './CriterionRating';
 import { orderedCriteriaEntries } from '../lib/criteria';
@@ -1248,6 +1248,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                 criterion={criterion}
                                                 value={criteriaScores[criterion.id]}
                                                 counts
+                                                weight={criterionWeight(criterion, scoringOptions)}
                                                 onChange={(value) => setCriterionScore(criterion.id, value)}
                                             />
                                         ))}

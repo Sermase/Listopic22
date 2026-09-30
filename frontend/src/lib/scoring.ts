@@ -7,8 +7,8 @@
  *   una Minilista puede tener criterios extra; para la madre no cuentan.
  * - Minilista: usa todos sus criterios (los heredados + los suyos).
  * - Pesos: la fuente de verdad es `scoringWeights` de la lista (id → 0..3).
- *   Hoy solo hay ×1 (cuenta) y ×0 (no cuenta). Si una lista antigua no tiene
- *   `scoringWeights`, se usa `ponderable`. Los pesos ×2/×3 están APAGADOS.
+ *   ×0 no cuenta; ×1, ×2 y ×3 cuentan esas veces. Si una lista antigua no tiene
+ *   `scoringWeights`, se usa `ponderable` (×1 / ×0).
  * - Un criterio sin puntuar en una valoración (p. ej. porque se añadió después)
  *   no cuenta para la media de esa valoración.
  * - Ranking: una sola fórmula bayesiana para toda la app (`rankPosition`).
@@ -20,14 +20,17 @@ export const SCORE_MIN = 0;
 export const SCORE_MAX = 10;
 export const MAX_CRITERION_WEIGHT = 3;
 
-/** Cambiar a true solo cuando se decida activar ×0–×3 (ver Mejoras/modelo-listopic.md). */
-export const WEIGHTS_ENABLED = false;
+/**
+ * Pesos ×0–×3 activos. En listas con valoraciones solo cambian con la migración
+ * del servidor (simular → aplicar). Poner false vuelve a «cuenta = ×1».
+ */
+export const WEIGHTS_ENABLED = true;
 
 export interface ScoringCriterion {
     id: string;
     ponderable?: boolean;
     isPonderable?: boolean;
-    /** Peso futuro 0–3. Se ignora mientras WEIGHTS_ENABLED sea false. */
+    /** Peso 0–3 en la propia definición (si la lista no trae `scoringWeights`). */
     weight?: number;
 }
 
@@ -41,7 +44,7 @@ export type CriteriaInput =
 export type ScoresInput = Readonly<Record<string, unknown>> | null | undefined;
 
 export interface ScoringOptions {
-    /** Activa ×2/×3. Por defecto WEIGHTS_ENABLED (apagado): cualquier peso > 0 cuenta ×1. */
+    /** Usa ×2/×3. Por defecto WEIGHTS_ENABLED; con false cualquier peso > 0 cuenta ×1. */
     useWeights?: boolean;
     /** `scoringWeights` de la lista (id → 0..3). Si trae el criterio, manda sobre `ponderable`. */
     weights?: Readonly<Record<string, unknown>> | null;

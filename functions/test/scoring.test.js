@@ -45,9 +45,10 @@ test('pesos derivados', async (t) => {
   }
 });
 
-test('ponderaciones apagadas por defecto', () => {
-  assert.equal(scoring.WEIGHTS_ENABLED, false);
-  assert.equal(scoring.criterionWeight({ weight: 3 }), 1);
+test('pesos ×0–×3 activos', () => {
+  assert.equal(scoring.WEIGHTS_ENABLED, true);
+  assert.equal(scoring.criterionWeight({ weight: 3 }), 3);
+  assert.equal(scoring.criterionWeight({ weight: 3 }, { useWeights: false }), 1);
 });
 
 test('regla histórica de criterios nuevos', async (t) => {

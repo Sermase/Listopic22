@@ -16,6 +16,8 @@ interface CriterionRatingProps {
     /** Cuenta para la nota (obligatorio). Si no, es un detalle opcional. */
     counts: boolean;
     onChange: (value: number | undefined) => void;
+    /** Peso en la nota (solo se enseña si es ×2 o ×3). */
+    weight?: number;
 }
 
 const UNSCORED_TRACK = 'var(--lt-border)';
@@ -25,7 +27,7 @@ const UNSCORED_TRACK = 'var(--lt-border)';
  * ninguna nota puesta hasta que la persona lo toca (también vale tocar el
  * centro o pulsar Enter para dejar el 5).
  */
-export const CriterionRating: React.FC<CriterionRatingProps> = ({ criterion, value, counts, onChange }) => {
+export const CriterionRating: React.FC<CriterionRatingProps> = ({ criterion, value, counts, onChange, weight = 1 }) => {
     const inputId = useId();
     const scored = isScoreValue(value);
     const step = criterion.step || (counts ? 0.1 : 0.5);
@@ -44,8 +46,16 @@ export const CriterionRating: React.FC<CriterionRatingProps> = ({ criterion, val
     return (
         <div className="space-y-2" data-criterion-id={criterion.id}>
             <div className="flex items-center justify-between gap-3">
-                <label htmlFor={inputId} className="text-sm font-semibold text-[var(--lt-text)]">
+                <label htmlFor={inputId} className="text-sm font-semibold text-[var(--lt-text)] flex items-center gap-1.5">
                     {label}
+                    {counts && weight > 1 && (
+                        <span
+                            className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)]"
+                            title={`Cuenta ${weight} veces en la nota`}
+                        >
+                            ×{weight}
+                        </span>
+                    )}
                 </label>
                 {scored ? (
                     <span

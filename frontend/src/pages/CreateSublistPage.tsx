@@ -8,7 +8,7 @@ import { ArrowLeft, Save, Loader, Image as ImageIcon, X, Search, ChevronRight, U
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from '../components/TagEmojiPicker';
 import { CriteriaBuilder, type Criterion } from '../components/CriteriaBuilder';
 import { isInlineImage, uploadListCover } from '../lib/listCover';
-import { orderedCriteriaEntries } from '../lib/criteria';
+import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
 import { writeWithOptionalFields } from '../lib/optionalFields';
 import { deriveScoringWeights } from '../lib/scoring';
 
@@ -101,6 +101,7 @@ export const CreateSublistPage: React.FC = () => {
                                         minLabel: val.labelMin,
                                         maxLabel: val.labelMax,
                                         isPonderable: val.ponderable !== false,
+                                        weight: typeof data.scoringWeights?.[key] === 'number' ? data.scoringWeights[key] : undefined,
                                         step: typeof val.step === 'number' ? val.step : undefined,
                                         locked: true // Inherited criteria are locked
                                     });
@@ -277,9 +278,9 @@ export const CreateSublistPage: React.FC = () => {
                 criteriaAveragesUpdatedAt: serverTimestamp(),
             };
 
-            // Pesos: los heredados, iguales que en la madre; los propios, ×1 / ×0.
+            // Pesos: los heredados, iguales que en la madre; los propios, el elegido.
             const scoringWeights = {
-                ...deriveScoringWeights(criteriaDefinitionMap),
+                ...deriveScoringWeights(criteriaDefinitionMap, weightsFromCriteria(criteria)),
                 ...deriveScoringWeights(parentList.criteriaDefinition || {}, parentList.scoringWeights || null),
             };
             const docRef = await writeWithOptionalFields((includeWeights) => addDoc(

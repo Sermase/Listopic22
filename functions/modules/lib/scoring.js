@@ -7,7 +7,8 @@
 const SCORE_MIN = 0;
 const SCORE_MAX = 10;
 const MAX_CRITERION_WEIGHT = 3;
-const WEIGHTS_ENABLED = false;
+// Pesos ×0–×3 activos (espejo de frontend/src/lib/scoring.ts).
+const WEIGHTS_ENABLED = true;
 
 // Ranking único: posición = (n·media + 3·7) / (n + 3). Ver scoring.ts.
 const RANK_PRIOR_WEIGHT = 3;

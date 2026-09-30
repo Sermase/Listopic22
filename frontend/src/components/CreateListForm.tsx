@@ -9,7 +9,7 @@ import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker'
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { type ListEntity } from '../hooks/useLists';
 import { isInlineImage, uploadListCover } from '../lib/listCover';
-import { orderedCriteriaEntries } from '../lib/criteria';
+import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
 import { writeWithOptionalFields } from '../lib/optionalFields';
 import { deriveScoringWeights } from '../lib/scoring';
 
@@ -84,6 +84,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                         minLabel: val.labelMin || 'Malo',
                         maxLabel: val.labelMax || 'Excelente',
                         isPonderable: val.ponderable !== false,
+                        weight: typeof parentScoringWeights?.[key] === 'number' ? parentScoringWeights[key] : undefined,
                         step: val.step ?? 0.5
                     });
                 }
@@ -264,9 +265,9 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 reactions: {},
             };
 
-            // scoringWeights: ×1 lo que cuenta, ×0 lo que no (fuente de verdad de la nota).
+            // scoringWeights: el peso elegido (×0–×3); los heredados, iguales que en la madre.
             const scoringWeights = {
-                ...deriveScoringWeights(criteriaDefinitionMap),
+                ...deriveScoringWeights(criteriaDefinitionMap, weightsFromCriteria(criteria)),
                 ...(parentCriteria ? deriveScoringWeights(parentCriteria, parentScoringWeights ?? null) : {}),
             };
             const docRef = await writeWithOptionalFields((includeWeights) => addDoc(
