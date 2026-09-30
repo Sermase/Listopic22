@@ -931,27 +931,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 newReviewId = newDocRef.id;
             }
 
-            // Update Counters (Simplified for readability, assuming existing logic was correct just messy)
-            if (!editReviewId) {
-                const updates = [];
-                if (finalListId) {
-                    updates.push(updateDoc(doc(db, 'lists', finalListId), {
-                        itemCount: increment(1),
-                        reviewCount: increment(1),
-                        updatedAt: serverTimestamp()
-                    }));
-                }
-                if (sublistId && sublistId !== finalListId) {
-                    updates.push(updateDoc(doc(db, 'lists', sublistId), {
-                        itemCount: increment(1),
-                        reviewCount: increment(1),
-                        updatedAt: serverTimestamp()
-                    }));
-                }
-                // Use allSettled so a counter update failure (e.g. no write access to parent list)
-                // doesn't block the review creation success toast.
-                await Promise.allSettled(updates);
-            }
+            // Los contadores de la lista y de la minilista los recalculan Cloud
+            // Functions a partir de las reseñas (antes el cliente además sumaba
+            // +1 por reseña, contando dos veces y con itemCount incorrecto).
 
             // Si el lugar no tiene portada, usamos la primera foto de reseña del usuario.
             if (finalPlaceId && finalPhotoUrl) {

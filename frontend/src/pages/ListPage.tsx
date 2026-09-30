@@ -1000,7 +1000,7 @@ export const ListPage: React.FC = () => {
                                     className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
                                 >
                                     <Plus className="w-4 h-4" />
-                                    <span>+ Añadir reseña</span>
+                                    <span>Añadir reseña</span>
                                 </button>
                             )}
 

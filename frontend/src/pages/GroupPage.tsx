@@ -114,7 +114,6 @@ export const GroupPage: React.FC = () => {
         if (!placeId || !decodedName) return;
         setLoading(true);
         try {
-            console.log("Fetching Group Data for:", { placeId, decodedName });
 
             // 1. Fetch Place Details First to get authoritative Name
             const pSnap = await getDoc(doc(db, 'places', placeId));
@@ -174,7 +173,6 @@ export const GroupPage: React.FC = () => {
             }
 
             const allPlaceReviews = Array.from(reviewMap.values());
-            console.log("Group query candidate reviews:", allPlaceReviews.length);
 
             // Robust normalization for filtering
             const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -192,7 +190,6 @@ export const GroupPage: React.FC = () => {
                 })
                 .sort((a: any, b: any) => toMillis(b.createdAt) - toMillis(a.createdAt));
 
-            console.log("Group query filtered matches:", feats.length);
 
             // --- Enrichment: Users & Lists (FIX for missing names) ---
             const userIds = [...new Set(feats.map(r => r.userId || r.authorId).filter(Boolean))] as string[];

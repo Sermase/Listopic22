@@ -1,5 +1,5 @@
 import { db } from '../firebase';
-import { doc, deleteDoc, getDoc, updateDoc, setDoc, increment, serverTimestamp, type DocumentData, type DocumentReference } from 'firebase/firestore';
+import { doc, deleteDoc, getDoc, setDoc, serverTimestamp, type DocumentData, type DocumentReference } from 'firebase/firestore';
 import type { QueryClient } from '@tanstack/react-query';
 
 interface ReviewCachePage {
@@ -45,52 +45,11 @@ export const ReviewService = {
             const resolvedReviewData = asReviewData(canonicalSnap.data());
             await deleteDoc(canonicalRef);
 
-            // Update Counters (Best effort)
-            const updates = [];
-
-            // Resolve List ID
+            // Los contadores (lista, minilista, usuario, sitio) los recalculan
+            // Cloud Functions al borrarse la reseña. Antes el cliente también los
+            // restaba y el del usuario bajaba dos veces por cada reseña borrada.
             const finalListId = listId || (typeof resolvedReviewData.listId === 'string' ? resolvedReviewData.listId : undefined);
-            const sublistId = typeof resolvedReviewData.sublistId === 'string' ? resolvedReviewData.sublistId : null;
-
-            // 1. List Counters
-            if (finalListId) {
-                const listRef = doc(db, 'lists', finalListId);
-                updates.push(updateDoc(listRef, {
-                    reviewCount: increment(-1),
-                    itemCount: increment(-1),
-                    updatedAt: serverTimestamp()
-                }).catch(e => console.warn("Failed to decrement list counters", e)));
-            }
-            if (sublistId && sublistId !== finalListId) {
-                const sublistRef = doc(db, 'lists', sublistId);
-                updates.push(updateDoc(sublistRef, {
-                    reviewCount: increment(-1),
-                    itemCount: increment(-1),
-                    updatedAt: serverTimestamp()
-                }).catch(e => console.warn("Failed to decrement sublist counters", e)));
-            }
-
-            // 2. User Counters
-            const userId = typeof resolvedReviewData.userId === 'string'
-                ? resolvedReviewData.userId
-                : (typeof resolvedReviewData.authorId === 'string' ? resolvedReviewData.authorId : undefined);
-            if (userId) {
-                const userRef = doc(db, 'users', userId);
-                updates.push(updateDoc(userRef, {
-                    reviewsCount: increment(-1)
-                }).catch(e => console.warn("Failed to decrement user counters", e)));
-            }
-
-            // 3. Place Counters
             const placeId = typeof resolvedReviewData.placeId === 'string' ? resolvedReviewData.placeId : undefined;
-            if (placeId) {
-                const placeRef = doc(db, 'places', placeId);
-                updates.push(updateDoc(placeRef, {
-                    reviewsCount: increment(-1)
-                }).catch(e => console.warn("Failed to decrement place counters", e)));
-            }
-
-            await Promise.all(updates);
 
             if (queryClient) {
                 // Remove the deleted review from all cached review pages immediately

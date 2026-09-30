@@ -25,6 +25,10 @@ export function CardCarousel<T>({
     icon,
     accentClass = "bg-white/10",
 }: CardCarouselProps<T>) {
+    // Una sección sin contenido no aporta nada: se oculta en vez de decir
+    // "Sin resultados por ahora".
+    if (!loading && items.length === 0) return null;
+
     return (
         <section className="py-2">
             <div className="container mx-auto px-4 mb-4 flex items-end justify-between">
@@ -83,14 +87,14 @@ export function CardCarousel<T>({
                 >
                     {loading ? (
                         Array.from({ length: 4 }).map((_, i) => (
-                            <div key={i} className="min-w-[280px] md:min-w-[320px] flex-shrink-0 snap-start rounded-2xl overflow-hidden bg-white/5 animate-pulse">
-                                <div className="h-40 bg-white/10" />
+                            <div key={i} className="min-w-[280px] md:min-w-[320px] flex-shrink-0 snap-start rounded-2xl overflow-hidden lt-skeleton-card" aria-hidden="true">
+                                <div className="h-40 bg-[var(--lt-skeleton-base)]" />
                                 <div className="p-3 space-y-2">
-                                    <div className="h-4 bg-white/10 rounded w-3/4" />
-                                    <div className="h-3 bg-white/5 rounded w-1/2" />
+                                    <div className="h-4 bg-[var(--lt-skeleton-base)] rounded w-3/4" />
+                                    <div className="h-3 bg-[var(--lt-skeleton-base)] rounded w-1/2" />
                                     <div className="flex gap-2 pt-1">
-                                        <div className="h-3 bg-white/5 rounded w-12" />
-                                        <div className="h-3 bg-white/5 rounded w-12" />
+                                        <div className="h-3 bg-[var(--lt-skeleton-base)] rounded w-12" />
+                                        <div className="h-3 bg-[var(--lt-skeleton-base)] rounded w-12" />
                                     </div>
                                 </div>
                             </div>

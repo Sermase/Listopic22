@@ -7,6 +7,7 @@ import { db } from '../firebase';
 import { ArrowLeft, Save, Loader, Image as ImageIcon, X, Search, ChevronRight, UserPlus, Globe, Lock as LockIcon, Smile } from 'lucide-react';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from '../components/TagEmojiPicker';
 import { CriteriaBuilder, type Criterion } from '../components/CriteriaBuilder';
+import { isInlineImage, uploadListCover } from '../lib/listCover';
 
 export const CreateSublistPage: React.FC = () => {
     const { user } = useAuth();
@@ -27,7 +28,8 @@ export const CreateSublistPage: React.FC = () => {
     const [isPublicWritable, setIsPublicWritable] = useState(false);
 
     // Image
-    const [_imageFile, setImageFile] = useState<File | null>(null); // Prefix with _ or remove if truly unused. used in handler but state never read.
+    // Archivo elegido: se sube a Storage tras crear la minilista (nunca en base64 en el documento).
+    const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
 
     // Advanced
@@ -213,7 +215,11 @@ export const CreateSublistPage: React.FC = () => {
         setLoading(true);
 
         try {
-            const finalPhotoUrl = imagePreview || parentList.thumbnailUrl || parentList.mainImageUrl || parentList.photoUrl || parentList.coverUrl || parentList.imageUrl || '';
+            const parentPhotoUrl = parentList.thumbnailUrl || parentList.mainImageUrl || parentList.photoUrl || parentList.coverUrl || parentList.imageUrl || '';
+            // La vista previa puede ser base64: mientras se sube la foto propia se usa la de la lista madre.
+            const finalPhotoUrl = imagePreview && !isInlineImage(imagePreview)
+                ? imagePreview
+                : (isInlineImage(parentPhotoUrl) ? '' : parentPhotoUrl);
 
             const criteriaDefinitionMap: Record<string, any> = {};
             criteria.forEach(c => {
@@ -266,6 +272,15 @@ export const CreateSublistPage: React.FC = () => {
             };
 
             const docRef = await addDoc(collection(db, 'lists'), newListData);
+
+            if (imageFile) {
+                try {
+                    await uploadListCover(docRef.id, imageFile);
+                } catch (coverError) {
+                    console.error('Error uploading minilist cover:', coverError);
+                    showToast({ variant: 'error', message: 'La minilista se creó, pero no se pudo subir la portada.' });
+                }
+            }
             showToast({
                 variant: 'success',
                 title: 'Sublista creada',

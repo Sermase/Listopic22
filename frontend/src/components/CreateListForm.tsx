@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { collection, addDoc, serverTimestamp, getDocs, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useQueryClient } from '@tanstack/react-query';
 import { Save, Loader, Image as ImageIcon, X, Smile } from 'lucide-react';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { type ListEntity } from '../hooks/useLists';
+import { isInlineImage, uploadListCover } from '../lib/listCover';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -61,6 +62,8 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
 
     // Image
     const [imagePreview, setImagePreview] = useState<string | null>(initialData?.photoUrl || initialData?.mainImageUrl || null);
+    // Archivo elegido: se sube a Storage tras crear la lista (nunca en base64 en el documento).
+    const [imageFile, setImageFile] = useState<File | null>(null);
 
     // Advanced
     // Advanced
@@ -156,6 +159,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
+            setImageFile(file);
             const reader = new FileReader();
             reader.onloadend = () => setImagePreview(reader.result as string);
             reader.readAsDataURL(file);
@@ -194,7 +198,8 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
         setLoading(true);
 
         try {
-            const finalPhotoUrl = imagePreview || '';
+            // La vista previa puede ser base64: solo se guarda una URL real.
+            const finalPhotoUrl = imagePreview && !isInlineImage(imagePreview) ? imagePreview : '';
 
             // Transform criteria array back to Map/Object for DB
             const criteriaDefinitionMap: CriteriaDefinitionMap = {};
@@ -254,11 +259,17 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
 
             const docRef = await addDoc(collection(db, 'lists'), newListData);
 
-            // Update User's listsCount
-            const userRef = doc(db, 'users', user.uid);
-            await updateDoc(userRef, {
-                listsCount: increment(1)
-            }).catch(e => console.warn("Could not increment user list count", e));
+            if (imageFile) {
+                try {
+                    await uploadListCover(docRef.id, imageFile);
+                } catch (coverError) {
+                    console.error('Error uploading list cover:', coverError);
+                    showToast({ variant: 'error', message: 'La lista se creó, pero no se pudo subir la portada. Puedes añadirla al editarla.' });
+                }
+            }
+
+            // El contador de listas del usuario lo mantiene Cloud Functions
+            // (updateUserStatsOnListChange).
 
             queryClient.invalidateQueries({ queryKey: ['lists'] });
             showToast({
