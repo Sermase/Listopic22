@@ -3,6 +3,7 @@ import {
     buildAreaOptions,
     contextualRanks,
     decodeArea,
+    distinctContextRanks,
     encodeArea,
     geoValue,
     matchesArea,
@@ -76,5 +77,11 @@ describe('geoAreas', () => {
         const ranks = contextualRanks(items).get('m3');
         // Mirando «Madrid» (3 elementos): «Madrid provincia» y la CCAA son lo mismo → se muestra España.
         expect(primaryContextRank(ranks, { kind: 'city', value: 'Madrid' }, 3)!.label).toBe('#1 en España');
+    });
+
+    it('sin repeticiones cuando ciudad, provincia, CCAA y país son el mismo conjunto', () => {
+        const items = [1, 2, 3].map((n) => ({ id: `v${n}`, ...vll, average: 7 + n, count: 3 }));
+        const labels = distinctContextRanks(contextualRanks(items).get('v3')!).map((r) => r.label);
+        expect(labels).toEqual(['#1 en Valladolid']);
     });
 });

@@ -188,3 +188,13 @@ export function primaryContextRank(
     }
     return null;
 }
+
+/** Quita contextos que tienen exactamente los mismos elementos que otro más concreto. */
+export function distinctContextRanks(ranks: ReadonlyArray<ContextRank>): ContextRank[] {
+    const seenTotals = new Set<number>();
+    return ranks.filter((rank) => {
+        if (seenTotals.has(rank.total)) return false;
+        seenTotals.add(rank.total);
+        return true;
+    });
+}

@@ -456,9 +456,12 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         };
     });
 
+    // Nota Listopic global del sitio (PROVISIONAL): media simple de sus
+    // valoraciones en todas las Listas. Revisable cuando haya más datos
+    // (ver Mejoras/modelo-listopic.md §6). Nunca la nota de Google.
     const avgScore = reviews.length
         ? reviews.reduce((sum, r) => sum + (r.overallRating || 0), 0) / reviews.length
-        : (placeData?.rating || placeData?.avgScore || 0);
+        : (typeof placeData?.averageRating === 'number' ? placeData.averageRating : 0);
 
     let coords: PlaceDetails['coords'];
     if (placeData?.location) {
