@@ -28,6 +28,9 @@ interface RecountResult {
 export const ReviewsConsolidationCard: React.FC = () => {
     const [busy, setBusy] = useState(false);
     const [log, setLog] = useState<string[]>([]);
+    // La migración de reseñas raíz ya se hizo (la colección está vacía): sus
+    // botones solo aparecen si «Contar» encuentra alguna.
+    const [rootCount, setRootCount] = useState<number | null>(null);
 
     const appendLog = (message: string) => {
         setLog(prev => [`${new Date().toLocaleTimeString()} — ${message}`, ...prev].slice(0, 200));
@@ -40,6 +43,7 @@ export const ReviewsConsolidationCard: React.FC = () => {
             const res = await countFn({});
             const data = res.data as { rootReviews: number };
             appendLog(`📊 Reseñas en la colección raíz reviews/: ${data.rootReviews}`);
+            setRootCount(data.rootReviews);
         } catch (e) {
             appendLog(`❌ Error al contar: ${e instanceof Error ? e.message : String(e)}`);
         } finally {
@@ -109,13 +113,12 @@ export const ReviewsConsolidationCard: React.FC = () => {
     return (
         <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">
             <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                <Database className="w-5 h-5 text-violet-400" /> Consolidación de reseñas (root → listas)
+                <Database className="w-5 h-5 text-violet-400" /> Contadores y reseñas antiguas
             </h3>
             <p className="text-gray-400 mb-4 text-sm">
-                Migra las reseñas legacy de la colección raíz <code className="text-violet-300 bg-black/30 px-1 rounded">reviews/</code> a
-                la canónica <code className="text-violet-300 bg-black/30 px-1 rounded">lists/{'{listId}'}/reviews</code> conservando el mismo ID
-                y moviendo reactions/comments. Flujo: <strong>1)</strong> Auditar · <strong>2)</strong> Migrar · <strong>3)</strong> Recontar contadores.
-                Detalles en <code className="text-violet-300 bg-black/30 px-1 rounded">docs/REVIEWS-MIGRATION.md</code>.
+                «Recontar contadores» corrige los contadores de listas, usuarios y sitios a partir de las valoraciones reales (no necesita índices).
+                La migración de la colección raíz <code className="text-violet-300 bg-black/30 px-1 rounded">reviews/</code> ya está hecha;
+                sus botones solo aparecen si «Contar root» encuentra alguna. Detalles en <code className="text-violet-300 bg-black/30 px-1 rounded">docs/REVIEWS-MIGRATION.md</code>.
             </p>
             <div className="flex gap-3 flex-wrap">
                 <button
@@ -126,6 +129,7 @@ export const ReviewsConsolidationCard: React.FC = () => {
                     {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
                     Contar root
                 </button>
+                {rootCount !== null && rootCount > 0 && (<>
                 <button
                     onClick={() => runConsolidation(true)}
                     disabled={busy}
@@ -142,13 +146,14 @@ export const ReviewsConsolidationCard: React.FC = () => {
                     {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ArrowDownToLine className="w-4 h-4" />}
                     2 · Migrar
                 </button>
+                </>)}
                 <button
                     onClick={handleRecount}
                     disabled={busy}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
                 >
                     {busy ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Calculator className="w-4 h-4" />}
-                    3 · Recontar contadores
+                    Recontar contadores
                 </button>
             </div>
             {log.length > 0 && (

@@ -10,9 +10,11 @@
  *   cd functions
  *   GOOGLE_APPLICATION_CREDENTIALS=/ruta/service-account.json node scripts/audit-review-visibility.js
  *   … --user=TtU5VnnJGyNOzYMjcoAOPvhAap82   (detalle de una persona: qué ve su perfil y qué no)
+ *   … --details                              (ruta de cada valoración que cambiaría)
  *
  * Reparar (escribe SOLO el campo `visibility`, nada más):
- *   … node scripts/audit-review-visibility.js --apply
+ *   … node scripts/audit-review-visibility.js --apply --expect=TubrhJBOv3qUNDMXmSd3:32,jSwygYuHeF5MCkrMLzF5:9
+ *   (sin --expect, o si los cambios por lista no coinciden exactamente, NO escribe nada)
  */
 const admin = require('firebase-admin');
 
@@ -21,61 +23,69 @@ const db = admin.firestore();
 
 const APPLY = process.argv.includes('--apply');
 const USER = (process.argv.find((a) => a.startsWith('--user=')) || '').slice('--user='.length);
+const DETAILS = process.argv.includes('--details');
+// --expect=listaId:N,listaId:N  → --apply solo si los cambios por lista coinciden EXACTAMENTE.
+const EXPECT = (process.argv.find((a) => a.startsWith('--expect=')) || '').slice('--expect='.length);
 
-const listVisibility = (list) => (list && (list.isPublic === true || list.visibility === 'public') ? 'public' : 'private');
+const { effectiveVisibility } = require('../modules/lib/list-visibility');
+const { ABSENT, writeBackup } = require('./lib/backup');
 
 (async () => {
   const listsSnap = await db.collection('lists').get();
   const lists = new Map(listsSnap.docs.map((d) => [d.id, d.data() || {}]));
   const reviewsSnap = await db.collectionGroup('reviews').get();
 
-  const mismatches = [];
-  const byList = new Map();
-  const userRows = [];
-  reviewsSnap.forEach((doc) => {
-    const r = doc.data() || {};
-    const segments = doc.ref.path.split('/');
-    const storedIn = segments[0] === 'lists' ? segments[1] : (r.listId || '');
-    const target = typeof r.sublistId === 'string' && r.sublistId.trim() ? r.sublistId : storedIn;
-    const targetList = lists.get(target);
-    const expected = targetList ? listVisibility(targetList) : null;
-    const actual = r.visibility === undefined ? '(sin campo)' : r.visibility;
-    const author = r.userId || r.authorId || '?';
-    const row = { path: doc.ref.path, target, targetName: targetList?.name || '(lista borrada)', author, expected, actual, hasCreatedAt: !!r.createdAt, item: r.itemName || r.placeName || '' };
-    if (USER && author === USER) userRows.push(row);
-    if (expected && actual !== expected) {
-      mismatches.push(row);
-      const key = `${row.targetName} (${target}) → debería ser ${expected}`;
-      const entry = byList.get(key) || new Map();
-      entry.set(`${actual} · autor ${author}`, (entry.get(`${actual} · autor ${author}`) || 0) + 1);
-      byList.set(key, entry);
-    }
-  });
+  const profilesSnap = await db.collection('publicProfiles').get();
+  const userName = new Map(profilesSnap.docs.map((d) => [d.id, d.data().username || d.data().displayName || d.id]));
 
-  console.log(`Listas: ${lists.size} · valoraciones: ${reviewsSnap.size}`);
-  console.log(`Con visibilidad distinta a la de su lista: ${mismatches.length}`);
-  byList.forEach((entry, key) => {
-    console.log(`\n  ${key}`);
-    entry.forEach((count, label) => console.log(`    ${count} × ${label}`));
-  });
+  const mismatches = [];
+  const perList = new Map(); // target → { name, total, pub, priv, missing, users:Set, changes:[] }
+  const userRows = [];
   const orphan = [];
   reviewsSnap.forEach((doc) => {
     const r = doc.data() || {};
     const segments = doc.ref.path.split('/');
     const storedIn = segments[0] === 'lists' ? segments[1] : (r.listId || '');
     const target = typeof r.sublistId === 'string' && r.sublistId.trim() ? r.sublistId : storedIn;
-    if (!lists.has(target)) orphan.push(doc.ref.path);
+    const targetList = lists.get(target);
+    const author = r.userId || r.authorId || '?';
+    const actual = r.visibility === undefined ? '(sin campo)' : r.visibility;
+    if (!targetList) { orphan.push(doc.ref.path); return; }
+    // Minilista de madre privada: como máximo privada.
+    const expected = effectiveVisibility(targetList, targetList.parentListId ? lists.get(targetList.parentListId) : null);
+    const row = { path: doc.ref.path, target, author, expected, actual, hasCreatedAt: !!r.createdAt, item: [r.itemName, r.placeName].filter(Boolean).join(' · ') };
+    if (USER && author === USER) userRows.push(row);
+    const entry = perList.get(target) || { name: targetList.name || target, listVisibility: expected, minilista: Boolean(targetList.parentListId), total: 0, pub: 0, priv: 0, missing: 0, users: new Map(), changes: [] };
+    entry.total += 1;
+    if (actual === 'public') entry.pub += 1; else if (actual === 'private') entry.priv += 1; else entry.missing += 1;
+    if (actual !== expected) {
+      mismatches.push(row);
+      entry.changes.push(row);
+      const name = userName.get(author) || author;
+      entry.users.set(name, (entry.users.get(name) || 0) + 1);
+    }
+    perList.set(target, entry);
   });
+
+  console.log(`Listas: ${lists.size} · valoraciones: ${reviewsSnap.size} · a cambiar: ${mismatches.length}\n`);
+  console.log(['Lista', 'Visibilidad lista', 'Total', 'Públicas', 'Privadas', 'Sin campo', 'A cambiar', 'Usuarios afectados'].join(' | '));
+  [...perList.values()].sort((a, b) => b.changes.length - a.changes.length || b.total - a.total).forEach((e) => {
+    console.log([`${e.name}${e.minilista ? ' (Minilista)' : ''}`, e.listVisibility, e.total, e.pub, e.priv, e.missing, e.changes.length,
+      [...e.users.entries()].map(([n, c]) => `${n} (${c})`).join(', ') || '—'].join(' | '));
+  });
+  if (DETAILS) {
+    console.log('\nValoraciones que cambiaría el script:');
+    mismatches.forEach((m) => console.log(`  ${m.path}  ${m.actual} → ${m.expected}  ${userName.get(m.author) || m.author}  ${m.item}`));
+  }
   if (orphan.length) console.log(`\nValoraciones cuya lista ya no existe (no se tocan): ${orphan.length}`);
 
   if (USER) {
     const visible = userRows.filter((r) => r.actual === 'public' && r.hasCreatedAt);
-    console.log(`\nPersona ${USER}: ${userRows.length} valoraciones en Firestore; el perfil público muestra ${visible.length}.`);
-    const hidden = userRows.filter((r) => !(r.actual === 'public' && r.hasCreatedAt));
+    console.log(`\nPersona ${userName.get(USER) || USER}: ${userRows.length} valoraciones en Firestore; el perfil público muestra ${visible.length}.`);
     const reasons = new Map();
-    hidden.forEach((r) => {
+    userRows.filter((r) => !(r.actual === 'public' && r.hasCreatedAt)).forEach((r) => {
       const why = r.actual !== 'public' ? `visibility = ${r.actual}` : 'sin createdAt';
-      const key = `${r.targetName}: ${why}`;
+      const key = `${lists.get(r.target)?.name || r.target}: ${why}`;
       reasons.set(key, (reasons.get(key) || 0) + 1);
     });
     reasons.forEach((count, key) => console.log(`  ocultas ${count} × ${key}`));
@@ -85,6 +95,29 @@ const listVisibility = (list) => (list && (list.isPublic === true || list.visibi
     console.log('\nSimulación: no se ha escrito nada. Añade --apply para corregir solo `visibility`.');
     process.exit(0);
   }
+  // Seguro: solo se escribe si el reparto por lista es EXACTAMENTE el esperado.
+  if (!EXPECT) {
+    console.error('\n--apply exige --expect=listaId:N,... con el reparto revisado en la simulación. No se ha escrito nada.');
+    process.exit(2);
+  }
+  const expected = new Map(EXPECT.split(',').filter(Boolean).map((pair) => {
+    const [id, n] = pair.split(':');
+    return [id.trim(), Number(n)];
+  }));
+  const actual = new Map();
+  mismatches.forEach((m) => actual.set(m.target, (actual.get(m.target) || 0) + 1));
+  const ids = new Set([...expected.keys(), ...actual.keys()]);
+  const diffs = [...ids].filter((id) => (expected.get(id) || 0) !== (actual.get(id) || 0));
+  if (diffs.length) {
+    console.error('\nEl reparto NO coincide con --expect; no se ha escrito nada:');
+    diffs.forEach((id) => console.error(`  ${lists.get(id)?.name || id} (${id}): esperado ${expected.get(id) || 0}, real ${actual.get(id) || 0}`));
+    process.exit(3);
+  }
+  const backupFile = writeBackup('audit-review-visibility', mismatches.map((m) => ({
+    path: m.path,
+    before: { visibility: m.actual === '(sin campo)' ? ABSENT : m.actual },
+  })));
+  console.log(`\nCopia previa: ${backupFile}`);
   for (let i = 0; i < mismatches.length; i += 400) {
     const batch = db.batch();
     mismatches.slice(i, i + 400).forEach((m) => batch.update(db.doc(m.path), { visibility: m.expected }));

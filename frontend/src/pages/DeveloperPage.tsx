@@ -241,13 +241,10 @@ export const DeveloperPage: React.FC = () => {
 
         try {
             const functions = getFunctions(undefined, FUNCTIONS_REGION);
-            // Call both to be safe: averages and aggregates
-            const recalculateAverages = httpsCallable(functions, 'adminRecalculateListAverages');
+            // Una sola llamada: adminUpdateSingleListAggregates ya recalcula medias,
+            // criterios y contadores con el cálculo único (antes se llamaba también
+            // a adminRecalculateListAverages, que repetía lo mismo).
             const updateAggregates = httpsCallable(functions, 'adminUpdateSingleListAggregates');
-
-            setMaintenanceLog(prev => [`... Llamando adminRecalculateListAverages...`, ...prev]);
-            const res1: any = await recalculateAverages({ listId: targetListId });
-            setMaintenanceLog(prev => [`✅ Averages: ${JSON.stringify(res1.data)}`, ...prev]);
 
             setMaintenanceLog(prev => [`... Llamando adminUpdateSingleListAggregates...`, ...prev]);
             const res2: any = await updateAggregates({ listId: targetListId });
@@ -343,33 +340,32 @@ export const DeveloperPage: React.FC = () => {
 
 
 
+    // Copia el rol (bot, crítico…) de cada persona a sus valoraciones. Lo hace el
+    // servidor (propagateAuthorFieldsToReviews), una persona cada vez: antes el
+    // navegador recorría y escribía todas las valoraciones una a una.
     const handleBackfillAuthorUserType = async () => {
-        if (!confirm('¿Seguro? Esto iterará TODAS las reseñas de todas las listas y puede tardar varios minutos.')) return;
+        if (!confirm('¿Copiar el tipo de usuario de cada persona a sus valoraciones? Lo hace el servidor, persona a persona.')) return;
         setProcessingMaintenance(true);
         setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando backfill de authorUserType...`, ...prev]);
         try {
-            // Build uid -> userType map from all users
             const usersSnap = await getDocs(collection(db, 'users'));
-            const userTypeMap = new Map<string, any>();
-            usersSnap.docs.forEach(d => userTypeMap.set(d.id, d.data().userType ?? []));
-            setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ${usersSnap.size} usuarios cargados.`, ...prev]);
-
-            const listsSnap = await getDocs(collection(db, 'lists'));
-            let total = 0, updated = 0;
-            for (const listDoc of listsSnap.docs) {
-                const reviewsSnap = await getDocs(collection(db, 'lists', listDoc.id, 'reviews'));
-                for (const reviewDoc of reviewsSnap.docs) {
-                    total++;
-                    const data = reviewDoc.data();
-                    const uid = data.userId || data.authorId;
-                    if (!uid) continue;
-                    const userType = userTypeMap.get(uid);
-                    if (userType === undefined) continue;
-                    await updateDoc(doc(db, 'lists', listDoc.id, 'reviews', reviewDoc.id), { authorUserType: userType });
-                    updated++;
+            const propagate = httpsCallable<{ userId: string; fields: { authorUserType: unknown } }, { updated?: number }>(
+                getFunctions(undefined, FUNCTIONS_REGION), 'propagateAuthorFieldsToReviews', { timeout: 540000 },
+            );
+            let users = 0, reviews = 0, failed = 0;
+            for (const userDoc of usersSnap.docs) {
+                const userType = userDoc.data().userType;
+                if (userType === undefined) continue;
+                try {
+                    const res = await propagate({ userId: userDoc.id, fields: { authorUserType: userType } });
+                    users++;
+                    reviews += res.data?.updated || 0;
+                } catch (err) {
+                    failed++;
+                    setMaintenanceLog(prev => [`⚠️ ${userDoc.id}: ${err instanceof Error ? err.message : String(err)}`, ...prev]);
                 }
             }
-            setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ✅ Backfill completado: ${updated}/${total} reseñas actualizadas.`, ...prev]);
+            setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ✅ Backfill completado: ${users} personas · ${reviews} valoraciones · ${failed} errores.`, ...prev]);
         } catch (err: any) {
             setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ❌ Error: ${err.message}`, ...prev]);
         } finally {

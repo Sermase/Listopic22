@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet';
 import { latLngBounds, type LatLngExpression } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { whenMapSized } from '../../lib/mapMotion';
 import { Database, Loader2, MapPinned, RefreshCw, ShieldCheck } from 'lucide-react';
 import {
     backfillReviewHeatmap,
@@ -25,10 +26,10 @@ const FitAnalyticsBounds: React.FC<{ points: AnalyticsHeatPoint[] }> = ({ points
             map.setView([points[0].lat, points[0].lng], 9);
             return;
         }
-        map.fitBounds(latLngBounds(points.map((point) => [point.lat, point.lng])), {
+        return whenMapSized(map, () => map.fitBounds(latLngBounds(points.map((point) => [point.lat, point.lng])), {
             padding: [28, 28],
             maxZoom: 11,
-        });
+        }));
         // signature representa exclusivamente las coordenadas visibles.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [map, signature]);

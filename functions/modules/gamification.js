@@ -4,6 +4,7 @@ const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const { getFirestore } = require("firebase-admin/firestore");
 const { sendNotification } = require("./notifications");
+const { userReviewDocs } = require("./lib/user-reviews");
 
 const db = getFirestore();
 const DEFAULT_BADGE_XP_REWARD = 50;
@@ -98,7 +99,8 @@ function countReviewPhotos(reviewData) {
 }
 
 async function countReviewedPlaces(userId) {
-    const reviewsSnapshot = await db.collectionGroup("reviews").where("userId", "==", userId).get();
+    // Sin el índice reviews.userId (grupo de colecciones) recorre todo; ver lib/user-reviews.
+    const reviewsSnapshot = await userReviewDocs(db, "userId", userId);
     const uniquePlaceIds = new Set();
 
     reviewsSnapshot.forEach((docSnap) => {
@@ -448,6 +450,7 @@ const adminRecalculateAllGamification = onCall({ timeoutSeconds: 540, memory: "1
     }
 });
 
+// eslint-disable-next-line no-unused-vars -- archivada: fuera de exports, no se despliega
 const adminResetUserGamification = onCall(async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in");
     await assertJefeAccess(request.auth.uid);
@@ -470,6 +473,7 @@ const adminResetUserGamification = onCall(async (request) => {
     }
 });
 
+// eslint-disable-next-line no-unused-vars -- archivada: fuera de exports, no se despliega
 const adminResetAllGamification = onCall({ timeoutSeconds: 540, memory: "1GiB" }, async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in");
     await assertJefeAccess(request.auth.uid);
@@ -526,6 +530,6 @@ module.exports = {
     adminRecalculateUserGamification,
     adminManageBadge,
     adminRecalculateAllGamification,
-    adminResetUserGamification,
-    adminResetAllGamification,
+    // adminResetUserGamification: archivada (no se despliega) — borra XP e insignias y ninguna pantalla la usa.
+    // adminResetAllGamification: archivada (no se despliega) — borra XP e insignias y ninguna pantalla la usa.
 };

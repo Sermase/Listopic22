@@ -26,8 +26,8 @@ import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
 import { deriveScoringWeights } from '../lib/scoring';
-import { writeWithOptionalFields } from '../lib/optionalFields';
-import { syncListReviewVisibility } from '../lib/reviewVisibility';
+import { isPermissionDeniedError, writeWithOptionalFields } from '../lib/optionalFields';
+import { listVisibility, syncListReviewVisibility } from '../lib/reviewVisibility';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -80,6 +80,9 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [isPublic, setIsPublic] = useState(true);
+    // Minilista de madre privada: solo puede ser privada (también lo exigen las reglas).
+    const [parentIsPublic, setParentIsPublic] = useState(true);
+    const [initiallyPublic, setInitiallyPublic] = useState(true);
     const [publicAccess, setPublicAccess] = useState<'reader' | 'writer'>('reader');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -131,6 +134,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 setName(data.name || '');
                 setDescription(data.description || '');
                 setIsPublic(data.isPublic !== false);
+                setInitiallyPublic(data.isPublic !== false);
                 setPublicAccess(data.publicAccess || 'reader');
                 const pListId = data.parentListId || null;
                 setParentListId(pListId);
@@ -141,11 +145,21 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                         const parentSnap = await getDoc(doc(db, 'lists', pListId));
                         if (parentSnap.exists()) {
                             const parentData = parentSnap.data() as EditableListData;
+                            const parentPublic = listVisibility(parentData) === 'public';
+                            setParentIsPublic(parentPublic);
+                            if (!parentPublic) setIsPublic(false);
                             if (parentData.availableTags) setInheritedTags(parentData.availableTags);
                             if (parentData.criteriaDefinition) setInheritedCriteriaIds(Object.keys(parentData.criteriaDefinition));
                         }
                     } catch (err) {
-                        console.warn('Failed to fetch parent list', err);
+                        // Sin permiso para leer la madre = la madre es privada (solo
+                        // se leen libremente las públicas): la Minilista, como máximo privada.
+                        if (isPermissionDeniedError(err)) {
+                            setParentIsPublic(false);
+                            setIsPublic(false);
+                        } else {
+                            console.warn('Failed to fetch parent list', err);
+                        }
                     }
                 }
 
@@ -409,12 +423,19 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                         type="checkbox"
                         id={`isPublic-${listId}`}
                         checked={isPublic}
+                        disabled={Boolean(parentListId) && !parentIsPublic}
                         onChange={(e) => setIsPublic(e.target.checked)}
                         className="w-5 h-5 rounded border-gray-600 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-card-strong)]"
                     />
                     <label htmlFor={`isPublic-${listId}`} className="text-sm cursor-pointer">
                         <span className="block font-medium text-white">Lista Pública</span>
-                        <span className="block text-xs text-gray-500">Visible en el perfil y en búsqueda global.</span>
+                        <span className="block text-xs text-gray-500">
+                            {parentListId && !parentIsPublic
+                                ? 'La Lista madre es privada: esta Minilista también lo es.'
+                                : !parentListId && initiallyPublic && !isPublic
+                                    ? 'Al guardar, sus Minilistas también pasarán a privadas.'
+                                    : 'Visible en el perfil y en búsqueda global.'}
+                        </span>
                     </label>
                 </div>
 

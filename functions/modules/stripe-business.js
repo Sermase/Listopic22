@@ -15,6 +15,7 @@ const stripeBusinessProPriceId = defineSecret("STRIPE_BUSINESS_PRO_PRICE_ID");
 
 const PUBLIC_ORIGIN = (process.env.PUBLIC_ORIGIN || "https://listopic.es").replace(/\/$/, "");
 const STRIPE_API_VERSION = "2024-06-20";
+const { isCheckoutEnabled } = require("./lib/billing-flags");
 
 const asString = (value, maxLength = 500) => (typeof value === "string" ? value.trim().slice(0, maxLength) : "");
 
@@ -70,6 +71,11 @@ const createBusinessProCheckoutSession = onCall({
   const uid = request.auth?.uid;
   const placeId = asString(request.data?.placeId, 300);
   if (!placeId) throw new HttpsError("invalid-argument", "Falta placeId.");
+  // Seguro: sin STRIPE_CHECKOUT_ENABLED=true (functions/.env) no se toca Stripe,
+  // aunque existan claves. El plan se concede a mano en Developer → Planes.
+  if (!isCheckoutEnabled(process.env)) {
+    throw new HttpsError("failed-precondition", "La contratación online de Business Pro todavía no está activa.");
+  }
 
   const secretKey = getSecretValue(stripeSecretKey, "STRIPE_SECRET_KEY");
   const priceId = getSecretValue(stripeBusinessProPriceId, "STRIPE_BUSINESS_PRO_PRICE_ID");

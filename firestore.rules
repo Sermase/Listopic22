@@ -147,6 +147,18 @@ service cloud.firestore {
              get(/databases/$(database)/documents/lists/$(parentId)).data.get('criteriaDefinition', {}).keys());
     }
 
+    // Una Minilista nunca es más pública que su Lista madre: con la madre
+    // privada, la Minilista solo puede ser privada (también para jefes). Si la
+    // madre pasa a privada, el servidor pone privadas sus Minilistas.
+    function minilistNotMorePublicThanParent(data) {
+      let parentId = data.get('parentListId', null);
+      let wantsPublic = data.get('isPublic', false) == true || data.get('visibility', '') == 'public';
+      return parentId == null || parentId == '' || !wantsPublic
+        || !exists(/databases/$(database)/documents/lists/$(parentId))
+        || get(/databases/$(database)/documents/lists/$(parentId)).data.get('isPublic', false) == true
+        || get(/databases/$(database)/documents/lists/$(parentId)).data.get('visibility', '') == 'public';
+    }
+
     // Con valoraciones, la forma de calcular la nota queda bloqueada: se pueden
     // añadir criterios (no cambian notas ya puestas) pero no quitarlos ni
     // cambiar pesos existentes. Eso lo hace una migración del servidor.
@@ -172,7 +184,9 @@ service cloud.firestore {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       let isOwner = resource.data.userId == uid;
       let isEditor = resource.data.get('editors', []).hasAny([uid]);
-      return listUpdateChangesOnlyAllowedFields() && (
+      return listUpdateChangesOnlyAllowedFields()
+        && (!changed.hasAny(['isPublic', 'visibility', 'parentListId']) || minilistNotMorePublicThanParent(request.resource.data))
+        && (
         isJefe(uid) ||
         (
           !changed.hasAny(listServerKeys()) &&
@@ -559,6 +573,7 @@ service cloud.firestore {
       allow create: if request.auth != null
                     && request.resource.data.userId == request.auth.uid
                     && listCreateHasOnlyAllowedFields()
+                    && minilistNotMorePublicThanParent(request.resource.data)
                     && (isJefe(request.auth.uid) || (
                          listMetricsAreInitial(request.resource.data)
                          && minilistKeepsParentCriteria(request.resource.data)));

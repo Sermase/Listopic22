@@ -254,6 +254,12 @@ Conclusión:
 - **Genérico (B0.11)**: los textos nuevos hablan de «sitio» y «elemento», no de restaurante y plato («Elige un sitio (restaurante, playa…)»). Quedan textos de comida en pantallas existentes («La Carta», «platos», «Ver platos sueltos»); ver `siguiente-fase.md`.
 - **Accesibilidad, intolerancias y mascotas**: ya existen como datos (`accessibilityOptions`, `petOptions`, filtro sin gluten) y como filtros de la Lista. Falta darles visibilidad en la ficha del sitio y del elemento.
 - **Filtro de bots** en las Listas: se mantiene, con etiqueta visible.
+- **Visibilidad (01/10/2026):** cada valoración guarda `visibility`, igual a la
+  de su lista real (la Minilista si la hizo desde ella). **Una Minilista nunca
+  es más pública que su madre**: con la madre privada solo puede ser privada.
+  Si la madre pasa a privada, el servidor cierra sus Minilistas; si vuelve a
+  pública, las Minilistas no se abren solas. Lo aplican la web, las reglas y el
+  trigger `syncListVisibility`.
 
 ---
 

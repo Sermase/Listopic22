@@ -1624,6 +1624,7 @@ const updateListWithValidation = onCall(async (request) => {
 });
 
 // NUEVA FUNCIÓN: reverseGeocode
+// eslint-disable-next-line no-unused-vars -- archivada: fuera de exports, no se despliega
 const reverseGeocode = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET] }, async (req, res) => {
   cors(req, res, async () => {
     const auth = await requireJefeForLegacyRequest(req, res);
@@ -2534,9 +2535,10 @@ async function recalculateAggregatesForPlace(placeId) {
   let averageRating = null;
   const reviewsCount = reviews.length;
 
-  if (reviewsCount > 0) {
-    const totalRating = reviews.reduce((sum, review) => sum + (review.overallRating || 0), 0);
-    averageRating = parseFloat((totalRating / reviewsCount).toFixed(2));
+  // Media de las valoraciones con nota: una sin nota no cuenta (antes sumaba 0).
+  const rated = reviews.map((review) => review.overallRating).filter((r) => typeof r === 'number' && Number.isFinite(r));
+  if (rated.length > 0) {
+    averageRating = parseFloat((rated.reduce((sum, r) => sum + r, 0) / rated.length).toFixed(2));
   }
   const itemTags = collectPlaceReviewTags(reviews);
   const hasReviewedPhoto = reviews.some(review => !!(review.photoUrl || review.placeMainImage));
@@ -2555,6 +2557,7 @@ async function recalculateAggregatesForPlace(placeId) {
   }
 }
 
+// eslint-disable-next-line no-unused-vars -- archivada: fuera de exports, no se despliega
 const adminUpdateAllPlaces = onCall(async (request) => {
   const contextAuth = request.auth;
   if (!contextAuth) {
@@ -3497,7 +3500,7 @@ module.exports = {
   createList,
   createListWithValidation,
   updateListWithValidation,
-  reverseGeocode,
+  // reverseGeocode: archivada (no se despliega) — llama a Google Geocoding; ninguna pantalla la usa.
   updateAggregatesOnReviewChange,
   updateUserStatsOnListChange,
   updateAggregatesOnCommentChange,
@@ -3508,7 +3511,7 @@ module.exports = {
   getGroupsForPlace,
   updatePlaceAggregates,
   updatePlaceAggregatesOnReviewChange,
-  adminUpdateAllPlaces,
+  // adminUpdateAllPlaces: archivada (no se despliega) — actualiza TODOS los sitios desde Google de golpe (coste masivo); ninguna pantalla la usa.
   adminUpdateSinglePlace,
   adminRefreshPlaceLocation,
   adminFixPlaceDocument,

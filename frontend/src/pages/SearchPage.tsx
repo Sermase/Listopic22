@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ZoneExplorer } from '../components/search/ZoneExplorer';
-import { activeZoneLabel } from '../lib/searchZones';
+import { ZonePicker } from '../components/search/ZonePicker';
+import { parseZones, zoneKey, zonesFilter, zonesLabel, type Zone } from '../lib/searchZones';
 import {
     InstantSearch,
     Configure,
@@ -762,13 +762,14 @@ interface HitsProps {
      * buscado, orden por puntuación): con una zona elegida se muestra «#3 en Valladolid».
      */
     rankEligible?: boolean;
+    /** Zona elegida («Valladolid», «Madrid + Barcelona»…) para «#3 en …». */
+    zoneLabel?: string | null;
 }
 
-const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false, includeClosed = false, rankEligible = false }) => {
+const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false, includeClosed = false, rankEligible = false, zoneLabel: selectedZoneLabel = null }) => {
     const { hits, isLastPage, showMore } = useInfiniteHits();
     const { status, results } = useInstantSearch();
-    const { items: currentRefinements } = useCurrentRefinements();
-    const zoneLabel = rankEligible ? activeZoneLabel(activeTab, currentRefinements) : null;
+    const zoneLabel = rankEligible ? selectedZoneLabel : null;
     const sentinelRef = useRef<HTMLDivElement>(null);
     const hover = onHoverHit ?? (() => {});
     const typedHits = useMemo(() => hits as SearchHit[], [hits]);
@@ -1089,6 +1090,7 @@ export const SearchPage: React.FC = () => {
     const sortParam = searchParams.get('sort') || '';
     const geoParam = searchParams.get('geo') === '1';
     const radiusParam = searchParams.get('radius');
+    const zones = useMemo(() => parseZones(searchParams.getAll('zone')), [searchParams]);
 
     const [sortByTab, setSortByTab] = useState<Record<string, string>>(() => (
         typeParam === 'all' ? {} : { [typeParam]: resolveSortValue(typeParam, sortParam) }
@@ -1116,14 +1118,16 @@ export const SearchPage: React.FC = () => {
         query = queryParam,
         geoEnabled = effectiveGeoActive,
         radiusValue = geoRadius,
+        zonesValue = zones,
     }: {
         tab?: string;
         sortValue?: string;
         query?: string;
         geoEnabled?: boolean;
         radiusValue?: GeoRadius;
+        zonesValue?: Zone[];
     } = {}) => {
-        const nextParams: Record<string, string> = { type: tab };
+        const nextParams: Record<string, string | string[]> = { type: tab };
         const trimmedQuery = query.trim();
         if (trimmedQuery) nextParams.q = trimmedQuery;
         if (tab !== 'all' && sortValue !== getDefaultSortValue(tab)) {
@@ -1140,9 +1144,16 @@ export const SearchPage: React.FC = () => {
             nextParams.listId = listIdParam;
             if (listNameParam) nextParams.listName = listNameParam;
         }
+        // La zona se conserva al cambiar de pestaña (en Listas y Usuarios no se aplica).
+        if (zonesValue.length > 0) nextParams.zone = zonesValue.map(zoneKey);
 
         return nextParams;
-    }, [activeSortOption.value, activeTab, effectiveGeoActive, geoRadius, queryParam, listIdParam, listNameParam]);
+    }, [activeSortOption.value, activeTab, effectiveGeoActive, geoRadius, queryParam, listIdParam, listNameParam, zones]);
+
+    const handleZonesChange = useCallback((nextZones: Zone[]) => {
+        setSearchParams(buildSearchParams({ zonesValue: nextZones }));
+        setSelectedHitId(null);
+    }, [buildSearchParams, setSearchParams]);
 
     const handleTabChange = useCallback((tab: string) => {
         const sortValue = resolveSortValue(tab, sortByTab[tab]);
@@ -1240,7 +1251,8 @@ export const SearchPage: React.FC = () => {
         includeClosedPlaces ? '' : getDefaultClosedFilter(activeTab)
     ), [activeTab, includeClosedPlaces]);
 
-    const algoliaFilters = useMemo(() => (
+    // Sin la zona: con esto se calcula el árbol del selector de zona.
+    const baseAlgoliaFilters = useMemo(() => (
         joinAlgoliaFilters([
             parsedAlgoliaFilters,
             defaultClosedFilter,
@@ -1248,6 +1260,10 @@ export const SearchPage: React.FC = () => {
             activeTab === 'items' && listIdParam ? `listId:"${listIdParam.replace(/"/g, '')}"` : '',
         ])
     ), [parsedAlgoliaFilters, defaultClosedFilter, activeTab, listIdParam]);
+    const algoliaFilters = useMemo(() => (
+        joinAlgoliaFilters([baseAlgoliaFilters, isGeoTab ? zonesFilter(activeTab, zones) : ''])
+    ), [baseAlgoliaFilters, isGeoTab, activeTab, zones]);
+    const selectedZoneLabel = zonesLabel(zones);
 
     // «#3 en Valladolid» solo cuando el orden es el ranking de una Lista.
     const rankEligible = activeTab === 'items'
@@ -1260,9 +1276,27 @@ export const SearchPage: React.FC = () => {
         next.delete('listName');
         setSearchParams(next);
     };
+    const activeGeoConfig = useMemo(() => {
+        if (!isGeoTab || !effectiveGeoActive || !location) {
+            return {};
+        }
+        return {
+            aroundLatLng: `${location.latitude},${location.longitude}`,
+            aroundRadius: geoRadius === 'all' ? ('all' as const) : geoRadius,
+        };
+    }, [effectiveGeoActive, geoRadius, isGeoTab, location]);
+
     const zoneBar = isGeoTab ? (
         <div className="flex flex-wrap items-center gap-2 mt-2">
-            <ZoneExplorer key={activeTab} tab={activeTab as 'items' | 'places'} />
+            <ZonePicker
+                key={activeTab}
+                tab={activeTab as 'items' | 'places'}
+                zones={zones}
+                onChange={handleZonesChange}
+                query={parsedQuery.cleanedQuery}
+                filters={baseAlgoliaFilters}
+                geo={activeGeoConfig}
+            />
             {activeTab === 'items' && listIdParam && (
                 <span className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--lt-text)]">
                     En la Lista «{listNameParam || 'elegida'}»
@@ -1273,16 +1307,6 @@ export const SearchPage: React.FC = () => {
             )}
         </div>
     ) : null;
-
-    const activeGeoConfig = useMemo(() => {
-        if (!isGeoTab || !effectiveGeoActive || !location) {
-            return {};
-        }
-        return {
-            aroundLatLng: `${location.latitude},${location.longitude}`,
-            aroundRadius: geoRadius === 'all' ? ('all' as const) : geoRadius,
-        };
-    }, [effectiveGeoActive, geoRadius, isGeoTab, location]);
 
     // Props comunes para SearchMapView
     const mapSharedProps = {
@@ -1439,6 +1463,7 @@ export const SearchPage: React.FC = () => {
                                             listLayout={true}
                                             includeClosed={includeClosedPlaces}
                                             rankEligible={rankEligible}
+                                            zoneLabel={selectedZoneLabel}
                                         />
                                     </div>
                                 </div>
@@ -1542,6 +1567,7 @@ export const SearchPage: React.FC = () => {
                                         onSelectHit={id => setSelectedHitId(prev => prev === id ? null : id)}
                                         includeClosed={includeClosedPlaces}
                                         rankEligible={rankEligible}
+                                        zoneLabel={selectedZoneLabel}
                                     />
                                 </div>
                             </div>

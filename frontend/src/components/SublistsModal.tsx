@@ -15,10 +15,12 @@ interface SublistsModalProps {
     sublists?: ListEntity[] | null;
     parentCriteria?: Record<string, any>; // Criteria from parent list
     parentScoringWeights?: Record<string, number>;
+    /** Si la madre es privada, la Minilista solo puede ser privada. */
+    parentIsPublic?: boolean;
     parentTags?: string[]; // Tags from parent list
 }
 
-export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, isOpen, onClose, sublists: initialSublists, parentCriteria, parentScoringWeights, parentTags }) => {
+export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, isOpen, onClose, sublists: initialSublists, parentCriteria, parentScoringWeights, parentTags, parentIsPublic = true }) => {
     const [view, setView] = useState<'list' | 'create'>('list');
     const [sublists, setSublists] = useState<ListEntity[]>([]);
     const [loading, setLoading] = useState(true);
@@ -148,6 +150,7 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                             parentListName={listName}
                             parentCriteria={parentCriteria}
                             parentScoringWeights={parentScoringWeights}
+                            parentIsPublic={parentIsPublic}
                             parentTags={parentTags}
                             onSuccess={handleCreateSuccess}
                             onCancel={() => setView('list')}

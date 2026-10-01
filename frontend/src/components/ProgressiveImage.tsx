@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { cn } from '../lib/utils';
 
 const FIREBASE_STORAGE_HOST = 'firebasestorage.googleapis.com';
 
@@ -59,14 +60,14 @@ export const ProgressiveImage: React.FC<ProgressiveImageProps> = ({
 
     if (failed && fallback) {
         return (
-            <div className={`relative overflow-hidden ${containerClassName || ''}`}>
+            <div className={cn('relative overflow-hidden', containerClassName)}>
                 {fallback}
             </div>
         );
     }
 
     return (
-        <div className={`relative overflow-hidden ${containerClassName || ''}`}>
+        <div className={cn('relative overflow-hidden', containerClassName)}>
             <div
                 className={`absolute inset-0 bg-gray-200 dark:bg-[#1c2438] transition-opacity duration-700 ${loaded ? 'opacity-0 pointer-events-none' : 'animate-pulse opacity-100'}`}
             />

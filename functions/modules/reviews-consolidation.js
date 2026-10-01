@@ -226,10 +226,13 @@ const adminRecountReviewCounters = onCall({ timeoutSeconds: 540, memory: '1GiB' 
 
       const placeId = asTrimmedString(data.placeId);
       if (placeId) {
-        const stats = placeStats.get(placeId) || { count: 0, ratingTotal: 0 };
+        const stats = placeStats.get(placeId) || { count: 0, ratingTotal: 0, rated: 0 };
         stats.count += 1;
-        // Mismo criterio que updatePlaceAggregates: rating ausente cuenta como 0.
-        stats.ratingTotal += isNumber(data.overallRating) ? data.overallRating : 0;
+        // Una valoración sin nota no cuenta en la media (antes sumaba un 0).
+        if (isNumber(data.overallRating)) {
+          stats.ratingTotal += data.overallRating;
+          stats.rated += 1;
+        }
         placeStats.set(placeId, stats);
       }
     }
@@ -268,7 +271,7 @@ const adminRecountReviewCounters = onCall({ timeoutSeconds: 540, memory: '1GiB' 
   for (const [placeId, stats] of placeStats.entries()) {
     batch.set(db.collection('places').doc(placeId), {
       reviewsCount: stats.count,
-      averageRating: stats.count > 0 ? Number((stats.ratingTotal / stats.count).toFixed(2)) : null,
+      averageRating: stats.rated > 0 ? Number((stats.ratingTotal / stats.rated).toFixed(2)) : null,
     }, { merge: true });
     batchCount += 1;
     await commitIfNeeded();

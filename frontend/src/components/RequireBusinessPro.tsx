@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
-import { BUSINESS_PRO_ENFORCED } from '../config/features';
+import { BUSINESS_PRO_CHECKOUT_ENABLED, BUSINESS_PRO_ENFORCED } from '../config/features';
 import { createBusinessProCheckoutSession } from '../services/BusinessBillingService';
 import type { BusinessPlan } from '../utils/businessPlan';
 
@@ -51,15 +51,22 @@ export const BusinessProUpsellCard: React.FC<{ placeId: string }> = ({ placeId }
                     </li>
                 ))}
             </ul>
-            <button
-                type="button"
-                onClick={startCheckout}
-                disabled={starting}
-                className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 text-sm font-black text-white shadow-lg disabled:opacity-60"
-            >
-                {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Hazte Business Pro
-            </button>
+            {BUSINESS_PRO_CHECKOUT_ENABLED ? (
+                <button
+                    type="button"
+                    onClick={startCheckout}
+                    disabled={starting}
+                    className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 text-sm font-black text-white shadow-lg disabled:opacity-60"
+                >
+                    {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                    Hazte Business Pro
+                </button>
+            ) : (
+                <p role="note" className="mx-auto mt-6 max-w-md rounded-xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-4 py-3 text-sm text-[var(--lt-text)]">
+                    La contratación online de Business Pro todavía no está abierta. El equipo de Listopic puede activarlo
+                    para tu local mientras tanto.
+                </p>
+            )}
             {error && (
                 <p className="mx-auto mt-4 max-w-md rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200">
                     {error}

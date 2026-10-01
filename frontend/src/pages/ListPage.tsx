@@ -1566,6 +1566,7 @@ export const ListPage: React.FC = () => {
                         listName={list.name}
                         parentCriteria={list.criteriaDefinition}
                         parentScoringWeights={list.scoringWeights}
+                        parentIsPublic={list.isPublic === true || list.visibility === 'public'}
                         parentTags={list.availableTags}
                     />
                 )

@@ -34,6 +34,8 @@ export const ListsManagerTab: React.FC = () => {
     const [editModalListId, setEditModalListId] = useState<string | null>(null);
     const [updatingId, setUpdatingId] = useState<string | null>(null);
     const [showSublists, setShowSublists] = useState(false);
+    // Visibilidad de todas las listas (también madres ocultas por el filtro).
+    const [publicById, setPublicById] = useState<Record<string, boolean>>({});
 
     const fetchLists = async () => {
         setLoading(true);
@@ -48,6 +50,7 @@ export const ListsManagerTab: React.FC = () => {
                 ...(d.data() as Omit<ListRecord, 'id'>)
             }));
 
+            setPublicById(Object.fromEntries(results.map(l => [l.id, l.isPublic === true])));
             if (!showSublists) {
                 results = results.filter(l => !l.parentListId);
             }
@@ -71,6 +74,11 @@ export const ListsManagerTab: React.FC = () => {
         setUpdatingId(list.id);
         try {
             const newIsPublic = !list.isPublic;
+            // Una Minilista nunca es más pública que su madre (las reglas también lo impiden).
+            if (newIsPublic && list.parentListId && publicById[list.parentListId] === false) {
+                showToast({ variant: 'error', title: 'No se puede', message: 'La Lista madre es privada: su Minilista no puede ser pública.' });
+                return;
+            }
             await updateDoc(doc(db, 'lists', list.id), {
                 isPublic: newIsPublic,
                 visibility: newIsPublic ? 'public' : 'private',

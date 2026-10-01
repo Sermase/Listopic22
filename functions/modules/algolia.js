@@ -10,6 +10,7 @@ const { buildGroupedItemsForList } = require("./grouped-aggregator");
 // Ranking único compartido con el frontend (lib/scoring.js ↔ frontend/src/lib/scoring.ts).
 const { rankingIndexScore } = require("./lib/scoring");
 const { normalizeCcaa } = require("./lib/geo-areas");
+const { syncAllObjects } = require("./lib/algolia-sync");
 
 const ADMIN_CALL_OPTIONS = { cors: true, timeoutSeconds: 540, memory: "1GiB" };
 
@@ -75,7 +76,7 @@ const INDEX_SETTINGS = {
         searchableAttributes: ["unordered(name)", "unordered(address)", "unordered(city)", "unordered(types)", "unordered(itemTags)"],
         // Zona en Buscar: ciudad, provincia, comunidad y país se pueden listar (antes solo filtrar).
         attributesForFaceting: ["searchable(city)", "searchable(province)", "region", "country", "serviceOptions", "accessibilityOptions", "petOptions", "types", "priceLevel", "closedStatus", "googleBusinessStatus", "businessStatus", "hasPhoto", "itemTags", "isGlutenFree"],
-        replicas: ["places_by_rating", "places_by_reviews", "places_by_distance"],
+        replicas: ["places_by_rating", "places_by_reviews"],
         customRanking: ["desc(rankingScore)", "desc(reviewsCount)", "desc(followersCount)"],
         numericAttributesForFiltering: ["rankingScore", "averageRating", "reviewsCount", "followersCount"]
     },
@@ -100,7 +101,6 @@ const REPLICA_SETTINGS = {
     lists_by_reviews: { customRanking: ["desc(reviewCount)", "desc(followersCount)", "desc(updatedAtTimestamp)"] },
     places_by_rating: { customRanking: ["desc(rankingScore)", "desc(reviewsCount)", "desc(averageRating)"] },
     places_by_reviews: { customRanking: ["desc(reviewsCount)", "desc(averageRating)", "desc(rankingScore)"] },
-    places_by_distance: { customRanking: ["desc(rankingScore)", "desc(reviewsCount)", "desc(averageRating)"] },
     users_by_followers: { customRanking: ["desc(followersCount)", "desc(reviewsCount)", "desc(level)"] },
     users_by_reviews: { customRanking: ["desc(reviewsCount)", "desc(followersCount)", "desc(level)"] },
     users_by_level: { customRanking: ["desc(level)", "desc(xp)", "desc(followersCount)", "desc(reviewsCount)"] },
@@ -930,10 +930,7 @@ async function backfillStandardCollection(collectionKey) {
             records.push(record);
         }
     }
-    const response = await index.replaceAllObjects(records, { safe: true });
-    if (response?.taskID) {
-        await index.waitTask(response.taskID);
-    }
+    await syncAllObjects(index, records);
     return { success: true, message: `Sincronizados ${records.length} registros de ${collectionKey}.` };
 }
 
@@ -969,10 +966,7 @@ async function backfillGroupedItems() {
         }
         return { success: true, message: "Indice de grouped_items limpiado (sin registros publicos)." };
     }
-    const response = await index.replaceAllObjects(records, { safe: true });
-    if (response?.taskID) {
-        await index.waitTask(response.taskID);
-    }
+    await syncAllObjects(index, records);
     return { success: true, message: `Sincronizados ${records.length} elementos agrupados.` };
 }
 
