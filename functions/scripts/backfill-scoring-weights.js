@@ -9,11 +9,13 @@
  *   cd functions
  *   GOOGLE_APPLICATION_CREDENTIALS=/ruta/service-account.json node scripts/backfill-scoring-weights.js [--apply]
  *
- * Ejecutar ANTES de desplegar las reglas de B1.
+ * Con --apply guarda antes una copia en functions/backups/ (se deshace con
+ * scripts/restore-backup.js).
  */
 const admin = require('firebase-admin');
 const { deriveScoringWeights } = require('../modules/lib/scoring');
 const { syncMinilistCriteria, sameValue } = require('../modules/lib/minilist-criteria');
+const { snapshotFields, writeBackup } = require('./lib/backup');
 
 const APPLY = process.argv.includes('--apply');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
@@ -28,6 +30,7 @@ const db = admin.firestore();
   let parentUpdates = 0;
   let miniUpdates = 0;
   const orphanMinis = [];
+  const writes = []; // { ref, before, patch }
 
   // 1) Madres (y listas normales)
   for (const [id, list] of parents) {
@@ -35,8 +38,8 @@ const db = admin.firestore();
     if (sameValue(weights, list.data.scoringWeights || null)) continue;
     parentUpdates += 1;
     console.log(`- Lista ${id} "${list.data.name || ''}": ${JSON.stringify(list.data.scoringWeights || null)} → ${JSON.stringify(weights)}`);
+    writes.push({ ref: list.ref, before: snapshotFields(list.data, ['scoringWeights']), patch: { scoringWeights: weights } });
     list.data.scoringWeights = weights; // Para que las Minilistas hereden lo nuevo.
-    if (APPLY) await list.ref.update({ scoringWeights: weights });
   }
 
   // 2) Minilistas: todos los criterios y pesos de la madre
@@ -54,12 +57,17 @@ const db = admin.firestore();
     miniUpdates += 1;
     const missing = Object.keys(parent.data.criteriaDefinition || {}).filter((k) => !(k in (mini.data.criteriaDefinition || {})));
     console.log(`- Minilista ${id} "${mini.data.name || ''}" (madre ${mini.data.parentListId}): faltaban ${missing.length ? missing.join(', ') : 'ninguno'} · pesos → ${JSON.stringify(result.scoringWeights)}`);
-    if (APPLY) await mini.ref.update({ criteriaDefinition: result.criteriaDefinition, scoringWeights: result.scoringWeights });
+    writes.push({ ref: mini.ref, before: snapshotFields(mini.data, ['criteriaDefinition', 'scoringWeights']), patch: { criteriaDefinition: result.criteriaDefinition, scoringWeights: result.scoringWeights } });
   }
 
   console.log(`\nListas: ${parents.length} · a actualizar: ${parentUpdates}`);
   console.log(`Minilistas: ${minis.length} · a actualizar: ${miniUpdates}`);
   if (orphanMinis.length) console.log(`Minilistas sin madre (no se tocan): ${orphanMinis.join(', ')}`);
+  if (APPLY && writes.length) {
+    const file = writeBackup('backfill-scoring-weights', writes.map((w) => ({ path: w.ref.path, before: w.before })));
+    console.log(`Copia previa: ${file}`);
+    for (const w of writes) await w.ref.update(w.patch);
+  }
   console.log(APPLY ? 'Hecho.' : 'Simulación: no se ha escrito nada. Repite con --apply.');
   process.exit(0);
 })().catch((error) => { console.error(error); process.exit(1); });

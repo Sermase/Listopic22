@@ -61,3 +61,6 @@ frontend/android/.cxx/
 
 # Secretos del emulador de Functions
 functions/.secret.local
+
+# Copias previas de los scripts de datos (contienen rutas de producción)
+functions/backups/

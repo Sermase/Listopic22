@@ -28,6 +28,7 @@ const DETAILS = process.argv.includes('--details');
 const EXPECT = (process.argv.find((a) => a.startsWith('--expect=')) || '').slice('--expect='.length);
 
 const { effectiveVisibility } = require('../modules/lib/list-visibility');
+const { ABSENT, writeBackup } = require('./lib/backup');
 
 (async () => {
   const listsSnap = await db.collection('lists').get();
@@ -112,6 +113,11 @@ const { effectiveVisibility } = require('../modules/lib/list-visibility');
     diffs.forEach((id) => console.error(`  ${lists.get(id)?.name || id} (${id}): esperado ${expected.get(id) || 0}, real ${actual.get(id) || 0}`));
     process.exit(3);
   }
+  const backupFile = writeBackup('audit-review-visibility', mismatches.map((m) => ({
+    path: m.path,
+    before: { visibility: m.actual === '(sin campo)' ? ABSENT : m.actual },
+  })));
+  console.log(`\nCopia previa: ${backupFile}`);
   for (let i = 0; i < mismatches.length; i += 400) {
     const batch = db.batch();
     mismatches.slice(i, i + 400).forEach((m) => batch.update(db.doc(m.path), { visibility: m.expected }));
