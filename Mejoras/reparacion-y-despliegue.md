@@ -1,7 +1,34 @@
 # Reparación y despliegue (01/10/2026)
 
-Nada desplegado ni escrito en producción. Las cifras de producción salen de
-lecturas públicas (Firestore sin sesión, y Algolia con la clave de búsqueda).
+Las cifras de producción salen de lecturas públicas (Firestore sin sesión, y
+Algolia con la clave de búsqueda). Desde esta rama no se ha desplegado nada.
+
+## 0. Estado actual (01/10, noche)
+
+**Hecho por ti:**
+
+| Paso | Resultado |
+|---|---|
+| Borrar `lists_tmp_*` | ✅ Quedan 15 índices |
+| 6 · Pesos (`backfill-scoring-weights.js --apply`) | ✅ Re-auditado: la simulación sobre las 14 Listas públicas da **0 cambios** |
+| 9–10 · Visibilidad (41 = 32 + 9) | ✅ Re-auditado: las 14 Listas públicas tienen **0** valoraciones ocultas. Patatas bravas 37/37 y Playas 12/12 públicas. El perfil de ListopIA devuelve **79** |
+| Credenciales | ✅ ADC (`gcloud auth application-default login`). Sirve igual que la cuenta de servicio para los scripts |
+
+Las Listas privadas no se pueden comprobar sin credenciales. La re-auditoría
+desde aquí solo usa lectura pública.
+
+**Pendiente (en este orden):** 2–4 (clave solo de búsqueda + vista previa),
+borrar el índice `reviews`, 5 (Functions; borra 4 archivadas), 7 (reglas), 8
+(merge), 11–13 (Algolia) y 14–17.
+
+**Clave de Algolia en producción:** la web publicada (compilada el 30/09 a las
+22:32 GMT) **sigue llevando la clave antigua**, la que empieza por `2eb8`, con
+`search`, `listIndexes` y `settings`. O el secreto no se cambió, o se cambió
+después de esa compilación. Una Search API Key «de serie» de Algolia suele tener
+**`search` y `listIndexes`**. Sirve, pero lo ideal es una clave con **solo
+`search`** (paso 2). La vista previa de la PR (paso 4) dirá qué clave usa el
+secreto: en el navegador, *Network* → cualquier petición a `algolia.net` →
+cabecera `x-algolia-api-key`.
 
 ## 1. Auditoría de visibilidad (producción, solo lectura)
 
@@ -105,7 +132,7 @@ no cambia nada.
 | `users_by_followers` · `users_by_reviews` · `users_by_level` | réplicas de `users` | sí | no |
 | `grouped_items` | principal | sí | no |
 | `grouped_items_by_score` · `grouped_items_by_reviews` | réplicas | sí | no |
-| `lists_tmp_amgkik`, `lists_tmp_ewun3t`, `lists_tmp_f16fva`, `lists_tmp_i3mzo`, `lists_tmp_s3lxue`, `lists_tmp_x9rexh` | principales sueltos, **0 registros** | **no**: son restos de reindexados de `lists` fallidos (`replaceAllObjects` crea un índice temporal) | **sí, ya** |
+| `lists_tmp_amgkik`, `lists_tmp_ewun3t`, `lists_tmp_f16fva`, `lists_tmp_i3mzo`, `lists_tmp_s3lxue`, `lists_tmp_x9rexh` | principales sueltos, **0 registros** | **no**: son restos de reindexados de `lists` fallidos (`replaceAllObjects` crea un índice temporal) | ✅ **borrados** (01/10) |
 | `reviews` | principal suelto, 1 registro de 2025 | **no** (índice antiguo de valoraciones) | **sí, ya** |
 
 Borrar los 7 «sí, ya» deja **14** índices; desvincular y borrar
@@ -134,9 +161,15 @@ retirar la antigua (pasos 2 y 15).
 - **El índice sigue recomendado** para cuando crezca. El JSON exacto está en
   `developer-revision.md`, y no lo he creado.
 
-## 5. Qué entra en esta PR (6+1 commits sobre `main`, que ya tiene la #260)
+## 5. Qué entra en esta PR (sobre `main`, que ya tiene la #260)
 
 **Functions nuevas:** `syncListVisibility` (trigger en `lists/{listId}`).
+
+**Functions que se eliminan (archivadas, fuera de `index.js`):**
+`adminUpdateAllPlaces`, `reverseGeocode`, `adminResetUserGamification` y
+`adminResetAllGamification`. Ninguna pantalla las usa. La primera actualizaba
+todos los sitios desde Google de golpe; las de *reset* son destructivas. El
+código sigue en el repositorio.
 
 **Functions cambiadas:**
 
@@ -145,13 +178,38 @@ retirar la antigua (pasos 2 y 15).
 | `modules/algolia.js` + `lib/algolia-sync.js` | `adminBackfillAlgolia` y todos los triggers de Algolia (aplican los ajustes al arrancar) | Reindexado sin índices temporales; `places` sin la réplica `places_by_distance` |
 | `modules/admin/admin-users.js` + `lib/review-tally.js` + `lib/user-reviews.js` | `adminRecalculateAllUsers`, `deleteOwnAccount`, `propagateAuthorFieldsToReviews` | Sin depender del índice `reviews.userId` (pasada única o plan B) |
 | `modules/gamification.js` | `onReviewWritten`, `onListWritten`, `onUserFollowingWritten`, `adminRecalculateUserGamification`, `adminRecalculateAllGamification` | `countReviewedPlaces` con plan B si falta el índice |
+| `modules/stripe-business.js` + `lib/billing-flags.js` | `createBusinessProCheckoutSession` | Rechaza (`failed-precondition`) salvo que `STRIPE_CHECKOUT_ENABLED=true` en `functions/.env`, antes de tocar los secretos de Stripe |
+| `modules/core.js` | `updatePlaceAggregatesOnReviewChange` (trigger), `adminRecalculatePlaceStats`, `adminRecalculateAllPlaces`, `adminFixPlaceDocument` | La nota del sitio ignora las valoraciones sin nota, en vez de contarlas como 0 |
+| `modules/reviews-consolidation.js` | `adminRecountReviewCounters` | Igual: sin nota no cuenta como 0 |
 
 **Si Functions no se ha desplegado desde antes de la #259**, se despliegan
 además las de las PR #259/#260:
 - nuevas: `simulateCriteriaChange`, `applyCriteriaChange`, `adminRefreshPlaceLocation` y `propagateParentCriteriaToMinilists`;
 - cambiadas: `core.js`, `admin-lists.js`, `grouped-aggregator.js`, `reports.js` y `ssr-meta.js`.
 
-Con `firebase deploy --only functions` todo sale de una vez. Ninguna Function se elimina.
+Con `firebase deploy --only functions` todo sale de una vez. La CLI preguntará
+si borrar las 4 archivadas: responde **sí** (si dices que no, siguen
+desplegadas con el código antiguo).
+
+**Business Pro:** la contratación online queda **apagada por partida doble**
+hasta que Stripe esté listo:
+- web: el botón «Hazte Business Pro» solo aparece si se compila con
+  `VITE_BUSINESS_PRO_CHECKOUT=true` (no está en los workflows). Sin él se
+  muestra una nota: «La contratación online de Business Pro todavía no está
+  abierta…»;
+- servidor: `STRIPE_CHECKOUT_ENABLED=true` en `functions/.env` (no existe).
+
+La concesión manual (Developer → Planes → «Activar Pro») no cambia. Probado en
+el emulador: dueña sin plan → nota, 0 llamadas a Stripe; admin concede →
+`businessProActive: true`, origen `manual`; la dueña ya ve las pestañas Pro.
+**No actives ninguno de los dos hasta configurar Stripe** (precio, webhook y
+secretos).
+
+**Developer (solo web):** recalcular una lista con una sola función, backfill de
+tipos de autor en el servidor, consola JSON en solo lectura que solo escribe
+los campos cambiados, «Fix IDs» con simulación previa, y consolidación de
+reseñas raíz oculta mientras la raíz esté vacía. Detalle en
+`developer-revision.md`.
 
 **Reglas:**
 - `firestore.rules`: nueva `minilistNotMorePublicThanParent`, que se aplica al crear y al editar listas.
@@ -210,12 +268,15 @@ export GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json
 
 5. Functions:
    ```
-   npm ci && npm test                                   # 91/91
+   npm ci && npm test                                   # 92/92
    firebase deploy --only functions --project listopic
    ```
-   **Comprobación:** en la consola de Functions aparece `syncListVisibility`, y
-   los logs no muestran errores de arranque.
-6. Pesos de criterios (antes de las reglas, como pide el propio script):
+   Cuando pregunte si borrar `adminUpdateAllPlaces`, `reverseGeocode`,
+   `adminResetUserGamification` y `adminResetAllGamification`: **sí**.
+
+   **Comprobación:** en la consola de Functions aparece `syncListVisibility`, ya
+   no aparecen las 4 anteriores, y los logs no muestran errores de arranque.
+6. ✅ **Hecho (01/10).** Pesos de criterios (antes de las reglas, como pide el propio script):
    ```
    node scripts/backfill-scoring-weights.js            # simulación: revisa la lista de cambios
    node scripts/backfill-scoring-weights.js --apply    # escribe; antes guarda una copia en backups/
@@ -234,7 +295,7 @@ export GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json
 
 ### E. Visibilidad
 
-9. **Solo simulación:**
+9. ✅ **Hecho (01/10): 41 cambios aplicados; ahora da 0.** Solo simulación:
    ```
    node scripts/audit-review-visibility.js --details --user=TtU5VnnJGyNOzYMjcoAOPvhAap82
    ```
@@ -280,7 +341,7 @@ export GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json
 |---|---|
 | **Clave de Algolia** | Mientras no borres la antigua (paso 16): vuelve a poner la antigua en el secreto `VITE_ALGOLIA_SEARCH_KEY` y relanza el workflow de `main` (GitHub → *Actions* → *Re-run*). |
 | **Web (Hosting)** | Firebase Console → *Hosting* → historial de versiones → la anterior → «Revertir». Instantáneo. O revierte el merge en GitHub y deja que el workflow despliegue. |
-| **Functions** | Desde el `main` anterior al merge: `git checkout <commit-anterior> -- functions && cd functions && npm ci && firebase deploy --only functions --project listopic`; después `git checkout HEAD -- functions`. Para quitar solo el trigger nuevo: `firebase functions:delete syncListVisibility --region europe-west1 --project listopic`. |
+| **Functions** | Una archivada: descomenta su línea en `index.js` (o en el `module.exports` de su módulo) y despliega solo esa: `firebase deploy --only functions:<nombre> --project listopic`. Todo: desde el `main` anterior al merge: `git checkout <commit-anterior> -- functions && cd functions && npm ci && firebase deploy --only functions --project listopic`; después `git checkout HEAD -- functions`. Para quitar solo el trigger nuevo: `firebase functions:delete syncListVisibility --region europe-west1 --project listopic`. |
 | **Reglas** | Firebase Console → *Firestore* → *Reglas* → historial → la versión anterior → «Publicar». O `git checkout <commit-anterior> -- firestore.rules && firebase deploy --only firestore:rules --project listopic`. |
 | **Pesos** (paso 6) | `node scripts/restore-backup.js backups/backfill-scoring-weights-<fecha>.json` (simulación) y, después, con `--apply`. Devuelve `scoringWeights` y los criterios de las Minilistas a lo de antes, y borra el campo donde no existía. |
 | **Visibilidad** (paso 10) | `node scripts/restore-backup.js backups/audit-review-visibility-<fecha>.json` (simulación) y, después, con `--apply`. Devuelve cada valoración a `private` o a «sin campo». |

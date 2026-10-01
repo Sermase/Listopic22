@@ -72,27 +72,37 @@ los crearía):
 
 ### Corregir
 
-| Acción | Problema | Propuesta |
+| Acción | Problema | Estado (01/10) |
 |---|---|---|
-| «Recalcular Usuarios» (`adminRecalculateAllUsers`) | Índice que falta (sección 1) | **Corregido (01/10)**: una sola pasada por todas las valoraciones, sin índices. Borrar cuenta, propagar autor y gamificación tienen un plan B si falta el índice |
-| «Recalcular TODO» | Encadena listas → sitios → usuarios; el tercer paso falla, así que el resultado queda a medias | Tras crear el índice funciona. Mejor aún: que sea «Recontar contadores» + «Recalcular Listas», que no dependen de índices |
-| Recalcular **una** lista | Llama a dos funciones (`adminRecalculateListAverages` y `adminUpdateSingleListAggregates`) que repiten el mismo cálculo | Dejar solo `adminUpdateSingleListAggregates` |
-| «Recalcular gamificación» (`adminRecalculateAllGamification`) | Usa `countReviewedPlaces`: depende del mismo índice | Se arregla con el índice |
-| «Backfill authorUserType» | Lo hace **el navegador**: recorre todas las valoraciones y escribe una a una. Es lento, se corta si cierras la pestaña, y ya existe `propagateAuthorFieldsToReviews` en el servidor | Sustituirlo por una llamada al servidor, o quitarlo si el filtro de bots ya lee los perfiles (hoy lo hace) |
-| Consola: «Guardar JSON» | Escribe **cualquier** documento con `merge`, sin validar el formato. Un error tecleando puede romper una lista o un sitio | Abrir en solo lectura por defecto; editar tras un segundo paso y con aviso de la colección |
-| «Recontar contadores»: nota del sitio | Cuenta una valoración sin nota como 0 en `places.averageRating` | Ignorar las valoraciones sin nota, como hace el módulo único de notas |
-| `adminFixPlaceDocument` en bloque («Corregir todos los IDs») | Fusiona sitios y mueve valoraciones en bucle, sin simulación previa en la pantalla | Hacer primero una pasada `dryRun: true` y enseñarla antes de confirmar |
+| «Recalcular Usuarios» (`adminRecalculateAllUsers`) | Índice que falta (sección 1) | **Hecho**: una sola pasada por todas las valoraciones, sin índices. Borrar cuenta, propagar autor y gamificación tienen un plan B si falta el índice |
+| «Recalcular TODO» | Encadena listas → sitios → usuarios; el tercer paso fallaba | **Hecho** con el arreglo anterior (ya no depende del índice) |
+| Recalcular **una** lista | Llamaba a dos funciones que repiten el mismo cálculo | **Hecho**: solo `adminUpdateSingleListAggregates` |
+| «Recalcular gamificación» | Usa `countReviewedPlaces`, que dependía del índice | **Hecho**: plan B sin índice |
+| «Backfill authorUserType» | Lo hacía **el navegador**, valoración a valoración | **Hecho**: una llamada al servidor por persona (`propagateAuthorFieldsToReviews`), con resumen de personas, valoraciones y errores |
+| Consola: «Guardar JSON» | Escribía **cualquier** documento entero con `merge` | **Hecho**: solo lectura al abrir; «Editar JSON» → «Guardar JSON»; confirma nombrando los campos que cambian y escribe **solo esos** (antes reescribía fechas y coordenadas intactas como mapas planos y añadía un campo `id`) |
+| «Recontar contadores»: nota del sitio | Contaba una valoración sin nota como 0 | **Hecho** (también en `recalculateAggregatesForPlace`) |
+| «Fix IDs» en bloque (`adminFixPlaceDocument`) | Fusionaba sitios sin simulación previa | **Hecho**: primero `dryRun: true` de todos; confirma con sitios, reseñas y seguidores; cancelar no escribe nada |
 
 ### Eliminar o archivar
 
-| Acción o función | Motivo |
+| Acción o función | Estado (01/10) |
 |---|---|
-| Consolidación de reseñas raíz (`adminCountRootReviews`, `adminConsolidateRootReviews`) | Migración ya hecha: la colección raíz `reviews/` está vacía (docs/REVIEWS-MIGRATION.md). Dejar solo «Contar» como comprobación, o archivar las dos |
-| `adminUpdateAllPlaces` (sin botón, pero desplegada) | Actualiza **todos** los sitios desde Google de una vez: es la acción de coste masivo que queremos evitar. **Eliminar** |
-| `reverseGeocode` (sin uso en la web) | Llama a Google Geocoding. Eliminar, o reservarla si se usa para la ubicación del usuario (hoy no) |
-| `adminAuditStatistics`, `adminGetCollection`, `adminAuditPlaceIdConsistency`, `adminRebuildCanonicalItemsForPlace`, `adminReplaceTag`, `adminRecalculateUserGamification`, `adminResetUserGamification`, `adminResetAllGamification` | Ninguna pantalla las llama. Las de *reset* son destructivas: **eliminar**. El resto, archivar (quitar del `index.js`) salvo que las uses a mano |
-| `adminRecalculateListAverages` | Duplica a `adminUpdateSingleListAggregates` |
-| Pestaña «Proyectos internos» | Es un laboratorio, no mantenimiento. Moverla a «Otros» |
+| Consolidación de reseñas raíz (Auditar / Migrar) | **Ocultas** salvo que «Contar» encuentre reseñas en la raíz. Las funciones siguen desplegadas |
+| `adminUpdateAllPlaces` | **Archivada**: fuera de `index.js` (actualizaba todos los sitios desde Google de golpe) |
+| `reverseGeocode` | **Archivada** (sin uso; llamaba a Google Geocoding) |
+| `adminResetUserGamification`, `adminResetAllGamification` | **Archivadas** (destructivas, sin pantalla) |
+| `adminAuditStatistics`, `adminGetCollection`, `adminAuditPlaceIdConsistency`, `adminRebuildCanonicalItemsForPlace`, `adminReplaceTag`, `adminRecalculateUserGamification`, `adminRecalculateListAverages` | Siguen desplegadas: no hacen daño y puede que las uses a mano. Archivarlas es una línea en `index.js` cada una |
+| Pestaña «Proyectos internos» | Sin cambios |
+
+**Al desplegar Functions**, la CLI preguntará si borrar las 4 archivadas
+(`adminUpdateAllPlaces`, `reverseGeocode`, `adminResetUserGamification`,
+`adminResetAllGamification`). Responde **sí**. Si dices que no, siguen
+desplegadas con el código antiguo.
+
+Comprobado en el emulador (01/10): recalcular una lista, backfill de tipos de
+autor (4 personas · 11 valoraciones · 0 errores), recontar, consola JSON (solo
+lectura, aviso sin cambios, solo escribe el campo cambiado y el `GeoPoint`
+sigue siendo `GeoPoint`) y «Fix IDs» (1 llamada `dryRun`; al cancelar, nada cambia).
 
 ### Corregido en esta rama (sin desplegar)
 
