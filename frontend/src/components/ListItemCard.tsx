@@ -45,6 +45,8 @@ interface ListItemCardProps {
 }
 
 export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextRankLabel, isGrid, groupingMode = 'place', listId, disableLift = false }) => {
+    // Una misma etiqueta puede llegar repetida (varias valoraciones del elemento).
+    const tags = Array.from(new Set(item.tags || []));
     const normalizedClosedStatus = String(item.placeClosedStatus || '').trim().toLowerCase();
     const isPermanentlyClosed = normalizedClosedStatus === 'permanently_closed' || normalizedClosedStatus === 'closed_permanently';
     const photoPlaceholderVariant = groupingMode === 'dish' ? 'group' : 'place';
@@ -223,13 +225,13 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                         )}
 
                         {/* Tags (max 3 on mobile, 4 on desktop) */}
-                        {item.tags && item.tags.length > 0 && (
+                        {tags.length > 0 && (
                             <div className="flex flex-wrap gap-1 mb-1">
-                                {item.tags.slice(0, 3).map(tag => (
+                                {tags.slice(0, 3).map(tag => (
                                     <span key={tag} className="px-1.5 py-0.5 bg-white/5 text-gray-400 border border-white/10 rounded text-[10px] font-medium truncate max-w-[72px]">{tag}</span>
                                 ))}
-                                {item.tags.length > 3 && (
-                                    <span className="hidden md:inline px-1.5 py-0.5 bg-white/5 text-gray-400 border border-white/10 rounded text-[10px]">{item.tags[3]}</span>
+                                {tags.length > 3 && (
+                                    <span className="hidden md:inline px-1.5 py-0.5 bg-white/5 text-gray-400 border border-white/10 rounded text-[10px]">{tags[3]}</span>
                                 )}
                             </div>
                         )}
@@ -374,9 +376,9 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                         </div>
 
                         {/* Tags */}
-                        {item.tags && item.tags.length > 0 && criteriaPreview.length === 0 && (
+                        {tags.length > 0 && criteriaPreview.length === 0 && (
                             <div className="flex flex-wrap gap-1 mt-2">
-                                {item.tags.slice(0, 4).map(tag => (
+                                {tags.slice(0, 4).map(tag => (
                                     <span key={tag} className="px-1.5 py-0.5 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] rounded text-[10px] font-medium">
                                         {tag}
                                     </span>
