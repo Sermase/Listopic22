@@ -19,7 +19,7 @@ desde aquí solo usa lectura pública.
 
 **Pendiente (en este orden):** **§8 (rotar claves expuestas, urgente)**, 3–4
 (secreto con la Search API Key + vista previa), borrar el índice `reviews`, 5
-(Functions; borra 4 archivadas), 7 (reglas), 8 (merge), 11–13 (Algolia) y 14–17.
+(Functions; borra 6 archivadas), 7 (reglas), 8 (merge), 11–13 (Algolia) y 14–17.
 
 **Clave de Algolia de la web:** la publicada empieza por `2eb8` y tiene `search`,
 `listIndexes` y `settings`. **Corrección (02/10):** `settings` solo **lee** los
@@ -163,10 +163,13 @@ configuración, que no es sensible. El riesgo real estaba en otra clave: §8.
 **Functions nuevas:** `syncListVisibility` (trigger en `lists/{listId}`).
 
 **Functions que se eliminan (archivadas, fuera de `index.js`):**
-`adminUpdateAllPlaces`, `reverseGeocode`, `adminResetUserGamification` y
-`adminResetAllGamification`. Ninguna pantalla las usa. La primera actualizaba
-todos los sitios desde Google de golpe; las de *reset* son destructivas. El
-código sigue en el repositorio.
+`adminUpdateAllPlaces`, `reverseGeocode`, `adminResetUserGamification`,
+`adminResetAllGamification`, `adminRecalculateListAverages` y
+`adminAuditStatistics`. Ninguna pantalla las usa. La primera actualizaba todos
+los sitios desde Google de golpe; las de *reset* son destructivas;
+`adminRecalculateListAverages` duplicaba a `adminUpdateSingleListAggregates`;
+`adminAuditStatistics` fallaba por tres índices que no existen («Recontar
+contadores» la sustituye). El código sigue en el repositorio.
 
 **Functions cambiadas:**
 
@@ -185,7 +188,7 @@ además las de las PR #259/#260:
 - cambiadas: `core.js`, `admin-lists.js`, `grouped-aggregator.js`, `reports.js` y `ssr-meta.js`.
 
 Con `firebase deploy --only functions` todo sale de una vez. La CLI preguntará
-si borrar las 4 archivadas: responde **sí** (si dices que no, siguen
+si borrar las 6 archivadas: responde **sí** (si dices que no, siguen
 desplegadas con el código antiguo).
 
 **Business Pro:** la contratación online queda **apagada por partida doble**
@@ -263,14 +266,15 @@ export GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json
 
 5. Functions:
    ```
-   npm ci && npm test                                   # 92/92
+   npm ci && npm test                                   # 93/93
    firebase deploy --only functions --project listopic
    ```
    Cuando pregunte si borrar `adminUpdateAllPlaces`, `reverseGeocode`,
-   `adminResetUserGamification` y `adminResetAllGamification`: **sí**.
+   `adminResetUserGamification`, `adminResetAllGamification`,
+   `adminRecalculateListAverages` y `adminAuditStatistics`: **sí**.
 
    **Comprobación:** en la consola de Functions aparece `syncListVisibility`, ya
-   no aparecen las 4 anteriores, y los logs no muestran errores de arranque.
+   no aparecen las 6 anteriores, y los logs no muestran errores de arranque.
 6. ✅ **Hecho (01/10).** Pesos de criterios (antes de las reglas, como pide el propio script):
    ```
    node scripts/backfill-scoring-weights.js            # simulación: revisa la lista de cambios

@@ -58,6 +58,7 @@ const adminUpdateSingleListAggregates = onCall(async (request) => {
   }
 });
 
+// eslint-disable-next-line no-unused-vars -- archivada: fuera de exports, no se despliega
 const adminRecalculateListAverages = onCall(async (request) => {
   const contextAuth = request.auth;
   if (!contextAuth) {
@@ -131,6 +132,7 @@ const adminRecalculateAllLists = onCall({ timeoutSeconds: 540, memory: '1GiB' },
 
 module.exports = {
   adminUpdateSingleListAggregates,
-  adminRecalculateListAverages,
+  // adminRecalculateListAverages: archivada (no se despliega); duplicaba a
+  // adminUpdateSingleListAggregates, que es la que usa Developer.
   adminRecalculateAllLists,
 };
