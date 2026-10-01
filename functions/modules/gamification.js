@@ -4,6 +4,7 @@ const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const { getFirestore } = require("firebase-admin/firestore");
 const { sendNotification } = require("./notifications");
+const { userReviewDocs } = require("./lib/user-reviews");
 
 const db = getFirestore();
 const DEFAULT_BADGE_XP_REWARD = 50;
@@ -98,7 +99,8 @@ function countReviewPhotos(reviewData) {
 }
 
 async function countReviewedPlaces(userId) {
-    const reviewsSnapshot = await db.collectionGroup("reviews").where("userId", "==", userId).get();
+    // Sin el índice reviews.userId (grupo de colecciones) recorre todo; ver lib/user-reviews.
+    const reviewsSnapshot = await userReviewDocs(db, "userId", userId);
     const uniquePlaceIds = new Set();
 
     reviewsSnapshot.forEach((docSnap) => {

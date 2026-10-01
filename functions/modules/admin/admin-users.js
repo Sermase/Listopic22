@@ -6,6 +6,8 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { assertJefeAccess, writeAuditLog } = require('../lib/auth');
+const { tallyReviewsByUser } = require('../lib/review-tally');
+const { userReviewDocs } = require('../lib/user-reviews');
 
 const db = getFirestore();
 const BATCH_LIMIT = 450;
@@ -77,12 +79,12 @@ async function commitBatchIfNeeded(state, force = false) {
 async function forEachUniqueUserReview(userId, callback) {
   const seenPaths = new Set();
   const snapshots = await Promise.all([
-    db.collectionGroup('reviews').where('userId', '==', userId).get(),
-    db.collectionGroup('reviews').where('authorId', '==', userId).get(),
+    userReviewDocs(db, 'userId', userId),
+    userReviewDocs(db, 'authorId', userId),
   ]);
 
-  for (const snap of snapshots) {
-    for (const docSnap of snap.docs) {
+  for (const docs of snapshots) {
+    for (const docSnap of docs) {
       if (seenPaths.has(docSnap.ref.path)) continue;
       seenPaths.add(docSnap.ref.path);
       await callback(docSnap);
@@ -174,23 +176,12 @@ async function handleUserOwnedLists(userId, keepSublists, state) {
   return touched;
 }
 
-async function recalculateAggregatesForUser(userId) {
-  const reviewsSnap = await db.collectionGroup('reviews').where('userId', '==', userId).get();
-  const canonicalReviewKeys = new Set();
-  reviewsSnap.forEach((docSnap) => {
-    const pathSegments = docSnap.ref.path.split('/');
-    const isCanonicalListReviewPath =
-      pathSegments.length === 4 &&
-      pathSegments[0] === 'lists' &&
-      pathSegments[2] === 'reviews';
-
-    if (!isCanonicalListReviewPath) return;
-
-    const listId = pathSegments[1] || '';
-    canonicalReviewKeys.add(`${listId}:${docSnap.id}`);
-  });
-  const reviewCount = canonicalReviewKeys.size;
-
+/**
+ * Contadores de una persona. `reviewCount` llega ya calculado (una sola pasada
+ * por todas las valoraciones en `countReviewsByUser`): así no hace falta el
+ * índice de grupo de colecciones sobre `reviews.userId`, que no existe.
+ */
+async function recalculateAggregatesForUser(userId, reviewCount) {
   const listsSnap = await db.collection('lists').where('userId', '==', userId).get();
   const listCount = listsSnap.size;
 
@@ -217,6 +208,22 @@ async function recalculateAggregatesForUser(userId) {
   return { reviewCount, reviewsCount: reviewCount, listCount, followersCount, followingCount, followingListsCount };
 }
 
+/** Una pasada por todas las valoraciones (sin filtros: no necesita índices). */
+async function countReviewsByUser() {
+  const entries = [];
+  let lastDoc = null;
+  for (;;) {
+    let query = db.collectionGroup('reviews').limit(500);
+    if (lastDoc) query = query.startAfter(lastDoc);
+    const snap = await query.get();
+    if (snap.empty) break;
+    snap.docs.forEach((docSnap) => entries.push({ path: docSnap.ref.path, data: docSnap.data() }));
+    lastDoc = snap.docs[snap.docs.length - 1];
+    if (snap.size < 500) break;
+  }
+  return tallyReviewsByUser(entries);
+}
+
 const adminRecalculateAllUsers = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
   const contextAuth = request.auth;
   if (!contextAuth) throw new HttpsError('unauthenticated', 'Resulta que necesitas estar logueado.');
@@ -234,10 +241,11 @@ const adminRecalculateAllUsers = onCall({ timeoutSeconds: 540, memory: '1GiB' },
 
   const usersSnap = await db.collection('users').get();
   const results = { total: usersSnap.size, success: 0, failed: 0, errors: [] };
+  const reviewCounts = await countReviewsByUser();
 
   for (const doc of usersSnap.docs) {
     try {
-      await recalculateAggregatesForUser(doc.id);
+      await recalculateAggregatesForUser(doc.id, reviewCounts.get(doc.id) || 0);
       results.success++;
     } catch (e) {
       results.failed++;
