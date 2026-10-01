@@ -134,106 +134,158 @@ retirar la antigua (pasos 2 y 15).
 - **El índice sigue recomendado** para cuando crezca. El JSON exacto está en
   `developer-revision.md`, y no lo he creado.
 
-## 5. Orden exacto de reparación y despliegue
+## 5. Qué entra en esta PR (6+1 commits sobre `main`, que ya tiene la #260)
+
+**Functions nuevas:** `syncListVisibility` (trigger en `lists/{listId}`).
+
+**Functions cambiadas:**
+
+| Archivo | Functions afectadas | Cambio |
+|---|---|---|
+| `modules/algolia.js` + `lib/algolia-sync.js` | `adminBackfillAlgolia` y todos los triggers de Algolia (aplican los ajustes al arrancar) | Reindexado sin índices temporales; `places` sin la réplica `places_by_distance` |
+| `modules/admin/admin-users.js` + `lib/review-tally.js` + `lib/user-reviews.js` | `adminRecalculateAllUsers`, `deleteOwnAccount`, `propagateAuthorFieldsToReviews` | Sin depender del índice `reviews.userId` (pasada única o plan B) |
+| `modules/gamification.js` | `onReviewWritten`, `onListWritten`, `onUserFollowingWritten`, `adminRecalculateUserGamification`, `adminRecalculateAllGamification` | `countReviewedPlaces` con plan B si falta el índice |
+
+**Si Functions no se ha desplegado desde antes de la #259**, se despliegan
+además las de las PR #259/#260:
+- nuevas: `simulateCriteriaChange`, `applyCriteriaChange`, `adminRefreshPlaceLocation` y `propagateParentCriteriaToMinilists`;
+- cambiadas: `core.js`, `admin-lists.js`, `grouped-aggregator.js`, `reports.js` y `ssr-meta.js`.
+
+Con `firebase deploy --only functions` todo sale de una vez. Ninguna Function se elimina.
+
+**Reglas:**
+- `firestore.rules`: nueva `minilistNotMorePublicThanParent`, que se aplica al crear y al editar listas.
+- Si las reglas no se han desplegado desde antes de la #259, entran también el endurecimiento y las reglas de criterios y pesos (V1–V9).
+- Tests: 61/61.
+
+**Índices de Firestore:** esta PR no cambia `firestore.indexes.json`. Ya en `main`
+hay dos compuestos de `lists`, (isPublic, createdAt) y (userId, isPublic,
+createdAt), de la #259. Solo se crean si ejecutas `firebase deploy --only firestore:indexes`.
+
+**Scripts de datos:** `--apply` guarda antes una copia en `functions/backups/`
+(no se sube a git); `scripts/restore-backup.js` la deshace.
+
+**Secreto de GitHub:** `VITE_ALGOLIA_SEARCH_KEY`, mismo nombre, solo cambia el
+valor. `VITE_ALGOLIA_APP_ID` no cambia.
+
+## 6. Orden exacto de reparación y despliegue
 
 Todo con `--project listopic`. Para los scripts hace falta una cuenta de
 servicio: Firebase Console → Configuración del proyecto → Cuentas de servicio →
 «Generar nueva clave privada». Guárdala fuera del repositorio, por ejemplo en
-`~/listopic-sa.json`.
+`~/listopic-sa.json`. En cada sesión de terminal:
+
+```
+cd functions
+export GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json
+```
 
 ### A. Algolia: limpieza (aprobada) y clave nueva
 
 1. Dashboard de Algolia → *Search* → *Indices*: borra `lists_tmp_amgkik`,
    `lists_tmp_ewun3t`, `lists_tmp_f16fva`, `lists_tmp_i3mzo`, `lists_tmp_s3lxue`,
-   `lists_tmp_x9rexh` y `reviews`.
-   **Comprobación:** quedan 14 índices.
+   `lists_tmp_x9rexh` y `reviews`. **Comprobación:** quedan 14 índices.
 2. *Settings* → *API Keys* → *All API keys* → **New API key**:
    - ACL: **solo `search`**;
    - índices: `lists*`, `places*`, `users*` y `grouped_items*`;
-   - *HTTP referers*: **déjalo vacío de momento**. La app nativa (Capacitor)
-     llama desde `https://localhost` o `capacitor://localhost`, y una restricción
-     mal puesta la dejaría sin búsqueda. Lo que de verdad protege es quitar
-     `settings` y `listIndexes`; los *referers* se pueden añadir después, probando antes la app;
+   - *HTTP referers*: vacío de momento (la app nativa llama desde `https://localhost` o `capacitor://localhost`);
    - descripción: «web · solo búsqueda».
 
    **No borres la clave antigua.**
-3. GitHub → repositorio → *Settings* → *Secrets and variables* → *Actions* →
-   cambia `VITE_ALGOLIA_SEARCH_KEY` por la clave nueva. Para trabajar en local,
-   cámbiala también en `frontend/.env.local`, que no se sube al repositorio.
+3. GitHub → *Settings* → *Secrets and variables* → *Actions* → edita
+   **`VITE_ALGOLIA_SEARCH_KEY`** con la clave nueva. Para trabajar en local,
+   cámbiala también en `frontend/.env.local`, que no se sube.
 
-### B. Servidor y reglas
+### B. Vista previa de la web (aquí se prueba la clave nueva)
 
-4. Functions:
-   ```
-   cd functions && npm ci && npm test        # 91/91
-   firebase deploy --only functions --project listopic
-   ```
-   **Comprobación:** en la consola de Firebase existen `syncListVisibility`,
-   `simulateCriteriaChange`, `applyCriteriaChange` y `adminRefreshPlaceLocation`.
-5. Reglas:
-   ```
-   cd firestore-tests && npm test            # 61/61
-   cd .. && firebase deploy --only firestore:rules --project listopic
-   ```
-
-### C. Web (aquí se prueba la clave nueva)
-
-6. Abre la PR de esta rama. El workflow de PR la publica en una URL de vista
-   previa `listopic--pr…web.app`, ya con la clave nueva. Comprueba allí:
-   - Buscar devuelve resultados en Elementos, Sitios, Listas y Usuarios;
+4. Abre la PR. El workflow de PR compila con el secreto nuevo y publica una
+   vista previa `listopic--pr…web.app`. Comprueba allí:
+   - Buscar devuelve Elementos, Sitios, Listas y Usuarios;
    - Buscar → Zona → Ciudad tiene valores;
    - la consola del navegador no tiene errores 403 de Algolia.
-7. Si todo va bien, fusiona en `main`; el workflow despliega Hosting. Repite las
-   comprobaciones del paso 6 en `listopic.es`.
-   Si falla la búsqueda: devuelve el secreto a la clave antigua y vuelve a
-   desplegar. La antigua sigue viva, así que no hay corte.
 
-### D. Datos
+   Si falla: vuelve a poner la clave antigua en el secreto. No hay corte.
 
-8. Pesos de criterios:
+### C. Servidor, pesos y reglas
+
+5. Functions:
    ```
+   npm ci && npm test                                   # 91/91
+   firebase deploy --only functions --project listopic
+   ```
+   **Comprobación:** en la consola de Functions aparece `syncListVisibility`, y
+   los logs no muestran errores de arranque.
+6. Pesos de criterios (antes de las reglas, como pide el propio script):
+   ```
+   node scripts/backfill-scoring-weights.js            # simulación: revisa la lista de cambios
+   node scripts/backfill-scoring-weights.js --apply    # escribe; antes guarda una copia en backups/
+   ```
+7. Reglas:
+   ```
+   cd ../firestore-tests && npm test                    # 61/61
+   cd .. && firebase deploy --only firestore:rules --project listopic
    cd functions
-   GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json node scripts/backfill-scoring-weights.js
    ```
-   Revisa la salida y, si es correcta, repite añadiendo `--apply`.
-9. Visibilidad. Primero, **solo simulación**:
+
+### D. Web en producción
+
+8. Fusiona la PR en `main`; el workflow despliega Hosting. Repite las
+   comprobaciones del paso 4 en `listopic.es`.
+
+### E. Visibilidad
+
+9. **Solo simulación:**
    ```
-   GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json node scripts/audit-review-visibility.js --details --user=TtU5VnnJGyNOzYMjcoAOPvhAap82
+   node scripts/audit-review-visibility.js --details --user=TtU5VnnJGyNOzYMjcoAOPvhAap82
    ```
    **Condición para seguir:** la columna «A cambiar» debe dar exactamente
-   **Patatas bravas 32, Playas 9 y 0 en el resto (41 en total)**. Si no, no apliques y pásame la salida.
+   **Patatas bravas 32, Playas 9 y 0 en el resto (41)**. Si no, para y pásame la salida.
+10. Si coincide:
+    ```
+    node scripts/audit-review-visibility.js --apply --expect=TubrhJBOv3qUNDMXmSd3:32,jSwygYuHeF5MCkrMLzF5:9
+    ```
+    El script vuelve a contar y, si el reparto no es exactamente ese, sale sin
+    escribir (código 3). Sin `--expect` tampoco escribe (código 2). Antes de
+    escribir guarda una copia en `backups/audit-review-visibility-<fecha>.json`.
 
-   Si coincide:
-   ```
-   GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json node scripts/audit-review-visibility.js --apply --expect=TubrhJBOv3qUNDMXmSd3:32,jSwygYuHeF5MCkrMLzF5:9
-   ```
-   El script **vuelve a calcular** el reparto y, si no es exactamente ese, sale
-   sin escribir (código 3). Sin `--expect` tampoco escribe (código 2). Solo
-   cambia el campo `visibility`.
+    **Comprobación:** repite la simulación del paso 9; debe dar 0 a cambiar.
 
-   **Comprobación:** repite la simulación; debe dar 0 a cambiar.
+### F. Algolia: reindexado y réplica sobrante
 
-### E. Algolia: reindexado
-
-10. Developer → Algolia → «Configurar índices». Aplica las facetas de zona a los
+11. Developer → Algolia → «Configurar índices». Aplica las facetas de zona a los
     principales y a sus réplicas, y desvincula `places_by_distance`.
-11. Developer → Algolia → «Reindexar todo». Ya no crea índices temporales.
+12. Developer → Algolia → «Reindexar todo».
     **Comprobación:** no sale «Too many indices» y siguen siendo 14 índices.
-12. Dashboard de Algolia: `places_by_distance` aparece como índice suelto
-    (sin *primary*). Bórrala. **Comprobación:** quedan 13 índices.
+13. Dashboard de Algolia: `places_by_distance` aparece sin *primary*. Bórrala.
+    **Comprobación:** quedan 13 índices.
 
-### F. Recuentos y comprobación final
+### G. Recuentos y comprobación final
 
-13. Developer → Mantenimiento: «Recalcular TODAS las Listas» y «Recalcular TODOS
-    los Usuarios».
-    **Comprobación:** los dos terminan sin errores (el de usuarios ya no necesita el índice).
-14. En `listopic.es`:
-    - el perfil de **ListopIA** muestra **79** valoraciones (antes 40);
+14. Developer → Mantenimiento: «Recalcular TODAS las Listas» y «Recalcular TODOS
+    los Usuarios». **Comprobación:** los dos terminan sin errores.
+15. En `listopic.es`:
+    - el perfil de ListopIA muestra **79** valoraciones;
     - **Patatas bravas** (37) y **Playas** (12) muestran todas las suyas, activando «Bots»;
-    - Buscar → Zona → **Comunidad** y **País** tienen valores.
-15. Solo con todo lo anterior en verde: Algolia → *API Keys* → **borra la clave
-    antigua** (la que tiene `listIndexes` y `settings`).
-    **Comprobación:** Buscar sigue funcionando.
-16. Opcional, cuando haya muchas valoraciones: el índice `reviews.userId` (JSON
-    en `developer-revision.md`) → `firebase deploy --only firestore:indexes
-    --project listopic`. Si propone borrar índices, responde **No**.
+    - Buscar → Zona → Comunidad y País tienen valores;
+    - en una lista tuya de prueba, al pasar la madre a privada, su Minilista pasa a privada (unos segundos).
+16. **Solo con todo en verde:** Algolia → *API Keys* → borra la clave antigua (la
+    que tiene `listIndexes` y `settings`). **Comprobación:** Buscar sigue funcionando.
+17. Opcional, cuando crezca: índice `reviews.userId` (JSON en
+    `developer-revision.md`) → `firebase deploy --only firestore:indexes --project listopic`.
+    Si propone borrar índices, responde **No**.
+
+## 7. Marcha atrás (rollback)
+
+| Qué | Cómo deshacerlo |
+|---|---|
+| **Clave de Algolia** | Mientras no borres la antigua (paso 16): vuelve a poner la antigua en el secreto `VITE_ALGOLIA_SEARCH_KEY` y relanza el workflow de `main` (GitHub → *Actions* → *Re-run*). |
+| **Web (Hosting)** | Firebase Console → *Hosting* → historial de versiones → la anterior → «Revertir». Instantáneo. O revierte el merge en GitHub y deja que el workflow despliegue. |
+| **Functions** | Desde el `main` anterior al merge: `git checkout <commit-anterior> -- functions && cd functions && npm ci && firebase deploy --only functions --project listopic`; después `git checkout HEAD -- functions`. Para quitar solo el trigger nuevo: `firebase functions:delete syncListVisibility --region europe-west1 --project listopic`. |
+| **Reglas** | Firebase Console → *Firestore* → *Reglas* → historial → la versión anterior → «Publicar». O `git checkout <commit-anterior> -- firestore.rules && firebase deploy --only firestore:rules --project listopic`. |
+| **Pesos** (paso 6) | `node scripts/restore-backup.js backups/backfill-scoring-weights-<fecha>.json` (simulación) y, después, con `--apply`. Devuelve `scoringWeights` y los criterios de las Minilistas a lo de antes, y borra el campo donde no existía. |
+| **Visibilidad** (paso 10) | `node scripts/restore-backup.js backups/audit-review-visibility-<fecha>.json` (simulación) y, después, con `--apply`. Devuelve cada valoración a `private` o a «sin campo». |
+| **Índices de Algolia borrados** | Los `lists_tmp_*` y `reviews` no se usan y no hace falta recuperarlos. `places_by_distance` tampoco: si alguna vez hiciera falta, se recrea al añadirla a `replicas` y pulsar «Configurar índices». |
+| **Recuentos** (paso 14) | No hace falta: se recalculan a partir de los datos. |
+
+Guarda la carpeta `functions/backups/` hasta dar todo por bueno: es la única
+copia de los valores anteriores.
