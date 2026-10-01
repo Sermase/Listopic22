@@ -74,7 +74,7 @@ los crearía):
 
 | Acción | Problema | Propuesta |
 |---|---|---|
-| «Recalcular Usuarios» (`adminRecalculateAllUsers`) | Índice que falta (sección 1) | Crear el índice. Alternativa sin índice: usar el compuesto que ya existe (`userId` + `createdAt`), aunque así no cuenta las valoraciones sin `createdAt` |
+| «Recalcular Usuarios» (`adminRecalculateAllUsers`) | Índice que falta (sección 1) | **Corregido (01/10)**: una sola pasada por todas las valoraciones, sin índices. Borrar cuenta, propagar autor y gamificación tienen un plan B si falta el índice |
 | «Recalcular TODO» | Encadena listas → sitios → usuarios; el tercer paso falla, así que el resultado queda a medias | Tras crear el índice funciona. Mejor aún: que sea «Recontar contadores» + «Recalcular Listas», que no dependen de índices |
 | Recalcular **una** lista | Llama a dos funciones (`adminRecalculateListAverages` y `adminUpdateSingleListAggregates`) que repiten el mismo cálculo | Dejar solo `adminUpdateSingleListAggregates` |
 | «Recalcular gamificación» (`adminRecalculateAllGamification`) | Usa `countReviewedPlaces`: depende del mismo índice | Se arregla con el índice |
