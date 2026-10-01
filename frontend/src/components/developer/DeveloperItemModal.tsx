@@ -56,14 +56,17 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
             const original = item as Record<string, unknown>;
             const changedKeys = Object.keys(parsed).filter((k) => JSON.stringify(parsed[k]) !== JSON.stringify(original[k]));
             if (changedKeys.length === 0) {
-                throw new Error('No has cambiado nada.');
+                setError('No has cambiado nada.');
+                return;
             }
             if (!confirm(`Vas a escribir en ${collectionName}/${item.id} (merge, sin validar formato).\n\nCampos que cambian: ${changedKeys.join(', ')}\n\n¿Guardar?`)) {
                 setIsSaving(false);
                 return;
             }
             const docRef = doc(db, collectionName, item.id);
-            await setDoc(docRef, parsed, { merge: true });
+            // Solo los campos cambiados: reescribir el resto convertiría fechas y
+            // coordenadas intactas en mapas planos.
+            await setDoc(docRef, Object.fromEntries(changedKeys.map((k) => [k, parsed[k]])), { merge: true });
             onSaved();
             onClose();
         } catch (err: any) {
