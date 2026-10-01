@@ -111,6 +111,7 @@ distinguir `private` de «sin campo». Para ambos casos, el arreglo es el mismo.
 | 25 | Elemento inexistente: página de «Lugar Desconocido» con Valorar y Reportar | **Corregido (02/10)**: «Elemento no encontrado». Perfil inexistente: botón «Buscar personas» |
 | 26 | Valoraciones: «Patatas bravas · Patatas bravas» | **Corregido (02/10)**: una vez, con el enlace a la Lista |
 | 27 | Tema claro: esqueletos de carga casi invisibles en sitio y elemento | **Corregido (02/10)** |
+| 28 | **Android (Capacitor) no arrancaba**: «Cannot read properties of undefined (reading 'createContext')» en `map-vendor`. Rollup metía su auxiliar de CommonJS en `map-vendor`; `react-vendor` lo importaba de ahí y se formaba el ciclo `react-vendor ↔ map-vendor`, así que react-leaflet se evaluaba antes que React. Depende del orden en que se procesan los módulos: en Linux no salía y en tu build sí (hash distinto para el mismo código) | **Corregido (02/10)**: fuera `map-vendor` (Leaflet lo reparte Vite y solo se carga con un mapa), el auxiliar va fijo en `react-vendor` (que no importa nada) y **el build falla si aparece cualquier ciclo entre chunks**. Reproducido forzando el ciclo: misma pantalla en blanco y mismo error; con el arreglo arrancan las 4 rutas probadas con el origen de Capacitor (`https://localhost`) y los mapas de Home, Lista y Buscar |
 
 Falsa alarma: el botón flotante que tapaba «Publicar valoración» son las
 herramientas de TanStack Query, que solo existen en desarrollo.
@@ -142,3 +143,20 @@ jerárquico en Algolia (`zone.lvl0…lvl3`), que requiere reindexar.
 - Limpieza de Developer: pendiente de tu visto bueno.
 - Los puestos de Buscar incluyen valoraciones de bots, porque Algolia las
   cuenta; la Lista los excluye por defecto. Con muchos bots pueden diferir.
+
+## Android: comprobar en el dispositivo
+
+Aquí no hay SDK de Android ni KVM; lo probado es la build de producción con el
+mismo motor (Chromium) y el mismo origen que Capacitor (`https://localhost`),
+incluidos los archivos copiados con `npx cap copy android`. En tu máquina:
+
+```
+cd frontend
+npm run build          # falla si hay un ciclo entre chunks
+npx cap sync android
+npx cap open android   # Run en el dispositivo
+```
+
+En Logcat (filtro `chromium` o `Capacitor/Console`) no debe salir ningún
+`Uncaught TypeError`. Ya no existe `map-vendor-*.js`; Leaflet va en un chunk
+automático que solo se carga al abrir un mapa.
