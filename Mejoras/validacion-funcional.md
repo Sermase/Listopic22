@@ -103,6 +103,7 @@ distinguir `private` de «sin campo». Para ambos casos, el arreglo es el mismo.
 | 17 | Perfil: el filtro por Listas solo ofrecía las Listas de las valoraciones ya cargadas en el mosaico | **Corregido (01/10)**: sale de todas sus valoraciones visibles (hasta 1000), con número |
 | 18 | Cabecera con foto: en móvil la foto acababa en corte; en escritorio se ampliaba muchísimo. `ProgressiveImage` anulaba el `absolute inset-0` del contenedor | **Corregido (01/10)**: la foto rellena la cabecera (en móvil recorta los laterales); en pantallas anchas va centrada sobre la misma desenfocada. Arregla también miniaturas de valoraciones y Home |
 | 19 | Etiquetas repetidas en las tarjetas de Buscar («Picantes» doble) | **Corregido (01/10)** |
+| 20 | Algolia (`grouped_items`) calculaba los elementos de una Lista pública con **todas** sus valoraciones, también las de Minilistas privadas: movían nota y puesto en Buscar y podían prestar su foto o etiquetas | **Corregido (02/10)**: el índice solo usa valoraciones `public`. Requiere desplegar Functions y «Reindexar todo». Los agregados internos (tarjeta de la Lista) no cambian: decisión pendiente |
 
 Falsa alarma: el botón flotante que tapaba «Publicar valoración» son las
 herramientas de TanStack Query, que solo existen en desarrollo.

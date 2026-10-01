@@ -17,18 +17,17 @@ Algolia con la clave de búsqueda). Desde esta rama no se ha desplegado nada.
 Las Listas privadas no se pueden comprobar sin credenciales. La re-auditoría
 desde aquí solo usa lectura pública.
 
-**Pendiente (en este orden):** 2–4 (clave solo de búsqueda + vista previa),
-borrar el índice `reviews`, 5 (Functions; borra 4 archivadas), 7 (reglas), 8
-(merge), 11–13 (Algolia) y 14–17.
+**Pendiente (en este orden):** **§8 (rotar claves expuestas, urgente)**, 3–4
+(secreto con la Search API Key + vista previa), borrar el índice `reviews`, 5
+(Functions; borra 4 archivadas), 7 (reglas), 8 (merge), 11–13 (Algolia) y 14–17.
 
-**Clave de Algolia en producción:** la web publicada (compilada el 30/09 a las
-22:32 GMT) **sigue llevando la clave antigua**, la que empieza por `2eb8`, con
-`search`, `listIndexes` y `settings`. O el secreto no se cambió, o se cambió
-después de esa compilación. Una Search API Key «de serie» de Algolia suele tener
-**`search` y `listIndexes`**. Sirve, pero lo ideal es una clave con **solo
-`search`** (paso 2). La vista previa de la PR (paso 4) dirá qué clave usa el
-secreto: en el navegador, *Network* → cualquier petición a `algolia.net` →
-cabecera `x-algolia-api-key`.
+**Clave de Algolia de la web:** la publicada empieza por `2eb8` y tiene `search`,
+`listIndexes` y `settings`. **Corrección (02/10):** `settings` solo **lee** los
+ajustes de los índices; cambiarlos exige `editSettings` (documentación de
+Algolia). Esta clave no puede escribir, borrar ni cambiar nada. Se usa la
+Search API Key estándar («Safe in the browser») y no hace falta crear otra.
+Desde esta PR, el build falla si el secreto lleva una clave con permisos de
+escritura (§8).
 
 ## 1. Auditoría de visibilidad (producción, solo lectura)
 
@@ -144,11 +143,9 @@ buscador no vería las novedades.
 Cambiado en código (sin desplegar): el reindexado ya **no usa índices
 temporales**; guarda los registros y después borra los que sobran.
 
-**Riesgo de seguridad:** la clave pública de búsqueda (`VITE_ALGOLIA_SEARCH_KEY`,
-que va en la web) tiene los permisos `search`, **`listIndexes` y `settings`**.
-Cualquiera puede leerla en el navegador y **cambiar la configuración de los
-índices** (orden, campos, réplicas). Hay que crear una clave solo con `search` y
-retirar la antigua (pasos 2 y 15).
+**Clave de la web:** `search`, `listIndexes` y `settings`, que son de solo
+lectura (ver §8). Lo que deja ver de más son los nombres de los índices y su
+configuración, que no es sensible. El riesgo real estaba en otra clave: §8.
 
 ## 4. `adminRecalculateAllUsers` y el índice `reviews.userId`
 
@@ -243,16 +240,14 @@ export GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json
 1. Dashboard de Algolia → *Search* → *Indices*: borra `lists_tmp_amgkik`,
    `lists_tmp_ewun3t`, `lists_tmp_f16fva`, `lists_tmp_i3mzo`, `lists_tmp_s3lxue`,
    `lists_tmp_x9rexh` y `reviews`. **Comprobación:** quedan 14 índices.
-2. *Settings* → *API Keys* → *All API keys* → **New API key**:
-   - ACL: **solo `search`**;
-   - índices: `lists*`, `places*`, `users*` y `grouped_items*`;
-   - *HTTP referers*: vacío de momento (la app nativa llama desde `https://localhost` o `capacitor://localhost`);
-   - descripción: «web · solo búsqueda».
-
-   **No borres la clave antigua.**
-3. GitHub → *Settings* → *Secrets and variables* → *Actions* → edita
-   **`VITE_ALGOLIA_SEARCH_KEY`** con la clave nueva. Para trabajar en local,
-   cámbiala también en `frontend/.env.local`, que no se sube.
+2. ~~Crear una clave solo de búsqueda~~: tu panel no lo permite, y no hace
+   falta. Se usa la **Search API Key** estándar («Safe in the browser»).
+3. GitHub → *Settings* → *Secrets and variables* → *Actions* →
+   **`VITE_ALGOLIA_SEARCH_KEY`** = la Search API Key. **Nunca** la Write ni la
+   Admin API Key: el workflow lo comprueba antes de compilar y falla si la
+   clave tiene `addObject`, `deleteObject`, `deleteIndex`, `editSettings`,
+   `browse` u otro permiso que no sea `search`, `listIndexes` o `settings`. En
+   local: `cd frontend && node --env-file=.env.local scripts/check-algolia-key.mjs`.
 
 ### B. Vista previa de la web (aquí se prueba la clave nueva)
 
@@ -260,9 +255,9 @@ export GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json
    vista previa `listopic--pr…web.app`. Comprueba allí:
    - Buscar devuelve Elementos, Sitios, Listas y Usuarios;
    - Buscar → Zona → Ciudad tiene valores;
-   - la consola del navegador no tiene errores 403 de Algolia.
-
-   Si falla: vuelve a poner la clave antigua en el secreto. No hay corte.
+   - la consola del navegador no tiene errores 403 de Algolia;
+   - en el log del workflow, el paso «La clave de Algolia de la web solo puede
+     buscar» dice ✅ y los permisos.
 
 ### C. Servidor, pesos y reglas
 
@@ -329,8 +324,8 @@ export GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json
     - **Patatas bravas** (37) y **Playas** (12) muestran todas las suyas, activando «Bots»;
     - Buscar → Zona → Comunidad y País tienen valores;
     - en una lista tuya de prueba, al pasar la madre a privada, su Minilista pasa a privada (unos segundos).
-16. **Solo con todo en verde:** Algolia → *API Keys* → borra la clave antigua (la
-    que tiene `listIndexes` y `settings`). **Comprobación:** Buscar sigue funcionando.
+16. ~~Borrar la clave antigua de la web~~: no aplica. La web sigue con la Search
+    API Key, de solo lectura. Lo que sí hay que retirar son las claves de §8.
 17. Opcional, cuando crezca: índice `reviews.userId` (JSON en
     `developer-revision.md`) → `firebase deploy --only firestore:indexes --project listopic`.
     Si propone borrar índices, responde **No**.
@@ -339,7 +334,8 @@ export GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json
 
 | Qué | Cómo deshacerlo |
 |---|---|
-| **Clave de Algolia** | Mientras no borres la antigua (paso 16): vuelve a poner la antigua en el secreto `VITE_ALGOLIA_SEARCH_KEY` y relanza el workflow de `main` (GitHub → *Actions* → *Re-run*). |
+| **Clave de Algolia de la web** | Si Buscar falla con la clave del secreto, vuelve a poner la `2eb8…` (solo lectura) y relanza el workflow (GitHub → *Actions* → *Re-run*). |
+| **Rotación de claves (§8)** | No tiene marcha atrás, ni debe tenerla: si Functions falla tras rotar, revisa que `functions/.env` tenga la clave **nueva** y vuelve a desplegar. |
 | **Web (Hosting)** | Firebase Console → *Hosting* → historial de versiones → la anterior → «Revertir». Instantáneo. O revierte el merge en GitHub y deja que el workflow despliegue. |
 | **Functions** | Una archivada: descomenta su línea en `index.js` (o en el `module.exports` de su módulo) y despliega solo esa: `firebase deploy --only functions:<nombre> --project listopic`. Todo: desde el `main` anterior al merge: `git checkout <commit-anterior> -- functions && cd functions && npm ci && firebase deploy --only functions --project listopic`; después `git checkout HEAD -- functions`. Para quitar solo el trigger nuevo: `firebase functions:delete syncListVisibility --region europe-west1 --project listopic`. |
 | **Reglas** | Firebase Console → *Firestore* → *Reglas* → historial → la versión anterior → «Publicar». O `git checkout <commit-anterior> -- firestore.rules && firebase deploy --only firestore:rules --project listopic`. |
@@ -350,3 +346,79 @@ export GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json
 
 Guarda la carpeta `functions/backups/` hasta dar todo por bueno: es la única
 copia de los valores anteriores.
+
+## 8. Seguridad de claves (02/10) — **urgente**
+
+**El repositorio es público.** Revisado el historial completo de git (todas las
+ramas) y la web publicada. Comprobado contra Algolia, solo con lectura de los
+permisos de cada clave (`GET /1/keys/<clave>`). No he probado las claves de
+Google: cada llamada a Places se cobra.
+
+| Clave | Dónde está | Permisos / tipo | Estado | Qué hacer |
+|---|---|---|---|---|
+| Algolia `2eb8…` | Web (bundle), `.env.local` | `search`, `listIndexes`, `settings` (lectura) | Pública por diseño | Nada. Es la Search API Key |
+| **Algolia `da10…`** | **Historial público**: `firebase-debug.log` en los commits `d9af825` y `9d89bde` (12/01/2026). Era la `ALGOLIA_API_KEY` de Functions entonces (y probablemente lo sigue siendo) | **Admin**: escribir, borrar índices, `editSettings`, `browse`, logs… | **ACTIVA** | **Regenerar ya** (pasos abajo) |
+| Algolia `ed3b…` | Historial: `functions/.env.listopic` (2025) | — | Ya no vale (403) | Nada |
+| Algolia `3133…` | Historial: `public/js/config.js` (2025) | — | Ya no vale (403) | Nada |
+| **Google `AIzaSyC3…`** | **Historial público**: `GOOGLE_PLACES_API_KEY` en `firebase-debug.log` (hasta el 15/01/2026) | Servidor (Places) | Desconocido | **Rotar** y restringir a las APIs de Places/Geocoding |
+| **Google `AIzaSyBV…`** | Código actual (`frontend/src/config.ts`, Maps en el navegador) y, en el historial, también como `GOOGLE_PLACES_API_KEY` de servidor | Navegador | Pública por diseño **si está restringida** | Restringir por *referrer* y por API (abajo) |
+| Google `AIzaSyDP…` | `frontend/src/firebase.ts` | Firebase web | Pública por diseño (la protegen las reglas) | Opcional: restringir a las APIs de Firebase |
+| Google `AIzaSyDS…` | `google-services.json` (Android) | Android | Pública por diseño | Restringir a la app Android (paquete + SHA-1) |
+| Google `AIzaSyDX…`, `AIzaSyDE…`, `AIzaSyA9…` | Historial (2025) | Antiguas | Desconocido | Si aún existen en Google Cloud, **borrarlas** |
+
+El frontend **solo** usa `VITE_ALGOLIA_APP_ID` y `VITE_ALGOLIA_SEARCH_KEY`, y no
+hace ninguna operación de escritura en Algolia: ni `saveObject`, ni
+`setSettings`, ni `browse`… En el bundle compilado no hay más claves de Algolia.
+La clave de administración solo la usa Functions (`process.env.ALGOLIA_API_KEY`).
+
+**Qué deja ver la clave de la web** (revisado en los 4 índices): `users` no
+lleva correo ni teléfono (sí `residence`, la ciudad que cada persona pone en
+su perfil). `lists` solo tiene las 14 Listas públicas. `grouped_items` llevaba
+datos de valoraciones de Minilistas privadas: corregido en esta rama, ver
+`validacion-funcional.md`.
+
+### Rotar la clave de administración de Algolia (`da10…`)
+
+Rotar invalida la clave al momento: Functions deja de sincronizar Algolia hasta
+que despliegues con la nueva. Hazlo justo antes del paso 5 (o despliega
+Functions justo después).
+
+1. Algolia → *Settings* → *API Keys* → *Admin API Key* → **Regenerate**.
+2. Pon la nueva en `ALGOLIA_API_KEY` del archivo de entorno de Functions que
+   uses (`functions/.env` o `functions/.env.listopic`; los dos están en
+   `.gitignore`). Mejor aún, si tu panel la ofrece, usa la **Write API Key**:
+   Functions no necesita permisos de administración.
+3. `firebase deploy --only functions --project listopic` (paso 5).
+4. Developer → Algolia → «Configurar índices» y «Reindexar todo»: comprueba que
+   no da errores de permisos.
+5. Algolia → *Monitoring* / *Logs* (si tu plan los muestra): busca operaciones
+   `deleteIndex`, `setSettings` o `batch` desde enero que no reconozcas.
+   **Comprobación:** `curl -s https://FI4Q0XQABV-dsn.algolia.net/1/keys/<da10…> -H "x-algolia-application-id: FI4Q0XQABV" -H "x-algolia-api-key: <da10…>"`
+   tiene que responder **403**.
+
+### Claves de Google
+
+Google Cloud Console → *APIs y servicios* → *Credenciales*:
+
+- **`AIzaSyC3…` (Places, servidor):** crea una clave nueva y restríngela por API
+  a *Places API (New)* y *Geocoding API*. Ponla en `GOOGLE_PLACES_API_KEY` del
+  entorno de Functions, despliega y **borra la antigua**.
+- **`AIzaSyBV…` (Maps, navegador):** *Restricciones de aplicación* → sitios web:
+  `https://listopic.es/*`, `https://listopic.web.app/*`,
+  `https://listopic.firebaseapp.com/*`, `https://listopic--*.web.app/*`
+  (vistas previas), `http://localhost:*/*` y, para la app nativa,
+  `https://localhost/*` y `capacitor://localhost/*`. *Restricciones de API*:
+  solo las que use la web (Maps JavaScript API y, si se usa en el navegador,
+  Places). Si esa clave nunca tuvo restricciones, rótala también, porque estuvo
+  en el historial como clave de servidor.
+- Pon una alerta de presupuesto y cuotas diarias en Places.
+
+### Para que no vuelva a pasar
+
+- GitHub → *Settings* → *Code security* → activa **Secret scanning** y
+  **Push protection** (gratis en repos públicos).
+- `.gitignore` ya excluía `firebase-debug.log`; ahora también `*-debug.log` (los
+  logs de cualquier emulador).
+- El workflow comprueba la clave de Algolia de la web antes de compilar.
+- No sirve borrar los archivos del historial: el repositorio ya es público (y
+  reescribirlo exige force-push). Lo que protege es rotar.

@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "check:algolia-key": "node scripts/check-algolia-key.mjs"
   },
   "dependencies": {
     "@capacitor-firebase/authentication": "^8.2.0",

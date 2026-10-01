@@ -18,6 +18,7 @@ functions/.env.*
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+*-debug.log
 
 # --- Build artefactos ---
 dist/
