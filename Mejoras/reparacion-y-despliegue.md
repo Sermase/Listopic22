@@ -412,11 +412,17 @@ configurado». Probado en el emulador. La clave no aparece en los logs.
 5. Revocar la antigua: si regeneraste la Admin API Key, `da10…` ya no vale.
    **Comprobación:** `curl -s https://FI4Q0XQABV-dsn.algolia.net/1/keys/<da10…> -H "x-algolia-application-id: FI4Q0XQABV" -H "x-algolia-api-key: <da10…>"`
    responde **403**.
-6. Si la CLI dice que `ALGOLIA_API_KEY` choca con una variable de entorno: la
-   Function aún la tiene como variable normal de un despliegue antiguo. Quita
-   cualquier `ALGOLIA_API_KEY=` de los `.env` y vuelve a desplegar; si
-   persiste, borra esa Function (`firebase functions:delete <nombre> --region
-   europe-west1 --project listopic`) y despliégala de nuevo.
+6. **Si el deploy falla con «Failed to update function …»** en `onList*`,
+   `onPlace*`, `onUser*`, `syncGroupedItemsIndex` y `adminBackfillAlgolia`
+   (pasó el 02/10): esas 11 Functions tenían `ALGOLIA_API_KEY` como variable de
+   entorno normal (de un despliegue antiguo con `.env`). Google no deja tener
+   una variable y un secret con el mismo nombre, y redesplegar no borra la
+   variable. Solución: borrarlas y volver a crearlas.
+   ```
+   firebase functions:delete adminBackfillAlgolia onListCreated onListUpdated onListDeleted onPlaceCreated onPlaceUpdated onPlaceDeleted onUserCreated onUserUpdated onUserDeleted syncGroupedItemsIndex --region europe-west1 --project listopic
+   firebase deploy --project listopic --only functions:adminBackfillAlgolia,functions:onListCreated,functions:onListUpdated,functions:onListDeleted,functions:onPlaceCreated,functions:onPlaceUpdated,functions:onPlaceDeleted,functions:onUserCreated,functions:onUserUpdated,functions:onUserDeleted,functions:syncGroupedItemsIndex
+   ```
+   Durante ese minuto no se sincroniza Algolia; «Reindexar todo» lo recupera.
 
 ### Claves de Google
 
