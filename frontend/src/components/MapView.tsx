@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { whenMapSized } from '../lib/mapMotion';
 
 // Component to handle User Location Marker & Range Circle
 const UserLocationFeatures = ({ range }: { range: number | null }) => {
@@ -172,7 +173,7 @@ function LayerSelectorControl({ currentLayer, onLayerChange }: { currentLayer: M
 function MapUpdater({ center, items, range, location }: { center: [number, number], items: MapItem[], range: number | null, location: UserLocation | null }) {
     const map = useMap();
 
-    useEffect(() => {
+    useEffect(() => whenMapSized(map, () => {
         if (range !== null && location) {
             let zoom = 12;
             if (range <= 1) zoom = 15;
@@ -193,7 +194,7 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
         } else {
             map.flyTo(center, 10, { duration: 1.5 });
         }
-    }, [range, items, center, location, map]);
+    }), [range, items, center, location, map]);
 
     return null;
 }

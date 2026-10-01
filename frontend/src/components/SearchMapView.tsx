@@ -8,6 +8,7 @@ import { MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/m
 import type { MapLayerId, MapLayerConfig } from '../utils/mapUtils';
 import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/placeStatus';
 import { scoreBadge } from '../lib/scoreScale';
+import { whenMapSized } from '../lib/mapMotion';
 
 type SearchMapHit = {
     objectID: string;
@@ -108,12 +109,14 @@ function MapFitBounds({ items }: { items: { lat: number; lng: number; id: string
 
     useEffect(() => {
         if (items.length === 0) return;
-        if (items.length === 1) {
-            map.flyTo([items[0].lat, items[0].lng], 14, { animate: true, duration: 1 });
-        } else {
-            const bounds = L.latLngBounds(items.map(i => [i.lat, i.lng] as [number, number]));
-            if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15, animate: true, duration: 1 });
-        }
+        return whenMapSized(map, () => {
+            if (items.length === 1) {
+                map.flyTo([items[0].lat, items[0].lng], 14, { animate: true, duration: 1 });
+            } else {
+                const bounds = L.latLngBounds(items.map(i => [i.lat, i.lng] as [number, number]));
+                if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15, animate: true, duration: 1 });
+            }
+        });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [key, map]);
 
