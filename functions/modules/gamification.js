@@ -528,6 +528,6 @@ module.exports = {
     adminRecalculateUserGamification,
     adminManageBadge,
     adminRecalculateAllGamification,
-    adminResetUserGamification,
-    adminResetAllGamification,
+    // adminResetUserGamification: archivada (no se despliega) — borra XP e insignias y ninguna pantalla la usa.
+    // adminResetAllGamification: archivada (no se despliega) — borra XP e insignias y ninguna pantalla la usa.
 };

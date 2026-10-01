@@ -631,7 +631,6 @@ export const PlacesManagerTab: React.FC = () => {
     const handleFixAllWrongIds = async () => {
         const wrongOnes = places.filter(p => p.googlePlaceId && p.id !== p.googlePlaceId);
         if (wrongOnes.length === 0) return;
-        if (!confirm(`Fusionar ${wrongOnes.length} lugar(es) con ID incorrecto al documento correcto.\n\nEsto moverá reseñas y seguidores de cada uno. ¿Continuar?`)) return;
 
         setFixingAll(true);
         const fns = getFunctions(undefined, FUNCTIONS_REGION);
@@ -639,6 +638,30 @@ export const PlacesManagerTab: React.FC = () => {
             { sourceId: string; targetId: string; dryRun: boolean },
             { summary?: FixPlaceSummary }
         >(fns, 'adminFixPlaceDocument');
+
+        // 1) Simulación de todos: qué se movería, sin escribir nada.
+        addLog(`Simulando ${wrongOnes.length} fusiones…`);
+        let reviewsToMove = 0;
+        let followersToMove = 0;
+        let simErrors = 0;
+        for (const place of wrongOnes) {
+            if (!place.googlePlaceId) continue;
+            try {
+                const res = await fixFn({ sourceId: place.id, targetId: place.googlePlaceId, dryRun: true });
+                reviewsToMove += res.data.summary?.reviewsToUpdate || 0;
+                followersToMove += res.data.summary?.followersToMove || 0;
+            } catch (err: unknown) {
+                simErrors++;
+                addLog(`⚠️ Simulación ${place.name || place.id}: ${getErrorMessage(err)}`);
+            }
+        }
+        addLog(`Simulación: ${wrongOnes.length} sitios · ${reviewsToMove} reseñas · ${followersToMove} seguidores · ${simErrors} errores`);
+        if (!confirm(`Simulación hecha (no se ha escrito nada):\n\n· ${wrongOnes.length} sitios con ID incorrecto\n· ${reviewsToMove} reseñas a mover\n· ${followersToMove} seguidores a mover\n· ${simErrors} errores en la simulación\n\n¿Aplicar las fusiones?`)) {
+            setFixingAll(false);
+            return;
+        }
+
+        // 2) Aplicar.
         let success = 0;
         let errors = 0;
 

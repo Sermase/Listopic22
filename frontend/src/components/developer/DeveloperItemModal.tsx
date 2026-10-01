@@ -25,6 +25,8 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
     const [isSaving, setIsSaving] = useState(false);
     const [isUpdatingGoogle, setIsUpdatingGoogle] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    // Solo lectura por defecto: escribir cualquier documento a mano es peligroso.
+    const [editing, setEditing] = useState(false);
 
     // Image upload state
     const [isDragging, setIsDragging] = useState(false);
@@ -35,6 +37,7 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
         if (item) {
             setJsonStr(JSON.stringify(item, null, 2));
             setError(null);
+            setEditing(false);
         } else {
             setJsonStr('{}');
         }
@@ -50,7 +53,12 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
             if (typeof parsed !== 'object' || Array.isArray(parsed)) {
                 throw new Error("El JSON debe ser un objeto válido.");
             }
-            if (!confirm(`¿Estás seguro de guardar los cambios en ${collectionName}/${item.id}?`)) {
+            const original = item as Record<string, unknown>;
+            const changedKeys = Object.keys(parsed).filter((k) => JSON.stringify(parsed[k]) !== JSON.stringify(original[k]));
+            if (changedKeys.length === 0) {
+                throw new Error('No has cambiado nada.');
+            }
+            if (!confirm(`Vas a escribir en ${collectionName}/${item.id} (merge, sin validar formato).\n\nCampos que cambian: ${changedKeys.join(', ')}\n\n¿Guardar?`)) {
                 setIsSaving(false);
                 return;
             }
@@ -261,6 +269,8 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
                         <p className="text-xs text-gray-500 mb-4">Modifica directamente los campos base. Ten cuidado al editar estas propiedades.</p>
                         <textarea
                             value={jsonStr}
+                            readOnly={!editing}
+                            aria-readonly={!editing}
                             onChange={(e) => setJsonStr(e.target.value)}
                             className="w-full bg-[#1e253c] border border-white/10 rounded-lg p-4 text-sm font-mono text-gray-300 outline-none focus:border-[var(--lt-accent-border)] resize-y min-h-[300px]"
                             spellCheck={false}
@@ -288,6 +298,14 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
                     >
                         Cancelar
                     </button>
+                    {!editing ? (
+                    <button
+                        onClick={() => setEditing(true)}
+                        className="px-6 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/30 text-amber-300 font-bold transition-colors"
+                    >
+                        Editar JSON
+                    </button>
+                    ) : (
                     <button
                         onClick={handleSaveJson}
                         disabled={isSaving}
@@ -296,6 +314,7 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
                         {isSaving ? <span className="animate-spin w-4 h-4 border-2 border-white/30 border-t-white rounded-full" /> : <Save className="w-4 h-4" />}
                         {isSaving ? 'Guardando...' : 'Guardar JSON'}
                     </button>
+                    )}
                 </div>
             </div>
         </div>
