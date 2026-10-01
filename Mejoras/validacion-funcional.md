@@ -104,6 +104,13 @@ distinguir `private` de «sin campo». Para ambos casos, el arreglo es el mismo.
 | 18 | Cabecera con foto: en móvil la foto acababa en corte; en escritorio se ampliaba muchísimo. `ProgressiveImage` anulaba el `absolute inset-0` del contenedor | **Corregido (01/10)**: la foto rellena la cabecera (en móvil recorta los laterales); en pantallas anchas va centrada sobre la misma desenfocada. Arregla también miniaturas de valoraciones y Home |
 | 19 | Etiquetas repetidas en las tarjetas de Buscar («Picantes» doble) | **Corregido (01/10)** |
 | 20 | Algolia (`grouped_items`) calculaba los elementos de una Lista pública con **todas** sus valoraciones, también las de Minilistas privadas: movían nota y puesto en Buscar y podían prestar su foto o etiquetas | **Corregido (02/10)**: el índice solo usa valoraciones `public`. Requiere desplegar Functions y «Reindexar todo». Los agregados internos (tarjeta de la Lista) no cambian: decisión pendiente |
+| 21 | Buscar: el vacío decía «No hay items» y no mencionaba la zona | **Corregido (02/10)**: «No hay elementos en Valladolid» + «Buscar en todas las zonas» |
+| 22 | Buscar: dos botones «Cerca de mí» que hacían lo mismo | **Corregido (02/10)**: uno; el radio aparece al activarlo |
+| 23 | Ficha de sitio (escritorio): «Compartir», «Reportar»… se salían de sus botones | **Corregido (02/10)** |
+| 24 | Perfil (tema claro): mosaico sin foto, tarjeta «Favorito» y «Nivel» ilegibles | **Corregido (02/10)** |
+| 25 | Elemento inexistente: página de «Lugar Desconocido» con Valorar y Reportar | **Corregido (02/10)**: «Elemento no encontrado». Perfil inexistente: botón «Buscar personas» |
+| 26 | Valoraciones: «Patatas bravas · Patatas bravas» | **Corregido (02/10)**: una vez, con el enlace a la Lista |
+| 27 | Tema claro: esqueletos de carga casi invisibles en sitio y elemento | **Corregido (02/10)** |
 
 Falsa alarma: el botón flotante que tapaba «Publicar valoración» son las
 herramientas de TanStack Query, que solo existen en desarrollo.
