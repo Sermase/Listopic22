@@ -99,9 +99,29 @@ distinguir `private` de «sin campo». Para ambos casos, el arreglo es el mismo.
 | 13 | En Algolia la provincia se rellenaba con la comunidad si faltaba | **Corregido** (servidor, sin desplegar) |
 | 14 | `PlaceService` y `config.ts` usaban URLs fijas de producción incluso en local | **Corregido** solo en modo emulador |
 | 15 | La nota global del sitio incluye bots; los puestos, no | Documentado; se decide con la nota global definitiva |
+| 16 | Buscar (móvil): elegir una ciudad o provincia con 1 resultado mostraba la pantalla de error. El minimapa oculto (0×0) hacía `flyTo` y Leaflet calculaba coordenadas NaN | **Corregido (01/10)**: el encuadre espera a que el mapa tenga tamaño (también en la Lista y en Developer) |
+| 17 | Perfil: el filtro por Listas solo ofrecía las Listas de las valoraciones ya cargadas en el mosaico | **Corregido (01/10)**: sale de todas sus valoraciones visibles (hasta 1000), con número |
+| 18 | Cabecera con foto: en móvil la foto acababa en corte; en escritorio se ampliaba muchísimo. `ProgressiveImage` anulaba el `absolute inset-0` del contenedor | **Corregido (01/10)**: la foto rellena la cabecera (en móvil recorta los laterales); en pantallas anchas va centrada sobre la misma desenfocada. Arregla también miniaturas de valoraciones y Home |
+| 19 | Etiquetas repetidas en las tarjetas de Buscar («Picantes» doble) | **Corregido (01/10)** |
 
 Falsa alarma: el botón flotante que tapaba «Publicar valoración» son las
 herramientas de TanStack Query, que solo existen en desarrollo.
+
+## Zona en Buscar (01/10)
+
+Botón «Zona: toda» que abre un panel (hoja inferior en móvil) con el árbol
+país → comunidad → provincia → ciudad, el número de resultados y un buscador.
+Se pueden elegir varias zonas de niveles distintos (Comunidad de Madrid +
+Segovia provincia, o Madrid + Barcelona): se combinan con O. El árbol sale de
+los resultados de la búsqueda actual sin la zona, leyendo solo los cuatro
+campos de zona (hasta 1000 resultados; hoy hay 155 elementos y 143 sitios). Si a
+un resultado le falta la provincia, su ciudad cuelga de la comunidad. Las zonas
+van en la URL (`zone=nivel:valor`) y «#3 en …» usa la selección
+(«#1 en Madrid + Barcelona»). Comprobado contra el índice real, solo lectura.
+
+**Límite conocido:** con más de 1000 resultados el árbol solo cuenta los
+primeros 1000 (el panel lo avisa). Para entonces conviene un atributo
+jerárquico en Algolia (`zone.lvl0…lvl3`), que requiere reindexar.
 
 ## Pendiente
 
