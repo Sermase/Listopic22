@@ -23,7 +23,10 @@ jobs:
       - name: Tests unitarios del frontend
         run: npm test
         working-directory: frontend
-      - name: Tests de notas del servidor (mismos vectores que el frontend)
+      - name: Install functions deps
+        run: npm ci
+        working-directory: functions
+      - name: Tests de Functions (notas, Algolia, visibilidad…)
         run: npm test
         working-directory: functions
       - name: La clave de Algolia de la web solo puede buscar
