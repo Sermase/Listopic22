@@ -44,13 +44,14 @@ interface CreateListFormProps {
     parentListImage?: string; // Image of parent list for display
     parentCriteria?: CriteriaDefinitionMap; // Criteria from parent list
     parentScoringWeights?: Record<string, number>; // Pesos de la madre (se heredan tal cual)
+    parentIsPublic?: boolean; // Madre privada → la Minilista solo puede ser privada
     parentTags?: string[]; // Tags from parent list
     initialData?: Partial<ListEntity>; // For editing in the future
     onSuccess: (newListId: string) => void;
     onCancel: () => void;
 }
 
-export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, parentListName, parentListImage, parentCriteria, parentScoringWeights, parentTags, initialData, onSuccess, onCancel }) => {
+export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, parentListName, parentListImage, parentCriteria, parentScoringWeights, parentIsPublic = true, parentTags, initialData, onSuccess, onCancel }) => {
     const { user } = useAuth();
     const { showToast } = useToast();
     const queryClient = useQueryClient();
@@ -58,7 +59,9 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
     // State
     const [name, setName] = useState(initialData?.name || '');
     const [description, setDescription] = useState(initialData?.description || '');
-    const [isPublic, setIsPublic] = useState(initialData?.isPublic ?? true);
+    // Una Minilista nunca es más pública que su madre (también lo exigen las reglas).
+    const publicLocked = Boolean(parentListId) && !parentIsPublic;
+    const [isPublic, setIsPublic] = useState(publicLocked ? false : (initialData?.isPublic ?? true));
     const [publicAccess, setPublicAccess] = useState<'reader' | 'writer'>(initialData?.publicAccess || 'reader');
     // We construct the categoryId if needed, but for now let's just use empty or what's passed
     // NOTE: In the original page, categoryId helps prefill tags/criteria.
@@ -481,12 +484,17 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                     type="checkbox"
                     id="isPublic"
                     checked={isPublic}
+                    disabled={publicLocked}
                     onChange={(e) => setIsPublic(e.target.checked)}
-                    className="w-5 h-5 rounded border-gray-600 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)]"
+                    className="w-5 h-5 rounded border-gray-600 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] disabled:opacity-50"
                 />
                 <label htmlFor="isPublic" className="text-sm cursor-pointer">
                     <span className="block font-medium text-white">Lista Pública</span>
-                    <span className="block text-xs text-gray-500">Visible en tu perfil y resultados de búsqueda.</span>
+                    <span className="block text-xs text-gray-500">
+                        {publicLocked
+                            ? 'La Lista madre es privada: esta Minilista también lo será.'
+                            : 'Visible en tu perfil y resultados de búsqueda.'}
+                    </span>
                 </label>
             </div>
 

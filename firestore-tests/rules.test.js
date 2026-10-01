@@ -79,6 +79,15 @@ async function seed() {
       criteriaDefinition: { ...criteria, relleno: { type: 'slider', label: 'Relleno', ponderable: true } },
       scoringWeights: { carne: 1, pan: 1, relleno: 1 }, reviewCount: 0,
     });
+    // V10: madre privada con una Minilista privada.
+    await put('lists/madrePriv', {
+      name: 'Tortillas secretas', userId: 'alice', isPublic: false, visibility: 'private', publicAccess: 'reader',
+      editors: [], guests: [], criteriaDefinition: criteria, reviewCount: 0,
+    });
+    await put('lists/miniDePriv', {
+      name: 'Tortillas · León', userId: 'bob', isPublic: false, visibility: 'private', publicAccess: 'reader',
+      parentListId: 'madrePriv', isSublist: true, editors: [], guests: [], criteriaDefinition: criteria, reviewCount: 0,
+    });
 
     const review = (extra) => ({
       userId: 'alice', authorId: 'alice', itemName: 'Smash', placeId: 'p1', overallRating: 8,
@@ -522,5 +531,40 @@ describe('V9 · Criterios y pesos (B1): Minilistas comparables y nota bloqueada'
 
   it('✅ jefe (migración del servidor) puede cambiar pesos con valoraciones', async () => {
     await assertSucceeds(updateDoc(doc(jefe(), 'lists/pesada'), { scoringWeights: { carne: 2, pan: 1 } }));
+  });
+});
+
+describe('V10 · Una Minilista no es más pública que su Lista madre', () => {
+  const mini = (extra) => ({
+    name: 'Tortillas · Bilbao', description: '', categoryId: 'comida', parentListId: 'madrePriv', isSublist: true,
+    userId: 'bob', publicAccess: 'reader', editors: [], authorName: 'Bob', photoUrl: '', mainImageUrl: '',
+    criteriaDefinition: criteria, availableTags: [], createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
+    itemCount: 0, viewCount: 0, likes: 0, followersCount: 0, averageRating: 0, criteriaAverages: {},
+    criteriaAveragesUpdatedAt: serverTimestamp(), ...extra,
+  });
+
+  it('❌ crear Minilista pública con la madre privada', async () => {
+    await assertFails(setDoc(doc(as('bob'), 'lists/miniPub'), mini({ isPublic: true, visibility: 'public' })));
+  });
+
+  it('✅ crear Minilista privada con la madre privada', async () => {
+    await assertSucceeds(setDoc(doc(as('bob'), 'lists/miniOkPriv'), mini({ isPublic: false, visibility: 'private' })));
+  });
+
+  it('❌ hacer pública una Minilista de madre privada (también un jefe)', async () => {
+    await assertFails(updateDoc(doc(as('bob'), 'lists/miniDePriv'), { isPublic: true, visibility: 'public' }));
+    await assertFails(updateDoc(doc(jefe(), 'lists/miniDePriv'), { isPublic: true, visibility: 'public' }));
+  });
+
+  it('✅ editar otra cosa de esa Minilista sigue permitido', async () => {
+    await assertSucceeds(updateDoc(doc(as('bob'), 'lists/miniDePriv'), { name: 'Tortillas · León centro' }));
+  });
+
+  it('✅ con la madre pública, la Minilista puede pasar a pública', async () => {
+    await assertSucceeds(updateDoc(doc(as('alice'), 'lists/priv'), { isPublic: true, visibility: 'public' }));
+  });
+
+  it('✅ la madre puede pasar a privada (el servidor cierra sus Minilistas)', async () => {
+    await assertSucceeds(updateDoc(doc(as('alice'), 'lists/pesada'), { isPublic: false, visibility: 'private' }));
   });
 });

@@ -36,6 +36,7 @@ module.exports = {
     ...require('./modules/admin/admin-misc'),
     ...require('./modules/admin/admin-lists'),
     ...require('./modules/minilist-sync'),
+    ...require('./modules/list-visibility-sync'),
     ...require('./modules/admin/criteria-migration'),
     ...require('./modules/admin/admin-plans'),
     ...require('./modules/admin/admin-backup'),

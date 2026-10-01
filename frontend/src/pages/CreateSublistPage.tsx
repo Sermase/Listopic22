@@ -11,6 +11,7 @@ import { isInlineImage, uploadListCover } from '../lib/listCover';
 import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
 import { writeWithOptionalFields } from '../lib/optionalFields';
 import { deriveScoringWeights } from '../lib/scoring';
+import { listVisibility } from '../lib/reviewVisibility';
 
 export const CreateSublistPage: React.FC = () => {
     const { user } = useAuth();
@@ -25,6 +26,7 @@ export const CreateSublistPage: React.FC = () => {
 
     // Creation Mode State
     const [parentList, setParentList] = useState<any>(null);
+    const parentIsPrivate = Boolean(parentList) && listVisibility(parentList) === 'private';
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [isPublic, setIsPublic] = useState(true);
@@ -85,6 +87,8 @@ export const CreateSublistPage: React.FC = () => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
                         setParentList({ id: docSnap.id, ...data });
+                        // Una Minilista nunca es más pública que su madre.
+                        if (listVisibility(data) === 'private') setIsPublic(false);
 
                         // Prefill data
                         setName(`${data.name} (Mi Versión)`);
@@ -520,7 +524,9 @@ export const CreateSublistPage: React.FC = () => {
                             <button
                                 type="button"
                                 onClick={() => setIsPublic(true)}
-                                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all ${isPublic
+                                disabled={parentIsPrivate}
+                                title={parentIsPrivate ? 'La Lista madre es privada: la Minilista también' : undefined}
+                                className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${isPublic
                                     ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-white'
                                     : 'bg-[var(--lt-bg)] border-white/8 text-gray-400 hover:bg-white/5'}`}
                             >
@@ -541,6 +547,9 @@ export const CreateSublistPage: React.FC = () => {
                             </button>
                         </div>
 
+                        {parentIsPrivate && (
+                            <p className="text-xs text-gray-400">La Lista madre es privada, así que esta Minilista solo puede ser privada.</p>
+                        )}
                         {isPublic && (
                             <div className="p-3 bg-[var(--lt-bg)] rounded-xl border border-white/5 flex items-center justify-between gap-3">
                                 <div className="min-w-0">

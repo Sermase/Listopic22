@@ -13,7 +13,8 @@
  *   … --details                              (ruta de cada valoración que cambiaría)
  *
  * Reparar (escribe SOLO el campo `visibility`, nada más):
- *   … node scripts/audit-review-visibility.js --apply
+ *   … node scripts/audit-review-visibility.js --apply --expect=TubrhJBOv3qUNDMXmSd3:32,jSwygYuHeF5MCkrMLzF5:9
+ *   (sin --expect, o si los cambios por lista no coinciden exactamente, NO escribe nada)
  */
 const admin = require('firebase-admin');
 
@@ -23,8 +24,10 @@ const db = admin.firestore();
 const APPLY = process.argv.includes('--apply');
 const USER = (process.argv.find((a) => a.startsWith('--user=')) || '').slice('--user='.length);
 const DETAILS = process.argv.includes('--details');
+// --expect=listaId:N,listaId:N  → --apply solo si los cambios por lista coinciden EXACTAMENTE.
+const EXPECT = (process.argv.find((a) => a.startsWith('--expect=')) || '').slice('--expect='.length);
 
-const listVisibility = (list) => (list && (list.isPublic === true || list.visibility === 'public') ? 'public' : 'private');
+const { effectiveVisibility } = require('../modules/lib/list-visibility');
 
 (async () => {
   const listsSnap = await db.collection('lists').get();
@@ -47,7 +50,8 @@ const listVisibility = (list) => (list && (list.isPublic === true || list.visibi
     const author = r.userId || r.authorId || '?';
     const actual = r.visibility === undefined ? '(sin campo)' : r.visibility;
     if (!targetList) { orphan.push(doc.ref.path); return; }
-    const expected = listVisibility(targetList);
+    // Minilista de madre privada: como máximo privada.
+    const expected = effectiveVisibility(targetList, targetList.parentListId ? lists.get(targetList.parentListId) : null);
     const row = { path: doc.ref.path, target, author, expected, actual, hasCreatedAt: !!r.createdAt, item: [r.itemName, r.placeName].filter(Boolean).join(' · ') };
     if (USER && author === USER) userRows.push(row);
     const entry = perList.get(target) || { name: targetList.name || target, listVisibility: expected, minilista: Boolean(targetList.parentListId), total: 0, pub: 0, priv: 0, missing: 0, users: new Map(), changes: [] };
@@ -89,6 +93,24 @@ const listVisibility = (list) => (list && (list.isPublic === true || list.visibi
   if (!APPLY) {
     console.log('\nSimulación: no se ha escrito nada. Añade --apply para corregir solo `visibility`.');
     process.exit(0);
+  }
+  // Seguro: solo se escribe si el reparto por lista es EXACTAMENTE el esperado.
+  if (!EXPECT) {
+    console.error('\n--apply exige --expect=listaId:N,... con el reparto revisado en la simulación. No se ha escrito nada.');
+    process.exit(2);
+  }
+  const expected = new Map(EXPECT.split(',').filter(Boolean).map((pair) => {
+    const [id, n] = pair.split(':');
+    return [id.trim(), Number(n)];
+  }));
+  const actual = new Map();
+  mismatches.forEach((m) => actual.set(m.target, (actual.get(m.target) || 0) + 1));
+  const ids = new Set([...expected.keys(), ...actual.keys()]);
+  const diffs = [...ids].filter((id) => (expected.get(id) || 0) !== (actual.get(id) || 0));
+  if (diffs.length) {
+    console.error('\nEl reparto NO coincide con --expect; no se ha escrito nada:');
+    diffs.forEach((id) => console.error(`  ${lists.get(id)?.name || id} (${id}): esperado ${expected.get(id) || 0}, real ${actual.get(id) || 0}`));
+    process.exit(3);
   }
   for (let i = 0; i < mismatches.length; i += 400) {
     const batch = db.batch();
