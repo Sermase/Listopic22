@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildZoneTree, parseZones, searchZoneTree, zoneAttributes, zonesFilter, zonesLabel } from './searchZones';
+import { buildZoneTree, exploreSearchUrl, parseZones, searchZoneTree, zoneAttributes, zonesFilter, zonesLabel } from './searchZones';
 
 describe('searchZones', () => {
     it('atributos por pestaña', () => {
@@ -53,5 +53,14 @@ describe('searchZones', () => {
         const hits = searchZoneTree(tree, 'leon');
         expect(hits.map((h) => `${h.node.level}:${h.node.value}`)).toEqual(['region:Castilla y León', 'province:León', 'city:León']);
         expect(hits[2].path.map((p) => p.value)).toEqual(['España', 'Castilla y León', 'León']);
+    });
+
+    it('enlace a Buscar con la Lista y la zona de la Lista', () => {
+        const url = exploreSearchUrl({ listId: 'L1', listName: 'Patatas bravas', zone: { level: 'city', value: 'Valladolid' } });
+        const params = new URLSearchParams(url.split('?')[1]);
+        expect(params.get('listId')).toBe('L1');
+        expect(params.get('sort')).toBe('grouped_items_by_score');
+        expect(parseZones(params.getAll('zone'))).toEqual([{ level: 'city', value: 'Valladolid' }]);
+        expect(exploreSearchUrl({})).toBe('/search?type=items&sort=grouped_items_by_score');
     });
 });

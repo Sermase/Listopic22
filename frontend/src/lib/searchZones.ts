@@ -25,6 +25,17 @@ export function zoneAttributes(tab: string): Record<GeoLevel, string> {
 
 export const zoneKey = (zone: Zone) => `${zone.level}:${zone.value}`;
 
+/** Enlace a Buscar (elementos por puntuación) con la Lista y la zona ya elegidas. */
+export function exploreSearchUrl({ listId, listName, zone }: { listId?: string; listName?: string; zone?: Zone | null }): string {
+    const params = new URLSearchParams({ type: 'items', sort: 'grouped_items_by_score' });
+    if (listId) {
+        params.set('listId', listId);
+        if (listName) params.set('listName', listName);
+    }
+    if (zone) params.append('zone', zoneKey(zone));
+    return `/search?${params.toString()}`;
+}
+
 /** Lee los parámetros `zone=nivel:valor` de la URL (sin repetidos ni niveles desconocidos). */
 export function parseZones(raw: readonly string[]): Zone[] {
     const seen = new Set<string>();
