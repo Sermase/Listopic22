@@ -73,10 +73,22 @@ sale otra cosa, para y me lo pasas.
 | Developer: madre → privada / → pública | ✅ igual que «Editar lista» | sin cambio |
 | Developer: Minilista → privada / → pública | sin cambio | ✅ |
 
-**Caso límite (decisión de producto pendiente):** una Minilista **pública**
-dentro de una madre **privada** no enseña nada a quien no tiene acceso a la
-madre. Las valoraciones se guardan en la madre y las reglas exigen poder leer
-la madre. Propuesta: que una Minilista no pueda ser más pública que su madre.
+**Regla nueva (aprobada el 01/10): una Minilista nunca es más pública que su madre.**
+
+| Dónde | Qué hace | Comprobado |
+|---|---|---|
+| Reglas | No se crea ni se hace pública una Minilista con la madre privada, tampoco un jefe. Cambiar otras cosas de esa Minilista sigue permitido | 6 tests nuevos (61/61) |
+| Servidor (`syncListVisibility`) | Si una lista cambia de visibilidad, sincroniza sus valoraciones. Si una madre pasa a privada, cierra sus Minilistas públicas, y en cadena sus valoraciones | Emulador: madre → privada ⇒ Minilista y su valoración → privadas |
+| Crear Minilista | «Pública» desactivado si la madre es privada | Emulador ✅ |
+| Editar Minilista | Casilla bloqueada y explicada, también si quien edita no puede leer la madre | Emulador ✅ (lo encontré bloqueado solo por la regla y lo corregí) |
+| Editar madre | Al desmarcar «Pública»: «Al guardar, sus Minilistas también pasarán a privadas» | Emulador ✅ |
+| Developer → Listas | No deja abrir una Minilista de madre privada | Emulador ✅ |
+| Madre → pública otra vez | Las Minilistas **no** se abren solas: quedan privadas hasta que su dueño las abra | Emulador ✅ |
+
+En producción no hay hoy ninguna Minilista pública con la madre privada. La
+única Minilista pública, «Concurso provincial…», cuelga de «Pinchos», que es
+pública. Que existan otras privadas no lo puedo ver sin credenciales; si las hay,
+no cambia nada.
 
 ## 3. Algolia (21 índices; límite 20 del plan)
 
@@ -109,7 +121,7 @@ temporales**; guarda los registros y después borra los que sobran.
 que va en la web) tiene los permisos `search`, **`listIndexes` y `settings`**.
 Cualquiera puede leerla en el navegador y **cambiar la configuración de los
 índices** (orden, campos, réplicas). Hay que crear una clave solo con `search` y
-retirar la antigua (pasos 2 y 12).
+retirar la antigua (pasos 2 y 15).
 
 ## 4. `adminRecalculateAllUsers` y el índice `reviews.userId`
 
@@ -124,37 +136,104 @@ retirar la antigua (pasos 2 y 12).
 
 ## 5. Orden exacto de reparación y despliegue
 
-1. **Algolia, limpieza segura** (Dashboard → Indices): borra los 6
-   `lists_tmp_*` y `reviews`. Así se desbloquean las escrituras.
-2. **Algolia, clave nueva** (Dashboard → Settings → API Keys): crea una con ACL
-   **solo `search`**, limitada a los índices `lists*`, `places*`, `users*` y
-   `grouped_items*`, y con *referers* `listopic.es` y `localhost`. Ponla como
-   `VITE_ALGOLIA_SEARCH_KEY` en el entorno de compilación. **Todavía no borres la antigua.**
-3. **Functions:** `cd functions && npm ci && npm test` (89/89) →
-   `firebase deploy --only functions --project listopic`.
-4. **Reglas:** `cd firestore-tests && npm test` (55/55) →
-   `firebase deploy --only firestore:rules --project listopic`.
-5. **Web:** fusionar en `main` y compilar con la clave nueva; Hosting se despliega
-   como siempre. Desde aquí, cambiar una lista a pública o privada sincroniza sus valoraciones.
-6. **Pesos:**
-   - `node scripts/backfill-scoring-weights.js` (simulación);
-   - revisar la salida;
-   - repetir con `--apply`.
-7. **Visibilidad:**
-   - `node scripts/audit-review-visibility.js --details --user=TtU5…` (simulación);
-   - comprobar que sale la tabla del punto 1 (41 cambios en Bravas y Playas);
-   - solo entonces, `--apply`.
-8. **Developer → Algolia:**
-   - «Configurar índices»: aplica las facetas de zona a principales y réplicas, y desvincula `places_by_distance`;
-   - «Reindexar todo».
-9. **Algolia:** borra `places_by_distance`, que ya estará suelta.
-10. **Developer → Mantenimiento:**
-    - «Recalcular TODAS las Listas»;
-    - «Recalcular TODOS los Usuarios», que ya no necesita el índice.
-11. **Comprobación:**
-    - el perfil de ListopIA enseña 79;
-    - Patatas bravas y Playas enseñan todas sus valoraciones (con «Bots» activado);
-    - Buscar → Zona → Comunidad tiene valores.
-12. **Algolia:** borra la clave antigua (la que tiene `settings`).
-13. Opcional: índice `reviews.userId` (`firestore.indexes.json` →
-    `firebase deploy --only firestore:indexes`). Si propone borrar índices, responde **No**.
+Todo con `--project listopic`. Para los scripts hace falta una cuenta de
+servicio: Firebase Console → Configuración del proyecto → Cuentas de servicio →
+«Generar nueva clave privada». Guárdala fuera del repositorio, por ejemplo en
+`~/listopic-sa.json`.
+
+### A. Algolia: limpieza (aprobada) y clave nueva
+
+1. Dashboard de Algolia → *Search* → *Indices*: borra `lists_tmp_amgkik`,
+   `lists_tmp_ewun3t`, `lists_tmp_f16fva`, `lists_tmp_i3mzo`, `lists_tmp_s3lxue`,
+   `lists_tmp_x9rexh` y `reviews`.
+   **Comprobación:** quedan 14 índices.
+2. *Settings* → *API Keys* → *All API keys* → **New API key**:
+   - ACL: **solo `search`**;
+   - índices: `lists*`, `places*`, `users*` y `grouped_items*`;
+   - *HTTP referers*: **déjalo vacío de momento**. La app nativa (Capacitor)
+     llama desde `https://localhost` o `capacitor://localhost`, y una restricción
+     mal puesta la dejaría sin búsqueda. Lo que de verdad protege es quitar
+     `settings` y `listIndexes`; los *referers* se pueden añadir después, probando antes la app;
+   - descripción: «web · solo búsqueda».
+
+   **No borres la clave antigua.**
+3. GitHub → repositorio → *Settings* → *Secrets and variables* → *Actions* →
+   cambia `VITE_ALGOLIA_SEARCH_KEY` por la clave nueva. Para trabajar en local,
+   cámbiala también en `frontend/.env.local`, que no se sube al repositorio.
+
+### B. Servidor y reglas
+
+4. Functions:
+   ```
+   cd functions && npm ci && npm test        # 91/91
+   firebase deploy --only functions --project listopic
+   ```
+   **Comprobación:** en la consola de Firebase existen `syncListVisibility`,
+   `simulateCriteriaChange`, `applyCriteriaChange` y `adminRefreshPlaceLocation`.
+5. Reglas:
+   ```
+   cd firestore-tests && npm test            # 61/61
+   cd .. && firebase deploy --only firestore:rules --project listopic
+   ```
+
+### C. Web (aquí se prueba la clave nueva)
+
+6. Abre la PR de esta rama. El workflow de PR la publica en una URL de vista
+   previa `listopic--pr…web.app`, ya con la clave nueva. Comprueba allí:
+   - Buscar devuelve resultados en Elementos, Sitios, Listas y Usuarios;
+   - Buscar → Zona → Ciudad tiene valores;
+   - la consola del navegador no tiene errores 403 de Algolia.
+7. Si todo va bien, fusiona en `main`; el workflow despliega Hosting. Repite las
+   comprobaciones del paso 6 en `listopic.es`.
+   Si falla la búsqueda: devuelve el secreto a la clave antigua y vuelve a
+   desplegar. La antigua sigue viva, así que no hay corte.
+
+### D. Datos
+
+8. Pesos de criterios:
+   ```
+   cd functions
+   GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json node scripts/backfill-scoring-weights.js
+   ```
+   Revisa la salida y, si es correcta, repite añadiendo `--apply`.
+9. Visibilidad. Primero, **solo simulación**:
+   ```
+   GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json node scripts/audit-review-visibility.js --details --user=TtU5VnnJGyNOzYMjcoAOPvhAap82
+   ```
+   **Condición para seguir:** la columna «A cambiar» debe dar exactamente
+   **Patatas bravas 32, Playas 9 y 0 en el resto (41 en total)**. Si no, no apliques y pásame la salida.
+
+   Si coincide:
+   ```
+   GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json node scripts/audit-review-visibility.js --apply --expect=TubrhJBOv3qUNDMXmSd3:32,jSwygYuHeF5MCkrMLzF5:9
+   ```
+   El script **vuelve a calcular** el reparto y, si no es exactamente ese, sale
+   sin escribir (código 3). Sin `--expect` tampoco escribe (código 2). Solo
+   cambia el campo `visibility`.
+
+   **Comprobación:** repite la simulación; debe dar 0 a cambiar.
+
+### E. Algolia: reindexado
+
+10. Developer → Algolia → «Configurar índices». Aplica las facetas de zona a los
+    principales y a sus réplicas, y desvincula `places_by_distance`.
+11. Developer → Algolia → «Reindexar todo». Ya no crea índices temporales.
+    **Comprobación:** no sale «Too many indices» y siguen siendo 14 índices.
+12. Dashboard de Algolia: `places_by_distance` aparece como índice suelto
+    (sin *primary*). Bórrala. **Comprobación:** quedan 13 índices.
+
+### F. Recuentos y comprobación final
+
+13. Developer → Mantenimiento: «Recalcular TODAS las Listas» y «Recalcular TODOS
+    los Usuarios».
+    **Comprobación:** los dos terminan sin errores (el de usuarios ya no necesita el índice).
+14. En `listopic.es`:
+    - el perfil de **ListopIA** muestra **79** valoraciones (antes 40);
+    - **Patatas bravas** (37) y **Playas** (12) muestran todas las suyas, activando «Bots»;
+    - Buscar → Zona → **Comunidad** y **País** tienen valores.
+15. Solo con todo lo anterior en verde: Algolia → *API Keys* → **borra la clave
+    antigua** (la que tiene `listIndexes` y `settings`).
+    **Comprobación:** Buscar sigue funcionando.
+16. Opcional, cuando haya muchas valoraciones: el índice `reviews.userId` (JSON
+    en `developer-revision.md`) → `firebase deploy --only firestore:indexes
+    --project listopic`. Si propone borrar índices, responde **No**.
