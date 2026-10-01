@@ -383,6 +383,12 @@ datos de valoraciones de Minilistas privadas: corregido en esta rama, ver
 
 ### Rotar la clave de administración de Algolia (`da10…`)
 
+> ✅ **Hecho (02/10, 01:10):** secret `ALGOLIA_API_KEY` en Secret Manager, las
+> 14 Functions redesplegadas (11 tras borrarlas por el choque de la variable
+> antigua), «Configurar índices» y «Reindexar todo» sin errores (14 listas, 143
+> sitios, 22 usuarios, 155 elementos). `da10…` responde **403**: revocada.
+> `places_by_distance` ya no es réplica de `places`: se puede borrar.
+
 Desde el 02/10 la clave de escritura **ya no va en `.env`**: es un secret de
 Secret Manager (`defineSecret("ALGOLIA_API_KEY")`, igual que Stripe), declarado
 solo en las 14 Functions que escriben o configuran Algolia:
