@@ -37,18 +37,30 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
     <div className="absolute inset-0 z-10 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-[var(--lt-hero-top,rgba(0,0,0,0.4))]" />
 
     {imageUrl ? (
-      <ProgressiveImage
-        src={imageUrl}
-        alt={alt}
-        containerClassName="absolute inset-0 overflow-hidden"
-        className={cn(
-          'h-full w-full object-cover object-center opacity-80 transition-transform duration-700 group-hover:scale-105',
-          imageClassName,
-        )}
-        onLoad={onImageLoad}
-        onError={onImageError}
-        fallback={fallback}
-      />
+      <>
+        {/* Pantallas anchas: la foto nítida va centrada (no se amplía a todo el
+            ancho) y, detrás, la misma desenfocada rellena los lados. En móvil
+            ocupa toda la cabecera recortando los laterales. */}
+        <div
+          aria-hidden
+          className="absolute inset-0 hidden scale-110 bg-cover bg-center opacity-60 blur-2xl lg:block"
+          style={{ backgroundImage: `url(${JSON.stringify(imageUrl)})` }}
+        />
+        <div className="absolute inset-0 lg:mx-auto lg:max-w-6xl lg:[mask-image:linear-gradient(to_right,transparent,black_14%,black_86%,transparent)]">
+          <ProgressiveImage
+            src={imageUrl}
+            alt={alt}
+            containerClassName="absolute inset-0 overflow-hidden"
+            className={cn(
+              'h-full w-full object-cover object-center opacity-80 transition-transform duration-700 group-hover:scale-105',
+              imageClassName,
+            )}
+            onLoad={onImageLoad}
+            onError={onImageError}
+            fallback={fallback}
+          />
+        </div>
+      </>
     ) : (
       fallback || (
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 via-[var(--lt-bg)] to-[var(--lt-bg)]" />
