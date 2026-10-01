@@ -151,7 +151,7 @@ const EMPTY_ADVANCED_STATS: AdvancedProfileStats = {
 };
 
 const collectReviewedLists = (
-  reviews: Array<Record<string, any>>,
+  reviews: Array<Record<string, unknown>>,
   namesById: Record<string, string> = {},
 ): AdvancedProfileStats["reviewedLists"] => {
   const out: AdvancedProfileStats["reviewedLists"] = {};
