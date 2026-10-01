@@ -31,7 +31,7 @@ export const ProfileStatCard: React.FC<ProfileStatCardProps> = ({
                     style={{ background: 'rgba(160, 100, 20, 0.10)' }}
                 />
                 <div
-                    className="pointer-events-none absolute bottom-0 left-0 right-0 transition-all duration-1000 ease-out"
+                    className="lt-level-fill pointer-events-none absolute bottom-0 left-0 right-0 transition-all duration-1000 ease-out"
                     style={{
                         height: `${levelProgressPercent}%`,
                         background: 'linear-gradient(0deg, hsl(28, 55%, 20%) 0%, hsl(35, 60%, 32%) 60%, hsl(40, 65%, 40%) 100%)',

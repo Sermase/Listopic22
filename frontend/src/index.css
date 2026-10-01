@@ -1039,6 +1039,11 @@ html.theme-light .lt-level-card .lt-level-value {
     color: #78350f !important;
     text-shadow: none !important;
 }
+/* El relleno de progreso oscuro tapaba el texto marrón en el tema claro. */
+html.theme-light .lt-level-card .lt-level-fill {
+    background: linear-gradient(0deg, #fcd34d 0%, #fde68a 100%) !important;
+    box-shadow: none !important;
+}
 
 /* ── Profile stat card (non-level) light-mode ────────────────────────── */
 html.theme-light .lt-stat-card {

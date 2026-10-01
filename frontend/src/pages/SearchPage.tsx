@@ -950,28 +950,21 @@ const FederatedSection = ({
 
 const GeoControls = ({
     isGeoTab, geoActive, geoRadius, locLoading, locError,
-    onToggleGeo, onRadiusChange,
+    onRadiusChange,
 }: {
     isGeoTab: boolean;
     geoActive: boolean;
     geoRadius: GeoRadius;
     locLoading: boolean;
     locError: string | null;
-    onToggleGeo: () => void;
     onRadiusChange: (v: GeoRadius) => void;
 }) => {
-    if (!isGeoTab) return null;
+    // «Cerca de mí» se activa en los filtros rápidos; aquí solo el radio (o el aviso).
+    if (!isGeoTab || !geoActive) return null;
     return (
         <div className="flex items-center gap-2">
-            <button
-                onClick={onToggleGeo}
-                disabled={locLoading}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${geoActive ? 'bg-emerald-600/80 border-emerald-500/50 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}`}
-            >
-                {locLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LocateFixed className="w-3.5 h-3.5" />}
-                Cerca de mí
-            </button>
-            {geoActive && !locError && (
+            {locLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--lt-text-muted)]" aria-label="Buscando tu ubicación" />}
+            {!locError && (
                 <select
                     value={geoRadius}
                     onChange={e => onRadiusChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
@@ -980,7 +973,7 @@ const GeoControls = ({
                     {GEO_RADIUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
             )}
-            {locError && geoActive && <span className="text-xs text-red-400">{locError}</span>}
+            {locError && <span className="text-xs text-red-400">{locError}</span>}
         </div>
     );
 };
@@ -1444,7 +1437,6 @@ export const SearchPage: React.FC = () => {
                                             geoRadius={geoRadius}
                                             locLoading={locLoading}
                                             locError={locError}
-                                            onToggleGeo={toggleGeo}
                                             onRadiusChange={handleGeoRadiusChange}
                                         />
                                         <div className="ml-auto flex items-center gap-4">
@@ -1544,7 +1536,6 @@ export const SearchPage: React.FC = () => {
                                         geoRadius={geoRadius}
                                         locLoading={locLoading}
                                         locError={locError}
-                                        onToggleGeo={toggleGeo}
                                         onRadiusChange={handleGeoRadiusChange}
                                     />
 

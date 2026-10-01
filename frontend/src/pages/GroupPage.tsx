@@ -53,6 +53,8 @@ export const GroupPage: React.FC = () => {
     const [unavailableItems, setUnavailableItems] = useState<string[]>([]);
     const [primaryListCriteria, setPrimaryListCriteria] = useState<any[]>([]); // New: Store definition for ordering
     const [loading, setLoading] = useState(true);
+    // El sitio no existe en Listopic (enlace roto o inventado).
+    const [placeMissing, setPlaceMissing] = useState(false);
 
     // Navigation Context
     const location = useLocation();
@@ -114,6 +116,7 @@ export const GroupPage: React.FC = () => {
             const pSnap = await getDoc(doc(db, 'places', placeId));
             let fetchedPlaceName = '';
             let placeData: any = null;
+            setPlaceMissing(!pSnap.exists());
             if (pSnap.exists()) {
                 placeData = pSnap.data();
                 fetchedPlaceName = placeData.name;
@@ -538,6 +541,22 @@ export const GroupPage: React.FC = () => {
                         ))}
                     </div>
                 </div>
+            </div>
+        );
+    }
+
+    // Sin sitio y sin valoraciones: no hay nada que enseñar (ni que valorar).
+    if (placeMissing && reviews.length === 0) {
+        return (
+            <div className="min-h-screen pt-safe-32 px-4 text-center bg-[var(--lt-bg)]">
+                <MapPin className="w-16 h-16 text-[var(--lt-text-muted)] opacity-40 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-[var(--lt-text)] mb-2">Elemento no encontrado</h2>
+                <p className="text-[var(--lt-text-muted)] mb-6 max-w-sm mx-auto text-sm">
+                    Este enlace no lleva a ningún sitio de Listopic. Puede que lo hayan borrado o que el enlace esté incompleto.
+                </p>
+                <Link to="/search" className="inline-flex px-5 py-2 rounded-lg bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-text)] font-bold">
+                    Volver a buscar
+                </Link>
             </div>
         );
     }

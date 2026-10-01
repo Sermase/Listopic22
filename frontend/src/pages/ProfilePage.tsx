@@ -1884,9 +1884,15 @@ export const ProfilePage: React.FC = () => {
         <div className="text-2xl text-white font-bold mb-4">
           Perfil no encontrado
         </div>
-        <p className="text-gray-400">
+        <p className="text-gray-400 mb-6">
           El usuario que buscas no existe o ha sido eliminado.
         </p>
+        <Link
+          to="/search?type=users"
+          className="inline-flex px-5 py-2 rounded-lg bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-text)] font-bold"
+        >
+          Buscar personas
+        </Link>
       </div>
     );
   }
@@ -2136,10 +2142,10 @@ export const ProfilePage: React.FC = () => {
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="text-[9px] uppercase tracking-widest text-amber-200 font-bold flex items-center gap-1">
+                      <div className="text-[9px] uppercase tracking-widest text-amber-300 font-bold flex items-center gap-1">
                         <Sparkles className="w-2.5 h-2.5" /> Favorito
                       </div>
-                      <div className="text-xs font-extrabold text-white truncate">
+                      <div className="text-xs font-extrabold text-[var(--lt-text)] truncate">
                         {favoriteReview.itemName}
                       </div>
                       {favoriteReview.placeName && (
@@ -2188,10 +2194,10 @@ export const ProfilePage: React.FC = () => {
               </div>
 
               <div className="min-w-0 flex-1">
-                <div className="text-[9px] uppercase tracking-widest text-amber-200 font-bold flex items-center gap-1">
+                <div className="text-[9px] uppercase tracking-widest text-amber-300 font-bold flex items-center gap-1">
                   <Sparkles className="w-2.5 h-2.5" /> Favorito
                 </div>
-                <div className="text-xs font-extrabold text-white truncate">
+                <div className="text-xs font-extrabold text-[var(--lt-text)] truncate">
                   {favoriteReview.itemName}
                 </div>
                 {favoriteReview.placeName && (

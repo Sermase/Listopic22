@@ -114,7 +114,7 @@ export const ReviewGalleryGrid: React.FC<ReviewGalleryGridProps> = ({
                 <div
                     key={review.id}
                     onClick={() => setExpandedReviewIds(prev => prev.includes(review.id) ? [] : [review.id])}
-                    className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-[var(--lt-accent-border)] transition-colors"
+                    className="lt-media-card group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-[var(--lt-accent-border)] transition-colors"
                 >
                     {photoUrl ? (
                         <>
