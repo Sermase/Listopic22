@@ -266,9 +266,13 @@ export GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json
 
 5. Functions:
    ```
-   npm ci && npm test                                   # 93/93
+   npm ci && npm test                                   # 96/96
    firebase deploy --only functions --project listopic
    ```
+   **Node 22 (02/10):** `functions/package.json` pasa de Node 20 a **Node 22**.
+   Google retira Node 20 el **30/10/2026**; después no se puede desplegar. Este
+   despliegue de todas las Functions las migra. Si alguna falla al arrancar,
+   vuelve a `"node": "20"` y despliega de nuevo (se puede hasta el 30/10).
    Cuando pregunte si borrar `adminUpdateAllPlaces`, `reverseGeocode`,
    `adminResetUserGamification`, `adminResetAllGamification`,
    `adminRecalculateListAverages` y `adminAuditStatistics`: **sí**.
