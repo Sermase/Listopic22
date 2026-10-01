@@ -383,22 +383,40 @@ datos de valoraciones de Minilistas privadas: corregido en esta rama, ver
 
 ### Rotar la clave de administración de Algolia (`da10…`)
 
-Rotar invalida la clave al momento: Functions deja de sincronizar Algolia hasta
-que despliegues con la nueva. Hazlo justo antes del paso 5 (o despliega
-Functions justo después).
+Desde el 02/10 la clave de escritura **ya no va en `.env`**: es un secret de
+Secret Manager (`defineSecret("ALGOLIA_API_KEY")`, igual que Stripe), declarado
+solo en las 14 Functions que escriben o configuran Algolia:
+
+`onListCreated`, `onListUpdated`, `onListDeleted`, `onPlaceCreated`,
+`onPlaceUpdated`, `onPlaceDeleted`, `onUserCreated`, `onUserUpdated`,
+`onUserDeleted`, `syncGroupedItemsIndex`, `syncGroupedItemsRootReviews`,
+`syncGroupedItemsOnListUpdate`, `syncGroupedItemsOnListDelete` y
+`adminBackfillAlgolia`.
+
+`ALGOLIA_APP_ID` es público y va fijo en el código (`FI4Q0XQABV`). Sin el
+secret, las Functions no fallan: los triggers avisan en el log y siguen (los
+datos se guardan igual), y el reindexado responde «Algolia no está
+configurado». Probado en el emulador. La clave no aparece en los logs.
 
 1. Algolia → *Settings* → *API Keys* → *Admin API Key* → **Regenerate**.
-2. Pon la nueva en `ALGOLIA_API_KEY` del archivo de entorno de Functions que
-   uses (`functions/.env` o `functions/.env.listopic`; los dos están en
-   `.gitignore`). Mejor aún, si tu panel la ofrece, usa la **Write API Key**:
-   Functions no necesita permisos de administración.
-3. `firebase deploy --only functions --project listopic` (paso 5).
-4. Developer → Algolia → «Configurar índices» y «Reindexar todo»: comprueba que
-   no da errores de permisos.
-5. Algolia → *Monitoring* / *Logs* (si tu plan los muestra): busca operaciones
-   `deleteIndex`, `setSettings` o `batch` desde enero que no reconozcas.
+2. Guardarla en Secret Manager (la pide sin mostrarla; pégala y Enter):
+   ```
+   firebase functions:secrets:set ALGOLIA_API_KEY --project listopic
+   ```
+3. Desplegar las 14 (o todo Functions, que también vale):
+   ```
+   cd functions && npm ci
+   firebase deploy --project listopic --only functions:onListCreated,functions:onListUpdated,functions:onListDeleted,functions:onPlaceCreated,functions:onPlaceUpdated,functions:onPlaceDeleted,functions:onUserCreated,functions:onUserUpdated,functions:onUserDeleted,functions:syncGroupedItemsIndex,functions:syncGroupedItemsRootReviews,functions:syncGroupedItemsOnListUpdate,functions:syncGroupedItemsOnListDelete,functions:adminBackfillAlgolia
+   ```
+4. Developer → Algolia → «Configurar índices» y «Reindexar todo», sin errores.
+5. Revocar la antigua: si regeneraste la Admin API Key, `da10…` ya no vale.
    **Comprobación:** `curl -s https://FI4Q0XQABV-dsn.algolia.net/1/keys/<da10…> -H "x-algolia-application-id: FI4Q0XQABV" -H "x-algolia-api-key: <da10…>"`
-   tiene que responder **403**.
+   responde **403**.
+6. Si la CLI dice que `ALGOLIA_API_KEY` choca con una variable de entorno: la
+   Function aún la tiene como variable normal de un despliegue antiguo. Quita
+   cualquier `ALGOLIA_API_KEY=` de los `.env` y vuelve a desplegar; si
+   persiste, borra esa Function (`firebase functions:delete <nombre> --region
+   europe-west1 --project listopic`) y despliégala de nuevo.
 
 ### Claves de Google
 
