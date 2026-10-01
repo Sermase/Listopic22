@@ -121,6 +121,8 @@ interface AdvancedProfileStats {
       averageRating: number;
     }
   >;
+  /** Todas las Listas con alguna valoración (con o sin nota): alimenta el filtro. */
+  reviewedLists: Record<string, { listId: string; listName: string; reviewsCount: number }>;
 }
 
 interface FavoriteReviewSummary {
@@ -145,6 +147,24 @@ const EMPTY_ADVANCED_STATS: AdvancedProfileStats = {
   reviewPhotosCount: 0,
   placePhotosCount: 0,
   statsByList: {},
+  reviewedLists: {},
+};
+
+const collectReviewedLists = (
+  reviews: Array<Record<string, any>>,
+  namesById: Record<string, string> = {},
+): AdvancedProfileStats["reviewedLists"] => {
+  const out: AdvancedProfileStats["reviewedLists"] = {};
+  reviews.forEach((review) => {
+    const listId = typeof review.listId === "string" ? review.listId.trim() : "";
+    if (!listId) return;
+    const name = namesById[listId]
+      || (typeof review.listName === "string" && review.listName.trim() ? review.listName.trim() : "Lista");
+    const current = out[listId] || { listId, listName: name, reviewsCount: 0 };
+    current.reviewsCount += 1;
+    out[listId] = current;
+  });
+  return out;
 };
 
 const getErrorCode = (error: unknown): string | null => {
@@ -913,6 +933,7 @@ export const ProfilePage: React.FC = () => {
           reviewPhotosCount,
           placePhotosCount: options.placePhotosCount || 0,
           statsByList,
+          reviewedLists: collectReviewedLists(reviews),
         },
         favorite,
       };
@@ -922,24 +943,13 @@ export const ProfilePage: React.FC = () => {
       setStatsLoading(true);
       setStatsError(null);
       try {
-        if (!isOwnProfile) {
-          const { stats, favorite } = buildStatsFromReviews(localReviews as Array<Record<string, any>>);
-          if (!cancelled) {
-            setAdvancedStats({
-              ...stats,
-              totalReviews: stats.totalReviews || profile?.reviewsCount || profile?.reviewCount || 0,
-            });
-            setFavoriteReview(favorite);
-            setStatsLoadedUserId(targetUserId);
-          }
-          return;
-        }
-
         // Las reglas limitan las consultas de reseñas a 100 por página y, en el
-        // perfil de otra persona, solo permiten leer sus reseñas públicas.
+        // perfil de otra persona, solo permiten leer sus reseñas públicas. Se
+        // leen todas (no solo las del mosaico) para que las estadísticas y el
+        // filtro por Listas cuenten lo que hay de verdad.
         const pageSize = 100;
-        const maxReviews = 3000;
         const viewingOwnStats = user?.uid === targetUserId;
+        const maxReviews = viewingOwnStats ? 3000 : 1000;
         const allReviews: Array<Record<string, any>> = [];
         let cursor: any = null;
 
@@ -1212,6 +1222,7 @@ export const ProfilePage: React.FC = () => {
             reviewPhotosCount,
             placePhotosCount,
             statsByList,
+            reviewedLists: collectReviewedLists(canonicalReviews, listNamesById),
           });
           setFavoriteReview(favorite);
           setStatsLoadedUserId(targetUserId);
@@ -1219,7 +1230,18 @@ export const ProfilePage: React.FC = () => {
       } catch (error) {
         const code = getErrorCode(error);
         if (!cancelled) {
-          if (code === "permission-denied") {
+          if (!isOwnProfile) {
+            // Perfil ajeno: si la lectura completa falla, lo que haya cargado.
+            console.warn("Profile stats: full read failed, using loaded reviews", error);
+            const { stats, favorite } = buildStatsFromReviews(localReviews as Array<Record<string, any>>);
+            setAdvancedStats({
+              ...stats,
+              totalReviews: stats.totalReviews || profile?.reviewsCount || profile?.reviewCount || 0,
+            });
+            setFavoriteReview(favorite);
+            setStatsLoadedUserId(targetUserId);
+            setStatsError(null);
+          } else if (code === "permission-denied") {
             setAdvancedStats({
               ...EMPTY_ADVANCED_STATS,
               totalReviews: profile?.reviewsCount || profile?.reviewCount || localReviews.length || 0,
@@ -1426,19 +1448,24 @@ export const ProfilePage: React.FC = () => {
     );
   }, [filteredReviewQuery.reviews, localReviews, reviewSortMode, reviewListFilter]);
 
+  // Todas las Listas del perfil (lectura completa) más las del mosaico, por si
+  // hay alguna recién creada que aún no está en las estadísticas.
   const availableListsForFilter = useMemo(() => {
-    const listMap = new Map();
+    const listMap = new Map<string, { id: string; name: string; count: number | null }>();
+    if (statsLoadedUserId === targetUserId) {
+      Object.values(advancedStats.reviewedLists || {}).forEach((l) => {
+        listMap.set(l.listId, { id: l.listId, name: l.listName, count: l.reviewsCount });
+      });
+    }
     localReviews.forEach((r) => {
       const listId = typeof r.listId === "string" ? r.listId.trim() : "";
-      if (listId) {
-        const listName = r.listName || "Lista";
-        if (!listMap.has(listId)) {
-          listMap.set(listId, listName);
-        }
+      if (listId && !listMap.has(listId)) {
+        listMap.set(listId, { id: listId, name: r.listName || "Lista", count: null });
       }
     });
-    return Array.from(listMap.entries()).map(([id, name]) => ({ id, name }));
-  }, [localReviews]);
+    return Array.from(listMap.values())
+      .sort((a, b) => (b.count ?? 0) - (a.count ?? 0) || a.name.localeCompare(b.name, "es"));
+  }, [localReviews, advancedStats.reviewedLists, statsLoadedUserId, targetUserId]);
 
   const sortedStatsPerList = useMemo(() => {
     const base = Object.values(advancedStats.statsByList || {});
@@ -3031,7 +3058,7 @@ export const ProfilePage: React.FC = () => {
                     <option value="all" className="bg-[var(--lt-card-strong)] text-white">Listas</option>
                     {availableListsForFilter.map(list => (
                       <option key={list.id} value={list.id} className="bg-[var(--lt-card-strong)] text-white">
-                        {list.name}
+                        {list.count !== null ? `${list.name} (${list.count})` : list.name}
                       </option>
                     ))}
                   </select>
