@@ -1624,6 +1624,7 @@ const updateListWithValidation = onCall(async (request) => {
 });
 
 // NUEVA FUNCIÓN: reverseGeocode
+// eslint-disable-next-line no-unused-vars -- archivada: fuera de exports, no se despliega
 const reverseGeocode = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET] }, async (req, res) => {
   cors(req, res, async () => {
     const auth = await requireJefeForLegacyRequest(req, res);
@@ -2556,6 +2557,7 @@ async function recalculateAggregatesForPlace(placeId) {
   }
 }
 
+// eslint-disable-next-line no-unused-vars -- archivada: fuera de exports, no se despliega
 const adminUpdateAllPlaces = onCall(async (request) => {
   const contextAuth = request.auth;
   if (!contextAuth) {

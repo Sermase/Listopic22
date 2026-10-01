@@ -450,6 +450,7 @@ const adminRecalculateAllGamification = onCall({ timeoutSeconds: 540, memory: "1
     }
 });
 
+// eslint-disable-next-line no-unused-vars -- archivada: fuera de exports, no se despliega
 const adminResetUserGamification = onCall(async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in");
     await assertJefeAccess(request.auth.uid);
@@ -472,6 +473,7 @@ const adminResetUserGamification = onCall(async (request) => {
     }
 });
 
+// eslint-disable-next-line no-unused-vars -- archivada: fuera de exports, no se despliega
 const adminResetAllGamification = onCall({ timeoutSeconds: 540, memory: "1GiB" }, async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in");
     await assertJefeAccess(request.auth.uid);
