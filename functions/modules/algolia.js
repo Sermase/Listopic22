@@ -741,7 +741,7 @@ async function rebuildGroupedItemsForList(listId) {
         return null;
     }
     try {
-        const { listData, groupedReviews } = await buildGroupedItemsForList(listId);
+        const { listData, groupedReviews } = await buildGroupedItemsForList(listId, { publicOnly: true });
         await clearGroupedItemsForList(listId, index);
         if (!listData || listData.isPublic === false) {
             return null;
@@ -947,7 +947,7 @@ async function backfillGroupedItems() {
             continue;
         }
         try {
-            const aggregation = await buildGroupedItemsForList(doc.id);
+            const aggregation = await buildGroupedItemsForList(doc.id, { publicOnly: true });
             if (!aggregation.listData || aggregation.listData.isPublic === false) {
                 continue;
             }

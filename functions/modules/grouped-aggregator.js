@@ -5,6 +5,7 @@ const { getFirestore } = require('firebase-admin/firestore');
 
 const { compareByRank, reviewScoreForList } = require('./lib/scoring');
 const { normalizeCcaa } = require('./lib/geo-areas');
+const { filterPublicReviews } = require('./lib/list-visibility');
 
 const db = getFirestore();
 
@@ -159,7 +160,11 @@ function uniqueTags(values) {
     )).sort();
 }
 
-async function buildGroupedItemsForList(listId) {
+/**
+ * @param {string} listId
+ * @param {{ publicOnly?: boolean }} [options] publicOnly: para Algolia (índice público).
+ */
+async function buildGroupedItemsForList(listId, { publicOnly = false } = {}) {
     if (!listId) {
         throw new Error('listId is required');
     }
@@ -167,7 +172,8 @@ async function buildGroupedItemsForList(listId) {
     const listRef = db.collection('lists').doc(listId);
     const listSnap = await listRef.get();
     const listData = listSnap.exists ? { id: listSnap.id, ...listSnap.data() } : null;
-    const reviews = await fetchReviewsForList(listId, listData, listRef);
+    const fetched = await fetchReviewsForList(listId, listData, listRef);
+    const reviews = publicOnly ? filterPublicReviews(fetched) : fetched;
 
     if (reviews.length === 0) {
         return {
