@@ -8,10 +8,11 @@
  *   GOOGLE_APPLICATION_CREDENTIALS=/ruta/service-account.json node scripts/audit-place-locations.js
  */
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { normalizeCcaa } = require('../modules/lib/geo-areas');
 
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
-const db = admin.firestore();
+const db = getFirestore();
 
 const text = (v) => (typeof v === 'string' ? v.trim() : '');
 

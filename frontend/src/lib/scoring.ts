@@ -276,3 +276,21 @@ export function compareByRank(a: RankableStats, b: RankableStats): number {
 /** Valor guardado en Algolia como `rankingScore` (4 decimales). */
 export const rankingIndexScore = (average: unknown, count: unknown): number =>
     Number(rankPosition(average, count).toFixed(4));
+
+export interface RankedStats extends RankableStats {
+    id: string;
+}
+
+/**
+ * Orden de los elementos de una Lista, el mismo en la Lista, la ficha y Buscar:
+ * posición con 4 decimales (lo que guarda Algolia), luego más valoraciones y,
+ * si todo empata, la clave del elemento. Sin empates, el puesto no depende de
+ * qué valoración llegó antes ni del orden interno de Algolia.
+ */
+export function compareElementsByRank(a: RankedStats, b: RankedStats): number {
+    const diff = rankingIndexScore(b.average, b.count) - rankingIndexScore(a.average, a.count);
+    if (diff !== 0) return diff;
+    const byCount = safeNumber(b.count) - safeNumber(a.count);
+    if (byCount !== 0) return byCount;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}

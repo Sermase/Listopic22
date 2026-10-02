@@ -1,0 +1,13 @@
+{
+  "name": "listopic-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node run.mjs",
+    "test:ui-only": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "firebase-tools": "^14.27.0"
+  }
+}

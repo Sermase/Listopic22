@@ -1,13 +1,16 @@
-﻿'use strict';
+'use strict';
 
-const admin = require('firebase-admin');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldPath } = require('firebase-admin/firestore');
 
-const { compareByRank, reviewScoreForList } = require('./lib/scoring');
-const { normalizeCcaa } = require('./lib/geo-areas');
+const { compareElementsByRank, reviewScoreForList } = require('./lib/scoring');
+const { elementKey, isBotUserType, normalizeItemName, placeClosedStatus, placeGeoFields } = require('./lib/list-elements');
 const { filterPublicReviews } = require('./lib/list-visibility');
 
-const db = getFirestore();
+// Perezoso: aggregateGroups se prueba sin inicializar Firebase.
+const db = {
+    collection: (...args) => getFirestore().collection(...args),
+    getAll: (...refs) => getFirestore().getAll(...refs)
+};
 
 function normalizeForObjectId(value) {
     if (!value) {
@@ -35,13 +38,29 @@ async function fetchPlacesByIds(ids) {
         const chunk = ids.slice(i, i + 10);
         const snapshot = await db
             .collection('places')
-            .where(admin.firestore.FieldPath.documentId(), 'in', chunk)
+            .where(FieldPath.documentId(), 'in', chunk)
             .get();
         snapshot.forEach(doc => {
             map.set(doc.id, doc.data());
         });
     }
     return map;
+}
+
+/** Autores bot según su perfil público (lo mismo que mira la web). */
+async function fetchBotAuthorIds(reviews) {
+    const authorIds = Array.from(new Set(reviews.map(r => r.userId || r.authorId).filter(Boolean)));
+    const bots = new Set();
+    for (let i = 0; i < authorIds.length; i += 100) {
+        const refs = authorIds.slice(i, i + 100).map(uid => db.collection('publicProfiles').doc(uid));
+        const snaps = await db.getAll(...refs);
+        snaps.forEach(snap => {
+            if (snap.exists && isBotUserType(snap.data().userType)) {
+                bots.add(snap.id);
+            }
+        });
+    }
+    return bots;
 }
 
 async function fetchRootReviewsByField(field, value) {
@@ -120,10 +139,6 @@ function extractGeoloc(placeData) {
     return null;
 }
 
-function buildGroupKey(establishmentName, itemName) {
-    return `${establishmentName || 'na'}|${itemName || ''}`.toLowerCase();
-}
-
 function aggregateGroupTags(collectedTags, itemCount) {
     if (!Array.isArray(collectedTags) || collectedTags.length === 0) {
         return [];
@@ -161,6 +176,150 @@ function uniqueTags(values) {
 }
 
 /**
+ * Agrupa y puntúa las valoraciones de una Lista (sin acceso a Firestore), con
+ * las mismas reglas que la página de la Lista (lib/listElements.ts):
+ * - clave: sitio + nombre normalizado (lib/list-elements.js);
+ * - las valoraciones de bots no cuentan en nota, nº ni puesto; un elemento
+ *   solo de bots queda marcado `botOnly` (Buscar lo oculta por defecto, como
+ *   la Lista mientras no se pide ver los bots) y puntúa con las suyas;
+ * - una valoración sin nota no cuenta;
+ * - orden total: compareElementsByRank (posición con 4 decimales, nº de
+ *   valoraciones y clave). `listRank` es el puesto en toda la Lista.
+ * Las valoraciones llegan ya filtradas por visibilidad (Algolia: solo públicas).
+ * @returns {Array<object>} grupos ordenados por puesto.
+ */
+function aggregateGroups(listId, listData, reviews, placeMap, botAuthorIds = new Set()) {
+    const groups = new Map();
+
+    for (const review of reviews) {
+        const { score } = reviewScoreForList(review, listData);
+        if (score === null) {
+            continue;
+        }
+        const placeInfo = review.placeId ? placeMap.get(review.placeId) : null;
+        const establishmentName = (placeInfo && typeof placeInfo.name === 'string' && placeInfo.name.trim())
+            ? placeInfo.name.trim()
+            : (typeof review.establishmentName === 'string' && review.establishmentName.trim()
+                ? review.establishmentName.trim()
+                : 'Lugar desconocido');
+        const itemName = typeof review.itemName === 'string' ? review.itemName.trim() : '';
+        const key = elementKey(review.placeId || null, itemName);
+        const author = review.userId || review.authorId || null;
+        const isBot = Boolean(author && botAuthorIds.has(author));
+
+        let group = groups.get(key);
+        if (!group) {
+            const geo = placeGeoFields(placeInfo);
+            const closedStatus = placeClosedStatus(placeInfo);
+            group = {
+                listId,
+                key,
+                establishmentName,
+                itemName,
+                placeId: review.placeId || null,
+                counted: { human: [], bot: [] },
+                authorUserTypes: new Set(),
+                reviewIds: [],
+                thumbnailUrl: null,
+                placeThumbnailUrl: placeInfo ? (placeInfo.userPhotoUrl || placeInfo.mainImageUrl || null) : null,
+                googleMapsUrl: placeInfo && placeInfo.googleMapsUrl ? placeInfo.googleMapsUrl : null,
+                // Misma zona que la Lista (la ciudad cae a la «locality» de Google).
+                placeCity: geo.city || null,
+                placeProvince: geo.province || null,
+                placeRegion: geo.region || null,
+                placeCountry: geo.country || null,
+                placeAddress: placeInfo && (placeInfo.address || placeInfo.formatted_address) ? (placeInfo.address || placeInfo.formatted_address) : null,
+                placeClosedStatus: typeof closedStatus === 'string' ? closedStatus : null,
+                placeGoogleBusinessStatus: placeInfo && typeof placeInfo.googleBusinessStatus === 'string' ? placeInfo.googleBusinessStatus : null,
+                placeBusinessStatus: placeInfo && typeof placeInfo.businessStatus === 'string' ? placeInfo.businessStatus : null,
+                placeAccessibilityOptions: placeInfo ? (placeInfo.accessibilityOptions || placeInfo.accessibility || null) : null,
+                placePetOptions: placeInfo ? (placeInfo.businessPetOptions || placeInfo.petOptions || placeInfo.pets || null) : null,
+                geoloc: extractGeoloc(placeInfo),
+                thumbnailMaxLikes: -1 // Track max likes for thumbnail selection
+            };
+            groups.set(key, group);
+        }
+
+        group.counted[isBot ? 'bot' : 'human'].push({ review, score });
+
+        // Thumbnail Logic: Pick image with most likes
+        if (review.photoUrl) {
+            const currentRecLikes = (review.reactionCounts && review.reactionCounts.like) || review.likes || 0;
+            if (!group.thumbnailUrl || currentRecLikes > group.thumbnailMaxLikes) {
+                group.thumbnailUrl = review.photoUrl;
+                group.thumbnailMaxLikes = currentRecLikes;
+            }
+        }
+        // Faceta «Tipo de usuario»: todas las valoraciones públicas (el filtro «Bots» de Buscar).
+        normalizeUserTypes(review.authorUserType).forEach(type => group.authorUserTypes.add(type));
+        if (isBot) {
+            group.authorUserTypes.add('bot');
+        }
+        group.reviewIds.push(review.id);
+    }
+
+    const elements = Array.from(groups.values()).map(group => {
+        const botOnly = group.counted.human.length === 0;
+        const counted = botOnly ? group.counted.bot : group.counted.human;
+        const itemCount = counted.length;
+        const average = counted.reduce((sum, entry) => sum + entry.score, 0) / itemCount;
+
+        const criteriaTotals = {};
+        const criteriaCounts = {};
+        const allTags = [];
+        counted.forEach(({ review }) => {
+            if (review.scores && typeof review.scores === 'object') {
+                Object.entries(review.scores).forEach(([criterion, value]) => {
+                    if (typeof value === 'number' && Number.isFinite(value)) {
+                        criteriaTotals[criterion] = (criteriaTotals[criterion] || 0) + value;
+                        criteriaCounts[criterion] = (criteriaCounts[criterion] || 0) + 1;
+                    }
+                });
+            }
+            if (Array.isArray(review.userTags)) {
+                allTags.push(...review.userTags.filter(tag => typeof tag === 'string'));
+            }
+            if (Array.isArray(review.tags)) {
+                allTags.push(...review.tags.filter(tag => typeof tag === 'string'));
+            }
+        });
+        const avgScores = {};
+        Object.entries(criteriaTotals).forEach(([criterion, total]) => {
+            avgScores[criterion] = Number((total / criteriaCounts[criterion]).toFixed(1));
+        });
+
+        const { counted: _counted, authorUserTypes, thumbnailMaxLikes: _likes, key, ...rest } = group;
+        return {
+            ...rest,
+            key,
+            botOnly,
+            itemCount,
+            // Sin redondear: con esta se ordena (rankingScore). La que se ve, a 1 decimal.
+            average: Number(average.toFixed(4)),
+            avgGeneralScore: Number(average.toFixed(1)),
+            avgScores,
+            groupTags: aggregateGroupTags(allTags, itemCount),
+            authorUserType: Array.from(authorUserTypes).sort(),
+            thumbnailUrl: group.thumbnailUrl || group.placeThumbnailUrl || null,
+            itemTags: uniqueTags(allTags),
+            objectSlug: `${normalizeForObjectId(group.placeId || group.establishmentName)}__${normalizeForObjectId(normalizeItemName(group.itemName) || 'general')}`
+        };
+    });
+
+    // Primero los elementos con valoraciones de personas (los que ve la Lista), luego los de solo bots.
+    const byRank = (a, b) => compareElementsByRank(
+        { id: a.key, average: a.average, count: a.itemCount },
+        { id: b.key, average: b.average, count: b.itemCount }
+    );
+    const ranked = [
+        ...elements.filter((e) => !e.botOnly).sort(byRank),
+        ...elements.filter((e) => e.botOnly).sort(byRank),
+    ];
+    ranked.forEach((element, index) => { element.listRank = index + 1; });
+    return ranked;
+}
+
+/**
  * @param {string} listId
  * @param {{ publicOnly?: boolean }} [options] publicOnly: para Algolia (índice público).
  */
@@ -185,142 +344,11 @@ async function buildGroupedItemsForList(listId, { publicOnly = false } = {}) {
     }
 
     const placeIds = Array.from(new Set(reviews.map(r => r.placeId).filter(Boolean)));
-    const placeMap = await fetchPlacesByIds(placeIds);
-
-    const groups = new Map();
-
-    for (const review of reviews) {
-        const placeInfo = review.placeId ? placeMap.get(review.placeId) : null;
-        const establishmentName = (placeInfo && typeof placeInfo.name === 'string' && placeInfo.name.trim())
-            ? placeInfo.name.trim()
-            : (typeof review.establishmentName === 'string' && review.establishmentName.trim()
-                ? review.establishmentName.trim()
-                : 'Lugar desconocido');
-        const itemName = typeof review.itemName === 'string' ? review.itemName.trim() : '';
-        const key = buildGroupKey(establishmentName, itemName);
-
-        let group = groups.get(key);
-        if (!group) {
-            const geoloc = extractGeoloc(placeInfo);
-            group = {
-                listId,
-                groupKey: key,
-                establishmentName,
-                itemName,
-                placeId: review.placeId || null,
-                itemCount: 0,
-                totalGeneralScore: 0,
-                allTags: [],
-                authorUserTypes: new Set(),
-                criteriaTotals: {},
-                criteriaCounts: {},
-                reviewIds: [],
-                thumbnailUrl: null,
-                placeThumbnailUrl: placeInfo ? (placeInfo.userPhotoUrl || placeInfo.mainImageUrl || null) : null,
-                googleMapsUrl: placeInfo && placeInfo.googleMapsUrl ? placeInfo.googleMapsUrl : null,
-                placeCity: placeInfo && typeof placeInfo.city === 'string' ? placeInfo.city : null,
-                // Provincia y comunidad por separado (antes, sin provincia se usaba la comunidad).
-                placeProvince: placeInfo && typeof placeInfo.province === 'string' && placeInfo.province.trim() ? placeInfo.province : null,
-                placeRegion: placeInfo ? (normalizeCcaa(placeInfo.region) || null) : null,
-                placeCountry: placeInfo && typeof placeInfo.country === 'string' ? placeInfo.country : null,
-                placeAddress: placeInfo && (placeInfo.address || placeInfo.formatted_address) ? (placeInfo.address || placeInfo.formatted_address) : null,
-                placeClosedStatus: placeInfo && typeof placeInfo.closedStatus === 'string'
-                    ? placeInfo.closedStatus
-                    : (placeInfo && typeof placeInfo.googleBusinessStatus === 'string' ? placeInfo.googleBusinessStatus : null),
-                placeGoogleBusinessStatus: placeInfo && typeof placeInfo.googleBusinessStatus === 'string' ? placeInfo.googleBusinessStatus : null,
-                placeBusinessStatus: placeInfo && typeof placeInfo.businessStatus === 'string' ? placeInfo.businessStatus : null,
-                placeAccessibilityOptions: placeInfo ? (placeInfo.accessibilityOptions || placeInfo.accessibility || null) : null,
-                placePetOptions: placeInfo ? (placeInfo.businessPetOptions || placeInfo.petOptions || placeInfo.pets || null) : null,
-                geoloc,
-                thumbnailMaxLikes: -1 // Track max likes for thumbnail selection
-            };
-            groups.set(key, group);
-        }
-
-        group.itemCount += 1;
-        // En la Lista madre, las valoraciones hechas desde una Minilista cuentan
-        // solo con los criterios de la madre (ver lib/scoring.js).
-        const { score } = reviewScoreForList(review, listData);
-        if (score !== null) {
-            group.totalGeneralScore += score;
-        }
-
-        // Thumbnail Logic: Pick image with most likes
-        if (review.photoUrl) {
-            const currentRecLikes = (review.reactionCounts && review.reactionCounts.like) || review.likes || 0;
-            if (!group.thumbnailUrl || currentRecLikes > group.thumbnailMaxLikes) {
-                group.thumbnailUrl = review.photoUrl;
-                group.thumbnailMaxLikes = currentRecLikes;
-            }
-        }
-        if (Array.isArray(review.userTags)) {
-            group.allTags.push(...review.userTags.filter(tag => typeof tag === 'string'));
-        }
-        if (Array.isArray(review.tags)) {
-            group.allTags.push(...review.tags.filter(tag => typeof tag === 'string'));
-        }
-        normalizeUserTypes(review.authorUserType).forEach(type => group.authorUserTypes.add(type));
-        if (review.scores && typeof review.scores === 'object') {
-            Object.entries(review.scores).forEach(([criterion, score]) => {
-                if (typeof score === 'number') {
-                    group.criteriaTotals[criterion] = (group.criteriaTotals[criterion] || 0) + score;
-                    group.criteriaCounts[criterion] = (group.criteriaCounts[criterion] || 0) + 1;
-                }
-            });
-        }
-        group.reviewIds.push(review.id);
-    }
-
-    const groupedReviews = Array.from(groups.values()).map(group => {
-        const avgGeneralScore = group.itemCount > 0
-            ? Number((group.totalGeneralScore / group.itemCount).toFixed(1))
-            : 0;
-
-        const avgScores = {};
-        Object.entries(group.criteriaTotals).forEach(([criterion, total]) => {
-            const count = group.criteriaCounts[criterion] || 0;
-            if (count > 0) {
-                avgScores[criterion] = Number((total / count).toFixed(1));
-            }
-        });
-
-        const groupTags = aggregateGroupTags(group.allTags, group.itemCount);
-        const objectSlug = `${normalizeForObjectId(group.establishmentName)}__${normalizeForObjectId(group.itemName || 'general')}`;
-
-        return {
-            listId: group.listId,
-            establishmentName: group.establishmentName,
-            itemName: group.itemName,
-            placeId: group.placeId,
-            itemCount: group.itemCount,
-            avgGeneralScore,
-            avgScores,
-            groupTags,
-            authorUserType: Array.from(group.authorUserTypes).sort(),
-            thumbnailUrl: group.thumbnailUrl || group.placeThumbnailUrl || null,
-            googleMapsUrl: group.googleMapsUrl,
-            placeCity: group.placeCity,
-            placeProvince: group.placeProvince,
-            placeRegion: group.placeRegion,
-            placeCountry: group.placeCountry,
-            placeAddress: group.placeAddress,
-            placeClosedStatus: group.placeClosedStatus,
-            placeGoogleBusinessStatus: group.placeGoogleBusinessStatus,
-            placeBusinessStatus: group.placeBusinessStatus,
-            placeAccessibilityOptions: group.placeAccessibilityOptions,
-            placePetOptions: group.placePetOptions,
-            geoloc: group.geoloc,
-            reviewIds: group.reviewIds,
-            itemTags: uniqueTags(group.allTags),
-            objectSlug
-        };
-    });
-
-    // Ranking único (lib/scoring): una valoración suelta no basta para encabezar.
-    groupedReviews.sort((a, b) => compareByRank(
-        { average: a.avgGeneralScore, count: a.itemCount },
-        { average: b.avgGeneralScore, count: b.itemCount }
-    ));
+    const [placeMap, botAuthorIds] = await Promise.all([
+        fetchPlacesByIds(placeIds),
+        fetchBotAuthorIds(reviews)
+    ]);
+    const groupedReviews = aggregateGroups(listId, listData, reviews, placeMap, botAuthorIds);
 
     return {
         listId,
@@ -331,5 +359,6 @@ async function buildGroupedItemsForList(listId, { publicOnly = false } = {}) {
 }
 
 module.exports = {
-    buildGroupedItemsForList
+    buildGroupedItemsForList,
+    aggregateGroups
 };

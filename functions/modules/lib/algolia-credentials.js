@@ -19,4 +19,16 @@ function resolveAlgoliaCredentials({ appId, apiKey } = {}) {
   return { appId: id, apiKey: key };
 }
 
-module.exports = { resolveAlgoliaCredentials, DEFAULT_ALGOLIA_APP_ID };
+/**
+ * Solo en el emulador de Functions (E2E): ALGOLIA_EMULATOR_HOST apunta a un
+ * Algolia simulado local. Fuera del emulador se ignora: en producción nunca se
+ * puede desviar la escritura a otro sitio.
+ * @returns {Array<{ url: string, protocol: string }> | null}
+ */
+function resolveAlgoliaHosts(env = process.env) {
+  if (env.FUNCTIONS_EMULATOR !== 'true') return null;
+  const host = String(env.ALGOLIA_EMULATOR_HOST || '').trim();
+  return host ? [{ url: host, protocol: 'http' }] : null;
+}
+
+module.exports = { resolveAlgoliaCredentials, resolveAlgoliaHosts, DEFAULT_ALGOLIA_APP_ID };

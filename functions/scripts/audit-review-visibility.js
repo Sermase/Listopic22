@@ -17,9 +17,10 @@
  *   (sin --expect, o si los cambios por lista no coinciden exactamente, NO escribe nada)
  */
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
-const db = admin.firestore();
+const db = getFirestore();
 
 const APPLY = process.argv.includes('--apply');
 const USER = (process.argv.find((a) => a.startsWith('--user=')) || '').slice('--user='.length);

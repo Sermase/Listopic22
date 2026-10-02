@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Trophy } from 'lucide-react';
 import { useListRanks } from '../hooks/useListRanks';
 import { distinctContextRanks } from '../lib/geoAreas';
+import { elementKey } from '../lib/listElements';
 
 interface ElementRanksProps {
     placeId: string;
@@ -23,10 +24,11 @@ export const ElementRanks: React.FC<ElementRanksProps> = ({ placeId, itemName, l
     const shown = listIds.slice(0, MAX_LISTS);
     const ranks = useListRanks(shown);
     if (ranks.status !== 'ready') return null;
-    const name = itemName.trim().toLowerCase();
+    // Misma clave que la Lista: «Bravás» y «bravas» son el mismo elemento.
+    const key = elementKey({ placeId, itemName }, 'dish');
 
     const rows = shown.map((listId) => {
-        const element = (ranks.byList[listId] ?? []).find((e) => e.placeId === placeId && e.itemName.trim().toLowerCase() === name);
+        const element = (ranks.byList[listId] ?? []).find((e) => e.id === key);
         if (!element) return null;
         const distinct = distinctContextRanks(element.contextRanks);
         const [main, ...rest] = distinct.length > 0 ? distinct.map((r) => r.label) : [`#${element.rank} en la Lista`];

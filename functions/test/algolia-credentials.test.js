@@ -26,3 +26,11 @@ test('las Functions de Algolia declaran el secret ALGOLIA_API_KEY', () => {
     assert.ok(secrets.some((s) => s.key === 'ALGOLIA_API_KEY'), `${name} sin el secret`);
   }
 });
+
+test('Algolia simulado: solo dentro del emulador', () => {
+  const { resolveAlgoliaHosts } = require('../modules/lib/algolia-credentials');
+  assert.equal(resolveAlgoliaHosts({ ALGOLIA_EMULATOR_HOST: '127.0.0.1:7700' }), null);
+  assert.equal(resolveAlgoliaHosts({ FUNCTIONS_EMULATOR: 'false', ALGOLIA_EMULATOR_HOST: '127.0.0.1:7700' }), null);
+  assert.equal(resolveAlgoliaHosts({ FUNCTIONS_EMULATOR: 'true' }), null);
+  assert.deepEqual(resolveAlgoliaHosts({ FUNCTIONS_EMULATOR: 'true', ALGOLIA_EMULATOR_HOST: '127.0.0.1:7700' }), [{ url: '127.0.0.1:7700', protocol: 'http' }]);
+});

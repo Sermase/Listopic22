@@ -6,6 +6,7 @@ import {
     buildZoneTree, searchZoneTree, zoneAttributes, zoneKey, zonesLabel,
     type Zone, type ZoneNode, type ZoneRecord,
 } from '../../lib/searchZones';
+import { useBotOnlyFilter } from './botOnlyFilter';
 
 const LEVEL_NAME: Record<GeoLevel, string> = { country: 'país', region: 'comunidad', province: 'provincia', city: 'ciudad' };
 const MAX_RECORDS = 1000;
@@ -46,7 +47,10 @@ export const ZonePicker: React.FC<ZonePickerProps> = ({ tab, zones: committedZon
     const containerRef = useRef<HTMLDivElement>(null);
 
     const selected = useMemo(() => new Set(zones.map(zoneKey)), [zones]);
-    const loadKey = JSON.stringify([tab, query, filters, geo?.aroundLatLng ?? null, geo?.aroundRadius ?? null]);
+    // Mismos elementos que los resultados (sin los de solo bots salvo con el filtro «Bots»).
+    const botFilter = useBotOnlyFilter(tab);
+    const effectiveFilters = [filters, botFilter].filter(Boolean).join(' AND ');
+    const loadKey = JSON.stringify([tab, query, effectiveFilters, geo?.aroundLatLng ?? null, geo?.aroundRadius ?? null]);
 
     useEffect(() => {
         if (!open) return;
@@ -58,7 +62,7 @@ export const ZonePicker: React.FC<ZonePickerProps> = ({ tab, zones: committedZon
             requests: [{
                 indexName: tab === 'places' ? INDEX_NAMES.places : INDEX_NAMES.items,
                 query,
-                filters: filters || undefined,
+                filters: effectiveFilters || undefined,
                 hitsPerPage: MAX_RECORDS,
                 attributesToRetrieve: Object.values(attrs),
                 attributesToHighlight: [],

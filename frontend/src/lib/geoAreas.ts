@@ -6,7 +6,7 @@
  *
  * `normalizeCcaa` es espejo de functions/modules/lib/geo-areas.js.
  */
-import { compareByRank, type RankableStats } from './scoring';
+import { compareElementsByRank, type RankableStats } from './scoring';
 
 export type GeoLevel = 'city' | 'province' | 'region' | 'country';
 export const GEO_LEVELS: GeoLevel[] = ['city', 'province', 'region', 'country'];
@@ -60,14 +60,17 @@ const COUNTRY_ALIASES = new Map([['spain', 'España'], ['espana', 'España']]);
 
 const cleanText = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
 
+/** «Spain» → «España» (espejo en functions/modules/lib/geo-areas.js). */
+export function normalizeCountry(value: unknown): string {
+    const country = cleanText(value);
+    return country ? COUNTRY_ALIASES.get(aliasKey(country)) || country : '';
+}
+
 /** Valor normalizado de un nivel ('' si el sitio no lo tiene). */
 export function geoValue(fields: GeoFields | null | undefined, level: GeoLevel): string {
     if (!fields) return '';
     if (level === 'region') return normalizeCcaa(fields.region);
-    if (level === 'country') {
-        const country = cleanText(fields.country);
-        return COUNTRY_ALIASES.get(aliasKey(country)) || country;
-    }
+    if (level === 'country') return normalizeCountry(fields.country);
     return cleanText(fields[level]);
 }
 
@@ -158,7 +161,7 @@ export function contextualRanks(items: ReadonlyArray<RankableGeoItem>): Map<stri
         });
         groups.forEach((group, value) => {
             if (group.length < MIN_ELEMENTS_FOR_CONTEXT_RANK) return;
-            [...group].sort(compareByRank).forEach((item, index) => {
+            [...group].sort(compareElementsByRank).forEach((item, index) => {
                 const label = `#${index + 1} en ${level === 'country' ? value : geoAreaLabel(level, value)}`;
                 result.get(item.id)!.push({ level, value, rank: index + 1, total: group.length, label });
             });

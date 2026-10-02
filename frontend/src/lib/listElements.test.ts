@@ -10,7 +10,8 @@ const review = (placeId: string, itemName: string, overallRating: number, extra:
 
 describe('rankListElements', () => {
     it('misma clave de agrupación que la Lista', () => {
-        expect(elementKey({ placeId: 'p1', itemName: ' Toma-té ' }, 'dish')).toBe('p1_toma-té');
+        expect(elementKey({ placeId: 'p1', itemName: ' Toma-té ' }, 'dish')).toBe('p1_toma te');
+        expect(elementKey({ placeId: 'p1', itemName: 'TOMATE' }, 'dish')).not.toBe(elementKey({ placeId: 'p2', itemName: 'tomate' }, 'dish'));
         expect(elementKey({ placeId: 'p1', itemName: 'X' }, 'place')).toBe('p1');
     });
 

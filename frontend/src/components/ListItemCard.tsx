@@ -42,9 +42,11 @@ interface ListItemCardProps {
     groupingMode?: 'place' | 'dish' | 'list';
     listId?: string; // Outer phrasing, maybe redundant with item.listId but keeping for compat
     disableLift?: boolean;
+    /** Clave del elemento (lib/listElements): la misma en la Lista y en Buscar. */
+    elementKey?: string;
 }
 
-export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextRankLabel, isGrid, groupingMode = 'place', listId, disableLift = false }) => {
+export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextRankLabel, isGrid, groupingMode = 'place', listId, disableLift = false, elementKey }) => {
     // Una misma etiqueta puede llegar repetida (varias valoraciones del elemento).
     const tags = Array.from(new Set(item.tags || []));
     const normalizedClosedStatus = String(item.placeClosedStatus || '').trim().toLowerCase();
@@ -129,7 +131,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
 
     // --- Render Content ---
     return (
-        <article className={`group relative ${disableLift
+        <article data-element-key={elementKey} className={`group relative ${disableLift
             ? 'bg-[var(--card-bg)] border border-[var(--glass-border)] backdrop-blur-2xl rounded-2xl md:rounded-3xl overflow-hidden transition-colors duration-200 ring-1 ring-white/5 active:scale-[0.98]'
             : 'glass-card'}
             ${isGrid

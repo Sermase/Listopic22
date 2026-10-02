@@ -53,4 +53,13 @@ function pickCity(addressComponents) {
   return byType('locality') || byType('postal_town') || byType('administrative_area_level_4') || byType('administrative_area_level_3') || '';
 }
 
-module.exports = { normalizeCcaa, pickCity, CCAA_NAMES: CCAA_CANONICAL.map(([name]) => name) };
+const COUNTRY_ALIASES = new Map([['spain', 'España'], ['espana', 'España']]);
+
+/** «Spain» → «España» (espejo de normalizeCountry en frontend/src/lib/geoAreas.ts). */
+function normalizeCountry(value) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!text) return '';
+  return COUNTRY_ALIASES.get(aliasKey(text)) || text;
+}
+
+module.exports = { normalizeCcaa, normalizeCountry, pickCity, CCAA_NAMES: CCAA_CANONICAL.map(([name]) => name) };

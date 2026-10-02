@@ -4,8 +4,10 @@
  * límite de 20 índices del plan gratuito falla y deja esos restos (había 6
  * `lists_tmp_*`). Aquí: se guardan todos los registros y después se borran los
  * que ya no existen. El índice nunca queda vacío.
+ * `filters` limita los sobrantes a una parte del índice (los de una Lista):
+ * así se reconstruye una Lista sin vaciarla antes.
  */
-async function syncAllObjects(index, records) {
+async function syncAllObjects(index, records, { filters } = {}) {
   if (records.length > 0) {
     await index.saveObjects(records).wait();
   }
@@ -13,6 +15,8 @@ async function syncAllObjects(index, records) {
   const stale = [];
   await index.browseObjects({
     query: '',
+    // Con filtro, solo se consideran sobrantes los de ese grupo (p. ej. una Lista).
+    ...(filters ? { filters } : {}),
     attributesToRetrieve: ['objectID'],
     batch: (hits) => hits.forEach((hit) => { if (!keep.has(hit.objectID)) stale.push(hit.objectID); }),
   });

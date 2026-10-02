@@ -1,6 +1,5 @@
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
-const admin = require("firebase-admin");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const logger = require("firebase-functions/logger");
 const { sendNotification } = require("./notifications");
 const db = getFirestore();
@@ -79,12 +78,12 @@ exports.onUserFollowingWrite = onDocumentWritten("users/{uid}/following/{targetU
             // 1. Create reciprocal follower document safely (Server-side)
             await followerRef.set({
                 uid: uid,
-                followedAt: admin.firestore.FieldValue.serverTimestamp()
+                followedAt: FieldValue.serverTimestamp()
             });
 
             // 2. Increment counters
-            await currentUserRef.update({ followingCount: admin.firestore.FieldValue.increment(1) });
-            await targetUserRef.update({ followersCount: admin.firestore.FieldValue.increment(1) });
+            await currentUserRef.update({ followingCount: FieldValue.increment(1) });
+            await targetUserRef.update({ followersCount: FieldValue.increment(1) });
 
             // 3. Send Notification (Delegate to helper or existing logic)
             // Note: We can either keep onFollowUser in notifications.js or move it here. 
@@ -99,8 +98,8 @@ exports.onUserFollowingWrite = onDocumentWritten("users/{uid}/following/{targetU
             await followerRef.delete();
 
             // 2. Decrement counters
-            await currentUserRef.update({ followingCount: admin.firestore.FieldValue.increment(-1) });
-            await targetUserRef.update({ followersCount: admin.firestore.FieldValue.increment(-1) });
+            await currentUserRef.update({ followingCount: FieldValue.increment(-1) });
+            await targetUserRef.update({ followersCount: FieldValue.increment(-1) });
         }
     } catch (error) {
         logger.error("Error in onUserFollowingWrite", { uid, targetUserId, error });
@@ -126,16 +125,16 @@ exports.onPlaceFollowingWrite = onDocumentWritten("users/{uid}/followingPlaces/{
 
     try {
         if (isCreate) {
-            await userRef.update({ followingPlacesCount: admin.firestore.FieldValue.increment(1) });
+            await userRef.update({ followingPlacesCount: FieldValue.increment(1) });
             // Ensure place exists or merge
-            await placeRef.set({ followersCount: admin.firestore.FieldValue.increment(1) }, { merge: true });
+            await placeRef.set({ followersCount: FieldValue.increment(1) }, { merge: true });
             await placeFollowerRef.set({
                 userId: uid,
-                followedAt: admin.firestore.FieldValue.serverTimestamp()
+                followedAt: FieldValue.serverTimestamp()
             }, { merge: true });
         } else if (isDelete) {
-            await userRef.update({ followingPlacesCount: admin.firestore.FieldValue.increment(-1) });
-            await placeRef.update({ followersCount: admin.firestore.FieldValue.increment(-1) });
+            await userRef.update({ followingPlacesCount: FieldValue.increment(-1) });
+            await placeRef.update({ followersCount: FieldValue.increment(-1) });
             await placeFollowerRef.delete();
         }
     } catch (error) {
@@ -162,16 +161,16 @@ exports.onListFollowingWrite = onDocumentWritten("users/{uid}/followingLists/{li
 
     try {
         if (isCreate) {
-            await userRef.update({ followingListsCount: admin.firestore.FieldValue.increment(1) });
+            await userRef.update({ followingListsCount: FieldValue.increment(1) });
             // For Lists, "Following" == "Liking", so we update 'likes' count.
             // Also maintaining 'followersCount' for consistency if needed, but UI uses 'likes'.
             await listRef.update({
-                likes: admin.firestore.FieldValue.increment(1),
-                followersCount: admin.firestore.FieldValue.increment(1)
+                likes: FieldValue.increment(1),
+                followersCount: FieldValue.increment(1)
             });
             await listFollowerRef.set({
                 userId: uid,
-                followedAt: admin.firestore.FieldValue.serverTimestamp()
+                followedAt: FieldValue.serverTimestamp()
             }, { merge: true });
 
             // Notificar al autor de la lista
@@ -198,10 +197,10 @@ exports.onListFollowingWrite = onDocumentWritten("users/{uid}/followingLists/{li
                 logger.error("Error sending list_follow notification:", e);
             }
         } else if (isDelete) {
-            await userRef.update({ followingListsCount: admin.firestore.FieldValue.increment(-1) });
+            await userRef.update({ followingListsCount: FieldValue.increment(-1) });
             await listRef.update({
-                likes: admin.firestore.FieldValue.increment(-1),
-                followersCount: admin.firestore.FieldValue.increment(-1)
+                likes: FieldValue.increment(-1),
+                followersCount: FieldValue.increment(-1)
             });
             await listFollowerRef.delete();
         }
