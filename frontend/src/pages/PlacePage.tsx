@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby, Megaphone, BarChart3
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby, Megaphone, BarChart3, ShieldCheck
 } from 'lucide-react';
 import { LazyShareModal as ShareModal, LazyMapView as MapView, LazyAddReviewForm as AddReviewForm } from '../components/lazy';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -29,6 +29,7 @@ import { allergenLabel, itemDocIdFromName } from '../services/BusinessProService
 import { compareByRank } from '../lib/scoring';
 import { PlaceStatsPanel } from '../components/place/PlaceStatsPanel';
 import { scoreBadgeStyle } from '../lib/scoreScale';
+import { todayHours } from '../lib/openingHours';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
@@ -672,7 +673,8 @@ export const PlacePage: React.FC = () => {
         place.options?.servesBeer ||
         place.options?.servesWine
     );
-    const hasContactInfo = Boolean(place.website || place.phone || place.email || place.instagram);
+    const hasContactInfo = Boolean(place.phone || place.email || place.instagram);
+    const todaysHours = todayHours(place.openingHours);
     const dietary = place.resolvedBusinessInfo?.dietary;
     const pets = place.resolvedBusinessInfo?.pets;
     const petOptions = place.petOptions;
@@ -798,6 +800,48 @@ export const PlacePage: React.FC = () => {
         ? proVisual.accentColor
         : undefined;
 
+    // Reclamar el negocio: en escritorio, en la barra lateral; en móvil, al final de la página.
+    const businessClaimCard = isBusinessClaimed ? null : (
+        <div className="glass-card p-4 rounded-2xl shadow-lg border border-white/10 opacity-85">
+            <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] grid place-items-center shrink-0">
+                    <BriefcaseBusiness className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-bold text-white">¿Gestionas este negocio?</h3>
+                    <p className="mt-1 text-xs text-gray-400">
+                        Solicita acceso para actualizar datos oficiales del lugar cuando se apruebe.
+                    </p>
+                </div>
+            </div>
+
+            {loadingBusinessClaims ? (
+                <p className="mt-4 text-xs text-gray-500">Comprobando solicitudes...</p>
+            ) : latestBusinessClaim ? (
+                <div className="mt-4 rounded-xl border border-white/10 bg-black/15 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-bold text-white">Tu solicitud</span>
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${businessClaimStatusClass[latestBusinessClaim.status]}`}>
+                            {businessClaimStatusLabel[latestBusinessClaim.status]}
+                        </span>
+                    </div>
+                    <p className="mt-2 text-xs text-gray-400 line-clamp-3">{latestBusinessClaim.message}</p>
+                    {latestBusinessClaim.status === 'rejected' && latestBusinessClaim.adminNotes && (
+                        <p className="mt-2 text-xs text-red-300">{latestBusinessClaim.adminNotes}</p>
+                    )}
+                </div>
+            ) : (
+                <button
+                    type="button"
+                    onClick={handleOpenBusinessClaim}
+                    className="mt-4 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/10 hover:text-white"
+                >
+                    {user ? 'Reclamar negocio' : 'Inicia sesión para reclamar'}
+                </button>
+            )}
+            </div>
+    );
+
     return (
         <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
             {/* Hero */}
@@ -839,22 +883,22 @@ export const PlacePage: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Ratings & Awards Row */}
-                        <div className="flex flex-col items-start md:items-end gap-3">
-                            <div className="flex flex-wrap items-center gap-2">
+                        {/* Notas y acción principal: la general con «Valorar» en una fila; la de críticos, aparte debajo */}
+                        <div className="flex flex-col items-stretch gap-2 md:items-end">
+                            <div className="flex items-center gap-2">
                                 {/* Nota Listopic global (provisional) + nº de valoraciones */}
                                 {place.reviewCount > 0 ? (
                                     <button
                                         type="button"
                                         onClick={() => setActiveTab('stats')}
-                                        title="Nota Listopic provisional: media simple de todas sus valoraciones. Toca para ver el detalle por Lista."
-                                        className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full text-sm font-bold border border-[var(--lt-border-strong)] bg-[var(--lt-glass)] backdrop-blur-md text-[var(--lt-text)]"
+                                        title="Nota Listopic: media de las valoraciones públicas (sin bots) en todas sus Listas. Toca para ver el detalle por Lista."
+                                        className="flex min-w-0 items-center gap-2 pl-1 pr-3 py-1 rounded-full text-sm font-bold border border-[var(--lt-border-strong)] bg-[var(--lt-glass)] backdrop-blur-md text-[var(--lt-text)]"
                                     >
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={scoreBadgeStyle(place.avgScore)}>
+                                        <span className="inline-flex shrink-0 items-center gap-1 px-2 py-0.5 rounded-full" style={scoreBadgeStyle(place.avgScore)}>
                                             <Star className="w-3.5 h-3.5 fill-current" aria-hidden />
                                             {place.avgScore.toFixed(1)}
                                         </span>
-                                        <span className="text-xs font-semibold text-[var(--lt-text-muted)]">
+                                        <span className="truncate text-xs font-semibold text-[var(--lt-text-muted)]">
                                             {place.reviewCount} {place.reviewCount === 1 ? 'valoración' : 'valoraciones'}
                                         </span>
                                     </button>
@@ -863,27 +907,31 @@ export const PlacePage: React.FC = () => {
                                         Sin valoraciones
                                     </span>
                                 )}
-
-                                {
-                                    /* Awards removed */
-                                }
-
-                                {/* Add Review Button (New) */}
                                 <button
                                     onClick={handleOpenReviewFlow}
-                                    className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all ml-2"
+                                    className="ml-auto shrink-0 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all md:ml-2"
                                 >
                                     <Plus className="w-4 h-4" />
                                     <span>Valorar</span>
                                 </button>
-                                <button
-                                    onClick={handleOpenPhotoUpload}
-                                    className="px-4 py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-white text-sm font-semibold rounded-xl flex items-center gap-2 transition-all"
-                                >
-                                    <ImageIcon className="w-4 h-4 text-[var(--lt-accent)]" />
-                                    <span>Añadir fotos</span>
-                                </button>
                             </div>
+                            {/* Nota de críticos verificados: aparte, nunca mezclada con la general */}
+                            {place.criticRating && (
+                                <span
+                                    className="flex w-fit items-center gap-2 pl-1 pr-3 py-1 rounded-full text-sm font-bold border border-[var(--lt-border-strong)] bg-[var(--lt-glass)] backdrop-blur-md text-[var(--lt-text)]"
+                                    title={place.criticRating.provisional
+                                        ? `Provisional: solo ${place.criticRating.count} ${place.criticRating.count === 1 ? 'crítico ha valorado' : 'críticos han valorado'} este sitio.`
+                                        : 'Media de los críticos verificados.'}
+                                >
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={scoreBadgeStyle(place.criticRating.average)}>
+                                        <ShieldCheck className="w-3.5 h-3.5" aria-hidden />
+                                        {place.criticRating.average.toFixed(1)}
+                                    </span>
+                                    <span className="text-xs font-semibold text-[var(--lt-text-muted)]">
+                                        {place.criticRating.count} {place.criticRating.count === 1 ? 'crítico' : 'críticos'}{place.criticRating.provisional ? ' · provisional' : ''}
+                                    </span>
+                                </span>
+                            )}
                         </div>
             </EntityHero>
 
@@ -892,7 +940,7 @@ export const PlacePage: React.FC = () => {
 
                 {/* Sidebar (Right on Desktop, Top on Mobile) */}
                 {/* Order-1 on Mobile -> Renders FIRST. lg:order-last -> Renders RIGHT. */}
-                <div className="order-1 lg:col-span-4 lg:order-last space-y-4 sm:space-y-6">
+                <div className="order-1 lg:col-span-4 lg:order-last flex flex-col gap-4 sm:gap-6">
 
                     {/* 1. Actions Row */}
                     <div className="glass-card p-3 rounded-2xl grid grid-cols-5 gap-2 sm:gap-3 shadow-lg">
@@ -927,7 +975,7 @@ export const PlacePage: React.FC = () => {
                         </button>
                         <button
                             onClick={handleOpenReport}
-                            className="lt-report-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-[var(--lt-text-muted)] hover:bg-red-500/10 hover:text-red-500 transition-all group/report"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-red-500/10 hover:text-red-500 transition-all group/report"
                         >
                             <AlertTriangle className="w-5 h-5 mb-1 text-red-500/50 group-hover/report:text-red-500 transition-colors" />
                             <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Reportar</span>
@@ -983,7 +1031,7 @@ export const PlacePage: React.FC = () => {
 
                     {/* 2. Map */}
                     {place.coords && (
-                        <div className="glass-card rounded-2xl overflow-hidden shadow-xl relative group">
+                        <div className="order-1 lg:order-none glass-card rounded-2xl overflow-hidden shadow-xl relative group">
                             <div className="absolute top-3 left-14 z-10">
                                 <a
                                     href={place.googleMapsUri || `https://www.google.com/maps/search/?api=1&query=${place.coords.lat},${place.coords.lng}`}
@@ -995,7 +1043,7 @@ export const PlacePage: React.FC = () => {
                                     Abrir en Google Maps
                                 </a>
                             </div>
-                            <div className="h-48 sm:h-64 relative z-0">
+                            <div className="h-40 sm:h-64 relative z-0">
                                 <MapView
                                     items={[{
                                         id: place.placeId,
@@ -1012,19 +1060,83 @@ export const PlacePage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* 3. Detailed Info (New Rich Data) */}
+                    {/* 3. Información: lo esencial siempre a la vista; el resto, en «Más información» (en móvil) */}
                     <div className="glass-card p-5 rounded-2xl space-y-4 shadow-lg">
-                        <div className="flex items-center justify-between gap-3 border-b border-white/5 pb-2">
-                            <h3 className="font-bold text-white text-sm uppercase tracking-wider">Detalles</h3>
+                        <h3 className="border-b border-white/5 pb-2 font-bold text-white text-sm uppercase tracking-wider">Información</h3>
+
+                        {(place.businessOpenStatus || todaysHours || place.priceLevel !== undefined) && (
+                            <div className="flex flex-wrap items-center gap-2 text-sm">
+                                <Clock className="h-4 w-4 shrink-0 text-[var(--lt-accent)]" aria-hidden />
+                                {place.businessOpenStatus && (
+                                    <span className={`rounded-full border px-2.5 py-0.5 text-xs font-black ${place.businessOpenStatus.isOpen
+                                        ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-300'
+                                        : 'border-rose-400/30 bg-rose-500/10 text-rose-300'
+                                    }`}>
+                                        {place.businessOpenStatus.label}
+                                    </span>
+                                )}
+                                {todaysHours ? (
+                                    <span className="min-w-0 text-[var(--lt-text)]">
+                                        <span className="text-[var(--lt-text-muted)]">Hoy: </span>
+                                        <span className="font-semibold">{todaysHours}</span>
+                                    </span>
+                                ) : !place.businessOpenStatus && (
+                                    <span className="text-[var(--lt-text-muted)]">Sin horario</span>
+                                )}
+                                {place.priceLevel !== undefined && (
+                                    <span className="ml-auto" title="Nivel de precio">{renderPriceLevel(place.priceLevel)}</span>
+                                )}
+                            </div>
+                        )}
+
+                        {(place.phone || place.website || place.coords) && (
+                            <div className="flex gap-2">
+                                {place.phone && (
+                                    <a href={`tel:${place.phone}`} className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/5 px-1 py-2 text-xs font-bold text-[var(--lt-text)] hover:bg-white/10">
+                                        <Smartphone className="h-5 w-5 text-[var(--lt-accent)]" aria-hidden />
+                                        <span className="max-w-full truncate">Llamar</span>
+                                    </a>
+                                )}
+                                {place.website && (
+                                    <a href={place.website} target="_blank" rel="noopener noreferrer" className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/5 px-1 py-2 text-xs font-bold text-[var(--lt-text)] hover:bg-white/10">
+                                        <Globe className="h-5 w-5 text-[var(--lt-accent)]" aria-hidden />
+                                        <span className="max-w-full truncate">Web</span>
+                                    </a>
+                                )}
+                                {place.coords && (
+                                    <a
+                                        href={place.googleMapsUri || `https://www.google.com/maps/search/?api=1&query=${place.coords.lat},${place.coords.lng}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-white/10 bg-white/5 px-1 py-2 text-xs font-bold text-[var(--lt-text)] hover:bg-white/10"
+                                    >
+                                        <MapPin className="h-5 w-5 text-[var(--lt-accent)]" aria-hidden />
+                                        <span className="max-w-full truncate">Cómo llegar</span>
+                                    </a>
+                                )}
+                            </div>
+                        )}
+
+                        {reservationEnabled && (
                             <button
                                 type="button"
-                                onClick={() => setIsBusinessDetailsExpanded((value) => !value)}
-                                className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-xs font-bold text-[var(--lt-text-muted)] sm:hidden"
+                                onClick={handleReservationClick}
+                                className="flex w-full min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--lt-accent)] px-4 py-3 text-sm font-black text-white shadow-lg shadow-[var(--lt-accent-shadow)] hover:brightness-110 transition"
                             >
-                                {isBusinessDetailsExpanded ? 'Ocultar' : 'Ver'}
-                                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isBusinessDetailsExpanded ? 'rotate-180' : ''}`} />
+                                <CalendarCheck className="h-5 w-5" />
+                                {reservationButtonText}
                             </button>
-                        </div>
+                        )}
+
+                        <button
+                            type="button"
+                            onClick={() => setIsBusinessDetailsExpanded((value) => !value)}
+                            aria-expanded={isBusinessDetailsExpanded}
+                            className="flex w-full items-center justify-between gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm font-bold text-[var(--lt-text)] sm:hidden"
+                        >
+                            {isBusinessDetailsExpanded ? 'Ocultar detalles' : 'Horario completo y más detalles'}
+                            <ChevronDown className={`h-4 w-4 shrink-0 text-[var(--lt-text-muted)] transition-transform ${isBusinessDetailsExpanded ? 'rotate-180' : ''}`} />
+                        </button>
 
                         <div className={`${isBusinessDetailsExpanded ? 'block' : 'hidden'} space-y-4 sm:block`}>
 
@@ -1048,17 +1160,6 @@ export const PlacePage: React.FC = () => {
                                     ))}
                                 </div>
                             </div>
-                        )}
-
-                        {reservationEnabled && (
-                            <button
-                                type="button"
-                                onClick={handleReservationClick}
-                                className="flex w-full min-h-12 items-center justify-center gap-2 rounded-2xl bg-[var(--lt-accent)] px-4 py-3 text-sm font-black text-white shadow-lg shadow-[var(--lt-accent-shadow)] hover:brightness-110 transition"
-                            >
-                                <CalendarCheck className="h-5 w-5" />
-                                {reservationButtonText}
-                            </button>
                         )}
 
                         <div className="border-b border-white/5 pb-4">
@@ -1099,16 +1200,10 @@ export const PlacePage: React.FC = () => {
                             )}
                         </div>
 
-                        {/* Price & Features Grid */}
-                        <div className="grid grid-cols-2 gap-4 pb-4 border-b border-white/5">
-                            {place.priceLevel !== undefined && (
-                                <div>
-                                    <span className="text-xs text-gray-500 block mb-1">Precio</span>
-                                    {renderPriceLevel(place.priceLevel)}
-                                </div>
-                            )}
-
-                            {(hasOwnAccessibility || place.accessibility) && (() => {
+                        {/* Accesibilidad resumida (si no hay el bloque detallado de abajo) */}
+                        {!hasAccessibilityRichInfo && (hasOwnAccessibility || place.accessibility) && (
+                        <div className="pb-4 border-b border-white/5">
+                            {(() => {
                                 const stepFree = hasOwnAccessibility
                                     ? accessibilityInfo?.stepFreeEntrance
                                     : place.accessibility?.wheelchairAccessibleEntrance;
@@ -1117,14 +1212,14 @@ export const PlacePage: React.FC = () => {
                                     : place.accessibility?.wheelchairAccessibleRestroom;
                                 if (!stepFree && !accessibleBath) {
                                     return (
-                                        <div className="col-span-2 sm:col-span-1">
+                                        <div>
                                             <span className="text-xs text-gray-500 block mb-1">Accesibilidad</span>
                                             <span className="text-gray-400 text-xs">-</span>
                                         </div>
                                     );
                                 }
                                 return (
-                                    <div className="col-span-2 sm:col-span-1">
+                                    <div>
                                         <span className="text-xs text-gray-500 block mb-1">Accesibilidad</span>
                                         <div className="space-y-1">
                                             {stepFree && (
@@ -1144,6 +1239,7 @@ export const PlacePage: React.FC = () => {
                                 );
                             })()}
                         </div>
+                        )}
                         {hasServiceInfo && (
                         <div className="space-y-2">
                             <h4 className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[var(--lt-text-muted)]">
@@ -1232,24 +1328,9 @@ export const PlacePage: React.FC = () => {
                                 <Globe className="w-4 h-4 text-[var(--lt-accent)]" />
                                 Contacto
                             </h4>
-                            {place.website && (
-                                <a
-                                    href={place.website}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center justify-center gap-2 w-full p-3 rounded-xl bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold text-sm transition-all shadow-lg shadow-[var(--lt-accent-shadow)] group"
-                                >
-                                    <Globe className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                                    Visitar sitio web
-                                </a>
-                            )}
                             {place.phone && (
-                                <a
-                                    href={`tel:${place.phone}`}
-                                    className="flex items-center justify-center gap-2 w-full p-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white font-bold text-sm transition-all border border-white/10 group"
-                                >
-                                    <Smartphone className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                                    Llamar ({place.phone})
+                                <a href={`tel:${place.phone}`} className="text-sm font-semibold text-[var(--lt-text)] hover:underline">
+                                    {place.phone}
                                 </a>
                             )}
                             {place.email && (
@@ -1532,46 +1613,7 @@ export const PlacePage: React.FC = () => {
                         </div>
                     </div>
 
-                    {!isBusinessClaimed && (
-                        <div className="glass-card p-4 rounded-2xl shadow-lg border border-white/10 opacity-85">
-                            <div className="flex items-start gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] grid place-items-center shrink-0">
-                                    <BriefcaseBusiness className="w-4 h-4" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <h3 className="text-sm font-bold text-white">¿Gestionas este negocio?</h3>
-                                    <p className="mt-1 text-xs text-gray-400">
-                                        Solicita acceso para actualizar datos oficiales del lugar cuando se apruebe.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {loadingBusinessClaims ? (
-                                <p className="mt-4 text-xs text-gray-500">Comprobando solicitudes...</p>
-                            ) : latestBusinessClaim ? (
-                                <div className="mt-4 rounded-xl border border-white/10 bg-black/15 p-3">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <span className="text-xs font-bold text-white">Tu solicitud</span>
-                                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${businessClaimStatusClass[latestBusinessClaim.status]}`}>
-                                            {businessClaimStatusLabel[latestBusinessClaim.status]}
-                                        </span>
-                                    </div>
-                                    <p className="mt-2 text-xs text-gray-400 line-clamp-3">{latestBusinessClaim.message}</p>
-                                    {latestBusinessClaim.status === 'rejected' && latestBusinessClaim.adminNotes && (
-                                        <p className="mt-2 text-xs text-red-300">{latestBusinessClaim.adminNotes}</p>
-                                    )}
-                                </div>
-                            ) : (
-                                <button
-                                    type="button"
-                                    onClick={handleOpenBusinessClaim}
-                                    className="mt-4 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/10 hover:text-white"
-                                >
-                                    {user ? 'Reclamar negocio' : 'Inicia sesión para reclamar'}
-                                </button>
-                            )}
-                        </div>
-                    )}
+                    <div className="hidden lg:block">{businessClaimCard}</div>
                 </div>
 
                 {/* Left: Content (Tabs) */}
@@ -2153,7 +2195,8 @@ export const PlacePage: React.FC = () => {
                         initialIndex={lightboxIndex}
                     />
                 </div >
-            </main >
+                {businessClaimCard && <div className="order-3 lg:hidden">{businessClaimCard}</div>}
+            </main>
 
             {isReservationOpen && reservationEmbedUrl && (
                 <div

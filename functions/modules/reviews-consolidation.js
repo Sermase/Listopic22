@@ -18,6 +18,9 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const logger = require('firebase-functions/logger');
 const { getFirestore, FieldValue, FieldPath } = require('firebase-admin/firestore');
 const { assertJefeAccess, writeAuditLog } = require('./lib/auth');
+const { fetchAuthorRoles } = require('./lib/author-roles');
+const { computePlaceRating } = require('./lib/place-rating');
+const { computeListMetrics } = require('./lib/list-metrics');
 
 const db = getFirestore();
 
@@ -28,10 +31,6 @@ const BATCH_LIMIT = 450;
 
 function asTrimmedString(value) {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function isNumber(value) {
-  return typeof value === 'number' && Number.isFinite(value);
 }
 
 // Mismo criterio que gamification.countReviewPhotos para que el recuento
@@ -210,10 +209,13 @@ const adminRecountReviewCounters = onCall({ timeoutSeconds: 540, memory: '1GiB' 
       const nestedListId = path[0] === 'lists' && path.length === 4 ? path[1] : null;
       const listId = nestedListId || asTrimmedString(data.listId) || null;
 
-      if (listId) listCounts.set(listId, (listCounts.get(listId) || 0) + 1);
+      // Por Lista se guardan las valoraciones (ligeras) para contarlas con la
+      // misma regla que list-metrics: solo las de la visibilidad de la Lista.
+      const slim = { visibility: data.visibility, overallRating: data.overallRating, sublistId: data.sublistId, scores: data.scores, userId: data.userId || data.authorId };
+      if (listId) listCounts.set(listId, [...(listCounts.get(listId) || []), slim]);
       const sublistId = asTrimmedString(data.sublistId);
       if (sublistId && sublistId !== listId) {
-        listCounts.set(sublistId, (listCounts.get(sublistId) || 0) + 1);
+        listCounts.set(sublistId, [...(listCounts.get(sublistId) || []), slim]);
       }
 
       const reviewUserId = asTrimmedString(data.userId) || asTrimmedString(data.authorId);
@@ -226,14 +228,8 @@ const adminRecountReviewCounters = onCall({ timeoutSeconds: 540, memory: '1GiB' 
 
       const placeId = asTrimmedString(data.placeId);
       if (placeId) {
-        const stats = placeStats.get(placeId) || { count: 0, ratingTotal: 0, rated: 0 };
-        stats.count += 1;
-        // Una valoración sin nota no cuenta en la media (antes sumaba un 0).
-        if (isNumber(data.overallRating)) {
-          stats.ratingTotal += data.overallRating;
-          stats.rated += 1;
-        }
-        placeStats.set(placeId, stats);
+        // Nota pública del sitio: se calcula al final con lib/place-rating.js.
+        placeStats.set(placeId, [...(placeStats.get(placeId) || []), { visibility: data.visibility, overallRating: data.overallRating, userId: reviewUserId }]);
       }
     }
 
@@ -250,9 +246,17 @@ const adminRecountReviewCounters = onCall({ timeoutSeconds: 540, memory: '1GiB' 
     batchCount = 0;
   };
 
-  for (const [listId, count] of listCounts.entries()) {
+  const listIds = [...listCounts.keys()];
+  const listDocs = new Map();
+  for (let i = 0; i < listIds.length; i += 100) {
+    const snaps = await db.getAll(...listIds.slice(i, i + 100).map((id) => db.collection('lists').doc(id)));
+    snaps.forEach((snap) => { if (snap.exists) listDocs.set(snap.id, snap.data() || {}); });
+  }
+  for (const [listId, listReviews] of listCounts.entries()) {
+    if (!listDocs.has(listId)) continue;
     batch.set(db.collection('lists').doc(listId), {
-      reviewCount: count,
+      // Igual que list-metrics: en una Lista pública no cuentan las privadas.
+      reviewCount: computeListMetrics(listDocs.get(listId), listReviews).reviewCount,
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
     batchCount += 1;
@@ -268,11 +272,10 @@ const adminRecountReviewCounters = onCall({ timeoutSeconds: 540, memory: '1GiB' 
     await commitIfNeeded();
   }
 
-  for (const [placeId, stats] of placeStats.entries()) {
-    batch.set(db.collection('places').doc(placeId), {
-      reviewsCount: stats.count,
-      averageRating: stats.rated > 0 ? Number((stats.ratingTotal / stats.rated).toFixed(2)) : null,
-    }, { merge: true });
+  const roles = await fetchAuthorRoles([...placeStats.values()].flat().map((r) => r.userId));
+  for (const [placeId, placeReviews] of placeStats.entries()) {
+    // Solo públicas y sin bots; la de críticos aparte (igual que el trigger del sitio).
+    batch.set(db.collection('places').doc(placeId), computePlaceRating(placeReviews, roles), { merge: true });
     batchCount += 1;
     await commitIfNeeded();
   }

@@ -7,6 +7,7 @@ import { firstUsablePlaceImage } from '../utils/placeImages';
 import { getCachedDocs } from '../lib/queryCache';
 import { getBusinessPlanFromPlace } from '../utils/businessPlan';
 import type { BusinessHoursInfo, BusinessWeeklyHours, ResolvedBusinessInfo } from '../types/businessInfo';
+import { placeRating, type PlaceRating } from '../lib/placeRating';
 
 export interface PlacePhoto {
     id: string;
@@ -60,6 +61,8 @@ export interface PlaceDetails {
     city?: string;
     avgScore: number;
     reviewCount: number;
+    /** Nota de críticos verificados (aparte de la general); provisional con poca muestra. */
+    criticRating: PlaceRating['critic'];
     reviews: ReviewEntity[];
     relatedLists: { id: string; name: string; authorName?: string; parentListId?: string; photoUrl?: string; }[];
     coords?: { lat: number; lng: number };
@@ -456,12 +459,10 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         };
     });
 
-    // Nota Listopic global del sitio (PROVISIONAL): media simple de sus
-    // valoraciones en todas las Listas. Revisable cuando haya más datos
-    // (ver Mejoras/modelo-listopic.md §6). Nunca la nota de Google.
-    const avgScore = reviews.length
-        ? reviews.reduce((sum, r) => sum + (r.overallRating || 0), 0) / reviews.length
-        : (typeof placeData?.averageRating === 'number' ? placeData.averageRating : 0);
+    // Nota Listopic del sitio: la del servidor (lib/placeRating), igual que en
+    // tarjetas, Home y Buscar: solo valoraciones públicas, sin bots, y la de
+    // críticos aparte. Nunca la nota de Google.
+    const rating = placeRating(placeData);
 
     let coords: PlaceDetails['coords'];
     if (placeData?.location) {
@@ -495,8 +496,9 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         ),
         address: placeData?.formattedAddress || placeData?.address,
         city: placeData?.city || reviews.find(r => r.placeCity)?.placeCity,
-        avgScore,
-        reviewCount: reviews.length,
+        avgScore: rating.average ?? 0,
+        reviewCount: rating.count,
+        criticRating: rating.critic,
         reviews: enrichedReviews,
         relatedLists,
         coords,

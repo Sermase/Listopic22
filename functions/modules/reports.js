@@ -5,6 +5,8 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const fetch = require("node-fetch");
 const { sendNotification } = require("./notifications");
 const { rateLimit, assertJefeAccess } = require("./lib/auth");
+const { logApiUsage } = require("./lib/apiLogger");
+const { ACTION_SKUS, refreshStamp } = require("./lib/google-usage");
 const {
   googlePlacesApiKey: GOOGLE_PLACES_API_KEY_SECRET,
   getGooglePlacesApiKey,
@@ -338,6 +340,7 @@ const syncPlaceStatusFromGoogle = onCall(
     if (data.status !== 'OK') {
         throw new HttpsError('not-found', `Google Places API returned: ${data.status}`);
     }
+    logApiUsage({ action: 'sync_place_status_google', userId: request.auth.uid, details: { placeId } }).catch(() => {});
 
     const businessStatus = data.result?.business_status || 'UNKNOWN';
     let closedStatus = null;
@@ -348,6 +351,7 @@ const syncPlaceStatusFromGoogle = onCall(
         closedStatus: closedStatus,
         googleBusinessStatus: businessStatus,
         closedStatusUpdatedAt: FieldValue.serverTimestamp(),
+        ...refreshStamp('estado', ACTION_SKUS.sync_place_status_google),
     });
 
     logger.info(`syncPlaceStatusFromGoogle: ${placeId} → ${businessStatus} (closedStatus: ${closedStatus})`);

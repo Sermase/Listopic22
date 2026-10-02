@@ -21,6 +21,7 @@ module.exports = {
     ...require('./modules/chat'),
     ...require('./modules/social'),
     ...require('./modules/reports'),
+    ...require('./modules/google-admin'),
     ...require('./modules/business-claims'),
     ...require('./modules/stripe-business'),
     ...require('./modules/business-pro'),

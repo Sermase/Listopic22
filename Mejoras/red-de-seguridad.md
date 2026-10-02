@@ -182,8 +182,7 @@ Además:
 | Qué | Por qué / propuesta |
 |---|---|
 | Nota de la cabecera del elemento y del sitio | Es una media **entre todas las Listas** (nota global provisional), no el puesto en una Lista: incluye bots, no recalcula con los criterios de la madre y lee como mucho 100 valoraciones. Si queréis que siga las mismas reglas, es una decisión de producto. |
-| `places.averageRating` / `reviewsCount` | **Cuentan valoraciones de Listas privadas y Minilistas privadas**, y de bots. Es la nota pública del sitio en tarjetas, Home y Algolia `places`. **Propuesta:** solo públicas. No lo he cambiado porque no estaba decidido. |
-| `places.reviewsCount` | Dos triggers lo tocan a la vez (un incremento y un recálculo), y puede desviarse ±1. |
+| `places.averageRating` / `reviewsCount` | **Resuelto** (ver `nota-publica-sitio.md`): solo públicas, sin bots, y la nota de críticos aparte. El doble trigger que desviaba ±1 también está quitado. |
 | `reviewCount` / `averageRating` de la Lista | Cuentan las valoraciones de bots: son contenido de la Lista. Solo se ha quitado lo privado. |
 | Cambio de nombre, ciudad o cierre de un sitio | No reconstruye `grouped_items` hasta la siguiente valoración de esa Lista. |
 | Carta del sitio (Business Pro) | Una valoración sin nota da `NaN` en la media del plato. Es un bug pequeño fuera de este bloque. |

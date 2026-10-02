@@ -46,6 +46,9 @@ interface ListItemCardProps {
     elementKey?: string;
 }
 
+// El enlace del título cubre toda la tarjeta (::after); lo demás clicable va encima (relative z-10).
+const TITLE_LINK = "hover:underline after:absolute after:inset-0 after:content-['']";
+
 export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextRankLabel, isGrid, groupingMode = 'place', listId, disableLift = false, elementKey }) => {
     // Una misma etiqueta puede llegar repetida (varias valoraciones del elemento).
     const tags = Array.from(new Set(item.tags || []));
@@ -176,7 +179,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                     <Link
                                         to={`/list/${item.listId}`}
                                         onClick={(e) => e.stopPropagation()}
-                                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] truncate hover:text-[var(--lt-accent)] transition-colors max-w-[120px]"
+                                        className="relative z-10 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] truncate hover:text-[var(--lt-accent)] transition-colors max-w-[120px]"
                                     >
                                         {item.listName}
                                     </Link>
@@ -199,12 +202,12 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                             <h3 className="font-display font-bold text-sm md:text-base text-[var(--text-primary)] leading-tight group-hover:text-[var(--lt-accent)] transition-colors line-clamp-2">
                                 {item.placeId ? (
                                     groupingMode === 'dish' ? (
-                                        <Link to={`/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`} className="hover:underline">{item.name}</Link>
+                                        <Link to={`/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`} className={TITLE_LINK}>{item.name}</Link>
                                     ) : (
-                                        <Link to={`/place/${item.placeId}`} className="hover:underline">{item.name}</Link>
+                                        <Link to={`/place/${item.placeId}`} className={TITLE_LINK}>{item.name}</Link>
                                     )
                                 ) : (
-                                    <Link to={`/list/${item.id}`} className="hover:underline">{item.name}</Link>
+                                    <Link to={`/list/${item.id}`} className={TITLE_LINK}>{item.name}</Link>
                                 )}
                             </h3>
                             {item.placeClosedStatus && (
@@ -311,15 +314,15 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                         groupingMode === 'dish' ? (
                                             <Link
                                                 to={`/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`}
-                                                className="hover:underline inset-0"
+                                                className={TITLE_LINK}
                                             >
                                                 {item.name}
                                             </Link>
                                         ) : (
-                                            <Link to={`/place/${item.placeId}`} className="hover:underline inset-0">{item.name}</Link>
+                                            <Link to={`/place/${item.placeId}`} className={TITLE_LINK}>{item.name}</Link>
                                         )
                                     ) : (
-                                        <Link to={`/list/${item.id}`} className="hover:underline inset-0">{item.name}</Link>
+                                        <Link to={`/list/${item.id}`} className={TITLE_LINK}>{item.name}</Link>
                                     )}
                                 </h3>
 

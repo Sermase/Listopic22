@@ -91,6 +91,10 @@ const {
 const { recalculateListReviewMetrics } = require("./lib/list-metrics");
 const { normalizeCcaa, pickCity } = require("./lib/geo-areas");
 const { logApiUsage } = require("./lib/apiLogger");
+const { ACTION_SKUS, refreshStamp } = require("./lib/google-usage");
+const { googleRefreshSkipReason, latLngOf } = require("./lib/place-refresh");
+const { fetchAuthorRoles, authorOf } = require("./lib/author-roles");
+const { computePlaceRating } = require("./lib/place-rating");
 
 const db = getFirestore();
 
@@ -1235,11 +1239,25 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
     req.user = { uid: decoded.uid };
 
     const { placeid } = req.query;
-    const apiKey = await getGooglePlacesApiKey();
 
     if (!placeid) {
       return res.status(400).json({ message: "El ID del lugar (placeid) es requerido." });
     }
+
+    // Sin llamar a Google (y sin gastar cupo) si el sitio ya existe y tiene propietario
+    // o se refrescó hace menos de 30 días. «force=1» solo vale para jefe (Developer).
+    const forceRequested = req.query.force === '1' || req.query.force === 'true';
+    const force = forceRequested && await assertJefeAccess(decoded.uid).then(() => true, () => false);
+    const knownSnap = await db.collection('places').doc(String(placeid)).get();
+    const skippedReason = knownSnap.exists && !force ? googleRefreshSkipReason(knownSnap.data()) : null;
+    if (skippedReason) {
+      const known = knownSnap.data() || {};
+      const location = latLngOf(known.location) || latLngOf(known.coordinates);
+      return res.status(200).json({ ...known, id: knownSnap.id, ...(location ? { location, coordinates: location } : {}), refreshed: false, skippedReason });
+    }
+    const refreshType = !knownSnap.exists ? 'alta' : force ? 'manual' : 'valoracion';
+
+    const apiKey = await getGooglePlacesApiKey();
     if (!apiKey) {
       logger.error("getPlaceDetailsFromGoogle: GOOGLE_PLACES_API_KEY no se encontró en las variables de entorno.");
       return res.status(500).json({ message: "Error de configuración del servidor (API Key no encontrada)." });
@@ -1255,7 +1273,7 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
       const placeDetailsData = await placeDetailsResponse.json();
 
       if (placeDetailsData.status === "OK") {
-        logApiUsage({ action: 'place_details_google', userId: decoded.uid, details: { placeId: placeid } }).catch(() => {});
+        logApiUsage({ action: 'place_details_google', userId: decoded.uid, details: { placeId: placeid, refreshType } }).catch(() => {});
         const result = placeDetailsData.result;
         const placeRef = db.collection('places').doc(result.place_id);
 
@@ -1315,6 +1333,7 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
             : null,
           closedStatusUpdatedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(), lastGoogleSync: FieldValue.serverTimestamp(),
+          ...refreshStamp(refreshType, ACTION_SKUS.place_details_google),
         };
 
         // 3. SI NO EXISTE, AÑADIMOS LOS CAMPOS DE CREACIÓN
@@ -1331,7 +1350,7 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
 
         // 5. DEVOLVEMOS EL DOCUMENTO LIMPIO Y GUARDADO, NO EL RESULTADO BRUTO DE GOOGLE
         // Añadimos el ID al documento que devolvemos, ya que .data() no lo incluye.
-        const finalDoc = { id: placeRef.id, ...placeDoc };
+        const finalDoc = { id: placeRef.id, ...placeDoc, refreshed: true };
         res.status(200).json(finalDoc);
       } else {
         logger.error("Error desde Google Places API", { status: placeDetailsData.status, error_message: placeDetailsData.error_message });
@@ -1711,7 +1730,7 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
   // Caso 1: CREACIÓN de reseña
   if (!event.data.before.exists && event.data.after.exists) {
     const newData = event.data.after.data();
-    const { userId, placeId } = newData;
+    const { userId } = newData;
 
     if (!userId) {
       logger.warn(`La reseña ${reviewId} no tiene userId. No se puede actualizar contador de usuario.`);
@@ -1729,11 +1748,6 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
     batch.update(userRef, { reviewsCount: FieldValue.increment(1) });
     logger.info(`Programando incremento de 'reviewsCount' en usuario ${userId}.`);
 
-    if (placeId) {
-      const placeRef = db.collection('places').doc(placeId);
-      batch.update(placeRef, { reviewsCount: FieldValue.increment(1) });
-      logger.info(`Programando incremento de 'reviewsCount' en lugar ${placeId}.`);
-    }
 
     try {
       await batch.commit();
@@ -1747,7 +1761,7 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
   // Caso 2: ELIMINACIÓN de reseña
   if (event.data.before.exists && !event.data.after.exists) {
     const oldData = event.data.before.data();
-    const { userId, placeId } = oldData;
+    const { userId } = oldData;
 
     if (!userId) {
       logger.warn(`La reseña eliminada ${reviewId} no tenía userId. No se puede actualizar contador de usuario.`);
@@ -1765,11 +1779,6 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
     batch.update(userRef, { reviewsCount: FieldValue.increment(-1) });
     logger.info(`Programando decremento de 'reviewsCount' en usuario ${userId}.`);
 
-    if (placeId) {
-      const placeRef = db.collection('places').doc(placeId);
-      batch.update(placeRef, { reviewsCount: FieldValue.increment(-1) });
-      logger.info(`Programando decremento de 'reviewsCount' en lugar ${placeId}.`);
-    }
 
     try {
       await batch.commit();
@@ -1789,33 +1798,11 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
     const newPlaceId = newData.placeId;
 
     // Solo proceder si cambió el placeId
+    // El contador y la nota de los sitios los recalcula
+    // updatePlaceAggregatesOnReviewChange (solo públicas y sin bots); aquí
+    // un incremento a la vez lo desviaba ±1.
     if (oldPlaceId !== newPlaceId) {
       logger.info(`Reseña ${reviewId} cambió de lugar: ${oldPlaceId || 'null'} -> ${newPlaceId || 'null'}`);
-
-      const batch = db.batch();
-
-      // Decrementar contador del lugar anterior (si existía)
-      if (oldPlaceId) {
-        const oldPlaceRef = db.collection('places').doc(oldPlaceId);
-        batch.update(oldPlaceRef, { reviewsCount: FieldValue.increment(-1) });
-        logger.info(`Programando decremento de 'reviewsCount' en lugar anterior ${oldPlaceId}.`);
-      }
-
-      // Incrementar contador del lugar nuevo (si existe)
-      if (newPlaceId) {
-        const newPlaceRef = db.collection('places').doc(newPlaceId);
-        batch.update(newPlaceRef, { reviewsCount: FieldValue.increment(1) });
-        logger.info(`Programando incremento de 'reviewsCount' en lugar nuevo ${newPlaceId}.`);
-      }
-
-      try {
-        await batch.commit();
-        logger.info(`Contadores de lugares actualizados exitosamente para reseña ${reviewId}.`);
-      } catch (error) {
-        logger.error("Error al actualizar contadores de lugares:", error);
-      }
-    } else {
-      logger.info(`Reseña ${reviewId} actualizada sin cambio de lugar. No se modifican contadores.`);
     }
     recalculateList = true;
   }
@@ -2390,41 +2377,9 @@ const updatePlaceAggregates = onDocumentWritten("reviews/{reviewId}", async (eve
     return null;
   }
 
-  logger.info(`Recalculando agregados para el lugar: ${placeId}`);
-
-  // 1. Obtenemos TODAS las reseñas para ese lugar
-  const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).get();
-
-  const reviews = reviewsSnapshot.docs.map(doc => doc.data());
-
-  if (reviews.length === 0) {
-    // Si no quedan reseñas, reseteamos los contadores
-    await db.collection('places').doc(placeId).update({
-      reviewsCount: 0,
-      averageRating: null, // O 0, como prefieras
-      itemTags: [],
-      hasReviewedPhoto: false
-    });
-    logger.info(`No quedan reseñas para ${placeId}. Contadores reseteados.`);
-    return null;
-  }
-
-  // 2. Calculamos la nueva media
-  const totalRating = reviews.reduce((sum, review) => sum + (review.overallRating || 0), 0);
-  const averageRating = totalRating / reviews.length;
-  const reviewsCount = reviews.length;
-  const itemTags = collectPlaceReviewTags(reviews);
-  const hasReviewedPhoto = reviews.some(review => !!(review.photoUrl || review.placeMainImage));
-
-  // 3. Actualizamos el documento del lugar
-  await db.collection('places').doc(placeId).update({
-    reviewsCount: reviewsCount,
-    averageRating: parseFloat(averageRating.toFixed(2)), // Guardamos con 2 decimales
-    itemTags,
-    hasReviewedPhoto
-  });
-
-  logger.info(`Agregados para ${placeId} actualizados: ${reviewsCount} reseñas, valoración media ${averageRating.toFixed(2)}.`);
+  // Mismo cálculo que las valoraciones de las Listas (antes, aquí una sin
+  // nota contaba como 0 y entraban las privadas y los bots).
+  await recalculateAggregatesForPlace(placeId);
   return null;
 });
 
@@ -2480,7 +2435,7 @@ async function fetchPlaceGoogleOptions(placeId, apiKey, languageCode = 'es') {
 }
 
 function hasPlaceAggregateSignalChanged(beforeData, afterData) {
-  const fields = ['overallRating', 'photoUrl', 'placeMainImage', 'placeId'];
+  const fields = ['overallRating', 'photoUrl', 'placeMainImage', 'placeId', 'visibility', 'userId'];
   if (fields.some(field => beforeData?.[field] !== afterData?.[field])) {
     return true;
   }
@@ -2532,26 +2487,25 @@ async function recalculateAggregatesForPlace(placeId) {
   const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).get();
   const reviews = reviewsSnapshot.docs.map(doc => doc.data());
 
-  let averageRating = null;
-  const reviewsCount = reviews.length;
-
-  // Media de las valoraciones con nota: una sin nota no cuenta (antes sumaba 0).
-  const rated = reviews.map((review) => review.overallRating).filter((r) => typeof r === 'number' && Number.isFinite(r));
-  if (rated.length > 0) {
-    averageRating = parseFloat((rated.reduce((sum, r) => sum + r, 0) / rated.length).toFixed(2));
-  }
-  const itemTags = collectPlaceReviewTags(reviews);
-  const hasReviewedPhoto = reviews.some(review => !!(review.photoUrl || review.placeMainImage));
+  // Nota pública (lib/place-rating.js): solo valoraciones públicas, sin bots,
+  // y la de críticos verificados aparte.
+  const roles = await fetchAuthorRoles(reviews.map(authorOf));
+  const rating = computePlaceRating(reviews, roles);
+  // Etiquetas y «tiene foto» también solo de lo público: no deben delatar
+  // nada de una Lista privada.
+  const publicReviews = reviews.filter(review => review.visibility === 'public');
+  const itemTags = collectPlaceReviewTags(publicReviews);
+  const hasReviewedPhoto = publicReviews.some(review => !!(review.photoUrl || review.placeMainImage));
 
   const placeRef = db.collection('places').doc(placeId);
   try {
     await placeRef.update({
-      reviewsCount: reviewsCount,
-      averageRating: averageRating,
+      ...rating,
       itemTags,
-      hasReviewedPhoto
+      hasReviewedPhoto,
+      ratingUpdatedAt: FieldValue.serverTimestamp()
     });
-    logger.info(`Agregados para ${placeId} actualizados: ${reviewsCount} reseñas, valoración media ${averageRating}.`);
+    logger.info(`Agregados para ${placeId}: ${rating.reviewsCount} valoraciones públicas, media ${rating.averageRating}, críticos ${rating.criticReviewsCount}.`);
   } catch (error) {
     logger.error(`Error al actualizar el documento del lugar ${placeId}:`, error);
   }
@@ -2754,7 +2708,7 @@ const adminRefreshPlaceLocation = onCall({ cors: true }, async (request) => {
   if (Object.keys(update).length === 0) {
     return { success: false, message: 'Google no tiene datos de ubicación para este sitio.' };
   }
-  await db.collection('places').doc(documentId).set(update, { merge: true });
+  await db.collection('places').doc(documentId).set({ ...update, ...refreshStamp('ubicacion', ACTION_SKUS.admin_refresh_place_location) }, { merge: true });
   return { success: true, location: update };
 });
 
@@ -2777,12 +2731,12 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
 
   const { documentId, googlePlaceId } = request.data;
 
-  await writeAuditLog(contextAuth.uid, 'adminUpdateSinglePlace', { documentId, googlePlaceId });
-  // 2 llamadas a Google por sitio (ver Mejoras/google-places-skus.md): se registran para Developer → Uso de API.
-  logApiUsage({ action: 'admin_update_place_google', userId: contextAuth.uid, details: { placeId: googlePlaceId, calls: 2 } }).catch(() => {});
   if (!documentId || !googlePlaceId) {
     throw new HttpsError('invalid-argument', 'Se requieren documentId y googlePlaceId.');
   }
+  await writeAuditLog(contextAuth.uid, 'adminUpdateSinglePlace', { documentId, googlePlaceId });
+  // 2 llamadas a Google por sitio (ver Mejoras/google-places-skus.md): se registran una vez para Developer → Uso de API.
+  logApiUsage({ action: 'admin_update_place_google', userId: contextAuth.uid, details: { placeId: googlePlaceId, calls: 2 } }).catch(() => {});
 
   const apiKey = await getGooglePlacesApiKey();
   if (!apiKey) {
@@ -2853,7 +2807,8 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
         accessibility: resolveAccessibilityPayload(accessibilityOptions, existingData.accessibility),
         petOptions: googleOptions.petOptions || existingData.petOptions || null,
         updatedAt: FieldValue.serverTimestamp(),
-        lastGoogleSync: FieldValue.serverTimestamp()
+        lastGoogleSync: FieldValue.serverTimestamp(),
+        ...refreshStamp('manual', ACTION_SKUS.admin_update_place_google),
       };
 
       if (resolvedLocation) {
@@ -2864,7 +2819,6 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
       pruneNullishKeys(updateData);
 
       await placeRef.update(updateData);
-      logApiUsage({ action: 'admin_single_update', userId: contextAuth.uid, details: { documentId, googlePlaceId } }).catch(() => {});
       logger.info(`Lugar ${documentId} actualizado exitosamente por ${contextAuth.uid}.`);
       return { success: true, message: "Lugar actualizado." };
     } else {

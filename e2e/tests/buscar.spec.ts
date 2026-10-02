@@ -39,3 +39,14 @@ test('los elementos solo de bots aparecen solo con el filtro «Bots»', async ({
   await expect.poll(() => elementKeys(page)).toContain(vectors.expected.botOnlyKeys[0]);
   expect(errors).toEqual([]);
 });
+
+test('toda la tarjeta del resultado lleva al elemento, no solo el nombre', async ({ page, errors }) => {
+  await page.goto(url('city:Valladolid'));
+  const card = page.locator('[data-element-key]').first();
+  await expect(card).toBeVisible();
+  const box = await card.boundingBox();
+  // Esquina inferior izquierda: la foto, lejos del nombre.
+  await page.mouse.click(box!.x + 16, box!.y + box!.height - 16);
+  await expect(page).toHaveURL(/\/group\/p_/);
+  expect(errors).toEqual([]);
+});

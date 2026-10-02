@@ -13,7 +13,8 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:windowBackground">@color/colorPrimaryDark</item>
-        <item name="android:background">@color/colorPrimaryDark</item>
+        <!-- Sin android:background: en un tema se hereda a TODAS las vistas, también al
+             desplegable nativo de los <select> del WebView (fondo oscuro con texto oscuro). -->
     </style>
 
 

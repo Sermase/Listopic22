@@ -54,3 +54,49 @@ justo los casos de pueblo que faltan, y normaliza la CCAA.
 Si alguno sigue sin ciudad tras actualizar, Google no la tiene para ese sitio. Se puede
 completar a mano desde el editor del sitio en Developer.
 
+
+## Actualización de sitios y contador por SKU (02/10/2026)
+
+### Cuándo se llama a Google
+
+| Quién | Sitio con propietario¹ | Sin propietario |
+|---|---|---|
+| Valorar o abrir un sitio (`getPlaceDetailsFromGoogle`) | **Nunca** (devuelve lo guardado) | Solo si el último refresco **completo** (`lastGoogleSync`) tiene **30 días o más**, o si el sitio es nuevo |
+| Developer → ficha → «Actualizar desde Google» (`force=1`, solo jefe) | Sí | Sí |
+| Developer → Sitios → Actualizar / Solo ubicación / Imagen rota | Sí | Sí |
+
+¹ `businessOwnerUserId`, `businessVerified` o `businessManagerIds`. Una solicitud pendiente (`businessClaimId`) no cuenta. Lo que edita el negocio (ficha oficial) tiene prioridad sobre Google al mostrarse, así que un refresco manual no lo pisa.
+
+«Solo ubicación», «estado» e «imagen» no cuentan como refresco completo: no impiden el refresco de 30 días.
+
+### Lo que queda registrado en cada sitio
+
+- `lastGoogleRefreshAt`: fecha del último refresco de cualquier tipo.
+- `lastGoogleRefreshType`: `alta` · `valoracion` · `manual` · `ubicacion` · `estado` · `imagen`.
+- `lastGoogleRefreshSkus`: SKUs consumidas en ese refresco.
+- `lastGoogleSync`: se mantiene; es el del último refresco completo.
+
+En Developer → Sitios, la columna «Google» ordena por el último refresco completo y debajo muestra el último de cualquier tipo. Los sitios con propietario llevan la etiqueta «propietario».
+
+### «Actualizar imagen rota» (Developer → Sitios, botón 🖼 por sitio)
+
+1. Si el sitio tiene **foto propia** (`userPhotoUrl` o fotos en `places/{id}/photos`), no hace nada.
+2. Si la imagen actual **carga**, no hace nada. Lo comprueba con una petición HEAD, que es gratis. Las URL heredadas con `key=` se dan por rotas sin pedirlas, porque cada petición se factura.
+3. Si ya se ha gastado el **cupo gratis de fotos del mes** (1.000), se para y pregunta antes de pagar.
+4. Pide una URL nueva con el nombre de foto guardado (**Place Details Photos**, 1 llamada). Si el nombre ha caducado, antes vuelve a pedir la lista de fotos (campo `photos` → **Essentials IDs Only**, gratis).
+
+Incertidumbre: la URL que da Google (`photoUri`) dura poco por diseño. Volverá a romperse con el tiempo. La solución de fondo es la foto propia del sitio (bloque de fotos, pendiente).
+
+### Contador por SKU
+
+- `googleUsage/{AAAA-MM}`: mes de facturación de Google, en hora del Pacífico.
+- Lo suma `logApiUsage` con las SKUs de cada acción (`functions/modules/lib/google-usage.js`).
+- Developer → Uso de API → «Google este mes por tipo de llamada» muestra, por SKU: usadas, gratis al mes, quedan gratis y coste estimado. Lo calcula `adminGoogleUsage`.
+- **No incluye lo que pide el navegador** (autocompletar y fotos con `getURI` de Maps JS), que se factura aparte.
+- [Incierto] Text Search y Nearby Search heredados: Google dice que devuelven todos los campos «y se factura en consecuencia», sin desglose. Contamos también Contact y Atmosphere (cota superior). Ojo: comparten el cupo de 1.000 de esas SKUs con las altas de sitios.
+
+### Arreglado de paso
+
+- `adminUpdateSinglePlace` registraba cada actualización **dos veces**: `admin_update_place_google` + `admin_single_update`.
+- `apiUsageStats` guardaba `byAction.x` como un campo literal con punto: `set` con `merge` no interpreta rutas. Por eso Developer no veía el desglose por acción. Ahora es un mapa. Los días anteriores al despliegue siguen sin desglose.
+- `syncPlaceStatusFromGoogle` (estado abierto/cerrado) no quedaba registrado. Ahora sí.

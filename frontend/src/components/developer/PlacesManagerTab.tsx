@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { invalidateDoc } from '../../lib/queryCache';
 import {
     Search, RefreshCw, AlertTriangle, CheckSquare, Square, MapPin,
-    RefreshCcw, Trash2, ChevronUp, ChevronDown, ArrowUpDown, Copy, GitMerge, ExternalLink
+    RefreshCcw, Trash2, ChevronUp, ChevronDown, ArrowUpDown, Copy, GitMerge, ExternalLink, ImageOff, BriefcaseBusiness
 } from 'lucide-react';
 
 const FUNCTIONS_REGION = 'europe-west1';
@@ -46,6 +46,12 @@ interface PlaceRecord extends Record<string, unknown> {
     reviewsCount?: number;
     updatedAt?: unknown;
     lastGoogleSync?: unknown;
+    lastGoogleRefreshAt?: unknown;
+    lastGoogleRefreshType?: string;
+    userPhotoUrl?: string | null;
+    businessOwnerUserId?: string;
+    businessVerified?: boolean;
+    businessManagerIds?: string[];
     closedStatus?: string;
     googleBusinessStatus?: string;
     googleRating?: number;
@@ -155,13 +161,21 @@ const getGoogleCompleteness = (place: PlaceRecord): { score: number; missing: st
     };
 };
 
-const formatDate = (place: PlaceRecord): string => {
-    const millis = timestampToMillis(place.updatedAt || place.lastGoogleSync);
-    if (!millis) return '-';
-    return new Date(millis).toLocaleDateString('es-ES', {
-        day: '2-digit', month: '2-digit', year: '2-digit'
-    });
+const shortDate = (millis: number | null): string => (millis
+    ? new Date(millis).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: '2-digit' })
+    : '-');
+
+// Último refresco COMPLETO desde Google (lo que interesa para decidir a cuáles toca).
+const formatDate = (place: PlaceRecord): string => shortDate(timestampToMillis(place.lastGoogleSync));
+
+const REFRESH_TYPE_LABELS: Record<string, string> = {
+    alta: 'alta', valoracion: 'al valorar', manual: 'manual', ubicacion: 'solo ubicación', estado: 'estado', imagen: 'imagen',
 };
+
+// Con propietario, Google no lo refresca solo (al valorar); desde aquí sí.
+const isOwnedPlace = (place: PlaceRecord): boolean =>
+    Boolean((place.businessOwnerUserId || '').trim() || place.businessVerified === true
+        || (Array.isArray(place.businessManagerIds) && place.businessManagerIds.length > 0));
 
 const FILTER_LABELS: Record<FilterMode, string> = {
     all: 'Todos',
@@ -284,8 +298,8 @@ export const PlacesManagerTab: React.FC = () => {
                 aVal = a.reviewsCount || 0;
                 bVal = b.reviewsCount || 0;
             } else if (sortField === 'updatedAt') {
-                aVal = timestampToMillis(a.updatedAt || a.lastGoogleSync) || 0;
-                bVal = timestampToMillis(b.updatedAt || b.lastGoogleSync) || 0;
+                aVal = timestampToMillis(a.lastGoogleSync) || 0;
+                bVal = timestampToMillis(b.lastGoogleSync) || 0;
             } else if (sortField === 'completeness') {
                 aVal = getGoogleCompleteness(a).score;
                 bVal = getGoogleCompleteness(b).score;
@@ -471,6 +485,32 @@ export const PlacesManagerTab: React.FC = () => {
             await refreshPlaceInList(place.id);
             addLog(`✅ ${place.name || place.id} actualizado`);
             setBrokenImages(prev => { const next = new Set(prev); next.delete(place.id); return next; });
+        } catch (err: unknown) {
+            addLog(`❌ ${place.name || place.id}: ${getErrorMessage(err)}`);
+        } finally {
+            setUpdatingIds(prev => { const next = new Set(prev); next.delete(place.id); return next; });
+        }
+    };
+
+    // «Actualizar imagen rota»: el servidor no gasta si hay foto propia o si la imagen carga,
+    // y por defecto no pasa del cupo gratis de fotos (1.000 al mes).
+    const handleRefreshPhoto = async (place: PlaceRecord, e?: React.MouseEvent, allowPaid = false) => {
+        e?.stopPropagation();
+        setUpdatingIds(prev => new Set([...prev, place.id]));
+        try {
+            const fn = httpsCallable(getFunctions(undefined, FUNCTIONS_REGION), 'adminRefreshPlacePhoto');
+            const { data } = await fn({ documentId: place.id, force: brokenImages.has(place.id), allowPaid });
+            const result = data as { updated?: boolean; reason?: string; message?: string };
+            if (result.updated) {
+                addLog(`🖼️ ${place.name || place.id}: imagen nueva de Google`);
+                setBrokenImages(prev => { const next = new Set(prev); next.delete(place.id); return next; });
+                await refreshPlaceInList(place.id);
+            } else if (result.reason === 'sin-cupo-gratis' && !allowPaid
+                && confirm(`${result.message}\n\n¿Pagar esta foto igualmente (7 $ por cada 1.000)?`)) {
+                await handleRefreshPhoto(place, undefined, true);
+            } else {
+                addLog(`ℹ️ ${place.name || place.id}: ${result.message || result.reason}`);
+            }
         } catch (err: unknown) {
             addLog(`❌ ${place.name || place.id}: ${getErrorMessage(err)}`);
         } finally {
@@ -885,10 +925,10 @@ export const PlacesManagerTab: React.FC = () => {
                                         <SortHeader label="Reseñas" field="reviewsCount" />
                                     </th>
                                     <th className="p-3">
-                                        <SortHeader label="Actualizado" field="updatedAt" />
+                                        <SortHeader label="Google" field="updatedAt" />
                                     </th>
                                     <th className="p-3">
-                                        <SortHeader label="Google" field="completeness" />
+                                        <SortHeader label="Datos" field="completeness" />
                                     </th>
                                     <th className="p-3">Problemas</th>
                                     <th className="p-3 w-28">Acciones</th>
@@ -958,6 +998,11 @@ export const PlacesManagerTab: React.FC = () => {
                                                             <Copy className="w-2.5 h-2.5" /> duplicado
                                                         </span>
                                                     )}
+                                                    {isOwnedPlace(place) && (
+                                                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-sky-500/15 text-sky-300 text-xs rounded" title="Con propietario: no se refresca solo desde Google al valorar">
+                                                            <BriefcaseBusiness className="w-2.5 h-2.5" /> propietario
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </td>
                                             <td className="p-3 font-mono text-xs text-[var(--lt-accent)] max-w-[160px] truncate">
@@ -966,8 +1011,13 @@ export const PlacesManagerTab: React.FC = () => {
                                             <td className="p-3 text-center text-gray-300">
                                                 {place.reviewsCount ?? '-'}
                                             </td>
-                                            <td className="p-3 text-xs text-gray-400 whitespace-nowrap">
+                                            <td className="p-3 text-xs text-gray-400 whitespace-nowrap" title="Último refresco completo desde Google; debajo, el último de cualquier tipo">
                                                 {formatDate(place)}
+                                                {place.lastGoogleRefreshType && (
+                                                    <div className="text-[10px] text-gray-500">
+                                                        {REFRESH_TYPE_LABELS[place.lastGoogleRefreshType] || place.lastGoogleRefreshType} · {shortDate(timestampToMillis(place.lastGoogleRefreshAt))}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="p-3 min-w-[160px]">
                                                 <div className="flex items-center gap-2 mb-1">
@@ -1047,6 +1097,18 @@ export const PlacesManagerTab: React.FC = () => {
                                                             {isUpdating
                                                                 ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                                                                 : <RefreshCcw className="w-3.5 h-3.5" />}
+                                                        </button>
+                                                    )}
+                                                    {!place.userPhotoUrl && (
+                                                        <button
+                                                            onClick={e => handleRefreshPhoto(place, e)}
+                                                            disabled={isUpdating || isDeleting}
+                                                            title="Actualizar imagen rota (Google; no gasta si la imagen carga o si hay foto propia)"
+                                                            className={`p-1.5 rounded disabled:opacity-50 transition-colors ${imageBroken || !place.mainImageUrl
+                                                                ? 'bg-amber-500/30 text-amber-300 hover:bg-amber-500/50'
+                                                                : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-white'}`}
+                                                        >
+                                                            <ImageOff className="w-3.5 h-3.5" />
                                                         </button>
                                                     )}
                                                     <button

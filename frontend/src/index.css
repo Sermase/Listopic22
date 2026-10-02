@@ -528,6 +528,7 @@
    añada la clase. Evita FOUC en la primera pintada. */
 :root,
 .theme-dark {
+    color-scheme: dark;
     --lt-bg: #0b1021;
     --lt-bg-deep: #060913;
     --lt-text: #f8fafc;
@@ -560,6 +561,8 @@
 }
 
 .theme-light {
+    /* Controles nativos (desplegable de <select>, barras) en claro aunque el móvil esté en oscuro. */
+    color-scheme: light;
     /* Parte alta de las cabeceras con foto: clara para que el menú (texto oscuro) se lea. */
     --lt-hero-top: rgba(250, 248, 244, 0.55);
     --lt-bg: #faf8f4;
@@ -594,6 +597,7 @@
 }
 
 .theme-warm {
+    color-scheme: dark;
     --lt-bg: #1a0f0c;
     --lt-bg-deep: #120906;
     --lt-text: #fff8f0;
@@ -626,6 +630,7 @@
 }
 
 .theme-cool {
+    color-scheme: dark;
     --lt-bg: #031a20;
     --lt-bg-deep: #021017;
     --lt-text: #ecfeff;
@@ -855,7 +860,11 @@ html.theme-light .text-indigo-300 { color: #4338ca !important; }
 html.theme-light .text-purple-400 { color: #7c3aed !important; }
 html.theme-light .text-purple-300 { color: #6d28d9 !important; }
 html.theme-light .text-amber-300 { color: #b45309 !important; }
-html.theme-light .text-amber-400 { color: #d97706 !important; }
+html.theme-light .text-amber-400 { color: #b45309 !important; }
+html.theme-light .text-yellow-400 { color: #a16207 !important; }
+html.theme-light .text-orange-400 { color: #c2410c !important; }
+html.theme-light .text-blue-400 { color: #1d4ed8 !important; }
+html.theme-light .text-\[\#25D366\] { color: #15803d !important; }
 html.theme-light .text-red-300 { color: #b91c1c !important; }
 html.theme-light .text-red-400 { color: #dc2626 !important; }
 html.theme-light .text-red-500 { color: #dc2626 !important; }
