@@ -1322,12 +1322,16 @@ export const SearchPage: React.FC = () => {
                 geo={activeGeoConfig}
             />
             {activeTab === 'items' && listIdParam && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--lt-text)]">
+                <button
+                    type="button"
+                    onClick={clearListScope}
+                    title="Buscar en todas las Listas"
+                    aria-label={`Quitar el filtro «En la Lista ${listNameParam || 'elegida'}»: buscar en todas las Listas`}
+                    className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--lt-text)] hover:bg-[var(--lt-accent)]/20"
+                >
                     En la Lista «{listNameParam || 'elegida'}»
-                    <button type="button" onClick={clearListScope} aria-label="Buscar en todas las Listas" className="ml-0.5 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">
-                        <X className="w-3 h-3" />
-                    </button>
-                </span>
+                    <X className="ml-0.5 w-3 h-3 text-[var(--lt-text-muted)]" aria-hidden />
+                </button>
             )}
         </div>
     ) : null;
