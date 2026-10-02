@@ -63,8 +63,8 @@ export const PlaceStatsPanel: React.FC<PlaceStatsPanelProps> = ({ placeId, revie
                         <p className="mt-1 text-xs text-[var(--lt-text-muted)] flex items-start gap-1.5">
                             <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden />
                             <span>
-                                Provisional: media simple de todas las valoraciones de este sitio, en todas sus Listas.
-                                Con más datos se revisará la fórmula.
+                                Media de las valoraciones públicas de este sitio en todas sus Listas, sin contar bots.
+                                La de los críticos verificados se muestra aparte.
                             </span>
                         </p>
                     </div>

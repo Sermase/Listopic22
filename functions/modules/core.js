@@ -91,6 +91,8 @@ const {
 const { recalculateListReviewMetrics } = require("./lib/list-metrics");
 const { normalizeCcaa, pickCity } = require("./lib/geo-areas");
 const { logApiUsage } = require("./lib/apiLogger");
+const { fetchAuthorRoles, authorOf } = require("./lib/author-roles");
+const { computePlaceRating } = require("./lib/place-rating");
 
 const db = getFirestore();
 
@@ -1711,7 +1713,7 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
   // Caso 1: CREACIÓN de reseña
   if (!event.data.before.exists && event.data.after.exists) {
     const newData = event.data.after.data();
-    const { userId, placeId } = newData;
+    const { userId } = newData;
 
     if (!userId) {
       logger.warn(`La reseña ${reviewId} no tiene userId. No se puede actualizar contador de usuario.`);
@@ -1729,11 +1731,6 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
     batch.update(userRef, { reviewsCount: FieldValue.increment(1) });
     logger.info(`Programando incremento de 'reviewsCount' en usuario ${userId}.`);
 
-    if (placeId) {
-      const placeRef = db.collection('places').doc(placeId);
-      batch.update(placeRef, { reviewsCount: FieldValue.increment(1) });
-      logger.info(`Programando incremento de 'reviewsCount' en lugar ${placeId}.`);
-    }
 
     try {
       await batch.commit();
@@ -1747,7 +1744,7 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
   // Caso 2: ELIMINACIÓN de reseña
   if (event.data.before.exists && !event.data.after.exists) {
     const oldData = event.data.before.data();
-    const { userId, placeId } = oldData;
+    const { userId } = oldData;
 
     if (!userId) {
       logger.warn(`La reseña eliminada ${reviewId} no tenía userId. No se puede actualizar contador de usuario.`);
@@ -1765,11 +1762,6 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
     batch.update(userRef, { reviewsCount: FieldValue.increment(-1) });
     logger.info(`Programando decremento de 'reviewsCount' en usuario ${userId}.`);
 
-    if (placeId) {
-      const placeRef = db.collection('places').doc(placeId);
-      batch.update(placeRef, { reviewsCount: FieldValue.increment(-1) });
-      logger.info(`Programando decremento de 'reviewsCount' en lugar ${placeId}.`);
-    }
 
     try {
       await batch.commit();
@@ -1789,33 +1781,11 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
     const newPlaceId = newData.placeId;
 
     // Solo proceder si cambió el placeId
+    // El contador y la nota de los sitios los recalcula
+    // updatePlaceAggregatesOnReviewChange (solo públicas y sin bots); aquí
+    // un incremento a la vez lo desviaba ±1.
     if (oldPlaceId !== newPlaceId) {
       logger.info(`Reseña ${reviewId} cambió de lugar: ${oldPlaceId || 'null'} -> ${newPlaceId || 'null'}`);
-
-      const batch = db.batch();
-
-      // Decrementar contador del lugar anterior (si existía)
-      if (oldPlaceId) {
-        const oldPlaceRef = db.collection('places').doc(oldPlaceId);
-        batch.update(oldPlaceRef, { reviewsCount: FieldValue.increment(-1) });
-        logger.info(`Programando decremento de 'reviewsCount' en lugar anterior ${oldPlaceId}.`);
-      }
-
-      // Incrementar contador del lugar nuevo (si existe)
-      if (newPlaceId) {
-        const newPlaceRef = db.collection('places').doc(newPlaceId);
-        batch.update(newPlaceRef, { reviewsCount: FieldValue.increment(1) });
-        logger.info(`Programando incremento de 'reviewsCount' en lugar nuevo ${newPlaceId}.`);
-      }
-
-      try {
-        await batch.commit();
-        logger.info(`Contadores de lugares actualizados exitosamente para reseña ${reviewId}.`);
-      } catch (error) {
-        logger.error("Error al actualizar contadores de lugares:", error);
-      }
-    } else {
-      logger.info(`Reseña ${reviewId} actualizada sin cambio de lugar. No se modifican contadores.`);
     }
     recalculateList = true;
   }
@@ -2390,41 +2360,9 @@ const updatePlaceAggregates = onDocumentWritten("reviews/{reviewId}", async (eve
     return null;
   }
 
-  logger.info(`Recalculando agregados para el lugar: ${placeId}`);
-
-  // 1. Obtenemos TODAS las reseñas para ese lugar
-  const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).get();
-
-  const reviews = reviewsSnapshot.docs.map(doc => doc.data());
-
-  if (reviews.length === 0) {
-    // Si no quedan reseñas, reseteamos los contadores
-    await db.collection('places').doc(placeId).update({
-      reviewsCount: 0,
-      averageRating: null, // O 0, como prefieras
-      itemTags: [],
-      hasReviewedPhoto: false
-    });
-    logger.info(`No quedan reseñas para ${placeId}. Contadores reseteados.`);
-    return null;
-  }
-
-  // 2. Calculamos la nueva media
-  const totalRating = reviews.reduce((sum, review) => sum + (review.overallRating || 0), 0);
-  const averageRating = totalRating / reviews.length;
-  const reviewsCount = reviews.length;
-  const itemTags = collectPlaceReviewTags(reviews);
-  const hasReviewedPhoto = reviews.some(review => !!(review.photoUrl || review.placeMainImage));
-
-  // 3. Actualizamos el documento del lugar
-  await db.collection('places').doc(placeId).update({
-    reviewsCount: reviewsCount,
-    averageRating: parseFloat(averageRating.toFixed(2)), // Guardamos con 2 decimales
-    itemTags,
-    hasReviewedPhoto
-  });
-
-  logger.info(`Agregados para ${placeId} actualizados: ${reviewsCount} reseñas, valoración media ${averageRating.toFixed(2)}.`);
+  // Mismo cálculo que las valoraciones de las Listas (antes, aquí una sin
+  // nota contaba como 0 y entraban las privadas y los bots).
+  await recalculateAggregatesForPlace(placeId);
   return null;
 });
 
@@ -2480,7 +2418,7 @@ async function fetchPlaceGoogleOptions(placeId, apiKey, languageCode = 'es') {
 }
 
 function hasPlaceAggregateSignalChanged(beforeData, afterData) {
-  const fields = ['overallRating', 'photoUrl', 'placeMainImage', 'placeId'];
+  const fields = ['overallRating', 'photoUrl', 'placeMainImage', 'placeId', 'visibility', 'userId'];
   if (fields.some(field => beforeData?.[field] !== afterData?.[field])) {
     return true;
   }
@@ -2532,26 +2470,25 @@ async function recalculateAggregatesForPlace(placeId) {
   const reviewsSnapshot = await db.collectionGroup('reviews').where('placeId', '==', placeId).get();
   const reviews = reviewsSnapshot.docs.map(doc => doc.data());
 
-  let averageRating = null;
-  const reviewsCount = reviews.length;
-
-  // Media de las valoraciones con nota: una sin nota no cuenta (antes sumaba 0).
-  const rated = reviews.map((review) => review.overallRating).filter((r) => typeof r === 'number' && Number.isFinite(r));
-  if (rated.length > 0) {
-    averageRating = parseFloat((rated.reduce((sum, r) => sum + r, 0) / rated.length).toFixed(2));
-  }
-  const itemTags = collectPlaceReviewTags(reviews);
-  const hasReviewedPhoto = reviews.some(review => !!(review.photoUrl || review.placeMainImage));
+  // Nota pública (lib/place-rating.js): solo valoraciones públicas, sin bots,
+  // y la de críticos verificados aparte.
+  const roles = await fetchAuthorRoles(reviews.map(authorOf));
+  const rating = computePlaceRating(reviews, roles);
+  // Etiquetas y «tiene foto» también solo de lo público: no deben delatar
+  // nada de una Lista privada.
+  const publicReviews = reviews.filter(review => review.visibility === 'public');
+  const itemTags = collectPlaceReviewTags(publicReviews);
+  const hasReviewedPhoto = publicReviews.some(review => !!(review.photoUrl || review.placeMainImage));
 
   const placeRef = db.collection('places').doc(placeId);
   try {
     await placeRef.update({
-      reviewsCount: reviewsCount,
-      averageRating: averageRating,
+      ...rating,
       itemTags,
-      hasReviewedPhoto
+      hasReviewedPhoto,
+      ratingUpdatedAt: FieldValue.serverTimestamp()
     });
-    logger.info(`Agregados para ${placeId} actualizados: ${reviewsCount} reseñas, valoración media ${averageRating}.`);
+    logger.info(`Agregados para ${placeId}: ${rating.reviewsCount} valoraciones públicas, media ${rating.averageRating}, críticos ${rating.criticReviewsCount}.`);
   } catch (error) {
     logger.error(`Error al actualizar el documento del lugar ${placeId}:`, error);
   }

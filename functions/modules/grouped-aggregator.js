@@ -3,7 +3,8 @@
 const { getFirestore, FieldPath } = require('firebase-admin/firestore');
 
 const { compareElementsByRank, reviewScoreForList } = require('./lib/scoring');
-const { elementKey, isBotUserType, normalizeItemName, placeClosedStatus, placeGeoFields } = require('./lib/list-elements');
+const { elementKey, normalizeItemName, placeClosedStatus, placeGeoFields } = require('./lib/list-elements');
+const { fetchAuthorRoles, authorOf } = require('./lib/author-roles');
 const { filterPublicReviews } = require('./lib/list-visibility');
 
 // Perezoso: aggregateGroups se prueba sin inicializar Firebase.
@@ -45,22 +46,6 @@ async function fetchPlacesByIds(ids) {
         });
     }
     return map;
-}
-
-/** Autores bot según su perfil público (lo mismo que mira la web). */
-async function fetchBotAuthorIds(reviews) {
-    const authorIds = Array.from(new Set(reviews.map(r => r.userId || r.authorId).filter(Boolean)));
-    const bots = new Set();
-    for (let i = 0; i < authorIds.length; i += 100) {
-        const refs = authorIds.slice(i, i + 100).map(uid => db.collection('publicProfiles').doc(uid));
-        const snaps = await db.getAll(...refs);
-        snaps.forEach(snap => {
-            if (snap.exists && isBotUserType(snap.data().userType)) {
-                bots.add(snap.id);
-            }
-        });
-    }
-    return bots;
 }
 
 async function fetchRootReviewsByField(field, value) {
@@ -346,7 +331,7 @@ async function buildGroupedItemsForList(listId, { publicOnly = false } = {}) {
     const placeIds = Array.from(new Set(reviews.map(r => r.placeId).filter(Boolean)));
     const [placeMap, botAuthorIds] = await Promise.all([
         fetchPlacesByIds(placeIds),
-        fetchBotAuthorIds(reviews)
+        fetchAuthorRoles(reviews.map(authorOf)).then((roles) => roles.bots)
     ]);
     const groupedReviews = aggregateGroups(listId, listData, reviews, placeMap, botAuthorIds);
 

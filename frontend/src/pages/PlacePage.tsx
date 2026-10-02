@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby, Megaphone, BarChart3
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby, Megaphone, BarChart3, ShieldCheck
 } from 'lucide-react';
 import { LazyShareModal as ShareModal, LazyMapView as MapView, LazyAddReviewForm as AddReviewForm } from '../components/lazy';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -847,7 +847,7 @@ export const PlacePage: React.FC = () => {
                                     <button
                                         type="button"
                                         onClick={() => setActiveTab('stats')}
-                                        title="Nota Listopic provisional: media simple de todas sus valoraciones. Toca para ver el detalle por Lista."
+                                        title="Nota Listopic: media de las valoraciones públicas (sin bots) en todas sus Listas. Toca para ver el detalle por Lista."
                                         className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full text-sm font-bold border border-[var(--lt-border-strong)] bg-[var(--lt-glass)] backdrop-blur-md text-[var(--lt-text)]"
                                     >
                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={scoreBadgeStyle(place.avgScore)}>
@@ -861,6 +861,23 @@ export const PlacePage: React.FC = () => {
                                 ) : (
                                     <span className="px-3 py-1 rounded-full text-xs font-semibold border border-[var(--lt-border-strong)] text-[var(--lt-text-muted)]">
                                         Sin valoraciones
+                                    </span>
+                                )}
+                                {/* Nota de críticos verificados: aparte, nunca mezclada con la general */}
+                                {place.criticRating && (
+                                    <span
+                                        className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-full text-sm font-bold border border-[var(--lt-border-strong)] bg-[var(--lt-glass)] backdrop-blur-md text-[var(--lt-text)]"
+                                        title={place.criticRating.provisional
+                                            ? `Provisional: solo ${place.criticRating.count} ${place.criticRating.count === 1 ? 'crítico ha valorado' : 'críticos han valorado'} este sitio.`
+                                            : 'Media de los críticos verificados.'}
+                                    >
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full" style={scoreBadgeStyle(place.criticRating.average)}>
+                                            <ShieldCheck className="w-3.5 h-3.5" aria-hidden />
+                                            {place.criticRating.average.toFixed(1)}
+                                        </span>
+                                        <span className="text-xs font-semibold text-[var(--lt-text-muted)]">
+                                            {place.criticRating.count} {place.criticRating.count === 1 ? 'crítico' : 'críticos'}{place.criticRating.provisional ? ' · provisional' : ''}
+                                        </span>
                                     </span>
                                 )}
 
