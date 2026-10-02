@@ -112,8 +112,8 @@ const EMPTY_MESSAGES: Record<string, { title: string; hint: string }> = {
     lists: { title: 'No hay listas', hint: 'Prueba por nombre, etiqueta o categoría.' },
     places: { title: 'No hay sitios', hint: 'Prueba otra ciudad o tipo.' },
     users: { title: 'No hay usuarios', hint: 'Busca por nombre o prueba @nombre.' },
-    items: { title: 'No hay items', hint: 'Prueba #etiqueta o el nombre del plato.' },
-    grouped_items: { title: 'No hay items', hint: 'Prueba #etiqueta o el nombre del plato.' },
+    items: { title: 'No hay elementos', hint: 'Prueba #etiqueta o el nombre del plato.' },
+    grouped_items: { title: 'No hay elementos', hint: 'Prueba #etiqueta o el nombre del plato.' },
     all: { title: 'Sin resultados', hint: 'Cambia las palabras o los filtros.' },
 };
 
@@ -691,14 +691,24 @@ const AllTabEmptyState = ({ hasQuery }: { hasQuery: boolean }) => {
 
 // ─── Empty State ──────────────────────────────────────────────────────────────
 
-const EmptyState = ({ activeTab, onTabChange }: { activeTab: string; onTabChange?: (t: string) => void }) => {
+const EmptyState = ({ activeTab, onTabChange, zoneLabel, onClearZone }: { activeTab: string; onTabChange?: (t: string) => void; zoneLabel?: string | null; onClearZone?: () => void }) => {
     const msg = EMPTY_MESSAGES[activeTab] || EMPTY_MESSAGES.all;
+    const inZone = Boolean(zoneLabel && onClearZone);
     return (
         <div className="text-center py-20 px-4">
             <div className="text-4xl mb-3">🔍</div>
-            <h3 className="text-white font-bold mb-1">{msg.title}</h3>
-            <p className="text-gray-500 text-sm mb-6">{msg.hint}</p>
-            {onTabChange && activeTab !== 'all' && (
+            <h3 className="text-[var(--lt-text)] font-bold mb-1">{inZone ? `${msg.title} en ${zoneLabel}` : msg.title}</h3>
+            <p className="text-[var(--lt-text-muted)] text-sm mb-6">{inZone ? 'Prueba con otra zona o quítala.' : msg.hint}</p>
+            {inZone && (
+                <button
+                    type="button"
+                    onClick={onClearZone}
+                    className="mb-4 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-4 py-1.5 text-sm font-bold text-[var(--lt-text)]"
+                >
+                    Buscar en todas las zonas
+                </button>
+            )}
+            {!inZone && onTabChange && activeTab !== 'all' && (
                 <div className="flex flex-wrap justify-center gap-2">
                     {Object.entries(TAB_LABELS).filter(([k]) => k !== activeTab).map(([k, l]) => (
                         <button key={k} onClick={() => onTabChange(k)}
@@ -762,11 +772,12 @@ interface HitsProps {
      * buscado, orden por puntuación): con una zona elegida se muestra «#3 en Valladolid».
      */
     rankEligible?: boolean;
-    /** Zona elegida («Valladolid», «Madrid + Barcelona»…) para «#3 en …». */
+    /** Zona elegida («Valladolid», «Madrid + Barcelona»…) para «#3 en …» y el vacío. */
     zoneLabel?: string | null;
+    onClearZone?: () => void;
 }
 
-const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false, includeClosed = false, rankEligible = false, zoneLabel: selectedZoneLabel = null }) => {
+const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false, includeClosed = false, rankEligible = false, zoneLabel: selectedZoneLabel = null, onClearZone }) => {
     const { hits, isLastPage, showMore } = useInfiniteHits();
     const { status, results } = useInstantSearch();
     const zoneLabel = rankEligible ? selectedZoneLabel : null;
@@ -826,7 +837,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
             || status === 'loading' || status === 'stalled';
         if (awaitingResults) return <SearchResultsSkeleton listLayout={listLayout} />;
         if (status === 'error') return null; // SearchErrorNotice ya lo explica
-        return <EmptyState activeTab={activeTab} onTabChange={onTabChange} />;
+        return <EmptyState activeTab={activeTab} onTabChange={onTabChange} zoneLabel={selectedZoneLabel} onClearZone={onClearZone} />;
     }
 
     return (
@@ -939,28 +950,21 @@ const FederatedSection = ({
 
 const GeoControls = ({
     isGeoTab, geoActive, geoRadius, locLoading, locError,
-    onToggleGeo, onRadiusChange,
+    onRadiusChange,
 }: {
     isGeoTab: boolean;
     geoActive: boolean;
     geoRadius: GeoRadius;
     locLoading: boolean;
     locError: string | null;
-    onToggleGeo: () => void;
     onRadiusChange: (v: GeoRadius) => void;
 }) => {
-    if (!isGeoTab) return null;
+    // «Cerca de mí» se activa en los filtros rápidos; aquí solo el radio (o el aviso).
+    if (!isGeoTab || !geoActive) return null;
     return (
         <div className="flex items-center gap-2">
-            <button
-                onClick={onToggleGeo}
-                disabled={locLoading}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${geoActive ? 'bg-emerald-600/80 border-emerald-500/50 text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:text-white'}`}
-            >
-                {locLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LocateFixed className="w-3.5 h-3.5" />}
-                Cerca de mí
-            </button>
-            {geoActive && !locError && (
+            {locLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--lt-text-muted)]" aria-label="Buscando tu ubicación" />}
+            {!locError && (
                 <select
                     value={geoRadius}
                     onChange={e => onRadiusChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
@@ -969,7 +973,7 @@ const GeoControls = ({
                     {GEO_RADIUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
             )}
-            {locError && geoActive && <span className="text-xs text-red-400">{locError}</span>}
+            {locError && <span className="text-xs text-red-400">{locError}</span>}
         </div>
     );
 };
@@ -1433,7 +1437,6 @@ export const SearchPage: React.FC = () => {
                                             geoRadius={geoRadius}
                                             locLoading={locLoading}
                                             locError={locError}
-                                            onToggleGeo={toggleGeo}
                                             onRadiusChange={handleGeoRadiusChange}
                                         />
                                         <div className="ml-auto flex items-center gap-4">
@@ -1464,6 +1467,7 @@ export const SearchPage: React.FC = () => {
                                             includeClosed={includeClosedPlaces}
                                             rankEligible={rankEligible}
                                             zoneLabel={selectedZoneLabel}
+                                            onClearZone={() => handleZonesChange([])}
                                         />
                                     </div>
                                 </div>
@@ -1532,7 +1536,6 @@ export const SearchPage: React.FC = () => {
                                         geoRadius={geoRadius}
                                         locLoading={locLoading}
                                         locError={locError}
-                                        onToggleGeo={toggleGeo}
                                         onRadiusChange={handleGeoRadiusChange}
                                     />
 
@@ -1568,6 +1571,7 @@ export const SearchPage: React.FC = () => {
                                         includeClosed={includeClosedPlaces}
                                         rankEligible={rankEligible}
                                         zoneLabel={selectedZoneLabel}
+                                        onClearZone={() => handleZonesChange([])}
                                     />
                                 </div>
                             </div>

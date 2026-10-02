@@ -21,6 +21,12 @@ jobs:
       - name: Tests unitarios del frontend
         run: npm test
         working-directory: frontend
+      - name: La clave de Algolia de la web solo puede buscar
+        run: npm run check:algolia-key
+        working-directory: frontend
+        env:
+          VITE_ALGOLIA_APP_ID: ${{ secrets.VITE_ALGOLIA_APP_ID }}
+          VITE_ALGOLIA_SEARCH_KEY: ${{ secrets.VITE_ALGOLIA_SEARCH_KEY }}
       - name: Build frontend
         run: npm run build
         working-directory: frontend

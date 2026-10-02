@@ -1039,6 +1039,20 @@ html.theme-light .lt-level-card .lt-level-value {
     color: #78350f !important;
     text-shadow: none !important;
 }
+/* Esqueletos de carga: en el tema claro, los bloques bg-white/5 y /10 eran casi
+   invisibles sobre el fondo crema. */
+html.theme-light .animate-pulse .bg-white\/5,
+html.theme-light .animate-pulse .bg-white\/10,
+html.theme-light .animate-pulse.bg-white\/5,
+html.theme-light .animate-pulse.bg-white\/10 {
+    background-color: rgba(26, 22, 37, 0.07) !important;
+}
+
+/* El relleno de progreso oscuro tapaba el texto marrón en el tema claro. */
+html.theme-light .lt-level-card .lt-level-fill {
+    background: linear-gradient(0deg, #fcd34d 0%, #fde68a 100%) !important;
+    box-shadow: none !important;
+}
 
 /* ── Profile stat card (non-level) light-mode ────────────────────────── */
 html.theme-light .lt-stat-card {

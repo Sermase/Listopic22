@@ -103,6 +103,15 @@ distinguir `private` de «sin campo». Para ambos casos, el arreglo es el mismo.
 | 17 | Perfil: el filtro por Listas solo ofrecía las Listas de las valoraciones ya cargadas en el mosaico | **Corregido (01/10)**: sale de todas sus valoraciones visibles (hasta 1000), con número |
 | 18 | Cabecera con foto: en móvil la foto acababa en corte; en escritorio se ampliaba muchísimo. `ProgressiveImage` anulaba el `absolute inset-0` del contenedor | **Corregido (01/10)**: la foto rellena la cabecera (en móvil recorta los laterales); en pantallas anchas va centrada sobre la misma desenfocada. Arregla también miniaturas de valoraciones y Home |
 | 19 | Etiquetas repetidas en las tarjetas de Buscar («Picantes» doble) | **Corregido (01/10)** |
+| 20 | Algolia (`grouped_items`) calculaba los elementos de una Lista pública con **todas** sus valoraciones, también las de Minilistas privadas: movían nota y puesto en Buscar y podían prestar su foto o etiquetas | **Corregido (02/10)**: el índice solo usa valoraciones `public`. Requiere desplegar Functions y «Reindexar todo». Los agregados internos (tarjeta de la Lista) no cambian: decisión pendiente |
+| 21 | Buscar: el vacío decía «No hay items» y no mencionaba la zona | **Corregido (02/10)**: «No hay elementos en Valladolid» + «Buscar en todas las zonas» |
+| 22 | Buscar: dos botones «Cerca de mí» que hacían lo mismo | **Corregido (02/10)**: uno; el radio aparece al activarlo |
+| 23 | Ficha de sitio (escritorio): «Compartir», «Reportar»… se salían de sus botones | **Corregido (02/10)** |
+| 24 | Perfil (tema claro): mosaico sin foto, tarjeta «Favorito» y «Nivel» ilegibles | **Corregido (02/10)** |
+| 25 | Elemento inexistente: página de «Lugar Desconocido» con Valorar y Reportar | **Corregido (02/10)**: «Elemento no encontrado». Perfil inexistente: botón «Buscar personas» |
+| 26 | Valoraciones: «Patatas bravas · Patatas bravas» | **Corregido (02/10)**: una vez, con el enlace a la Lista |
+| 27 | Tema claro: esqueletos de carga casi invisibles en sitio y elemento | **Corregido (02/10)** |
+| 28 | **Android (Capacitor) no arrancaba**: «Cannot read properties of undefined (reading 'createContext')» en `map-vendor`. Rollup metía su auxiliar de CommonJS en `map-vendor`; `react-vendor` lo importaba de ahí y se formaba el ciclo `react-vendor ↔ map-vendor`, así que react-leaflet se evaluaba antes que React. Depende del orden en que se procesan los módulos: en Linux no salía y en tu build sí (hash distinto para el mismo código) | **Corregido (02/10)**: fuera `map-vendor` (Leaflet lo reparte Vite y solo se carga con un mapa), el auxiliar va fijo en `react-vendor` (que no importa nada) y **el build falla si aparece cualquier ciclo entre chunks**. Reproducido forzando el ciclo: misma pantalla en blanco y mismo error; con el arreglo arrancan las 4 rutas probadas con el origen de Capacitor (`https://localhost`) y los mapas de Home, Lista y Buscar |
 
 Falsa alarma: el botón flotante que tapaba «Publicar valoración» son las
 herramientas de TanStack Query, que solo existen en desarrollo.
@@ -134,3 +143,20 @@ jerárquico en Algolia (`zone.lvl0…lvl3`), que requiere reindexar.
 - Limpieza de Developer: pendiente de tu visto bueno.
 - Los puestos de Buscar incluyen valoraciones de bots, porque Algolia las
   cuenta; la Lista los excluye por defecto. Con muchos bots pueden diferir.
+
+## Android: comprobar en el dispositivo
+
+Aquí no hay SDK de Android ni KVM; lo probado es la build de producción con el
+mismo motor (Chromium) y el mismo origen que Capacitor (`https://localhost`),
+incluidos los archivos copiados con `npx cap copy android`. En tu máquina:
+
+```
+cd frontend
+npm run build          # falla si hay un ciclo entre chunks
+npx cap sync android
+npx cap open android   # Run en el dispositivo
+```
+
+En Logcat (filtro `chromium` o `Capacitor/Console`) no debe salir ningún
+`Uncaught TypeError`. Ya no existe `map-vendor-*.js`; Leaflet va en un chunk
+automático que solo se carga al abrir un mapa.

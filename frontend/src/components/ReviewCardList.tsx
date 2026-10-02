@@ -48,6 +48,8 @@ const formatScore = (score: number | undefined) => {
 };
 
 export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp, hidePlaceName }) => {
+    const listNameRepeatsItem = Boolean(review.listName && review.itemName
+        && review.listName.trim().toLowerCase() === review.itemName.trim().toLowerCase());
     const { showToast } = useToast();
     const confirm = useConfirm();
     const placeClosedStatus = placeClosedStatusProp || (review as any).placeClosedStatus || undefined;
@@ -281,10 +283,11 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                             )}
                         </div>
                         <div className="flex items-center gap-1.5 text-xs text-[var(--lt-text-muted)] truncate">
-                            <span className="font-semibold text-[var(--lt-text)] truncate">{review.itemName}</span>
+                            {/* «Patatas bravas · Patatas bravas»: si el elemento se llama como la Lista, una vez (con el enlace a la Lista). */}
+                            {!listNameRepeatsItem && <span className="font-semibold text-[var(--lt-text)] truncate">{review.itemName}</span>}
                             {!hidePlaceName && review.placeName && (
                                 <>
-                                    <span>·</span>
+                                    {!listNameRepeatsItem && <span>·</span>}
                                     <Link
                                         to={`/place/${review.placeId}`}
                                         onClick={(e) => e.stopPropagation()}
@@ -296,11 +299,11 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                             )}
                             {review.listName && (
                                 <>
-                                    <span>·</span>
+                                    {(!listNameRepeatsItem || (!hidePlaceName && review.placeName)) && <span>·</span>}
                                     <Link
                                         to={review.listId ? `/list/${review.listId}` : '#'}
                                         onClick={(e) => e.stopPropagation()}
-                                        className="hover:text-[var(--lt-accent)] truncate"
+                                        className={`hover:text-[var(--lt-accent)] truncate ${listNameRepeatsItem ? 'font-semibold text-[var(--lt-text)]' : ''}`}
                                     >
                                         {review.listName}
                                     </Link>

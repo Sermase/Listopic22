@@ -91,12 +91,15 @@ los crearía):
 | `adminUpdateAllPlaces` | **Archivada**: fuera de `index.js` (actualizaba todos los sitios desde Google de golpe) |
 | `reverseGeocode` | **Archivada** (sin uso; llamaba a Google Geocoding) |
 | `adminResetUserGamification`, `adminResetAllGamification` | **Archivadas** (destructivas, sin pantalla) |
-| `adminAuditStatistics`, `adminGetCollection`, `adminAuditPlaceIdConsistency`, `adminRebuildCanonicalItemsForPlace`, `adminReplaceTag`, `adminRecalculateUserGamification`, `adminRecalculateListAverages` | Siguen desplegadas: no hacen daño y puede que las uses a mano. Archivarlas es una línea en `index.js` cada una |
+| `adminRecalculateListAverages` | **Archivada (02/10)**: duplicaba a `adminUpdateSingleListAggregates` |
+| `adminAuditStatistics` | **Archivada (02/10)**: fallaba por tres índices que no existen; la sustituye «Recontar contadores» |
+| `adminGetCollection`, `adminAuditPlaceIdConsistency`, `adminRebuildCanonicalItemsForPlace`, `adminReplaceTag`, `adminRecalculateUserGamification` | Siguen desplegadas: son de lectura o útiles a mano, y no hacen daño. `adminReplaceTag` necesita el índice `reviews.userTags` para funcionar |
 | Pestaña «Proyectos internos» | Sin cambios |
 
-**Al desplegar Functions**, la CLI preguntará si borrar las 4 archivadas
+**Al desplegar Functions**, la CLI preguntará si borrar las 6 archivadas
 (`adminUpdateAllPlaces`, `reverseGeocode`, `adminResetUserGamification`,
-`adminResetAllGamification`). Responde **sí**. Si dices que no, siguen
+`adminResetAllGamification`, `adminRecalculateListAverages`,
+`adminAuditStatistics`). Responde **sí**. Si dices que no, siguen
 desplegadas con el código antiguo.
 
 Comprobado en el emulador (01/10): recalcular una lista, backfill de tipos de

@@ -36,6 +36,7 @@ import { fetchUserReviewsFromAccessibleLists } from '../lib/reviewFallbacks';
 import { compareByRank } from '../lib/scoring';
 import { AreaSelect } from '../components/AreaSelect';
 import { AREA_STORAGE_KEY, buildAreaOptions, decodeArea, encodeArea, inferUserGeo, localAreaOptions, matchesArea, type GeoFields, type ListArea } from '../lib/geoAreas';
+import { exploreSearchUrl } from '../lib/searchZones';
 
 /* 
     HOMEPAGE (Legacy Screenshot Match + Functional Logic: Categories & Range)
@@ -1288,7 +1289,7 @@ export const HomePage: React.FC = () => {
                                             range={range}
                                             options={areaOptions}
                                             onChange={handleAreaSelect}
-                                            onExplore={() => navigate('/search?type=items&sort=grouped_items_by_score')}
+                                            onExplore={() => navigate(exploreSearchUrl({ zone: areaFilter.kind === 'near' ? null : { level: areaFilter.kind, value: areaFilter.value } }))}
                                         />
 
                                         <button

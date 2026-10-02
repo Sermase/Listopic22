@@ -27,6 +27,7 @@ import { compareByRank, isScoreValue, reviewScoreForList } from '../lib/scoring'
 import { scoreBadgeStyle } from '../lib/scoreScale';
 import { useStoredChoice } from '../hooks/useStoredChoice';
 import { AREA_STORAGE_KEY, buildAreaOptions, contextualRanks, decodeArea, distanceLabel, encodeArea, geoAreaLabel, inferUserGeo, localAreaOptions, matchesArea, primaryContextRank, type GeoFields, type ListArea } from '../lib/geoAreas';
+import { exploreSearchUrl } from '../lib/searchZones';
 import { AreaSelect } from '../components/AreaSelect';
 
 export interface FilterState {
@@ -611,15 +612,19 @@ export const ListPage: React.FC = () => {
         () => localAreaOptions(buildAreaOptions(groupedItems.map(item => item.geo)), userGeo),
         [groupedItems, userGeo],
     );
-    const exploreInSearch = useCallback(() => {
-        if (!listId) return;
-        const params = new URLSearchParams({ type: 'items', sort: 'grouped_items_by_score', listId, listName: list?.name || '' });
-        navigate(`/search?${params.toString()}`);
-    }, [listId, list?.name, navigate]);
     const effectiveArea = useMemo<ListArea>(() => {
         if (area.kind === 'near') return area;
         return areaOptions[area.kind].some(option => option.value === area.value) ? area : { kind: 'near' };
     }, [area, areaOptions]);
+    // Buscar se abre en esta Lista y con la zona elegida aquí (desde ella se cambia).
+    const exploreInSearch = useCallback(() => {
+        if (!listId) return;
+        navigate(exploreSearchUrl({
+            listId,
+            listName: list?.name || '',
+            zone: effectiveArea.kind === 'near' ? null : { level: effectiveArea.kind, value: effectiveArea.value },
+        }));
+    }, [listId, list?.name, navigate, effectiveArea]);
 
     // Puesto con contexto («#3 en Valladolid»), con la misma función que la ficha del sitio.
     const contextRanksById = useMemo(() => contextualRanks(

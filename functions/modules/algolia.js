@@ -11,8 +11,16 @@ const { buildGroupedItemsForList } = require("./grouped-aggregator");
 const { rankingIndexScore } = require("./lib/scoring");
 const { normalizeCcaa } = require("./lib/geo-areas");
 const { syncAllObjects } = require("./lib/algolia-sync");
+const { defineSecret } = require("firebase-functions/params");
+const { resolveAlgoliaCredentials } = require("./lib/algolia-credentials");
 
-const ADMIN_CALL_OPTIONS = { cors: true, timeoutSeconds: 540, memory: "1GiB" };
+// Clave de administración de Algolia: solo en Secret Manager.
+//   firebase functions:secrets:set ALGOLIA_API_KEY --project listopic
+// Cada Function que escribe o configura Algolia la declara en `secrets`.
+const algoliaAdminKey = defineSecret("ALGOLIA_API_KEY");
+const ALGOLIA_SECRETS = [algoliaAdminKey];
+
+const ADMIN_CALL_OPTIONS = { cors: true, timeoutSeconds: 540, memory: "1GiB", secrets: ALGOLIA_SECRETS };
 
 let algoliaClient = null;
 const indices = {};
@@ -21,17 +29,22 @@ const categoryCache = new Map();
 
 function getIndex(indexName) {
     if (!algoliaClient) {
-        const appId = process.env.ALGOLIA_APP_ID;
-        const apiKey = process.env.ALGOLIA_API_KEY;
-        if (!appId || !apiKey) {
-            logger.warn("Algolia: environment variables not configured. Module inactive.");
+        // El secret solo está disponible en las Functions que lo declaran;
+        // fuera de ellas (o si no existe) se queda inactivo sin lanzar.
+        const credentials = resolveAlgoliaCredentials({
+            appId: process.env.ALGOLIA_APP_ID,
+            apiKey: process.env.ALGOLIA_API_KEY,
+        });
+        if (!credentials) {
+            logger.warn("Algolia: falta el secret ALGOLIA_API_KEY. Sincronización desactivada.");
             return null;
         }
         try {
-            algoliaClient = algoliasearch(appId, apiKey);
+            algoliaClient = algoliasearch(credentials.appId, credentials.apiKey);
             logger.info("Algolia client initialised on first use.");
         } catch (error) {
-            logger.error("Algolia: unable to initialise client.", error);
+            // Sin el objeto de error: no debe acabar ninguna clave en los logs.
+            logger.error("Algolia: unable to initialise client.", { message: error && error.message ? String(error.message).slice(0, 200) : "unknown" });
             algoliaClient = null;
             return null;
         }
@@ -700,13 +713,13 @@ function createCollectionHandlers(collectionKey) {
     const config = COLLECTION_CONFIGS[collectionKey];
     const path = `${config.collection}/{docId}`;
     return {
-        onCreated: onDocumentCreated(path, async (event) => {
+        onCreated: onDocumentCreated({ document: path, secrets: ALGOLIA_SECRETS }, async (event) => {
             await syncCreate(config, event.data);
         }),
-        onUpdated: onDocumentUpdated(path, async (event) => {
+        onUpdated: onDocumentUpdated({ document: path, secrets: ALGOLIA_SECRETS }, async (event) => {
             await syncUpdate(config, event.data.before, event.data.after);
         }),
-        onDeleted: onDocumentDeleted(path, async (event) => {
+        onDeleted: onDocumentDeleted({ document: path, secrets: ALGOLIA_SECRETS }, async (event) => {
             await syncDelete(config, event.data);
         })
     };
@@ -741,7 +754,7 @@ async function rebuildGroupedItemsForList(listId) {
         return null;
     }
     try {
-        const { listData, groupedReviews } = await buildGroupedItemsForList(listId);
+        const { listData, groupedReviews } = await buildGroupedItemsForList(listId, { publicOnly: true });
         await clearGroupedItemsForList(listId, index);
         if (!listData || listData.isPublic === false) {
             return null;
@@ -884,21 +897,21 @@ const { onCreated: onListCreated, onUpdated: onListUpdated, onDeleted: onListDel
 const { onCreated: onPlaceCreated, onUpdated: onPlaceUpdated, onDeleted: onPlaceDeleted } = createCollectionHandlers("places");
 const { onCreated: onUserCreated, onUpdated: onUserUpdated, onDeleted: onUserDeleted } = createCollectionHandlers("users");
 
-const syncGroupedItemsIndex = onDocumentWritten("lists/{listId}/reviews/{reviewId}", async (event) => {
+const syncGroupedItemsIndex = onDocumentWritten({ document: "lists/{listId}/reviews/{reviewId}", secrets: ALGOLIA_SECRETS }, async (event) => {
     const beforeData = event.data?.before?.data();
     const afterData = event.data?.after?.data();
     const listIds = collectChangedReviewListIds(beforeData, afterData, event.params.listId);
     return await rebuildGroupedItemsForListIds(listIds);
 });
 
-const syncGroupedItemsRootReviews = onDocumentWritten("reviews/{reviewId}", async (event) => {
+const syncGroupedItemsRootReviews = onDocumentWritten({ document: "reviews/{reviewId}", secrets: ALGOLIA_SECRETS }, async (event) => {
     const beforeData = event.data?.before?.data();
     const afterData = event.data?.after?.data();
     const listIds = collectChangedReviewListIds(beforeData, afterData);
     return await rebuildGroupedItemsForListIds(listIds);
 });
 
-const syncGroupedItemsOnListUpdate = onDocumentUpdated("lists/{listId}", async (event) => {
+const syncGroupedItemsOnListUpdate = onDocumentUpdated({ document: "lists/{listId}", secrets: ALGOLIA_SECRETS }, async (event) => {
     const beforeData = event.data?.before?.data();
     const afterData = event.data?.after?.data();
     if (!hasGroupedListMetadataChanged(beforeData, afterData)) {
@@ -911,7 +924,7 @@ const syncGroupedItemsOnListUpdate = onDocumentUpdated("lists/{listId}", async (
     return await rebuildGroupedItemsForList(listId);
 });
 
-const syncGroupedItemsOnListDelete = onDocumentDeleted("lists/{listId}", async (event) => {
+const syncGroupedItemsOnListDelete = onDocumentDeleted({ document: "lists/{listId}", secrets: ALGOLIA_SECRETS }, async (event) => {
     const listId = event.params.listId;
     return await clearGroupedItemsForList(listId);
 });
@@ -947,7 +960,7 @@ async function backfillGroupedItems() {
             continue;
         }
         try {
-            const aggregation = await buildGroupedItemsForList(doc.id);
+            const aggregation = await buildGroupedItemsForList(doc.id, { publicOnly: true });
             if (!aggregation.listData || aggregation.listData.isPublic === false) {
                 continue;
             }

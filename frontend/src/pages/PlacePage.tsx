@@ -898,39 +898,39 @@ export const PlacePage: React.FC = () => {
                     <div className="glass-card p-3 rounded-2xl grid grid-cols-5 gap-2 sm:gap-3 shadow-lg">
                         <button
                             onClick={handleOpenSave}
-                            className="lt-secondary-action flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
                         >
                             <Bookmark className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
-                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Guardar</span>
+                            <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Guardar</span>
                         </button>
                         <button
                             onClick={handleFollowToggle}
                             disabled={followLoading}
-                            className={`lt-secondary-action flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${isFollowed ? 'bg-pink-500/20 border-pink-500 text-pink-400' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white'} ${followLoading ? 'opacity-50 cursor-wait' : ''}`}
+                            className={`lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border transition-all ${isFollowed ? 'bg-pink-500/20 border-pink-500 text-pink-400' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white'} ${followLoading ? 'opacity-50 cursor-wait' : ''}`}
                         >
                             <Heart className={`w-5 h-5 mb-1 ${isFollowed ? 'fill-current' : ''}`} />
-                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">{isFollowed ? 'Seguido' : 'Seguir'}</span>
+                            <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">{isFollowed ? 'Seguido' : 'Seguir'}</span>
                         </button>
                         <button
                             onClick={handleShareClick}
-                            className="lt-secondary-action flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all active:scale-95 active:bg-[var(--lt-accent-soft)] active:border-[var(--lt-accent-border)]"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all active:scale-95 active:bg-[var(--lt-accent-soft)] active:border-[var(--lt-accent-border)]"
                         >
                             <Share2 className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
-                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Compartir</span>
+                            <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Compartir</span>
                         </button>
                         <button
                             onClick={handleOpenPhotoUpload}
-                            className="lt-secondary-action flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
                         >
                             <ImageIcon className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
-                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Fotos</span>
+                            <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Fotos</span>
                         </button>
                         <button
                             onClick={handleOpenReport}
-                            className="lt-report-action flex flex-col items-center justify-center p-2 rounded-xl border border-white/5 bg-white/5 text-[var(--lt-text-muted)] hover:bg-red-500/10 hover:text-red-500 transition-all group/report"
+                            className="lt-report-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-[var(--lt-text-muted)] hover:bg-red-500/10 hover:text-red-500 transition-all group/report"
                         >
                             <AlertTriangle className="w-5 h-5 mb-1 text-red-500/50 group-hover/report:text-red-500 transition-colors" />
-                            <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider">Reportar</span>
+                            <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Reportar</span>
                         </button>
                     </div>
 

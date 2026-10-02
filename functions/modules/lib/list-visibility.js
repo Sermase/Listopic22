@@ -14,4 +14,11 @@ function effectiveVisibility(list, parent) {
   return own;
 }
 
-module.exports = { listVisibility, effectiveVisibility };
+/**
+ * Solo las valoraciones públicas. Para índices públicos (Algolia): las de una
+ * Minilista privada no deben contar ni prestar foto o etiquetas, igual que la
+ * página de la Lista no las enseña.
+ */
+const filterPublicReviews = (reviews) => (reviews || []).filter((review) => review && review.visibility === 'public');
+
+module.exports = { listVisibility, effectiveVisibility, filterPublicReviews };

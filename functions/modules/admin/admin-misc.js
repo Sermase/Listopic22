@@ -10,6 +10,7 @@ const { buildGroupedItemsForList } = require('../grouped-aggregator');
 
 const db = getFirestore();
 
+// eslint-disable-next-line no-unused-vars -- archivada: fuera de exports, no se despliega
 const adminAuditStatistics = onCall(async (request) => {
   const contextAuth = request.auth;
   if (!contextAuth) {
@@ -333,4 +334,6 @@ const adminGetCollection = onCall(async (request) => {
   }
 });
 
-module.exports = { adminAuditStatistics, adminGetCollection };
+// adminAuditStatistics: archivada (no se despliega). Necesita tres índices que no
+// existen y ninguna pantalla la usa; «Recontar contadores» hace el trabajo sin índices.
+module.exports = { adminGetCollection };
