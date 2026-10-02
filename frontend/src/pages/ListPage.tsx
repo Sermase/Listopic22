@@ -23,7 +23,8 @@ import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
 import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
 import { useAuthPrompt } from '../context/AuthPromptContext';
-import { compareByRank, isScoreValue, reviewScoreForList } from '../lib/scoring';
+import { compareElementsByRank, isScoreValue, reviewScoreForList } from '../lib/scoring';
+import { elementKey } from '../lib/listElements';
 import { scoreBadgeStyle } from '../lib/scoreScale';
 import { useStoredChoice } from '../hooks/useStoredChoice';
 import { AREA_STORAGE_KEY, buildAreaOptions, contextualRanks, decodeArea, distanceLabel, encodeArea, geoAreaLabel, inferUserGeo, localAreaOptions, matchesArea, primaryContextRank, type GeoFields, type ListArea } from '../lib/geoAreas';
@@ -322,8 +323,9 @@ export const ListPage: React.FC = () => {
             for (let i = 0; i < uids.length; i += 10) chunks.push(uids.slice(i, i + 10));
             for (const chunk of chunks) {
                 try {
-                    // Fetch each user doc individually (simple, no composite index needed)
-                    await Promise.all(chunk.map(async uid => {
+                    // Uno a uno; si falla una lectura, solo se pierde ese autor
+                    // (con Promise.all se perdía el bloque y los bots contaban).
+                    await Promise.allSettled(chunk.map(async uid => {
                         const snap = await getDoc(doc(db, 'publicProfiles', uid));
                         if (snap.exists()) {
                             const ut = snap.data().userType ?? [];
@@ -406,14 +408,12 @@ export const ListPage: React.FC = () => {
         }> = {};
 
         visibleReviews.forEach(review => {
-            let key = review.placeId || (review.itemName ? review.itemName.trim().toLowerCase() : 'unknown');
-
-            // Grouping Mode Logic
-            if (groupingMode === 'dish') {
-                key = review.placeId
-                    ? `${review.placeId}_${(review.itemName || '').trim().toLowerCase()}`
-                    : (review.itemName || '').trim().toLowerCase();
-            }
+            // En la Lista madre, las valoraciones de Minilista cuentan solo con sus criterios.
+            // Sin nota no puntúa ni cuenta (igual que en Buscar: lib/listElements).
+            const reviewScore = reviewScoreForList(review, list).score;
+            if (reviewScore === null) return;
+            // Misma clave que la ficha y Buscar: sitio + nombre sin tildes ni signos.
+            const key = elementKey(review, groupingMode === 'dish' ? 'dish' : 'place');
 
             if (!groups[key]) {
                 const itemName = review.itemName ? review.itemName : (review.placeName || 'Elemento sin nombre');
@@ -455,8 +455,6 @@ export const ListPage: React.FC = () => {
             }
 
             const g = groups[key];
-            // En la Lista madre, las valoraciones de Minilista cuentan solo con sus criterios.
-            const reviewScore = reviewScoreForList(review, list).score ?? 0;
             g.totalRating += reviewScore;
             g.count += 1;
 
@@ -576,8 +574,9 @@ export const ListPage: React.FC = () => {
             };
         }).sort((a, b) => {
             if (sortMode === 'rating') {
-                // Ranking único (lib/scoring): una valoración suelta no basta para encabezar.
-                return compareByRank({ average: a.avgRating, count: a.reviewCount }, { average: b.avgRating, count: b.reviewCount });
+                // Ranking único (lib/scoring): una valoración suelta no basta para
+                // encabezar; a igualdad, más valoraciones y luego la clave (como Buscar).
+                return compareElementsByRank({ id: a.id, average: a.avgRating, count: a.reviewCount }, { id: b.id, average: b.avgRating, count: b.reviewCount });
             }
             if (sortMode === 'count') {
                 return b.reviewCount - a.reviewCount;
@@ -1367,7 +1366,8 @@ export const ListPage: React.FC = () => {
                             {viewMode === 'gallery' ? (
                                 <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
                                     {filteredItems.map((item, idx) => {
-                                        const rank = idx + 1;
+                                        // El puesto solo tiene sentido ordenando por nota.
+                                        const rank = sortMode === 'rating' ? idx + 1 : undefined;
                                         const score = item.avgRating;
                                         const primaryName = groupingMode === 'dish' ? (item.placeName || item.name) : item.name;
                                         const secondaryName = groupingMode === 'dish' ? item.name : undefined;
@@ -1411,7 +1411,7 @@ export const ListPage: React.FC = () => {
                                                     <span className="text-[9px] sm:text-[10px] font-bold">{score.toFixed(1)}</span>
                                                 </div>
                                                 {/* Rank badge top-left for top 3 */}
-                                                {rank <= 3 && (
+                                                {rank !== undefined && rank <= 3 && (
                                                     <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shadow-lg text-[9px] sm:text-[10px] font-bold ${rank === 1 ? 'bg-amber-400 text-black' : rank === 2 ? 'bg-gray-300 text-black' : 'bg-amber-700 text-white'}`}>
                                                         {rank}
                                                     </div>
@@ -1420,9 +1420,9 @@ export const ListPage: React.FC = () => {
                                         );
                                         const cardClass = "group relative isolate aspect-square bg-gray-900 rounded-lg overflow-hidden cursor-pointer border border-white/10 hover:border-[var(--lt-accent-border)] transition-colors shadow-sm";
                                         return href ? (
-                                            <Link key={item.id} to={href} className={cardClass}>{cardContent}</Link>
+                                            <Link key={item.id} to={href} className={cardClass} data-element-key={item.id}>{cardContent}</Link>
                                         ) : (
-                                            <div key={item.id} className={cardClass}>{cardContent}</div>
+                                            <div key={item.id} className={cardClass} data-element-key={item.id}>{cardContent}</div>
                                         );
                                     })}
                                 </div>
@@ -1448,7 +1448,8 @@ export const ListPage: React.FC = () => {
                                     >
                                         <ListItemCard
                                             item={filteredItems[virtualRow.index]}
-                                            rank={virtualRow.index + 1}
+                                            rank={sortMode === 'rating' ? virtualRow.index + 1 : undefined}
+                                            elementKey={filteredItems[virtualRow.index].id}
                                             contextRankLabel={primaryContextRank(contextRanksById.get(filteredItems[virtualRow.index].id), effectiveArea, filteredItemsAll.length)?.label}
                                             isGrid={false}
                                             groupingMode={groupingMode}

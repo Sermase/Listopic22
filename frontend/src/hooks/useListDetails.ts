@@ -4,7 +4,7 @@ import { doc, getDoc, query, where, getDocs, Timestamp, collection } from 'fireb
 import { db } from '../firebase';
 import { firstUsablePlaceImage } from '../utils/placeImages';
 import { type ListEntity } from './useLists';
-import { normalizeCcaa } from '../lib/geoAreas';
+import { placeClosedStatus, placeGeoFields } from '../lib/listElements';
 
 export interface ReviewEntity {
     id: string;
@@ -177,11 +177,8 @@ export async function fetchListDetails(listId: string): Promise<{ list: ListEnti
         const user = userId ? usersMap[userId] : null;
         const legacyReview = review as any;
 
-        let city = place?.city;
-        if (!city && place?.addressComponents) {
-            const locality = place.addressComponents.find((c: any) => c.types.includes('locality'));
-            if (locality) city = locality.long_name;
-        }
+        // Misma zona que Buscar (lib/listElements ↔ functions/modules/lib/list-elements.js).
+        const geo = placeGeoFields(place);
 
         return {
             ...review,
@@ -190,13 +187,13 @@ export async function fetchListDetails(listId: string): Promise<{ list: ListEnti
             criteriaDefinition: (listSnap.data() as ListEntity).criteriaDefinition,
             placeName: place?.name || legacyReview.establishmentName || review.placeName,
             placeAddress: place?.address || place?.formattedAddress || place?.vicinity,
-            placeCity: city,
-            placeProvince: place?.province || '',
-            placeRegion: normalizeCcaa(place?.region),
-            placeCountry: place?.country || '',
+            placeCity: geo.city || undefined,
+            placeProvince: geo.province,
+            placeRegion: geo.region,
+            placeCountry: geo.country,
             placeMainImage: firstUsablePlaceImage(place?.userPhotoUrl, place?.mainImageUrl, place?.photos),
             placeAverageRating: place?.averageRating ?? place?.rating ?? place?.avgScore,
-            placeClosedStatus: place?.closedStatus || place?.googleBusinessStatus || place?.businessStatus || null,
+            placeClosedStatus: placeClosedStatus(place),
             placePetOptions: place?.businessPetOptions || place?.petOptions || place?.pets,
             authorName: user?.username || user?.displayName || user?.name || review.authorName,
             authorPhoto: user?.photoUrl || user?.photoURL || review.authorPhoto,

@@ -150,6 +150,15 @@ function compareByRank(a, b) {
 
 const rankingIndexScore = (average, count) => Number(rankPosition(average, count).toFixed(4));
 
+// Espejo de compareElementsByRank (frontend/src/lib/scoring.ts).
+function compareElementsByRank(a, b) {
+  const diff = rankingIndexScore(b.average, b.count) - rankingIndexScore(a.average, a.count);
+  if (diff !== 0) return diff;
+  const byCount = safeNumber(b.count) - safeNumber(a.count);
+  if (byCount !== 0) return byCount;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
 module.exports = {
   SCORE_MIN,
   SCORE_MAX,
@@ -171,5 +180,6 @@ module.exports = {
   RANK_PRIOR,
   rankPosition,
   compareByRank,
-  rankingIndexScore
+  rankingIndexScore,
+  compareElementsByRank
 };

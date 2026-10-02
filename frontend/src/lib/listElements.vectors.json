@@ -1,0 +1,514 @@
+{
+ "_comment": "Mismo caso para la Lista (frontend) y Buscar (Functions → Algolia). Si uno cambia el cálculo, el otro test falla.",
+ "list": {
+  "id": "bravas",
+  "isPublic": true,
+  "visibility": "public",
+  "criteriaDefinition": {
+   "sabor": {
+    "label": "Sabor",
+    "order": 0
+   },
+   "salsa": {
+    "label": "Salsa",
+    "order": 1
+   }
+  },
+  "scoringWeights": {
+   "sabor": 1,
+   "salsa": 1
+  }
+ },
+ "places": {
+  "p_vll1": {
+   "name": "Bar Uno",
+   "city": "Valladolid",
+   "province": "Valladolid",
+   "region": "Castilla y León",
+   "country": "España"
+  },
+  "p_vll2": {
+   "name": "Bar Dos",
+   "city": "Valladolid",
+   "province": "Valladolid",
+   "region": "Castilla y León",
+   "country": "España"
+  },
+  "p_vll3": {
+   "name": "Bar Tres",
+   "addressComponents": [
+    {
+     "long_name": "Valladolid",
+     "types": [
+      "locality",
+      "political"
+     ]
+    }
+   ],
+   "province": "Valladolid",
+   "region": "Castile and León",
+   "country": "España"
+  },
+  "p_med": {
+   "name": "Bar Medina",
+   "city": "Medina del Campo",
+   "province": "Valladolid",
+   "region": "Castilla y León",
+   "country": "España"
+  },
+  "p_leon": {
+   "name": "Bar León",
+   "city": "León",
+   "province": "León",
+   "region": "Castilla y León",
+   "country": "España"
+  },
+  "p_mad": {
+   "name": "Bar Madrid",
+   "city": "Madrid",
+   "province": "Madrid",
+   "region": "Comunidad de Madrid",
+   "country": "España"
+  },
+  "p_mad2": {
+   "name": "Bar Sol",
+   "city": "Madrid",
+   "province": "Madrid",
+   "region": "Comunidad de Madrid",
+   "country": "España"
+  },
+  "p_chain1": {
+   "name": "Lizarrán",
+   "city": "Valladolid",
+   "province": "Valladolid",
+   "region": "Castilla y León",
+   "country": "España"
+  },
+  "p_chain2": {
+   "name": "Lizarrán",
+   "city": "Madrid",
+   "province": "Madrid",
+   "region": "Comunidad de Madrid",
+   "country": "España"
+  }
+ },
+ "botAuthorIds": [
+  "bot"
+ ],
+ "reviews": [
+  {
+   "id": "r01",
+   "userId": "ana",
+   "placeId": "p_vll1",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 9.0,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r02",
+   "userId": "luis",
+   "placeId": "p_vll1",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 8.5,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r03",
+   "userId": "eva",
+   "placeId": "p_vll1",
+   "itemName": " Bravás ",
+   "visibility": "public",
+   "overallRating": 6.0,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r04",
+   "userId": "ana",
+   "placeId": "p_vll2",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 7.5,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r05",
+   "userId": "bot",
+   "placeId": "p_vll2",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 10.0,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r06",
+   "userId": "bot",
+   "placeId": "p_vll2",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 10.0,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r07",
+   "userId": "luis",
+   "placeId": "p_vll2",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r10",
+   "userId": "u0",
+   "placeId": "p_vll3",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 8,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r11",
+   "userId": "u1",
+   "placeId": "p_vll3",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 8,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r12",
+   "userId": "u2",
+   "placeId": "p_vll3",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 8,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r13",
+   "userId": "u3",
+   "placeId": "p_vll3",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 8,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r14",
+   "userId": "u4",
+   "placeId": "p_vll3",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 8.2,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r20",
+   "userId": "v0",
+   "placeId": "p_mad",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 8,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r21",
+   "userId": "v1",
+   "placeId": "p_mad",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 8,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r22",
+   "userId": "v2",
+   "placeId": "p_mad",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 8,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r23",
+   "userId": "v3",
+   "placeId": "p_mad",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 8,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r24",
+   "userId": "v4",
+   "placeId": "p_mad",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 8,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r30",
+   "userId": "ana",
+   "placeId": "p_leon",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 7.0,
+   "createdAtMs": 1997
+  },
+  {
+   "id": "r31",
+   "userId": "luis",
+   "placeId": "p_leon",
+   "itemName": "Bravas",
+   "visibility": "private",
+   "overallRating": 10.0,
+   "sublistId": "secreta",
+   "scores": {
+    "sabor": 10,
+    "salsa": 10
+   },
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r32",
+   "userId": "ana",
+   "placeId": "p_med",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 7.0,
+   "createdAtMs": 1999
+  },
+  {
+   "id": "r33",
+   "userId": "luis",
+   "placeId": "p_mad2",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 7.0,
+   "createdAtMs": 2000
+  },
+  {
+   "id": "r34",
+   "userId": "ana",
+   "placeId": "p_chain1",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 9.5,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r35",
+   "userId": "luis",
+   "placeId": "p_chain2",
+   "itemName": "Bravas",
+   "visibility": "public",
+   "overallRating": 5.0,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r36",
+   "userId": "bot",
+   "placeId": "p_leon",
+   "itemName": "Patatas",
+   "visibility": "public",
+   "overallRating": 9.0,
+   "createdAtMs": 1000
+  },
+  {
+   "id": "r37",
+   "userId": "ana",
+   "placeId": "p_vll1",
+   "itemName": "Croquetas",
+   "visibility": "public",
+   "overallRating": 5.33,
+   "sublistId": "picantes",
+   "scores": {
+    "sabor": 6,
+    "salsa": 8,
+    "picante": 2
+   },
+   "createdAtMs": 1998
+  }
+ ],
+ "expected": {
+  "elements": [
+   {
+    "key": "p_vll3_bravas",
+    "average": 8.04,
+    "count": 5,
+    "city": "Valladolid",
+    "province": "Valladolid",
+    "region": "Castilla y León",
+    "country": "España",
+    "rank": 1
+   },
+   {
+    "key": "p_mad_bravas",
+    "average": 8.0,
+    "count": 5,
+    "city": "Madrid",
+    "province": "Madrid",
+    "region": "Comunidad de Madrid",
+    "country": "España",
+    "rank": 2
+   },
+   {
+    "key": "p_chain1_bravas",
+    "average": 9.5,
+    "count": 1,
+    "city": "Valladolid",
+    "province": "Valladolid",
+    "region": "Castilla y León",
+    "country": "España",
+    "rank": 3
+   },
+   {
+    "key": "p_vll1_bravas",
+    "average": 7.8333,
+    "count": 3,
+    "city": "Valladolid",
+    "province": "Valladolid",
+    "region": "Castilla y León",
+    "country": "España",
+    "rank": 4
+   },
+   {
+    "key": "p_vll2_bravas",
+    "average": 7.5,
+    "count": 1,
+    "city": "Valladolid",
+    "province": "Valladolid",
+    "region": "Castilla y León",
+    "country": "España",
+    "rank": 5
+   },
+   {
+    "key": "p_leon_bravas",
+    "average": 7.0,
+    "count": 1,
+    "city": "León",
+    "province": "León",
+    "region": "Castilla y León",
+    "country": "España",
+    "rank": 6
+   },
+   {
+    "key": "p_mad2_bravas",
+    "average": 7.0,
+    "count": 1,
+    "city": "Madrid",
+    "province": "Madrid",
+    "region": "Comunidad de Madrid",
+    "country": "España",
+    "rank": 7
+   },
+   {
+    "key": "p_med_bravas",
+    "average": 7.0,
+    "count": 1,
+    "city": "Medina del Campo",
+    "province": "Valladolid",
+    "region": "Castilla y León",
+    "country": "España",
+    "rank": 8
+   },
+   {
+    "key": "p_vll1_croquetas",
+    "average": 7.0,
+    "count": 1,
+    "city": "Valladolid",
+    "province": "Valladolid",
+    "region": "Castilla y León",
+    "country": "España",
+    "rank": 9
+   },
+   {
+    "key": "p_chain2_bravas",
+    "average": 5.0,
+    "count": 1,
+    "city": "Madrid",
+    "province": "Madrid",
+    "region": "Comunidad de Madrid",
+    "country": "España",
+    "rank": 10
+   }
+  ],
+  "zones": {
+   "city:Valladolid": [
+    "p_vll3_bravas",
+    "p_chain1_bravas",
+    "p_vll1_bravas",
+    "p_vll2_bravas",
+    "p_vll1_croquetas"
+   ],
+   "city:Madrid": [
+    "p_mad_bravas",
+    "p_mad2_bravas",
+    "p_chain2_bravas"
+   ],
+   "city:León": [
+    "p_leon_bravas"
+   ],
+   "city:Medina del Campo": [
+    "p_med_bravas"
+   ],
+   "province:Valladolid": [
+    "p_vll3_bravas",
+    "p_chain1_bravas",
+    "p_vll1_bravas",
+    "p_vll2_bravas",
+    "p_med_bravas",
+    "p_vll1_croquetas"
+   ],
+   "province:Madrid": [
+    "p_mad_bravas",
+    "p_mad2_bravas",
+    "p_chain2_bravas"
+   ],
+   "province:León": [
+    "p_leon_bravas"
+   ],
+   "region:Castilla y León": [
+    "p_vll3_bravas",
+    "p_chain1_bravas",
+    "p_vll1_bravas",
+    "p_vll2_bravas",
+    "p_leon_bravas",
+    "p_med_bravas",
+    "p_vll1_croquetas"
+   ],
+   "region:Comunidad de Madrid": [
+    "p_mad_bravas",
+    "p_mad2_bravas",
+    "p_chain2_bravas"
+   ]
+  },
+  "botOnlyKeys": [
+   "p_leon_patatas"
+  ]
+ },
+ "itemNames": [
+  {
+   "input": "Bravas",
+   "expected": "bravas"
+  },
+  {
+   "input": "  Bravás!! ",
+   "expected": "bravas"
+  },
+  {
+   "input": "Patatas   Bravas",
+   "expected": "patatas bravas"
+  },
+  {
+   "input": "Ñoquis (caseros)",
+   "expected": "noquis caseros"
+  },
+  {
+   "input": "",
+   "expected": ""
+  }
+ ]
+}

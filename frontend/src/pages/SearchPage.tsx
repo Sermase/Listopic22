@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ZonePicker } from '../components/search/ZonePicker';
+import { HIDE_BOT_ONLY, useBotOnlyFilter } from '../components/search/botOnlyFilter';
+import { elementKey } from '../lib/listElements';
 import { parseZones, zoneKey, zonesFilter, zonesLabel, type Zone } from '../lib/searchZones';
 import {
     InstantSearch,
@@ -777,10 +779,19 @@ interface HitsProps {
     onClearZone?: () => void;
 }
 
+/** Configure de los resultados: añade el filtro de «solo bots» según el filtro «Bots». */
+const ResultsConfigure = ({ tab, query, filters, geo }: { tab: string; query: string; filters: string; geo: Record<string, unknown> }) => {
+    const botFilter = useBotOnlyFilter(tab);
+    return <Configure query={query} filters={joinAlgoliaFilters([filters, botFilter])} hitsPerPage={20} {...geo} />;
+};
+
 const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false, includeClosed = false, rankEligible = false, zoneLabel: selectedZoneLabel = null, onClearZone }) => {
     const { hits, isLastPage, showMore } = useInfiniteHits();
     const { status, results } = useInstantSearch();
-    const zoneLabel = rankEligible ? selectedZoneLabel : null;
+    // Cualquier filtro de la barra lateral (tags, tipo de usuario…) deja un
+    // subconjunto: su posición ya no es el puesto de la Lista en esa zona.
+    const { items: refinements } = useCurrentRefinements();
+    const zoneLabel = rankEligible && refinements.length === 0 ? selectedZoneLabel : null;
     const sentinelRef = useRef<HTMLDivElement>(null);
     const hover = onHoverHit ?? (() => {});
     const typedHits = useMemo(() => hits as SearchHit[], [hits]);
@@ -882,6 +893,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                                 isGrid={!listLayout}
                                 disableLift={listLayout}
                                 contextRankLabel={zoneLabel ? `#${index + 1} en ${zoneLabel}` : undefined}
+                                elementKey={(activeTab === 'items' || activeTab === 'grouped_items') ? elementKey({ placeId: hit.placeId, itemName: hit.itemName }, 'dish') : undefined}
                                 groupingMode={
                                     activeTab === 'lists' ? 'list' :
                                     (activeTab === 'grouped_items' || activeTab === 'items') ? 'dish' : 'place'
@@ -1269,10 +1281,15 @@ export const SearchPage: React.FC = () => {
     ), [baseAlgoliaFilters, isGeoTab, activeTab, zones]);
     const selectedZoneLabel = zonesLabel(zones);
 
-    // «#3 en Valladolid» solo cuando el orden es el ranking de una Lista.
+    // «#3 en Valladolid» solo cuando lo que se ve es el ranking de la Lista en
+    // esa zona, igual que en la Lista: sin texto, sin otros filtros, sin radio
+    // (sería «en la zona y a X km») y sin sitios cerrados.
     const rankEligible = activeTab === 'items'
         && Boolean(listIdParam)
         && !parsedQuery.cleanedQuery.trim()
+        && !parsedAlgoliaFilters
+        && !effectiveGeoActive
+        && !includeClosedPlaces
         && (activeSortOption.value === 'grouped_items_by_score' || activeSortOption.value === 'grouped_items');
     const clearListScope = () => {
         const next = new URLSearchParams(searchParams);
@@ -1287,8 +1304,11 @@ export const SearchPage: React.FC = () => {
         return {
             aroundLatLng: `${location.latitude},${location.longitude}`,
             aroundRadius: geoRadius === 'all' ? ('all' as const) : geoRadius,
+            // Ordenando por nota, el radio solo filtra: sin esto Algolia ordena
+            // por cercanía antes que por nota (la Lista con radio ordena por nota).
+            ...(activeSortOption.requiresLocation ? {} : { aroundPrecision: 20_000_000 }),
         };
-    }, [effectiveGeoActive, geoRadius, isGeoTab, location]);
+    }, [activeSortOption.requiresLocation, effectiveGeoActive, geoRadius, isGeoTab, location]);
 
     const zoneBar = isGeoTab ? (
         <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -1366,15 +1386,15 @@ export const SearchPage: React.FC = () => {
                         <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" type="lists" icon={ListIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('lists')} />
                         <FederatedSection indexName={INDEX_NAMES.places} title="Sitios" type="places" icon={MapIcon} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('places'), PLACES_WITH_REVIEWS_FILTER])} onViewAll={() => handleTabChange('places')} />
                         <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" type="users" icon={Users} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('users')} />
-                        <FederatedSection indexName={INDEX_NAMES.items} title="Elementos" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} filters={getDefaultClosedFilter('items')} onViewAll={() => handleTabChange('items')} />
+                        <FederatedSection indexName={INDEX_NAMES.items} title="Elementos" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('items'), HIDE_BOT_ONLY])} onViewAll={() => handleTabChange('items')} />
                     </div>
                 ) : (
                     <Index indexName={activeIndexName}>
-                        <Configure
+                        <ResultsConfigure
+                            tab={activeTab}
                             query={parsedQuery.cleanedQuery}
                             filters={algoliaFilters}
-                            hitsPerPage={20}
-                            {...activeGeoConfig}
+                            geo={activeGeoConfig}
                         />
 
                         {/* ── Mobile filter modal ───────────────────────────── */}

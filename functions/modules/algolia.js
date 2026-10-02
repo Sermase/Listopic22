@@ -12,7 +12,7 @@ const { rankingIndexScore } = require("./lib/scoring");
 const { normalizeCcaa } = require("./lib/geo-areas");
 const { syncAllObjects } = require("./lib/algolia-sync");
 const { defineSecret } = require("firebase-functions/params");
-const { resolveAlgoliaCredentials } = require("./lib/algolia-credentials");
+const { resolveAlgoliaCredentials, resolveAlgoliaHosts } = require("./lib/algolia-credentials");
 
 // Clave de administración de Algolia: solo en Secret Manager.
 //   firebase functions:secrets:set ALGOLIA_API_KEY --project listopic
@@ -40,7 +40,10 @@ function getIndex(indexName) {
             return null;
         }
         try {
-            algoliaClient = algoliasearch(credentials.appId, credentials.apiKey);
+            const hosts = resolveAlgoliaHosts();
+            algoliaClient = hosts
+                ? algoliasearch(credentials.appId, credentials.apiKey, { hosts })
+                : algoliasearch(credentials.appId, credentials.apiKey);
             logger.info("Algolia client initialised on first use.");
         } catch (error) {
             // Sin el objeto de error: no debe acabar ninguna clave en los logs.
@@ -102,10 +105,12 @@ const INDEX_SETTINGS = {
     },
     grouped_items: {
         searchableAttributes: ["unordered(itemName)", "unordered(establishmentName)", "unordered(listName)", "unordered(listCategoryName)", "unordered(groupTags)", "unordered(itemTags)"],
-        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "listCategoryName", "filterOnly(listAvailableTags)", "groupTags", "itemTags", "searchable(placeCity)", "searchable(placeProvince)", "placeRegion", "placeCountry", "authorUserType", "accessibilityOptions", "petOptions", "placeClosedStatus", "placeGoogleBusinessStatus", "placeBusinessStatus", "hasPhoto", "isGlutenFree"],
+        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "listCategoryName", "filterOnly(listAvailableTags)", "groupTags", "itemTags", "searchable(placeCity)", "searchable(placeProvince)", "placeRegion", "placeCountry", "authorUserType", "accessibilityOptions", "petOptions", "placeClosedStatus", "placeGoogleBusinessStatus", "placeBusinessStatus", "hasPhoto", "isGlutenFree", "filterOnly(botOnly)"],
         replicas: ["grouped_items_by_score", "grouped_items_by_reviews"],
-        customRanking: ["desc(rankingScore)", "desc(reviewCount)"],
-        numericAttributesForFiltering: ["rankingScore", "avgGeneralScore", "reviewCount"]
+        // Mismo orden que la Lista (compareElementsByRank): listRank deshace los
+        // empates de nota y nº de valoraciones con la clave del elemento.
+        customRanking: ["desc(rankingScore)", "desc(reviewCount)", "asc(listRank)"],
+        numericAttributesForFiltering: ["rankingScore", "avgGeneralScore", "reviewCount", "listRank"]
     }
 };
 
@@ -117,8 +122,8 @@ const REPLICA_SETTINGS = {
     users_by_followers: { customRanking: ["desc(followersCount)", "desc(reviewsCount)", "desc(level)"] },
     users_by_reviews: { customRanking: ["desc(reviewsCount)", "desc(followersCount)", "desc(level)"] },
     users_by_level: { customRanking: ["desc(level)", "desc(xp)", "desc(followersCount)", "desc(reviewsCount)"] },
-    grouped_items_by_score: { customRanking: ["desc(rankingScore)", "desc(reviewCount)", "desc(avgGeneralScore)"] },
-    grouped_items_by_reviews: { customRanking: ["desc(reviewCount)", "desc(avgGeneralScore)", "desc(rankingScore)"] }
+    grouped_items_by_score: { customRanking: ["desc(rankingScore)", "desc(reviewCount)", "asc(listRank)"] },
+    grouped_items_by_reviews: { customRanking: ["desc(reviewCount)", "desc(rankingScore)", "asc(listRank)"] }
 };
 
 
@@ -217,7 +222,8 @@ function calculateUserRankingScore(data) {
 }
 
 function calculateGroupedItemRankingScore(group) {
-    return rankingIndexScore(safeNumber(group?.avgGeneralScore), safeNumber(group?.itemCount ?? group?.reviewCount));
+    // Con la media sin redondear, como la Lista (la de 1 decimal es la que se ve).
+    return rankingIndexScore(safeNumber(group?.average ?? group?.avgGeneralScore), safeNumber(group?.itemCount ?? group?.reviewCount));
 }
 
 function trueObjectKeys(value) {
@@ -532,6 +538,16 @@ function hasGroupedListMetadataChanged(beforeData, afterData) {
     if (resolveGroupedListOwnerName(beforeData) !== resolveGroupedListOwnerName(afterData)) {
         return true;
     }
+    // Criterios o pesos: cambian la nota de las valoraciones de Minilista vistas desde la madre.
+    if (JSON.stringify(beforeData.criteriaDefinition || null) !== JSON.stringify(afterData.criteriaDefinition || null)) {
+        return true;
+    }
+    if (JSON.stringify(beforeData.scoringWeights || null) !== JSON.stringify(afterData.scoringWeights || null)) {
+        return true;
+    }
+    if ((beforeData.visibility || null) !== (afterData.visibility || null)) {
+        return true;
+    }
     return false;
 }
 
@@ -685,6 +701,9 @@ function mapGroupToAlgoliaRecord(listId, listData, group, category = null) {
         itemCount: typeof group.itemCount === "number" ? group.itemCount : 0,
         averageRating: typeof group.avgGeneralScore === "number" ? group.avgGeneralScore : 0,
         rankingScore: calculateGroupedItemRankingScore(group),
+        listRank: typeof group.listRank === "number" ? group.listRank : 0,
+        // Solo valoraciones de bots: Buscar lo oculta por defecto, como la Lista.
+        botOnly: group.botOnly === true,
         groupTags: Array.isArray(group.groupTags) ? group.groupTags : [],
         itemTags,
         isGlutenFree: hasGlutenFreeTag(itemTags),
@@ -755,19 +774,15 @@ async function rebuildGroupedItemsForList(listId) {
     }
     try {
         const { listData, groupedReviews } = await buildGroupedItemsForList(listId, { publicOnly: true });
-        await clearGroupedItemsForList(listId, index);
         if (!listData || listData.isPublic === false) {
+            await clearGroupedItemsForList(listId, index);
             return null;
         }
         const category = await resolveCategoryMetadata(listData.categoryId || null, listData);
         const records = (groupedReviews || []).map((group) => mapGroupToAlgoliaRecord(listId, listData, group, category));
-        if (records.length === 0) {
-            return null;
-        }
-        const response = await index.saveObjects(records);
-        if (response?.taskID) {
-            await index.waitTask(response.taskID);
-        }
+        // Sin vaciar antes (Buscar se quedaba sin resultados de la Lista un momento
+        // en cada valoración): se guardan los nuevos y se borran los que sobran.
+        await syncAllObjects(index, records, { filters: buildFilterEquality("listId", listId) });
     } catch (error) {
         logger.error(`Algolia: failed syncing grouped items for list ${listId}`, error);
     }
