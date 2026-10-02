@@ -31,6 +31,7 @@ import { SearchMapView } from '../components/SearchMapView';
 import { useLocation } from '../hooks/useLocation';
 import { getPlaceTypeLabel, getPlaceTypeLabels } from '../utils/placeTypeLabels';
 import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/placeStatus';
+import { placeCardScore } from '../lib/placeRating';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -136,6 +137,12 @@ type SearchHit = {
     averageRating?: number;
     avgGeneralScore?: number;
     reviewCount?: number;
+    // Sitios (lib/place-rating.js): nota pública de personas aparte de la actividad con bots.
+    hasPublicRating?: boolean;
+    publicHumanReviewsCount?: number;
+    totalVisibleReviewsCount?: number;
+    publicBotReviewsCount?: number;
+    botAverageRating?: number;
     itemCount?: number;
     placeId?: string;
     placeName?: string;
@@ -517,9 +524,11 @@ function getDefaultClosedFilter(tab: string) {
     return '';
 }
 
-// La pestaña Lugares solo muestra sitios con al menos una reseña. Filtrarlo en
-// Algolia (y no en el cliente) evita páginas vacías que cortaban el scroll
-// infinito y contadores que no coincidían con lo visible.
+// La pestaña Sitios muestra los que tienen ACTIVIDAD visible: alguna valoración pública,
+// también de bots (reviewsCount = totalVisibleReviewsCount). Un sitio solo con bots sale,
+// «Sin nota pública todavía»; NUNCA depende de publicHumanReviewsCount. Se filtra con
+// reviewsCount (y no con el nombre nuevo) porque es el campo que tienen todos los registros
+// y el que usan las apps ya instaladas. Filtrarlo en Algolia evita páginas vacías.
 const PLACES_WITH_REVIEWS_FILTER = 'reviewsCount > 0';
 
 function isClosedStatus(value?: string | null) {
@@ -792,6 +801,8 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
     // subconjunto: su posición ya no es el puesto de la Lista en esa zona.
     const { items: refinements } = useCurrentRefinements();
     const zoneLabel = rankEligible && refinements.length === 0 ? selectedZoneLabel : null;
+    // Con el filtro «Bots», un sitio sin nota pública enseña la de bots (marcada como tal).
+    const showBots = refinements.some((item) => item.attribute === 'authorUserType' && item.refinements.some((r) => String(r.value) === 'bot'));
     const sentinelRef = useRef<HTMLDivElement>(null);
     const hover = onHoverHit ?? (() => {});
     const typedHits = useMemo(() => hits as SearchHit[], [hits]);
@@ -873,8 +884,12 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                                     id: hit.objectID,
                                     name: hit.name ?? hit.itemName ?? 'Resultado',
                                     photoUrl: hit.thumbnailUrl ?? hit.mainImageUrl ?? hit.photoUrl ?? hit.coverUrl ?? hit.imageUrl,
-                                    avgRating: hit.averageRating ?? hit.avgGeneralScore ?? 0,
-                                    reviewCount: hit.reviewsCount ?? hit.reviewCount ?? hit.itemCount ?? 0,
+                                    ...(activeTab === 'places'
+                                        ? placeCardScore(hit, showBots)
+                                        : {
+                                            avgRating: hit.averageRating ?? hit.avgGeneralScore ?? 0,
+                                            reviewCount: hit.reviewsCount ?? hit.reviewCount ?? hit.itemCount ?? 0,
+                                        }),
                                     placeId: activeTab === 'places' ? hit.objectID : hit.placeId,
                                     placeName: hit.placeName || (activeTab === 'places' ? hit.name : undefined),
                                     placeCity: hit.city || hit.placeCity,
@@ -1054,7 +1069,7 @@ const QuickFilters = ({
     locLoading: boolean;
     onToggleGeo: () => void;
 }) => {
-    const showReviewUserTypes = activeTab === 'items' || activeTab === 'grouped_items';
+    const showReviewUserTypes = activeTab === 'items' || activeTab === 'grouped_items' || activeTab === 'places';
     const showPlaceTypes = activeTab === 'places';
 
     if (!isGeoTab && !showReviewUserTypes && !showPlaceTypes) return null;

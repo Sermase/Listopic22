@@ -63,6 +63,8 @@ export interface PlaceDetails {
     reviewCount: number;
     /** Nota de críticos verificados (aparte de la general); provisional con poca muestra. */
     criticRating: PlaceRating['critic'];
+    /** Valoraciones públicas también de bots: hay actividad aunque no haya nota pública. */
+    visibleReviewCount: number;
     reviews: ReviewEntity[];
     relatedLists: { id: string; name: string; authorName?: string; parentListId?: string; photoUrl?: string; }[];
     coords?: { lat: number; lng: number };
@@ -499,6 +501,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         avgScore: rating.average ?? 0,
         reviewCount: rating.count,
         criticRating: rating.critic,
+        visibleReviewCount: rating.visibleCount,
         reviews: enrichedReviews,
         relatedLists,
         coords,

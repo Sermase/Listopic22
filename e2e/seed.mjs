@@ -59,6 +59,17 @@ async function seed() {
   await db.doc('lists/pruebas').set({ ...base, name: 'Pruebas E2E', isPublic: true, visibility: 'public', criteriaDefinition: list.criteriaDefinition, scoringWeights: list.scoringWeights });
   await db.doc('lists/secreta').set({ ...base, name: 'Bravas secretas', isPublic: false, visibility: 'private', parentListId: 'bravas', criteriaDefinition: list.criteriaDefinition, scoringWeights: list.scoringWeights });
 
+  // Sitio solo con valoraciones de bots (fuera de «bravas»): sale en Buscar → Sitios
+  // «Sin nota pública todavía»; con el filtro «Bots», su nota de bots.
+  await db.doc('places/p_bots').set({ name: 'Bar Robot', city: 'Valladolid', province: 'Valladolid', region: 'Castilla y León', country: 'España', location: new GeoPoint(41.6511, -4.7262), address: 'Bar Robot, Valladolid' });
+  await db.doc('lists/robots').set({ ...base, name: 'Robots E2E', isPublic: true, visibility: 'public', criteriaDefinition: list.criteriaDefinition, scoringWeights: list.scoringWeights });
+  for (const [id, overallRating] of [['rb1', 7], ['rb2', 8]]) {
+    await db.doc(`lists/robots/reviews/${id}`).set({
+      userId: 'bot', placeId: 'p_bots', itemName: 'Bravas robot', visibility: 'public', overallRating, listId: 'robots',
+      establishmentName: 'Bar Robot', authorUserType: ['basico', 'bot'], createdAt: Timestamp.fromMillis(1_790_000_000_000),
+    });
+  }
+
   for (const r of vectors.reviews) {
     const { id, createdAtMs, ...data } = r;
     const place = vectors.places[r.placeId];
@@ -113,6 +124,8 @@ async function main() {
   }
   // Contadores de las Listas y reindexado de Algolia con las Functions reales.
   await callFunction('adminRecalculateAllLists', {}, 'jefe@e2e.test');
+  // Contadores y notas de sitios (lib/place-rating.js) con la Function real.
+  await callFunction('adminRecountReviewCounters', {}, 'jefe@e2e.test');
   const result = await callFunction('adminBackfillAlgolia', { collectionName: 'grouped_items' }, 'jefe@e2e.test');
   for (const collectionName of ['lists', 'places', 'users']) await callFunction('adminBackfillAlgolia', { collectionName }, 'jefe@e2e.test');
   const records = await algoliaRecords('grouped_items', 'listId:"bravas"');

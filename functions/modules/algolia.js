@@ -90,10 +90,13 @@ const INDEX_SETTINGS = {
     places: {
         searchableAttributes: ["unordered(name)", "unordered(address)", "unordered(city)", "unordered(types)", "unordered(itemTags)"],
         // Zona en Buscar: ciudad, provincia, comunidad y país se pueden listar (antes solo filtrar).
-        attributesForFaceting: ["searchable(city)", "searchable(province)", "region", "country", "serviceOptions", "accessibilityOptions", "petOptions", "types", "priceLevel", "closedStatus", "googleBusinessStatus", "businessStatus", "hasPhoto", "itemTags", "isGlutenFree"],
+        // authorUserType: quién ha valorado en público (filtros «Bots», «Críticos»…).
+        attributesForFaceting: ["searchable(city)", "searchable(province)", "region", "country", "serviceOptions", "accessibilityOptions", "petOptions", "types", "priceLevel", "closedStatus", "googleBusinessStatus", "businessStatus", "hasPhoto", "itemTags", "isGlutenFree", "authorUserType"],
         replicas: ["places_by_rating", "places_by_reviews"],
-        customRanking: ["desc(rankingScore)", "desc(reviewsCount)", "desc(followersCount)"],
-        numericAttributesForFiltering: ["rankingScore", "averageRating", "reviewsCount", "followersCount"]
+        // Solo la nota humana ordena; sin nota pública (rankingScore 0) van detrás.
+        customRanking: ["desc(rankingScore)", "desc(publicHumanReviewsCount)", "desc(totalVisibleReviewsCount)", "desc(followersCount)"],
+        // reviewsCount = totalVisibleReviewsCount (alias): lo filtran las apps ya instaladas.
+        numericAttributesForFiltering: ["rankingScore", "averageRating", "reviewsCount", "publicHumanReviewsCount", "totalVisibleReviewsCount", "followersCount"]
     },
     users: {
         searchableAttributes: ["unordered(username)", "unordered(bio)"],
@@ -116,8 +119,8 @@ const INDEX_SETTINGS = {
 const REPLICA_SETTINGS = {
     lists_by_followers: { customRanking: ["desc(followersCount)", "desc(reviewCount)", "desc(updatedAtTimestamp)"] },
     lists_by_reviews: { customRanking: ["desc(reviewCount)", "desc(followersCount)", "desc(updatedAtTimestamp)"] },
-    places_by_rating: { customRanking: ["desc(rankingScore)", "desc(reviewsCount)", "desc(averageRating)"] },
-    places_by_reviews: { customRanking: ["desc(reviewsCount)", "desc(averageRating)", "desc(rankingScore)"] },
+    places_by_rating: { customRanking: ["desc(rankingScore)", "desc(publicHumanReviewsCount)", "desc(averageRating)", "desc(totalVisibleReviewsCount)"] },
+    places_by_reviews: { customRanking: ["desc(publicHumanReviewsCount)", "desc(averageRating)", "desc(totalVisibleReviewsCount)", "desc(rankingScore)"] },
     users_by_followers: { customRanking: ["desc(followersCount)", "desc(reviewsCount)", "desc(level)"] },
     users_by_reviews: { customRanking: ["desc(reviewsCount)", "desc(followersCount)", "desc(level)"] },
     users_by_level: { customRanking: ["desc(level)", "desc(xp)", "desc(followersCount)", "desc(reviewsCount)"] },
@@ -206,10 +209,22 @@ function calculateListRankingScore(data) {
     return roundScore((logBoost(reviewCount) * 5) + (logBoost(followersCount) * 4));
 }
 
+// Contadores del sitio (lib/place-rating.js). Los documentos anteriores al recálculo
+// solo tienen reviewsCount/averageRating: hasta entonces se usan como antes.
+function placeReviewCounts(data) {
+    const legacyCount = safeNumber(data?.reviewsCount);
+    const publicHuman = isNumber(data?.publicHumanReviewsCount) ? data.publicHumanReviewsCount : legacyCount;
+    const totalVisible = isNumber(data?.totalVisibleReviewsCount) ? data.totalVisibleReviewsCount : legacyCount;
+    const hasPublicRating = publicHuman > 0 && isNumber(data?.averageRating);
+    return { publicHuman, totalVisible, hasPublicRating };
+}
+
 // Sitios y elementos: la misma posición bayesiana que el resto de la app
-// (sin término de volumen). Seguidores y nº de valoraciones solo desempatan.
+// (sin término de volumen). Solo con la nota HUMANA: sin ella, 0 (detrás de
+// cualquier sitio con nota, que da ≥ 5,25). Seguidores y nº de valoraciones desempatan.
 function calculatePlaceRankingScore(data) {
-    return rankingIndexScore(safeNumber(data?.averageRating), safeNumber(data?.reviewsCount));
+    const { publicHuman, hasPublicRating } = placeReviewCounts(data);
+    return hasPublicRating ? rankingIndexScore(data.averageRating, publicHuman) : 0;
 }
 
 function calculateUserRankingScore(data) {
@@ -559,6 +574,7 @@ async function transformPlaceRecord(data, docId) {
         : await collectPlaceReviewSignals(docId);
     const itemTags = collectTagsFromData(reviewSignals.itemTags, data.itemTags, data.placeTags, data.groupTags, data.availableTags, data.tags);
     const closedStatus = normalizeClosedStatus(data.closedStatus || data.businessStatus || data.googleBusinessStatus);
+    const counts = placeReviewCounts(data);
     const record = {
         objectID: docId,
         entityType: "place",
@@ -578,8 +594,17 @@ async function transformPlaceRecord(data, docId) {
         hasPhoto: Boolean(coverImage || data.hasReviewedPhoto || reviewSignals.hasReviewedPhoto),
         itemTags,
         isGlutenFree: hasGlutenFreeTag(itemTags),
-        averageRating: typeof data.averageRating === "number" ? data.averageRating : 0,
-        reviewsCount: typeof data.reviewsCount === "number" ? data.reviewsCount : 0,
+        // Nota pública (humana). Sin ella no hay averageRating: la web dice «Sin nota pública todavía».
+        hasPublicRating: counts.hasPublicRating,
+        averageRating: counts.hasPublicRating ? data.averageRating : undefined,
+        publicHumanReviewsCount: counts.publicHuman,
+        // Actividad visible (también bots): decide que el sitio salga en Buscar.
+        totalVisibleReviewsCount: counts.totalVisible,
+        reviewsCount: counts.totalVisible,
+        // Bots aparte: solo se enseñan con el filtro «Bots».
+        publicBotReviewsCount: isNumber(data.publicBotReviewsCount) ? data.publicBotReviewsCount : undefined,
+        botAverageRating: isNumber(data.botAverageRating) ? data.botAverageRating : undefined,
+        authorUserType: Array.isArray(data.publicReviewerTypes) ? data.publicReviewerTypes : undefined,
         followersCount: typeof data.followersCount === "number" ? data.followersCount : 0,
         rankingScore: calculatePlaceRankingScore(data),
         priceLevel: typeof data.priceLevel === "number" ? data.priceLevel : null,

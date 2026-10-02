@@ -13,8 +13,11 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:windowBackground">@color/colorPrimaryDark</item>
-        <!-- Sin android:background: en un tema se hereda a TODAS las vistas, también al
-             desplegable nativo de los <select> del WebView (fondo oscuro con texto oscuro). -->
+        <!-- android:background en un tema se hereda a TODAS las vistas, también a las opciones
+             del desplegable nativo de los <select> del WebView. Capacitor aplica este tema ENCIMA
+             del de arranque (NoActionBarLaunch, con el logo de fondo): hay que anularlo aquí.
+             Con un color salía fondo oscuro con texto oscuro; sin nada, el logo en cada opción. -->
+        <item name="android:background">@null</item>
     </style>
 
 

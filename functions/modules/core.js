@@ -1342,7 +1342,9 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
           placeDoc.createdAt = FieldValue.serverTimestamp();
           placeDoc.followersCount = 0; // Inicializar campos específicos de la app
           placeDoc.reviewsCount = 0;
-          placeDoc.averageRating = null; // null hasta que existan reseñas
+          placeDoc.publicHumanReviewsCount = 0;
+          placeDoc.totalVisibleReviewsCount = 0;
+          placeDoc.averageRating = null; // null hasta que existan valoraciones públicas de personas
         }
 
         // 4. Guardamos los datos. `merge: true` sigue siendo útil para no borrar otros campos.
@@ -2505,7 +2507,7 @@ async function recalculateAggregatesForPlace(placeId) {
       hasReviewedPhoto,
       ratingUpdatedAt: FieldValue.serverTimestamp()
     });
-    logger.info(`Agregados para ${placeId}: ${rating.reviewsCount} valoraciones públicas, media ${rating.averageRating}, críticos ${rating.criticReviewsCount}.`);
+    logger.info(`Agregados para ${placeId}: ${rating.publicHumanReviewsCount} públicas de personas (media ${rating.averageRating}), ${rating.totalVisibleReviewsCount} visibles con bots, críticos ${rating.criticReviewsCount}.`);
   } catch (error) {
     logger.error(`Error al actualizar el documento del lugar ${placeId}:`, error);
   }

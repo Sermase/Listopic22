@@ -50,3 +50,31 @@ test('toda la tarjeta del resultado lleva al elemento, no solo el nombre', async
   await expect(page).toHaveURL(/\/group\/p_/);
   expect(errors).toEqual([]);
 });
+
+test.describe('Sitios: un sitio solo con bots', () => {
+  const placeNames = (page) => page.locator('article h3').allInnerTexts();
+
+  test('sale en Buscar, «Sin nota pública todavía», y al ordenar por nota va detrás', async ({ page, errors }) => {
+    await page.goto('/search?type=places&sort=rating');
+    const robot = page.locator('article', { hasText: 'Bar Robot' });
+    await expect(robot).toBeVisible();
+    await expect(robot).toContainText('Sin nota pública todavía');
+    await expect.poll(async () => (await placeNames(page)).length).toBeGreaterThan(3);
+    const names = await placeNames(page);
+    expect(names[names.length - 1]).toBe('Bar Robot');
+    expect(errors).toEqual([]);
+  });
+
+  test('con el filtro «Bots», enseña su nota de bots (marcada) y los demás siguen con la pública', async ({ page, errors }) => {
+    await page.goto('/search?type=places&sort=rating');
+    await expect(page.locator('article', { hasText: 'Bar Robot' })).toBeVisible();
+    await page.getByRole('button', { name: /Bots/ }).first().click();
+    const robot = page.locator('article', { hasText: 'Bar Robot' });
+    await expect(robot).toContainText('7.5');
+    await expect(robot.getByLabel('bots')).toBeVisible();
+    await expect(robot).not.toContainText('Sin nota pública todavía');
+    // Solo sitios con valoraciones de bots: Bar Dos (2 personas + 2 bots) mantiene su nota pública.
+    expect((await placeNames(page)).sort()).toEqual(['Bar Dos', 'Bar León', 'Bar Robot'].sort());
+    expect(errors).toEqual([]);
+  });
+});

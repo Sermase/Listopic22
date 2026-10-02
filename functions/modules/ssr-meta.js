@@ -38,8 +38,10 @@ async function buildPlaceMeta(placeId) {
   const snap = await db.collection("places").doc(placeId).get();
   if (!snap.exists) return null;
   const place = snap.data() || {};
-  const score = formatScore(place.averageRating ?? place.avgScore ?? place.rating);
-  const reviews = Number(place.reviewsCount) > 0 ? `${place.reviewsCount} reseñas` : null;
+  // Nota y nº de la nota pública (personas); sin ella, nada de nota (los bots no cuentan).
+  const humanCount = Number(place.publicHumanReviewsCount ?? place.reviewsCount) || 0;
+  const score = humanCount > 0 ? formatScore(place.averageRating ?? place.avgScore ?? place.rating) : null;
+  const reviews = humanCount > 0 ? `${humanCount} reseñas` : null;
   return {
     title: `${place.name || "Lugar"} · Listopic`,
     description: [score ? `⭐ ${score}` : null, reviews, place.city || place.address || null]

@@ -8,6 +8,7 @@ import { MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/m
 import type { MapLayerId, MapLayerConfig } from '../utils/mapUtils';
 import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/placeStatus';
 import { scoreBadge } from '../lib/scoreScale';
+import { NO_PUBLIC_RATING_LABEL, placeCardScore } from '../lib/placeRating';
 import { whenMapSized } from '../lib/mapMotion';
 
 type SearchMapHit = {
@@ -55,7 +56,8 @@ function createSearchMarker(score: number, highlighted = false): L.DivIcon {
     const scoreText = s === 0 ? '?' : (s % 1 === 0 ? s.toFixed(0) : s.toFixed(1));
     const fontSize = scoreText.length >= 3 ? 10 : 12;
 
-    const bg = s >= 9 ? '#10b981' : s >= 7 ? '#6366f1' : s >= 5 ? '#f59e0b' : '#ef4444';
+    // Sin nota pública («?»): gris neutro, no el rojo de una nota baja.
+    const bg = s === 0 ? '#64748b' : s >= 9 ? '#10b981' : s >= 7 ? '#6366f1' : s >= 5 ? '#f59e0b' : '#ef4444';
     const r = highlighted ? 17 : 14;
     const cx = highlighted ? 18 : 15;
     const cy = highlighted ? 18 : 15;
@@ -337,10 +339,12 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
 
                     {geoHits.map((hit) => {
                         const isPlace = activeTab === 'places';
-                        const rating = hit.averageRating || hit.avgGeneralScore || 0;
+                        // Sitios: solo la nota pública (personas); un sitio solo con bots va sin nota.
+                        const placeScore = isPlace ? placeCardScore(hit, false) : null;
+                        const rating = placeScore ? (placeScore.avgRating ?? 0) : (hit.averageRating || hit.avgGeneralScore || 0);
                         const name = hit.name || hit.itemName || '';
                         const photo = hit.mainImageUrl || hit.photoUrl || hit.thumbnailUrl || null;
-                        const reviewCount = hit.reviewsCount || hit.reviewCount || 0;
+                        const reviewCount = placeScore ? placeScore.reviewCount : (hit.reviewsCount || hit.reviewCount || 0);
                         const isHighlighted = hit.objectID === selectedHitId || hit.objectID === hoveredHitId;
                         const href = isPlace
                             ? `/place/${hit.objectID}`
@@ -381,7 +385,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                                                 <div style={{ fontWeight: 700, fontSize: 13, color: '#f9fafb', marginBottom: 5, lineHeight: 1.3 }}>{name}</div>
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                                                     <span style={{ fontSize: 11, color: '#9ca3af' }}>
-                                                        {reviewCount > 0 ? `${reviewCount} valoraciones` : 'Sin valoraciones'}
+                                                        {reviewCount > 0 ? `${reviewCount} valoraciones` : placeScore ? NO_PUBLIC_RATING_LABEL : 'Sin valoraciones'}
                                                     </span>
                                                     {rating > 0 && (
                                                         <span style={{ background: ratingBadge.bg, color: ratingBadge.fg, borderRadius: 6, padding: '2px 8px', fontWeight: 800, fontSize: 12 }}>

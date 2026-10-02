@@ -1,0 +1,63 @@
+# Despliegue MANUAL de Functions y reglas (Firestore y Storage) a producción.
+# Nunca se ejecuta solo: GitHub → Actions → «Desplegar Functions y reglas» → Run workflow,
+# elegir la rama (normalmente main) y escribir DESPLEGAR.
+#
+# Credenciales: la cuenta de servicio del secreto FIREBASE_SERVICE_ACCOUNT_LISTOPIC (la del
+# despliegue de Hosting). Si falla por permisos, esa cuenta necesita además:
+#   Cloud Functions Admin, Service Account User, Cloud Build Editor, Artifact Registry
+#   Administrator, Secret Manager Admin (las Functions declaran secretos) y Firebase Rules Admin.
+# La clave nunca se imprime: va a un fichero temporal del runner y se borra al acabar.
+# Sin --force: si hubiera que BORRAR alguna Function de producción, el despliegue se para.
+
+name: Desplegar Functions y reglas
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmacion:
+        description: 'Escribe DESPLEGAR para confirmar'
+        required: true
+      que:
+        description: 'Qué desplegar'
+        required: true
+        default: 'functions,firestore:rules,storage'
+        type: choice
+        options:
+          - 'functions,firestore:rules,storage'
+          - 'functions'
+          - 'firestore:rules,storage'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-functions-rules
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: ${{ inputs.confirmacion == 'DESPLEGAR' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Dependencias de Functions
+        run: npm ci
+        working-directory: functions
+      - name: Tests de Functions (si fallan, no se despliega)
+        run: npm test
+        working-directory: functions
+      - name: Desplegar
+        env:
+          SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LISTOPIC }}
+          ONLY: ${{ inputs.que }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$SA_JSON" > "$RUNNER_TEMP/sa.json"
+          trap 'rm -f "$RUNNER_TEMP/sa.json"' EXIT
+          GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json" \
+            npx --yes firebase-tools@14 deploy --only "$ONLY" --project listopic --non-interactive
