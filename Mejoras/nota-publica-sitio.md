@@ -55,11 +55,9 @@ Las valoraciones privadas (Lista o Minilista privada) no cuentan para ninguno.
    - Para deshacer: `node scripts/restore-backup.js backups/recalc-place-ratings-….json --apply`.
 5. **App Android:** lleva la web empaquetada. Hasta instalar la build nueva, la app vieja enseña «0.0» en los sitios sin nota pública. Conviene publicar la build a la vez que se aplica el script.
 
-## Decisión pendiente: sitios con solo valoraciones privadas
+## Decidido (02/10/2026): sitios con solo valoraciones privadas
 
-Con esta regla **dejan de salir en Buscar**: no tienen ninguna valoración visible, igual que un sitio sin valoraciones. Hoy salen porque el `reviewsCount` antiguo contaba también las privadas.
-
-La simulación da la lista exacta. Si los quieres visibles, se puede cambiar, pero sería enseñar un sitio solo porque alguien lo valoró en privado.
+**No salen en Buscar**: no tienen ninguna valoración visible, igual que un sitio sin valoraciones. Enseñarlos sería publicar un sitio solo porque alguien lo valoró en privado. Hoy salen porque el `reviewsCount` antiguo contaba también las privadas. La simulación del script lista cuáles dejan de salir.
 
 ## Verificado (emulador)
 
