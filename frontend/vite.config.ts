@@ -1,5 +1,21 @@
+import { execSync } from 'node:child_process'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import { sentryVitePlugin } from '@sentry/vite-plugin'
+
+// Versión para Sentry: el commit (GITHUB_SHA en CI, git en local).
+function appRelease(): string {
+  const sha = process.env.GITHUB_SHA || (() => {
+    try { return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() } catch { return '' }
+  })()
+  return sha ? `listopic@${sha.slice(0, 12)}` : ''
+}
+process.env.VITE_APP_RELEASE ||= appRelease()
+
+// Source maps a Sentry solo si hay token (secreto de CI o variable de la
+// terminal, nunca en un archivo). Se generan ocultos, se suben y se borran:
+// no se publican en Hosting ni van en la app de Android.
+const sentryUpload = Boolean(process.env.SENTRY_AUTH_TOKEN && process.env.SENTRY_ORG && process.env.SENTRY_PROJECT)
 
 /**
  * Falla el build si dos chunks se importan entre sí (directa o
@@ -39,7 +55,21 @@ function noChunkCycles(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
-  plugins: [react(), noChunkCycles()],
+  plugins: [
+    react(),
+    noChunkCycles(),
+    // Siempre el último.
+    sentryUpload && sentryVitePlugin({
+      org: process.env.SENTRY_ORG,
+      project: process.env.SENTRY_PROJECT,
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      release: { name: process.env.VITE_APP_RELEASE || undefined, inject: false },
+      sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
+      telemetry: false,
+      // Si Sentry no responde, se publica igual (sin mapas): no bloquea el despliegue.
+      errorHandler: (error) => console.warn(`[sentry] No se han podido subir los source maps: ${error.message}`),
+    }),
+  ],
   resolve: {
     dedupe: ['react', 'react-dom'],
   },
@@ -56,7 +86,7 @@ export default defineConfig(({ mode }) => ({
       : [],
   },
   build: {
-    sourcemap: mode !== 'production',
+    sourcemap: mode !== 'production' ? true : sentryUpload ? 'hidden' : false,
     rollupOptions: {
       output: {
         // Solo se agrupan librerías que se cargan siempre y que no dependen de

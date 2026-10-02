@@ -12,6 +12,67 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>Listopic</title>
+  <script>
+    // Errores de arranque a Sentry. Va antes que cualquier módulo: si un chunk
+    // falla al evaluarse (p. ej. React undefined por un ciclo entre chunks),
+    // el SDK nunca llega a iniciarse. Cuando se inicia, deja de enviar.
+    (function () {
+      var m = /^(https?):\/\/([^@]+)@([^/]+)\/(\d+)$/.exec('%VITE_SENTRY_DSN%');
+      var env = '%VITE_SENTRY_ENVIRONMENT%';
+      if (env.charAt(0) === '%') env = '%MODE%' === 'production' ? 'production' : 'development';
+      if (!m || env === 'development') return;
+      var release = '%VITE_APP_RELEASE%';
+      var url = m[1] + '://' + m[3] + '/api/' + m[4] + '/envelope/?sentry_version=7&sentry_key=' + m[2] + '&sentry_client=listopic-arranque%2F1';
+      var sent = 0;
+      var hex = function () { var s = ''; for (var i = 0; i < 32; i++) s += Math.floor(Math.random() * 16).toString(16); return s; };
+      var frames = function (stack) {
+        var out = [];
+        String(stack || '').split('\n').forEach(function (line) {
+          var f = /(?:at (.*?) \(?|^(.*?)@)?((?:https?|capacitor):\/\/[^\s)]+):(\d+):(\d+)/.exec(line);
+          if (f) out.unshift({ function: f[1] || f[2] || '?', filename: f[3], abs_path: f[3], lineno: +f[4], colno: +f[5], in_app: true });
+        });
+        return out;
+      };
+      var debugImages = function () {
+        var ids = window._sentryDebugIds, images = [], seen = {};
+        for (var k in ids || {}) {
+          var f = /((?:https?|capacitor):\/\/[^\s)]+?\.js)/.exec(k);
+          if (f && !seen[f[1]]) { seen[f[1]] = 1; images.push({ type: 'sourcemap', code_file: f[1], debug_id: ids[k] }); }
+        }
+        return images;
+      };
+      var send = function (type, value, stack) {
+        if (window.__lpSentryReady || sent >= 5) return;
+        sent++;
+        var id = hex();
+        var cap = window.Capacitor;
+        var event = {
+          event_id: id, timestamp: Date.now() / 1000, platform: 'javascript', level: 'fatal', environment: env,
+          release: release.charAt(0) === '%' ? undefined : release,
+          tags: { fase: 'arranque', app_platform: cap && cap.getPlatform ? cap.getPlatform() : 'web' },
+          request: { url: location.origin + location.pathname, headers: { 'User-Agent': navigator.userAgent } },
+          exception: { values: [{ type: type, value: String(value).replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[correo]').slice(0, 500), stacktrace: { frames: frames(stack) }, mechanism: { type: 'onerror', handled: false } }] },
+          debug_meta: { images: debugImages() }
+        };
+        var body = JSON.stringify({ event_id: id, sent_at: new Date().toISOString() }) + '\n' + JSON.stringify({ type: 'event' }) + '\n' + JSON.stringify(event);
+        try { fetch(url, { method: 'POST', body: body, keepalive: true }); } catch (e) { /* sin red */ }
+      };
+      window.addEventListener('error', function (e) {
+        var t = e.target;
+        if (t && t !== window && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
+          // Solo los archivos propios: una fuente externa bloqueada no rompe la app.
+          var src = t.src || t.href || '';
+          if (src.indexOf(location.origin + '/') === 0) send('ChunkLoadError', 'No se pudo cargar ' + src.slice(location.origin.length), '');
+        } else if (e.error || e.message) {
+          send((e.error && e.error.name) || 'Error', (e.error && e.error.message) || e.message, e.error && e.error.stack);
+        }
+      }, true);
+      window.addEventListener('unhandledrejection', function (e) {
+        var r = e.reason;
+        send((r && r.name) || 'UnhandledRejection', (r && r.message) || r, r && r.stack);
+      });
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin />
