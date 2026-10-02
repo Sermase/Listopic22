@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
-const admin = require('firebase-admin');
+const { getStorage } = require('firebase-admin/storage');
 const fetch = require('node-fetch');
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -123,7 +123,7 @@ const importExternalReviewPhoto = onCall({ timeoutSeconds: 60, memory: '512MiB' 
   const ext = extensionForContentType(contentType);
   const safeId = crypto.randomUUID();
   const path = `reviews/${uid}/imported/${Date.now()}_${safeId}.${ext}`;
-  const bucket = admin.storage().bucket();
+  const bucket = getStorage().bucket();
   const file = bucket.file(path);
 
   await file.save(buffer, {

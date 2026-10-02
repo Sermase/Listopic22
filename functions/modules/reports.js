@@ -1,8 +1,7 @@
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
-const admin = require("firebase-admin");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const fetch = require("node-fetch");
 const { sendNotification } = require("./notifications");
 const { rateLimit, assertJefeAccess } = require("./lib/auth");
@@ -103,7 +102,7 @@ const submitReport = onCall({ region: 'europe-west1' }, async (request) => {
         description,
         status: 'pending',
         source: 'callable',
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
     });
 
     return { ok: true, reportId: reportRef.id };
@@ -238,7 +237,7 @@ async function incrementReportCount(targetType, targetId, delta) {
         const snap = await docRef.get();
         if (snap.exists) {
             await docRef.update({
-                reportCount: admin.firestore.FieldValue.increment(delta),
+                reportCount: FieldValue.increment(delta),
             });
         }
     }
@@ -348,7 +347,7 @@ const syncPlaceStatusFromGoogle = onCall(
     await db.collection('places').doc(placeId).update({
         closedStatus: closedStatus,
         googleBusinessStatus: businessStatus,
-        closedStatusUpdatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        closedStatusUpdatedAt: FieldValue.serverTimestamp(),
     });
 
     logger.info(`syncPlaceStatusFromGoogle: ${placeId} → ${businessStatus} (closedStatus: ${closedStatus})`);

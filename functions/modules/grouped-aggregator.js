@@ -1,7 +1,6 @@
 ﻿'use strict';
 
-const admin = require('firebase-admin');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldPath } = require('firebase-admin/firestore');
 
 const { compareByRank, reviewScoreForList } = require('./lib/scoring');
 const { normalizeCcaa } = require('./lib/geo-areas');
@@ -35,7 +34,7 @@ async function fetchPlacesByIds(ids) {
         const chunk = ids.slice(i, i + 10);
         const snapshot = await db
             .collection('places')
-            .where(admin.firestore.FieldPath.documentId(), 'in', chunk)
+            .where(FieldPath.documentId(), 'in', chunk)
             .get();
         snapshot.forEach(doc => {
             map.set(doc.id, doc.data());

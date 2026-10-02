@@ -38,7 +38,7 @@
 
 const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
-const admin = require("firebase-admin");
+const { getAuth } = require("firebase-admin/auth");
 const DEFAULT_CORS_ORIGINS = [
   "https://listopic.es",
   "https://www.listopic.es",
@@ -70,7 +70,7 @@ const cors = require("cors")({
 const fetch = require("node-fetch");
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue, FieldPath } = require("firebase-admin/firestore");
 const { buildGroupedItemsForList } = require("./grouped-aggregator");
 const {
   assertJefeAccess: _assertJefeAccess,
@@ -162,7 +162,7 @@ async function requireAuthFromRequest(req, res) {
     return null;
   }
   try {
-    const decoded = await admin.auth().verifyIdToken(match[1]);
+    const decoded = await getAuth().verifyIdToken(match[1]);
     return decoded;
   } catch (error) {
     logger.warn('requireAuthFromRequest: token inválido', { error: error.message });
@@ -205,7 +205,7 @@ async function getPlaceDocsByIds(ids) {
   for (const chunk of chunks) {
     const snap = await db
       .collection('places')
-      .where(admin.firestore.FieldPath.documentId(), 'in', chunk)
+      .where(FieldPath.documentId(), 'in', chunk)
       .get();
     results.push(...snap.docs);
   }
@@ -1488,8 +1488,8 @@ const createList = onCall(async (request) => {
       reviewCount: 0,
       reactions: {},
       commentsCount: 0,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
     };
 
     const newListRef = await listsRef.add(newListData);

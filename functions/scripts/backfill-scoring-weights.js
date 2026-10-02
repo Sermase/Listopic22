@@ -13,13 +13,14 @@
  * scripts/restore-backup.js).
  */
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { deriveScoringWeights } = require('../modules/lib/scoring');
 const { syncMinilistCriteria, sameValue } = require('../modules/lib/minilist-criteria');
 const { snapshotFields, writeBackup } = require('./lib/backup');
 
 const APPLY = process.argv.includes('--apply');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
-const db = admin.firestore();
+const db = getFirestore();
 
 (async () => {
   console.log(`Modo: ${APPLY ? 'APLICAR' : 'SIMULACIÓN'}`);

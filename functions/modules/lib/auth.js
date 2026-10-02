@@ -2,10 +2,10 @@
 //
 // Helpers compartidos de autenticación y autorización para Cloud Functions.
 
-const admin = require("firebase-admin");
+const { getAuth } = require("firebase-admin/auth");
 const { HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 const db = getFirestore();
 
@@ -25,7 +25,7 @@ async function assertJefeAccess(uid, permissionMessage = 'No tienes permiso para
   }
   // Primero intenta custom claim (barato, sin lectura).
   try {
-    const userRecord = await admin.auth().getUser(uid);
+    const userRecord = await getAuth().getUser(uid);
     if (userRecord.customClaims?.admin === true) return userRecord;
   } catch (_) { /* ignore, fallback below */ }
 
@@ -50,7 +50,7 @@ async function requireAuthFromRequest(req, res) {
     return null;
   }
   try {
-    return await admin.auth().verifyIdToken(match[1]);
+    return await getAuth().verifyIdToken(match[1]);
   } catch (error) {
     logger.warn('requireAuthFromRequest: token inválido', { error: error.message });
     res.status(401).json({ message: 'No autorizado: token inválido.' });
@@ -121,7 +121,7 @@ async function writeAuditLog(actorUid, action, details = {}) {
       actorUid: actorUid || null,
       action,
       details,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
   } catch (error) {
     logger.error('writeAuditLog: fallo al escribir audit log', { action, error: error.message });

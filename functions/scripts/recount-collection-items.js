@@ -8,10 +8,11 @@
  *   GOOGLE_APPLICATION_CREDENTIALS=/ruta/service-account.json node scripts/recount-collection-items.js [--apply]
  */
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 
 const APPLY = process.argv.includes('--apply');
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
-const db = admin.firestore();
+const db = getFirestore();
 
 (async () => {
   console.log(`Modo: ${APPLY ? 'APLICAR' : 'SIMULACIÓN'}`);

@@ -8,10 +8,11 @@
  *   GOOGLE_APPLICATION_CREDENTIALS=/ruta/service-account.json node scripts/audit-minilist-criteria.js
  */
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { deriveScoringWeights } = require('../modules/lib/scoring');
 
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
-const db = admin.firestore();
+const db = getFirestore();
 
 (async () => {
   const snap = await db.collection('lists').get();

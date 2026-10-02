@@ -273,6 +273,15 @@ export GOOGLE_APPLICATION_CREDENTIALS=~/listopic-sa.json
    Google retira Node 20 el **30/10/2026**; después no se puede desplegar. Este
    despliegue de todas las Functions las migra. Si alguna falla al arrancar,
    vuelve a `"node": "20"` y despliega de nuevo (se puede hasta el 30/10).
+
+   **firebase-admin 14 (02/10):** `firebase-admin` 13 → 14 y `firebase-functions`
+   7.0 → 7.4 (cierra 7 avisos de `npm audit`; quedan 2 moderados de `uuid` dentro
+   de `@google-cloud/storage`, que la librería no usa con el parámetro afectado).
+   La v14 elimina `admin.firestore()`, `admin.auth()`… : el código pasa a
+   `getFirestore()`, `getAuth()`, `getStorage()`, `getMessaging()`. Requiere
+   desplegar **todas** las Functions (el mismo despliegue de arriba). Si algo
+   falla tras el despliegue, el rollback es revertir el commit y desplegar.
+   Los scripts de `functions/scripts/` también usan ya la API nueva.
    Cuando pregunte si borrar `adminUpdateAllPlaces`, `reverseGeocode`,
    `adminResetUserGamification`, `adminResetAllGamification`,
    `adminRecalculateListAverages` y `adminAuditStatistics`: **sí**.

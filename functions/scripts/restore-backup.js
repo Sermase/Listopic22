@@ -10,6 +10,7 @@
  */
 const fs = require('fs');
 const admin = require('firebase-admin');
+const { FieldValue, getFirestore } = require('firebase-admin/firestore');
 
 const file = process.argv[2];
 const APPLY = process.argv.includes('--apply');
@@ -19,8 +20,7 @@ if (!file || !fs.existsSync(file)) {
 }
 const backup = JSON.parse(fs.readFileSync(file, 'utf8'));
 admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || backup.project || 'listopic' });
-const db = admin.firestore();
-const { FieldValue } = admin.firestore;
+const db = getFirestore();
 
 (async () => {
   console.log(`Copia de «${backup.script}» del ${backup.createdAt}: ${backup.entries.length} documentos. Modo: ${APPLY ? 'RESTAURAR' : 'SIMULACIÓN'}`);

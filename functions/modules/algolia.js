@@ -4,7 +4,7 @@ const functions = require("firebase-functions");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onDocumentCreated, onDocumentUpdated, onDocumentDeleted, onDocumentWritten } = require("firebase-functions/v2/firestore");
 const logger = require("firebase-functions/logger");
-const admin = require("firebase-admin");
+const { getFirestore } = require("firebase-admin/firestore");
 const algoliasearch = require("algoliasearch");
 const { buildGroupedItemsForList } = require("./grouped-aggregator");
 // Ranking único compartido con el frontend (lib/scoring.js ↔ frontend/src/lib/scoring.ts).
@@ -316,7 +316,7 @@ async function collectPlaceReviewSignals(placeId) {
         return { itemTags: [], hasReviewedPhoto: false };
     }
     try {
-        const snapshot = await admin.firestore()
+        const snapshot = await getFirestore()
             .collectionGroup("reviews")
             .where("placeId", "==", placeId)
             .get();
@@ -363,7 +363,7 @@ async function resolveCategoryMetadata(categoryId, listData = {}) {
 
     const cleanCategoryId = categoryId.trim();
     if (!categoryCache.has(cleanCategoryId)) {
-        categoryCache.set(cleanCategoryId, admin.firestore().collection("categories").doc(cleanCategoryId).get()
+        categoryCache.set(cleanCategoryId, getFirestore().collection("categories").doc(cleanCategoryId).get()
             .then((snap) => {
                 if (!snap.exists) {
                     return { categoryName: null, categoryAliases: [cleanCategoryId] };
@@ -935,7 +935,7 @@ async function backfillStandardCollection(collectionKey) {
     if (!index) {
         throw new HttpsError("internal", "Algolia no esta configurado.");
     }
-    const snapshot = await admin.firestore().collection(config.collection).get();
+    const snapshot = await getFirestore().collection(config.collection).get();
     const records = [];
     for (const doc of snapshot.docs) {
         const record = await config.transform(doc.data(), doc.id);
@@ -952,7 +952,7 @@ async function backfillGroupedItems() {
     if (!index) {
         throw new HttpsError("internal", "Algolia no esta configurado.");
     }
-    const listSnapshot = await admin.firestore().collection("lists").get();
+    const listSnapshot = await getFirestore().collection("lists").get();
     const records = [];
     for (const doc of listSnapshot.docs) {
         const data = doc.data();
@@ -1010,7 +1010,7 @@ const adminBackfillAlgolia = onCall(ADMIN_CALL_OPTIONS, async (request) => {
     }
     try {
         const uid = request.auth.uid;
-        const userDoc = await admin.firestore().collection("users").doc(uid).get();
+        const userDoc = await getFirestore().collection("users").doc(uid).get();
         if (!userDoc.exists) {
             throw new HttpsError("permission-denied", "No se encontro tu perfil de usuario.");
         }

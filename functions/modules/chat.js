@@ -1,6 +1,5 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
-const admin = require("firebase-admin");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const logger = require("firebase-functions/logger");
 const { sendNotification } = require("./notifications");
 
@@ -33,14 +32,14 @@ const onMessageCreate = onDocumentCreated("chats/{chatId}/messages/{messageId}",
             // We want to increment unreadCount for everyone EXCEPT sender
             const updates = {
                 lastMessage: messageData.text || 'Mensaje (Multimedia)',
-                lastMessageTimestamp: admin.firestore.FieldValue.serverTimestamp(),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                lastMessageTimestamp: FieldValue.serverTimestamp(),
+                updatedAt: FieldValue.serverTimestamp()
             };
 
             participants.forEach(uid => {
                 if (uid !== senderId) {
                     // Increment using FieldValue for atomicity (though transaction read/write is also fine)
-                    updates[`unreadCount.${uid}`] = admin.firestore.FieldValue.increment(1);
+                    updates[`unreadCount.${uid}`] = FieldValue.increment(1);
                 }
             });
 

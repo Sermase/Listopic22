@@ -1,6 +1,6 @@
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const logger = require("firebase-functions/logger");
-const admin = require("firebase-admin");
+const { getMessaging } = require("firebase-admin/messaging");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 const db = getFirestore();
@@ -50,7 +50,7 @@ async function sendPush(userId, title, body, data = {}) {
                 notification: { channelId: "listopic_default", sound: "default" }
             }
         };
-        const response = await admin.messaging().sendEachForMulticast(payload);
+        const response = await getMessaging().sendEachForMulticast(payload);
 
         logger.info("sendPush completed", {
             type: data.type || "unknown",

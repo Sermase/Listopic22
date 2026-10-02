@@ -15,6 +15,8 @@
  * No borra nada. Es idempotente: una lista ya migrada no vuelve a aparecer.
  */
 const admin = require('firebase-admin');
+const { getStorage } = require('firebase-admin/storage');
+const { getFirestore } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 
 const APPLY = process.argv.includes('--apply');
@@ -22,8 +24,8 @@ const PROJECT_ID = process.env.GCLOUD_PROJECT || 'listopic';
 const BUCKET = process.env.STORAGE_BUCKET || 'listopic.firebasestorage.app';
 
 admin.initializeApp({ projectId: PROJECT_ID, storageBucket: BUCKET });
-const db = admin.firestore();
-const bucket = admin.storage().bucket();
+const db = getFirestore();
+const bucket = getStorage().bucket();
 
 const parseDataUrl = (value) => {
   const match = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i.exec(value || '');

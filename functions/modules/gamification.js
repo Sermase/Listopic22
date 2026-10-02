@@ -1,8 +1,7 @@
 const { onDocumentWritten } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
-const admin = require("firebase-admin");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { sendNotification } = require("./notifications");
 const { userReviewDocs } = require("./lib/user-reviews");
 
@@ -288,15 +287,15 @@ async function checkBadges(userId) {
     }
 
     if (resolvedState.newBadges.length > 0) {
-        updates.badges = admin.firestore.FieldValue.arrayUnion(...resolvedState.newBadges);
-        updates.lastBadgeEarnedAt = admin.firestore.FieldValue.serverTimestamp();
+        updates.badges = FieldValue.arrayUnion(...resolvedState.newBadges);
+        updates.lastBadgeEarnedAt = FieldValue.serverTimestamp();
     }
 
     if (safeNumber(userData.xp) !== resolvedState.totalXP || previousLevel !== resolvedState.level) {
         updates.xp = resolvedState.totalXP;
         updates.level = resolvedState.level;
         if (resolvedState.level > previousLevel) {
-            updates.lastLevelUpAt = admin.firestore.FieldValue.serverTimestamp();
+            updates.lastLevelUpAt = FieldValue.serverTimestamp();
         }
     }
 
@@ -341,7 +340,7 @@ const onReviewWritten = onDocumentWritten("lists/{listId}/reviews/{reviewId}", a
     const photosChange = countReviewPhotos(afterData) - countReviewPhotos(beforeData);
     if (photosChange !== 0) {
         await db.collection("users").doc(userId).set({
-            photosCount: admin.firestore.FieldValue.increment(photosChange),
+            photosCount: FieldValue.increment(photosChange),
         }, { merge: true });
     }
 
@@ -401,13 +400,13 @@ const adminManageBadge = onCall(async (request) => {
 
         if (action === "award") {
             await userRef.set({
-                badges: admin.firestore.FieldValue.arrayUnion(badgeId),
-                lastBadgeEarnedAt: admin.firestore.FieldValue.serverTimestamp(),
+                badges: FieldValue.arrayUnion(badgeId),
+                lastBadgeEarnedAt: FieldValue.serverTimestamp(),
             }, { merge: true });
             await checkBadges(userId);
         } else {
             await userRef.update({
-                badges: admin.firestore.FieldValue.arrayRemove(badgeId),
+                badges: FieldValue.arrayRemove(badgeId),
             });
             await checkBadges(userId);
         }
