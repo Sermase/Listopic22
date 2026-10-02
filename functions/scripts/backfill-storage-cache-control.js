@@ -8,7 +8,7 @@
  *   cd functions
  *   GOOGLE_APPLICATION_CREDENTIALS=/ruta/service-account.json node scripts/backfill-storage-cache-control.js [--apply]
  */
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
 const { getStorage } = require('firebase-admin/storage');
 
 const APPLY = process.argv.includes('--apply');
@@ -16,7 +16,7 @@ const BUCKET = process.env.STORAGE_BUCKET || 'listopic.firebasestorage.app';
 const PREFIXES = ['reviews/', 'places/', 'profile_images/', 'profile-photos/', 'user-profiles/', 'list-images/', 'branding/', 'badges/'];
 const CACHE_CONTROL = 'public, max-age=31536000, immutable';
 
-admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic', storageBucket: BUCKET });
+initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic', storageBucket: BUCKET });
 const bucket = getStorage().bucket();
 
 (async () => {

@@ -12,14 +12,14 @@
  * Con --apply guarda antes una copia en functions/backups/ (se deshace con
  * scripts/restore-backup.js).
  */
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { deriveScoringWeights } = require('../modules/lib/scoring');
 const { syncMinilistCriteria, sameValue } = require('../modules/lib/minilist-criteria');
 const { snapshotFields, writeBackup } = require('./lib/backup');
 
 const APPLY = process.argv.includes('--apply');
-admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
+initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
 const db = getFirestore();
 
 (async () => {

@@ -15,10 +15,10 @@
  *   … node scripts/recalc-list-metrics.js --apply --expect=N
  *   (N = nº de Listas que cambian según la simulación; si no coincide, NO escribe nada)
  */
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 
-admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
+initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
 const db = getFirestore();
 
 const APPLY = process.argv.includes('--apply');

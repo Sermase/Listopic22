@@ -16,10 +16,10 @@
  *   … node scripts/audit-review-visibility.js --apply --expect=TubrhJBOv3qUNDMXmSd3:32,jSwygYuHeF5MCkrMLzF5:9
  *   (sin --expect, o si los cambios por lista no coinciden exactamente, NO escribe nada)
  */
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 
-admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
+initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
 const db = getFirestore();
 
 const APPLY = process.argv.includes('--apply');
