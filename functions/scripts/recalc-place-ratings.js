@@ -1,15 +1,22 @@
 #!/usr/bin/env node
 /**
- * Nota pública de cada sitio con las reglas nuevas (lib/place-rating.js):
- * solo valoraciones públicas, sin bots, y la de críticos verificados aparte
- * (criticRating / criticReviewsCount).
+ * Contadores y notas de cada sitio con las reglas de lib/place-rating.js:
+ * - publicHumanReviewsCount / averageRating: públicas de personas (sin bots) → nota y ranking;
+ * - totalVisibleReviewsCount (= reviewsCount): públicas con bots → actividad: decide que salga en Buscar;
+ * - publicBotReviewsCount / botAverageRating: bots aparte (solo con el filtro «Bots»);
+ * - criticReviewsCount / criticRating: críticos verificados aparte;
+ * - publicReviewerTypes: quién ha valorado en público (faceta de Buscar).
+ *
+ * ORDEN: desplegar antes las Functions de esta rama. Cada sitio escrito se reindexa
+ * solo en Algolia con la versión desplegada; con la anterior, un sitio solo con bots
+ * entraría en el ranking como si tuviera nota 0.
  *
  * SOLO LECTURA por defecto:
  *   cd functions
  *   GOOGLE_APPLICATION_CREDENTIALS=/ruta/service-account.json node scripts/recalc-place-ratings.js
- *   … --details        (todos los sitios que cambian, no solo el resumen y los 40 primeros)
+ *   … --details        (todos los sitios que cambian, no solo los 40 primeros)
  *
- * Escribir (reviewsCount, averageRating, criticRating, criticReviewsCount; antes, copia en backups/):
+ * Escribir (antes, copia de esos campos en backups/):
  *   … node scripts/recalc-place-ratings.js --apply --expect=N
  *   (N = nº de sitios que cambian según la simulación; si no coincide, NO escribe nada)
  */
@@ -27,9 +34,20 @@ const { computePlaceRating } = require('../modules/lib/place-rating');
 const { fetchAuthorRoles, authorOf } = require('../modules/lib/author-roles');
 const { snapshotFields, writeBackup } = require('./lib/backup');
 
-const FIELDS = ['reviewsCount', 'averageRating', 'criticRating', 'criticReviewsCount'];
+const FIELDS = [
+  'publicHumanReviewsCount', 'averageRating',
+  'totalVisibleReviewsCount', 'reviewsCount',
+  'publicBotReviewsCount', 'botAverageRating',
+  'criticReviewsCount', 'criticRating',
+  'publicReviewerTypes',
+];
 const same = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
-const fmt = (v) => (v === undefined || v === null ? '—' : String(v));
+const fmt = (v) => (v === undefined || v === null ? '—' : Array.isArray(v) ? v.join(',') || '—' : String(v));
+const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : 0);
+
+// Buscar → Sitios enseña los que tienen reviewsCount > 0 (antes: cualquier valoración,
+// también privadas; ahora: públicas, también de bots).
+const inSearchBefore = (place) => num(place.reviewsCount) > 0;
 
 (async () => {
   const [reviewsSnap, placesSnap] = await Promise.all([
@@ -49,35 +67,44 @@ const fmt = (v) => (v === undefined || v === null ? '—' : String(v));
     const place = doc.data() || {};
     const reviews = byPlace.get(doc.id) || [];
     const next = computePlaceRating(reviews, roles);
-    const changed = FIELDS.filter((f) => !same(place[f], next[f]));
-    if (changed.length === 0) return;
+    if (FIELDS.every((f) => same(place[f], next[f]))) return;
     rows.push({
       id: doc.id,
       name: place.name || doc.id,
       before: place,
       next,
-      lostAll: (place.reviewsCount || 0) > 0 && next.reviewsCount === 0,
       privates: reviews.filter((r) => r.visibility !== 'public').length,
-      bots: reviews.filter((r) => r.visibility === 'public' && roles.bots.has(authorOf(r))).length,
+      wasInSearch: inSearchBefore(place),
+      inSearch: next.totalVisibleReviewsCount > 0,
     });
   });
 
   const shown = DETAILS ? rows : rows.slice(0, 40);
-  console.log('Sitio | valoraciones | nota | críticos (nota · nº) | quitadas: privadas · bots');
+  console.log('Sitio | personas: nº · nota | visibles (con bots) | bots: nº · nota | críticos: nota · nº | privadas | en Buscar');
   shown.forEach((r) => {
     const cell = (f) => (same(r.before[f], r.next[f]) ? fmt(r.next[f]) : `${fmt(r.before[f])} → ${fmt(r.next[f])}`);
-    console.log(`${r.name} | ${cell('reviewsCount')} | ${cell('averageRating')} | ${cell('criticRating')} · ${cell('criticReviewsCount')} | ${r.privates} · ${r.bots}`);
+    const search = r.wasInSearch === r.inSearch ? (r.inSearch ? 'sí' : 'no') : (r.inSearch ? 'no → SÍ' : 'sí → NO');
+    console.log(`${r.name} | ${cell('publicHumanReviewsCount')} · ${cell('averageRating')} | ${cell('totalVisibleReviewsCount')} | ${cell('publicBotReviewsCount')} · ${cell('botAverageRating')} | ${cell('criticRating')} · ${cell('criticReviewsCount')} | ${r.privates} | ${search}`);
   });
   if (!DETAILS && rows.length > shown.length) console.log(`… y ${rows.length - shown.length} más (--details para verlos todos)`);
 
-  const lostAll = rows.filter((r) => r.lostAll);
+  const botOnly = rows.filter((r) => r.next.totalVisibleReviewsCount > 0 && r.next.publicHumanReviewsCount === 0);
+  const leaving = rows.filter((r) => r.wasInSearch && !r.inSearch);
+  const entering = rows.filter((r) => !r.wasInSearch && r.inSearch);
+  const lostRating = rows.filter((r) => typeof r.before.averageRating === 'number' && r.next.averageRating === null);
   const withCritics = rows.filter((r) => r.next.criticReviewsCount > 0);
+
   console.log(`\nSitios: ${placesSnap.size} · cambian: ${rows.length}`);
-  console.log(`Se quedan sin nota pública (solo tenían valoraciones privadas o de bots): ${lostAll.length}. Dejan de salir en Buscar → Sitios (filtra reviewsCount > 0).`);
+  console.log(`Siguen en Buscar SIN nota pública («Sin nota pública todavía»; detrás al ordenar por nota): ${botOnly.length}`);
+  botOnly.slice(0, 10).forEach((r) => console.log(`   · ${r.name}: ${r.next.publicBotReviewsCount} de bots${r.privates ? `, ${r.privates} privadas` : ''}`));
+  console.log(`Dejan de salir en Buscar (sin ninguna valoración pública, ni de bots): ${leaving.length}`);
+  leaving.slice(0, 10).forEach((r) => console.log(`   · ${r.name}: ${r.privates} privadas, 0 públicas`));
+  console.log(`Empiezan a salir en Buscar: ${entering.length}`);
+  console.log(`Pierden la nota (la tenían solo por privadas o bots): ${lostRating.length}`);
   console.log(`Con nota de críticos: ${withCritics.length} (provisional por debajo de 3 críticos).`);
 
   if (!APPLY) {
-    console.log(`\nSimulación: no se ha escrito nada. Para escribir: --apply --expect=${rows.length}`);
+    console.log(`\nSimulación: no se ha escrito nada. Para escribir (con las Functions de esta rama ya desplegadas): --apply --expect=${rows.length}`);
     process.exit(0);
   }
   if (String(rows.length) !== EXPECT) {
@@ -91,6 +118,6 @@ const fmt = (v) => (v === undefined || v === null ? '—' : String(v));
     rows.slice(i, i + 400).forEach((r) => batch.update(db.collection('places').doc(r.id), r.next));
     await batch.commit();
   }
-  console.log(`Escritos ${rows.length} sitios. Deshacer: node scripts/restore-backup.js ${file} --apply`);
+  console.log(`Escritos ${rows.length} sitios (Algolia se actualiza solo con cada escritura). Deshacer: node scripts/restore-backup.js ${file} --apply`);
   process.exit(0);
 })().catch((error) => { console.error(error); process.exit(1); });

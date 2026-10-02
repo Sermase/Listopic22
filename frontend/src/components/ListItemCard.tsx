@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-import { MapPin, ChevronRight, Users, Star } from 'lucide-react';
+import { MapPin, ChevronRight, Users, Star, Bot } from 'lucide-react';
 import { PlacePhotoPlaceholder } from './PlacePhotoPlaceholder';
 import { ProgressiveImage } from './ProgressiveImage';
 import { compareCriteria } from '../lib/criteria';
@@ -22,8 +22,11 @@ interface ListItemCardProps {
         placeCity?: string;
         placeAddress?: string;
         photoUrl?: string; // Best photo from reviews
-        avgRating: number;
+        /** null = sin nota pública (p. ej. un sitio solo con valoraciones de bots). */
+        avgRating: number | null;
         reviewCount: number;
+        /** 'bot': la nota y el nº son de bots (solo con el filtro «Bots»). */
+        scoreKind?: 'bot';
         criteriaAverages?: Record<string, number>;
         criteriaDefinition?: Record<string, CriteriaDefinitionEntry> | CriteriaDefinitionEntry[];
         authorName?: string;
@@ -45,6 +48,34 @@ interface ListItemCardProps {
     /** Clave del elemento (lib/listElements): la misma en la Lista y en Buscar. */
     elementKey?: string;
 }
+
+// Sin nota pública: se dice, en vez de enseñar un 0.
+const NO_PUBLIC_RATING = 'Sin nota pública todavía';
+
+const ScoreBadge: React.FC<{ value: number | null; kind?: 'bot'; size: 'sm' | 'lg' }> = ({ value, kind, size }) => {
+    if (value === null) {
+        return (
+            <span className="max-w-[5.5rem] shrink-0 text-right text-[10px] font-semibold leading-tight text-[var(--lt-text-muted)]">
+                {NO_PUBLIC_RATING}
+            </span>
+        );
+    }
+    const box = size === 'sm' ? 'w-7 h-7 text-xs rounded-lg font-bold' : 'w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-lg font-display font-bold text-base sm:text-lg';
+    return (
+        <div
+            className={`relative flex items-center justify-center shrink-0 ${box}`}
+            style={scoreBadgeStyle(value)}
+            title={kind === 'bot' ? 'Nota de bots (no es la nota pública)' : undefined}
+        >
+            {value.toFixed(1)}
+            {kind === 'bot' && (
+                <span className="absolute -top-1.5 -right-1.5 grid h-4 w-4 place-items-center rounded-full bg-[var(--lt-card-strong)] text-[var(--lt-text-muted)] ring-1 ring-[var(--lt-border)]">
+                    <Bot className="h-2.5 w-2.5" aria-label="bots" />
+                </span>
+            )}
+        </div>
+    );
+};
 
 // El enlace del título cubre toda la tarjeta (::after); lo demás clicable va encima (relative z-10).
 const TITLE_LINK = "hover:underline after:absolute after:inset-0 after:content-['']";
@@ -256,8 +287,10 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                         )}
                                     </>
                                 ) : item.reviewCount > 0 && (
-                                    <span className="flex items-center gap-0.5">
-                                        <Star className="w-3 h-3 text-[var(--lt-accent)]" />
+                                    <span className="flex items-center gap-0.5" title={item.scoreKind === 'bot' ? 'Valoraciones de bots' : undefined}>
+                                        {item.scoreKind === 'bot'
+                                            ? <Bot className="w-3 h-3 text-[var(--lt-text-muted)]" />
+                                            : <Star className="w-3 h-3 text-[var(--lt-accent)]" />}
                                         {item.reviewCount}
                                     </span>
                                 )}
@@ -268,9 +301,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                 )}
                             </div>
                             {groupingMode !== 'list' && (
-                                <div className="flex items-center justify-center w-7 h-7 rounded-lg font-bold text-xs shrink-0" style={scoreBadgeStyle(item.avgRating)}>
-                                    {item.avgRating.toFixed(1)}
-                                </div>
+                                <ScoreBadge value={item.avgRating} kind={item.scoreKind} size="sm" />
                             )}
                         </div>
                     </div>
@@ -362,7 +393,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                 </div>
 
                                 <div className="text-xs text-[var(--lt-text-muted)] mt-1 flex flex-wrap items-center gap-x-2">
-                                    {item.reviewCount > 0 && <span>{`${item.reviewCount} ${item.reviewCount === 1 ? 'valoración' : 'valoraciones'}`}</span>}
+                                    {item.reviewCount > 0 && <span>{`${item.reviewCount} ${item.reviewCount === 1 ? 'valoración' : 'valoraciones'}${item.scoreKind === 'bot' ? ' de bots' : ''}`}</span>}
                                     {contextRankLabel && (
                                         <span className="font-semibold text-[var(--lt-accent)]">{contextRankLabel}</span>
                                     )}
@@ -374,9 +405,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
 
                             {/* Score Box - Visible on Mobile List View now */}
                             {groupingMode !== 'list' && (
-                                <div className="flex flex-col items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-lg shrink-0" style={scoreBadgeStyle(item.avgRating)}>
-                                    <span className="font-display font-bold text-base sm:text-lg">{item.avgRating.toFixed(1)}</span>
-                                </div>
+                                <ScoreBadge value={item.avgRating} kind={item.scoreKind} size="lg" />
                             )}
                         </div>
 

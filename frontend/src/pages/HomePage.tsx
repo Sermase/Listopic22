@@ -35,6 +35,7 @@ import { USERNAME_MAX_LENGTH, isUsernameValid } from '../utils/username';
 import { fetchUserReviewsFromAccessibleLists } from '../lib/reviewFallbacks';
 import { compareByRank } from '../lib/scoring';
 import { AreaSelect } from '../components/AreaSelect';
+import { placeRating } from '../lib/placeRating';
 import { AREA_STORAGE_KEY, buildAreaOptions, decodeArea, encodeArea, inferUserGeo, localAreaOptions, matchesArea, type GeoFields, type ListArea } from '../lib/geoAreas';
 import { exploreSearchUrl } from '../lib/searchZones';
 
@@ -717,8 +718,10 @@ export const HomePage: React.FC = () => {
                         name: data.name,
                         address: data.address || data.formatted_address,
                         photoUrl: data.thumbnailUrl || data.mainImageUrl || data.photoUrl || data.coverUrl || data.imageUrl,
-                        rating: data.averageRating || data.googleRating || 0,
-                        reviewsCount: data.reviewsCount || 0,
+                        // Solo la nota pública de Listopic (personas); nunca la de Google en su lugar.
+                        rating: placeRating(data).average ?? 0,
+                        // Actividad visible (también bots): el sitio sale aunque no tenga nota pública.
+                        reviewsCount: placeRating(data).visibleCount,
                         closedStatus: data.closedStatus || null,
                         lat, lng,
                         geo: { city: data.city || '', province: data.province || '', region: data.region || '', country: data.country || '' },

@@ -30,6 +30,7 @@ import { compareByRank } from '../lib/scoring';
 import { PlaceStatsPanel } from '../components/place/PlaceStatsPanel';
 import { scoreBadgeStyle } from '../lib/scoreScale';
 import { todayHours } from '../lib/openingHours';
+import { NO_PUBLIC_RATING_LABEL } from '../lib/placeRating';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
@@ -903,8 +904,11 @@ export const PlacePage: React.FC = () => {
                                         </span>
                                     </button>
                                 ) : (
-                                    <span className="px-3 py-1 rounded-full text-xs font-semibold border border-[var(--lt-border-strong)] text-[var(--lt-text-muted)]">
-                                        Sin valoraciones
+                                    <span
+                                        className="px-3 py-1 rounded-full text-xs font-semibold border border-[var(--lt-border-strong)] text-[var(--lt-text-muted)]"
+                                        title={place.visibleReviewCount > 0 ? 'Solo tiene valoraciones de bots: la nota pública es la de personas.' : undefined}
+                                    >
+                                        {place.visibleReviewCount > 0 ? NO_PUBLIC_RATING_LABEL : 'Sin valoraciones'}
                                     </span>
                                 )}
                                 <button
