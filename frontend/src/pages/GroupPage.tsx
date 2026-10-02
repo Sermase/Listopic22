@@ -3,7 +3,8 @@ import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { collection, collectionGroup, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, Flag, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp } from 'lucide-react';
+import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, Flag, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, Star } from 'lucide-react';
+import { scoreBadgeStyle } from '../lib/scoreScale';
 import { Lightbox } from '../components/Lightbox';
 import { ProgressiveImage } from '../components/ProgressiveImage';
 import { NonPonderableGauge } from '../components/NonPonderableGauge';
@@ -623,34 +624,33 @@ export const GroupPage: React.FC = () => {
                             </Link>
                         </div>
 
-                        {/* Ratings & Stats Row */}
+                        {/* Nota del elemento y acción principal en una fila; etiquetas debajo */}
                         {stats && (
-                            <div className="flex flex-col items-start md:items-end gap-3">
-                                <div className="flex flex-wrap items-center gap-2">
-                                    {/* Rating Bubble */}
-                                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 backdrop-blur-md">
-                                        <div className="text-lg leading-none">{stats.avg.toFixed(1)}</div>
-                                    </div>
-
-                                    {/* Count Bubble */}
-                                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold bg-white/10 border border-white/10 text-white backdrop-blur-md">
-                                        <MessageSquare className="w-4 h-4 text-[var(--lt-accent)]" />
-                                        <span>{stats.count}</span>
-                                    </div>
-
-                                    {/* Add Review Button */}
+                            <div className="flex flex-col items-stretch gap-2 md:items-end">
+                                <div className="flex items-center gap-2">
+                                    <span
+                                        className="flex min-w-0 items-center gap-2 pl-1 pr-3 py-1 rounded-full text-sm font-bold border border-[var(--lt-border-strong)] bg-[var(--lt-glass)] backdrop-blur-md text-[var(--lt-text)]"
+                                        title="Media de las valoraciones de este elemento en sus Listas."
+                                    >
+                                        <span className="inline-flex shrink-0 items-center gap-1 px-2 py-0.5 rounded-full" style={scoreBadgeStyle(stats.avg)}>
+                                            <Star className="w-3.5 h-3.5 fill-current" aria-hidden />
+                                            {stats.avg.toFixed(1)}
+                                        </span>
+                                        <span className="truncate text-xs font-semibold text-[var(--lt-text-muted)]">
+                                            {stats.count} {stats.count === 1 ? 'valoración' : 'valoraciones'}
+                                        </span>
+                                    </span>
                                     <button
                                         onClick={openAddReviewFlow}
-                                        className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all ml-2"
+                                        className="ml-auto shrink-0 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all md:ml-2"
                                     >
                                         <Plus className="w-4 h-4" />
                                         <span>Valorar</span>
                                     </button>
                                 </div>
 
-                                {/* Tags Row */}
                                 {stats.tags && stats.tags.length > 0 && (
-                                    <div className="flex flex-wrap items-center gap-2 mt-2 md:justify-end">
+                                    <div className="flex flex-wrap items-center gap-2 md:justify-end">
                                         {stats.tags.map(tag => (
                                             <span key={tag} className="px-2.5 py-0.5 rounded-full bg-[var(--lt-glass)] border border-[var(--lt-border-strong)] text-[var(--lt-text)] text-xs font-medium backdrop-blur-md">
                                                 #{tag}
@@ -663,9 +663,9 @@ export const GroupPage: React.FC = () => {
             </EntityHero>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-8 flex flex-col lg:grid lg:grid-cols-12 gap-8">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 relative z-20 -mt-8 sm:-mt-12 flex flex-col lg:grid lg:grid-cols-12 gap-8">
 
-                <div className="order-1 lg:col-span-4 lg:order-last space-y-6">
+                <div className="order-1 lg:col-span-4 lg:order-last space-y-4 sm:space-y-6">
 
                     {/* Puesto principal y, en pequeño, los más amplios */}
                     {placeId && (
@@ -677,30 +677,28 @@ export const GroupPage: React.FC = () => {
                         />
                     )}
 
-                    {/* Actions Row */}
-                    <div className="bg-[var(--lt-card-strong)] p-3 rounded-xl border border-white/10 grid grid-cols-3 gap-3">
+                    {/* Acciones (compactas, como en la ficha del sitio) */}
+                    <div className="glass-card p-3 rounded-2xl grid grid-cols-3 gap-2 sm:gap-3 shadow-lg">
                         <button
                             onClick={openSaveModal}
-                            className="lt-secondary-action bg-[var(--lt-card)] hover:bg-[var(--lt-card-strong)] text-gray-200 hover:text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 group"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
                         >
-                            <Bookmark className="w-6 h-6 group-hover:scale-110 transition-transform text-[var(--lt-accent)]" />
-                            <span className="text-xs font-bold tracking-wide">GUARDAR</span>
+                            <Bookmark className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
+                            <span className="max-w-full truncate text-[11px] font-bold leading-tight">Guardar</span>
                         </button>
-
                         <button
                             onClick={() => setIsShareModalOpen(true)}
-                            className="lt-secondary-action bg-[var(--lt-card)] hover:bg-[var(--lt-card-strong)] text-gray-200 hover:text-white rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 group"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
                         >
-                            <Share2 className="w-6 h-6 group-hover:scale-110 transition-transform text-[var(--lt-accent)]" />
-                            <span className="text-xs font-bold tracking-wide">COMPARTIR</span>
+                            <Share2 className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
+                            <span className="max-w-full truncate text-[11px] font-bold leading-tight">Compartir</span>
                         </button>
-
                         <button
                             onClick={openReportModal}
-                            className="lt-report-action bg-[var(--lt-card)] hover:bg-red-500/10 text-[var(--lt-text)] hover:text-red-500 rounded-xl p-4 flex flex-col items-center justify-center gap-2 transition-all border border-white/5 hover:border-red-500/25 group"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-red-500/10 hover:text-red-500 transition-all"
                         >
-                            <Flag className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                            <span className="text-xs font-bold tracking-wide">REPORTAR</span>
+                            <Flag className="w-5 h-5 mb-1 text-red-500/60" />
+                            <span className="max-w-full truncate text-[11px] font-bold leading-tight">Reportar</span>
                         </button>
                     </div>
 
