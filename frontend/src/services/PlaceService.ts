@@ -171,8 +171,12 @@ const getPlacesLib = async (): Promise<PlacesLibraryLike> => {
 };
 
 export const PlaceService = {
-    ensurePlaceSyncedWithBackend: async (placeId: string, idToken: string): Promise<LegacyPlace> => {
-        const url = `${ListopicConfig.FUNCTION_URLS.getPlaceDetailsFromGoogle}?placeid=${encodeURIComponent(placeId)}`;
+    /**
+     * Asegura el sitio en Firestore. El servidor no llama a Google si el sitio ya existe y
+     * tiene propietario o se refrescó hace menos de 30 días; `force` (solo jefe, Developer) lo fuerza.
+     */
+    ensurePlaceSyncedWithBackend: async (placeId: string, idToken: string, { force = false }: { force?: boolean } = {}): Promise<LegacyPlace> => {
+        const url = `${ListopicConfig.FUNCTION_URLS.getPlaceDetailsFromGoogle}?placeid=${encodeURIComponent(placeId)}${force ? '&force=1' : ''}`;
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout

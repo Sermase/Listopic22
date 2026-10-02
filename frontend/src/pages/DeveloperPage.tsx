@@ -608,7 +608,8 @@ export const DeveloperPage: React.FC = () => {
         if (!selectedItem || !user) throw new Error('Sin datos de lugar o autenticación');
         const idToken = await user.getIdToken();
         const googleId = selectedItem.googlePlaceId || selectedItem.id;
-        await PlaceService.ensurePlaceSyncedWithBackend(googleId, idToken);
+        // Manual desde Developer: siempre llama a Google (aunque tenga propietario o sea reciente).
+        await PlaceService.ensurePlaceSyncedWithBackend(googleId, idToken, { force: true });
         invalidateDoc('places', selectedItem.id);
         queryClient.invalidateQueries({ queryKey: ['placeDetails', selectedItem.id] });
         queryClient.invalidateQueries({ queryKey: ['doc', 'places', selectedItem.id] });

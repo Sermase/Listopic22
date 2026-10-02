@@ -4,7 +4,8 @@ import {
     Timestamp,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
-import { RefreshCw, Activity, Calendar, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import { RefreshCw, Activity, Calendar, TrendingUp, ChevronDown, ChevronUp, Gauge } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -18,6 +19,23 @@ interface UsageLog {
     date: string;
     month: string;
     timestamp: Timestamp | null;
+}
+
+interface GoogleSkuRow {
+    sku: string;
+    label: string;
+    used: number;
+    free: number | null;
+    remaining: number | null;
+    usdPer1000: number;
+    estimatedUsd: number;
+}
+
+interface GoogleUsage {
+    month: string;
+    rows: GoogleSkuRow[];
+    estimatedUsd: number;
+    note: string;
 }
 
 interface DayStat {
@@ -35,6 +53,8 @@ const ACTION_COLORS: Record<string, string> = {
     place_details_google:  'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
     admin_update_place_google: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
     admin_refresh_place_location: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    sync_place_status_google: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
+    place_photo_refresh:   'bg-amber-500/20 text-amber-300 border-amber-500/30',
     reverse_geocode:       'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
     photo_refresh:         'bg-amber-500/20 text-amber-300 border-amber-500/30',
     admin_bulk_update:     'bg-red-500/20 text-red-300 border-red-500/30',
@@ -50,6 +70,8 @@ const ACTION_DOTS: Record<string, string> = {
     place_details_google:  'bg-cyan-400',
     admin_update_place_google: 'bg-cyan-400',
     admin_refresh_place_location: 'bg-emerald-400',
+    sync_place_status_google: 'bg-sky-400',
+    place_photo_refresh:   'bg-amber-400',
     reverse_geocode:       'bg-emerald-400',
     photo_refresh:         'bg-amber-400',
     admin_bulk_update:     'bg-red-400',
@@ -81,13 +103,27 @@ export const ApiUsageTab: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [expandedLog, setExpandedLog] = useState<string | null>(null);
     const [actionFilter, setActionFilter] = useState<string>('all');
+    const [googleUsage, setGoogleUsage] = useState<GoogleUsage | null>(null);
+    const [googleUsageError, setGoogleUsageError] = useState<string | null>(null);
 
     const load = async () => {
         setLoading(true);
         try {
-            await Promise.all([loadStats(), loadLogs()]);
+            await Promise.all([loadStats(), loadLogs(), loadGoogleUsage()]);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Cupo gratis de Google por SKU en el mes de facturación (contador del servidor).
+    const loadGoogleUsage = async () => {
+        try {
+            const fn = httpsCallable(getFunctions(undefined, 'europe-west1'), 'adminGoogleUsage');
+            const { data } = await fn({});
+            setGoogleUsage(data as GoogleUsage);
+            setGoogleUsageError(null);
+        } catch (error) {
+            setGoogleUsageError(error instanceof Error ? error.message : String(error));
         }
     };
 
@@ -193,6 +229,58 @@ export const ApiUsageTab: React.FC = () => {
                         accent="#6b7280"
                     />
                 ))}
+            </div>
+
+            {/* ── Cupo gratis de Google por SKU (mes de facturación) ───── */}
+            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-5">
+                <h4 className="text-sm font-bold text-[var(--lt-text)] mb-1 flex items-center gap-2">
+                    <Gauge className="w-4 h-4 text-[var(--lt-accent)]" />
+                    Google este mes por tipo de llamada {googleUsage ? `(${googleUsage.month})` : ''}
+                </h4>
+                <p className="text-xs text-[var(--lt-text-muted)] mb-3">
+                    Cupo gratis mensual de cada SKU, lo usado y lo que queda antes de pagar. Se reinicia el día 1 (hora del Pacífico).
+                    {googleUsage?.note ? ` ${googleUsage.note}` : ''}
+                </p>
+                {googleUsageError ? (
+                    <p className="text-xs text-red-400">No se pudo cargar: {googleUsageError}</p>
+                ) : !googleUsage ? (
+                    <p className="text-xs text-[var(--lt-text-muted)]">Cargando…</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                            <thead className="text-[var(--lt-text-muted)]">
+                                <tr className="text-left">
+                                    <th className="py-1.5 pr-3 font-semibold">Tipo (SKU)</th>
+                                    <th className="py-1.5 pr-3 font-semibold text-right">Usadas</th>
+                                    <th className="py-1.5 pr-3 font-semibold text-right">Gratis/mes</th>
+                                    <th className="py-1.5 pr-3 font-semibold text-right">Quedan gratis</th>
+                                    <th className="py-1.5 font-semibold text-right">A pagar (est.)</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {googleUsage.rows.map((row) => {
+                                    const ratio = row.free ? row.used / row.free : 0;
+                                    return (
+                                        <tr key={row.sku}>
+                                            <td className="py-1.5 pr-3 text-[var(--lt-text)]">{row.label}</td>
+                                            <td className="py-1.5 pr-3 text-right font-mono text-[var(--lt-text)]">{row.used.toLocaleString('es-ES')}</td>
+                                            <td className="py-1.5 pr-3 text-right font-mono text-[var(--lt-text-muted)]">{row.free === null ? 'sin límite' : row.free.toLocaleString('es-ES')}</td>
+                                            <td className={`py-1.5 pr-3 text-right font-mono font-bold ${row.free === null ? 'text-[var(--lt-text-muted)]' : ratio >= 1 ? 'text-red-400' : ratio >= 0.8 ? 'text-amber-400' : 'text-green-400'}`}>
+                                                {row.remaining === null ? '—' : row.remaining.toLocaleString('es-ES')}
+                                            </td>
+                                            <td className="py-1.5 text-right font-mono text-[var(--lt-text)]">
+                                                {row.estimatedUsd > 0 ? `${row.estimatedUsd.toFixed(2)} $` : '0'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                        <p className="mt-2 text-right text-xs text-[var(--lt-text-muted)]">
+                            Estimado a pagar este mes: <span className="font-bold text-[var(--lt-text)]">{googleUsage.estimatedUsd.toFixed(2)} $</span>
+                        </p>
+                    </div>
+                )}
             </div>
 
             {/* ── Daily bar chart (last 30 days) ───────────────────────── */}
@@ -371,6 +459,8 @@ const ACTION_LABELS: Record<string, string> = {
     place_details_google:  'Detalle de lugar (Google)',
     admin_update_place_google: 'Actualizar sitio desde Developer (2 llamadas)',
     admin_refresh_place_location: 'Solo ubicación (1 llamada Essentials)',
+    sync_place_status_google: 'Estado abierto/cerrado (Developer)',
+    place_photo_refresh:   'Actualizar imagen rota (Developer)',
     reverse_geocode:       'Geocodificación inversa',
     photo_refresh:         'Refresco de foto',
     admin_bulk_update:     'Actualización masiva (admin)',

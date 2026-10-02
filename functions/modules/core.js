@@ -91,6 +91,8 @@ const {
 const { recalculateListReviewMetrics } = require("./lib/list-metrics");
 const { normalizeCcaa, pickCity } = require("./lib/geo-areas");
 const { logApiUsage } = require("./lib/apiLogger");
+const { ACTION_SKUS, refreshStamp } = require("./lib/google-usage");
+const { googleRefreshSkipReason, latLngOf } = require("./lib/place-refresh");
 const { fetchAuthorRoles, authorOf } = require("./lib/author-roles");
 const { computePlaceRating } = require("./lib/place-rating");
 
@@ -1237,11 +1239,25 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
     req.user = { uid: decoded.uid };
 
     const { placeid } = req.query;
-    const apiKey = await getGooglePlacesApiKey();
 
     if (!placeid) {
       return res.status(400).json({ message: "El ID del lugar (placeid) es requerido." });
     }
+
+    // Sin llamar a Google (y sin gastar cupo) si el sitio ya existe y tiene propietario
+    // o se refrescó hace menos de 30 días. «force=1» solo vale para jefe (Developer).
+    const forceRequested = req.query.force === '1' || req.query.force === 'true';
+    const force = forceRequested && await assertJefeAccess(decoded.uid).then(() => true, () => false);
+    const knownSnap = await db.collection('places').doc(String(placeid)).get();
+    const skippedReason = knownSnap.exists && !force ? googleRefreshSkipReason(knownSnap.data()) : null;
+    if (skippedReason) {
+      const known = knownSnap.data() || {};
+      const location = latLngOf(known.location) || latLngOf(known.coordinates);
+      return res.status(200).json({ ...known, id: knownSnap.id, ...(location ? { location, coordinates: location } : {}), refreshed: false, skippedReason });
+    }
+    const refreshType = !knownSnap.exists ? 'alta' : force ? 'manual' : 'valoracion';
+
+    const apiKey = await getGooglePlacesApiKey();
     if (!apiKey) {
       logger.error("getPlaceDetailsFromGoogle: GOOGLE_PLACES_API_KEY no se encontró en las variables de entorno.");
       return res.status(500).json({ message: "Error de configuración del servidor (API Key no encontrada)." });
@@ -1257,7 +1273,7 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
       const placeDetailsData = await placeDetailsResponse.json();
 
       if (placeDetailsData.status === "OK") {
-        logApiUsage({ action: 'place_details_google', userId: decoded.uid, details: { placeId: placeid } }).catch(() => {});
+        logApiUsage({ action: 'place_details_google', userId: decoded.uid, details: { placeId: placeid, refreshType } }).catch(() => {});
         const result = placeDetailsData.result;
         const placeRef = db.collection('places').doc(result.place_id);
 
@@ -1317,6 +1333,7 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
             : null,
           closedStatusUpdatedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(), lastGoogleSync: FieldValue.serverTimestamp(),
+          ...refreshStamp(refreshType, ACTION_SKUS.place_details_google),
         };
 
         // 3. SI NO EXISTE, AÑADIMOS LOS CAMPOS DE CREACIÓN
@@ -1333,7 +1350,7 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
 
         // 5. DEVOLVEMOS EL DOCUMENTO LIMPIO Y GUARDADO, NO EL RESULTADO BRUTO DE GOOGLE
         // Añadimos el ID al documento que devolvemos, ya que .data() no lo incluye.
-        const finalDoc = { id: placeRef.id, ...placeDoc };
+        const finalDoc = { id: placeRef.id, ...placeDoc, refreshed: true };
         res.status(200).json(finalDoc);
       } else {
         logger.error("Error desde Google Places API", { status: placeDetailsData.status, error_message: placeDetailsData.error_message });
@@ -2691,7 +2708,7 @@ const adminRefreshPlaceLocation = onCall({ cors: true }, async (request) => {
   if (Object.keys(update).length === 0) {
     return { success: false, message: 'Google no tiene datos de ubicación para este sitio.' };
   }
-  await db.collection('places').doc(documentId).set(update, { merge: true });
+  await db.collection('places').doc(documentId).set({ ...update, ...refreshStamp('ubicacion', ACTION_SKUS.admin_refresh_place_location) }, { merge: true });
   return { success: true, location: update };
 });
 
@@ -2714,12 +2731,12 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
 
   const { documentId, googlePlaceId } = request.data;
 
-  await writeAuditLog(contextAuth.uid, 'adminUpdateSinglePlace', { documentId, googlePlaceId });
-  // 2 llamadas a Google por sitio (ver Mejoras/google-places-skus.md): se registran para Developer → Uso de API.
-  logApiUsage({ action: 'admin_update_place_google', userId: contextAuth.uid, details: { placeId: googlePlaceId, calls: 2 } }).catch(() => {});
   if (!documentId || !googlePlaceId) {
     throw new HttpsError('invalid-argument', 'Se requieren documentId y googlePlaceId.');
   }
+  await writeAuditLog(contextAuth.uid, 'adminUpdateSinglePlace', { documentId, googlePlaceId });
+  // 2 llamadas a Google por sitio (ver Mejoras/google-places-skus.md): se registran una vez para Developer → Uso de API.
+  logApiUsage({ action: 'admin_update_place_google', userId: contextAuth.uid, details: { placeId: googlePlaceId, calls: 2 } }).catch(() => {});
 
   const apiKey = await getGooglePlacesApiKey();
   if (!apiKey) {
@@ -2790,7 +2807,8 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
         accessibility: resolveAccessibilityPayload(accessibilityOptions, existingData.accessibility),
         petOptions: googleOptions.petOptions || existingData.petOptions || null,
         updatedAt: FieldValue.serverTimestamp(),
-        lastGoogleSync: FieldValue.serverTimestamp()
+        lastGoogleSync: FieldValue.serverTimestamp(),
+        ...refreshStamp('manual', ACTION_SKUS.admin_update_place_google),
       };
 
       if (resolvedLocation) {
@@ -2801,7 +2819,6 @@ const adminUpdateSinglePlace = onCall({ cors: true }, async (request) => {
       pruneNullishKeys(updateData);
 
       await placeRef.update(updateData);
-      logApiUsage({ action: 'admin_single_update', userId: contextAuth.uid, details: { documentId, googlePlaceId } }).catch(() => {});
       logger.info(`Lugar ${documentId} actualizado exitosamente por ${contextAuth.uid}.`);
       return { success: true, message: "Lugar actualizado." };
     } else {
