@@ -7,11 +7,11 @@
  *   cd functions
  *   GOOGLE_APPLICATION_CREDENTIALS=/ruta/service-account.json node scripts/audit-minilist-criteria.js
  */
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 const { deriveScoringWeights } = require('../modules/lib/scoring');
 
-admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
+initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'listopic' });
 const db = getFirestore();
 
 (async () => {

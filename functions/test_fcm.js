@@ -1,6 +1,7 @@
-const admin = require('firebase-admin');
-admin.initializeApp({ projectId: "listopic" });
-const db = admin.firestore();
+const { initializeApp } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
+initializeApp({ projectId: "listopic" });
+const db = getFirestore();
 
 async function checkTokens() {
   const users = await db.collection('users').get();

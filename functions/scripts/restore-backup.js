@@ -9,7 +9,7 @@
  *   GOOGLE_APPLICATION_CREDENTIALS=/ruta/clave.json node scripts/restore-backup.js backups/<archivo>.json --apply    # restaura
  */
 const fs = require('fs');
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
 const { FieldValue, getFirestore } = require('firebase-admin/firestore');
 
 const file = process.argv[2];
@@ -19,7 +19,7 @@ if (!file || !fs.existsSync(file)) {
   process.exit(1);
 }
 const backup = JSON.parse(fs.readFileSync(file, 'utf8'));
-admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || backup.project || 'listopic' });
+initializeApp({ projectId: process.env.GCLOUD_PROJECT || backup.project || 'listopic' });
 const db = getFirestore();
 
 (async () => {

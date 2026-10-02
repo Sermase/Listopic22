@@ -1,10 +1,10 @@
 // functions/index.js (Versión Orquestador)
 
 const { setGlobalOptions } = require("firebase-functions/v2");
-const admin = require("firebase-admin");
+const { initializeApp } = require("firebase-admin/app");
 
 // --- INICIALIZACIÓN GLOBAL ---
-admin.initializeApp();
+initializeApp();
 setGlobalOptions({ region: "europe-west1" });
 
 // --- CARGA DE MÓDULOS DE FUNCIONES ---
