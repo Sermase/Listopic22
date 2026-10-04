@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { db } from '../../firebase';
-import {
-    collection, query, where, getDocs, doc, updateDoc,
-    limit as firestoreLimit, orderBy, getDoc
-} from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { Search, X, Bot, Award, User, RefreshCw, Shield, ChevronDown, ChevronUp, Loader2, Star } from 'lucide-react';
 import { propagateAuthorFieldsToReviews } from '../../services/UserProfileService';
+import { adminSearchUsers, type AdminUserRow } from '../../services/developerAdmin';
+import { UserAdminPanel } from './UserAdminPanel';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -98,7 +97,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSaved, available
     const ratingColor = avgRating >= 8.5 ? 'text-emerald-400' : avgRating >= 7 ? 'text-amber-400' : 'text-blue-400';
 
     return (
-        <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 py-8">
+        <div className="fixed inset-0 z-[1350] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 py-8">
             <div className="w-full max-w-lg bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
                 {/* Header */}
                 <div className="p-5 border-b border-white/10 flex items-center gap-4">
@@ -239,76 +238,41 @@ export const UsersManagerTab: React.FC = () => {
     const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
     const [availableBadges, setAvailableBadges] = useState<any[]>([]);
 
+    const [panelUid, setPanelUid] = useState<string | null>(null);
+
+    const toManaged = (u: AdminUserRow): ManagedUser => ({
+        uid: u.uid, username: u.username || undefined, displayName: u.displayName || undefined, email: u.email || undefined,
+        photoUrl: u.photoUrl || undefined, userType: u.userType, reviewsCount: u.reviewsCount, level: u.level,
+    });
+
+    const loadBadges = async () => {
+        try {
+            const badgeSnap = await getDocs(collection(db, 'badges'));
+            setAvailableBadges(badgeSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    // Por el servidor (adminSearchUsers): username, email o uid exacto.
+    const runSearch = async (term: string) => {
+        setLoading(true);
+        try {
+            setUsers((await adminSearchUsers(term, term ? 20 : 50)).users.map(toManaged));
+            await loadBadges();
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const searchUsers = async () => {
         if (!searchQuery.trim()) return;
-        setLoading(true);
-        try {
-            const term = searchQuery.trim().toLowerCase();
-            const results: ManagedUser[] = [];
-            const seen = new Set<string>();
-
-            const addResults = (docs: any[]) => {
-                docs.forEach(d => {
-                    if (!seen.has(d.id)) {
-                        seen.add(d.id);
-                        results.push({ uid: d.id, ...d.data() });
-                    }
-                });
-            };
-
-            // Search by username
-            const q1 = query(collection(db, 'users'), where('usernameLower', '>=', term), where('usernameLower', '<=', term + '\uf8ff'), firestoreLimit(10));
-            const s1 = await getDocs(q1);
-            addResults(s1.docs);
-
-            // Search by email
-            const q2 = query(collection(db, 'users'), where('email', '>=', term), where('email', '<=', term + '\uf8ff'), firestoreLimit(10));
-            const s2 = await getDocs(q2);
-            addResults(s2.docs);
-
-            // Fallback: load recent users and filter by displayName client-side
-            if (results.length < 5) {
-                const q3 = query(collection(db, 'users'), orderBy('reviewsCount', 'desc'), firestoreLimit(50));
-                const s3 = await getDocs(q3);
-                s3.docs.forEach(d => {
-                    if (!seen.has(d.id)) {
-                        const data = d.data() as any;
-                        const dn = (data.displayName || '').toLowerCase();
-                        const un = (data.username || '').toLowerCase();
-                        if (dn.includes(term) || un.includes(term)) {
-                            seen.add(d.id);
-                            results.push({ uid: d.id, ...data });
-                        }
-                    }
-                });
-            }
-
-            setUsers(results);
-
-            // Also load available badges
-            const badgeSnap = await getDocs(collection(db, 'badges'));
-            setAvailableBadges(badgeSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
+        await runSearch(searchQuery.trim());
     };
 
-    const loadAll = async () => {
-        setLoading(true);
-        try {
-            const q = query(collection(db, 'users'), orderBy('reviewsCount', 'desc'), firestoreLimit(50));
-            const snap = await getDocs(q);
-            setUsers(snap.docs.map(d => ({ uid: d.id, ...d.data() } as ManagedUser)));
-            const badgeSnap = await getDocs(collection(db, 'badges'));
-            setAvailableBadges(badgeSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setLoading(false);
-        }
-    };
+    const loadAll = async () => runSearch('');
 
     const handleSaved = (updated: ManagedUser) => {
         setUsers(prev => prev.map(u => u.uid === updated.uid ? updated : u));
@@ -331,7 +295,7 @@ export const UsersManagerTab: React.FC = () => {
         <div className="space-y-6">
             <div>
                 <h2 className="text-xl font-bold text-white mb-1">Gestión de Usuarios</h2>
-                <p className="text-gray-400 text-sm">Busca usuarios, gestiona sus tipos y medallas.</p>
+                <p className="text-gray-400 text-sm">Busca usuarios y abre su ficha: estadísticas, valoraciones (con detalle y edición), Listas, fotos, tipos y medallas.</p>
             </div>
 
             {/* Search bar */}
@@ -381,7 +345,7 @@ export const UsersManagerTab: React.FC = () => {
                             {users.map(u => (
                                 <tr
                                     key={u.uid}
-                                    onClick={() => setSelectedUser(u)}
+                                    onClick={() => setPanelUid(u.uid)}
                                     className="border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors"
                                 >
                                     <td className="px-4 py-3">
@@ -429,6 +393,17 @@ export const UsersManagerTab: React.FC = () => {
                     <p className="font-bold text-gray-500">Busca un usuario para empezar</p>
                     <p className="text-xs mt-1">o carga los 50 con más reseñas con el botón de refresco</p>
                 </div>
+            )}
+
+            {panelUid && (
+                <UserAdminPanel
+                    uid={panelUid}
+                    onClose={() => setPanelUid(null)}
+                    onEditRoles={(full) => {
+                        if (availableBadges.length === 0) loadBadges();
+                        setSelectedUser({ ...(full as unknown as ManagedUser), uid: full.uid });
+                    }}
+                />
             )}
 
             {selectedUser && (
