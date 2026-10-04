@@ -42,6 +42,8 @@ test('los elementos solo de bots aparecen solo con el filtro «Bots»', async ({
 
 test('toda la tarjeta del resultado lleva al elemento, no solo el nombre', async ({ page, errors }) => {
   await page.goto(url('city:Valladolid'));
+  // Antes de pulsar, los resultados ya ordenados (si no, el clic cae en una tarjeta que se repinta).
+  await expect.poll(() => elementKeys(page)).toEqual(vectors.expected.zones['city:Valladolid']);
   const card = page.locator('[data-element-key]').first();
   await expect(card).toBeVisible();
   const box = await card.boundingBox();
