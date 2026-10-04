@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { db } from '../../firebase';
-import {
-    collectionGroup, collection, query, getDocs, doc, updateDoc, getDoc,
-    limit as firestoreLimit, writeBatch, where
-} from 'firebase/firestore';
+import { adminSearchReviews } from '../../services/developerAdmin';
+import { doc, updateDoc, getDoc, writeBatch } from 'firebase/firestore';
 import { RefreshCw, Tag, AlertCircle, CheckCircle, Wrench, ChevronDown, ChevronRight, Pencil, X, Save } from 'lucide-react';
 
 interface TagRow {
@@ -54,7 +52,15 @@ export const TagsManagerTab: React.FC = () => {
         try {
             // 1. Fetch all reviews
             addLog('Cargando reseñas...');
-            const snap = await getDocs(query(collectionGroup(db, 'reviews'), firestoreLimit(5000)));
+            // Por el servidor: desde el navegador las reglas rechazan más de 100 de golpe.
+            const { reviews: adminRows } = await adminSearchReviews({ limit: 5000 });
+            const snap = {
+                docs: adminRows.map((r) => ({
+                    id: r.id,
+                    data: (): { listId: string; tags: string[]; userTags: string[] } => ({ listId: r.listId || '', tags: r.tags, userTags: [] }),
+                    ref: { path: r.path, parent: { parent: { id: r.listId || '' } } },
+                })),
+            };
             addLog(`${snap.docs.length} reseñas cargadas.`);
 
             // 2. Group tags by listId

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { db } from '../../firebase';
+import { adminSearchReviews } from '../../services/developerAdmin';
 import {
     doc,
     getDoc,
@@ -7,7 +8,6 @@ import {
     query,
     where,
     getDocs,
-    collectionGroup,
 } from 'firebase/firestore';
 import { FileDown, Search, Loader2, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -422,14 +422,11 @@ export const UserDataExportTab: React.FC = () => {
         const seen = new Set<string>();
 
         try {
-            const cgSnap = await getDocs(
-                query(collectionGroup(db, 'reviews'), where('authorId', '==', uid))
-            );
-            cgSnap.docs.forEach(d => {
-                seen.add(d.id);
-                const seg = d.ref.path.split('/');
-                const listId = seg.length >= 4 ? seg[1] : undefined;
-                reviews.push({ id: d.id, listId, ...d.data() });
+            // Por el servidor (userId y authorId): desde el navegador las reglas rechazan esta consulta.
+            const { reviews: rows } = await adminSearchReviews({ userId: uid, limit: 5000, full: true });
+            rows.forEach((r) => {
+                seen.add(r.id);
+                reviews.push({ ...r, id: r.id, listId: r.listId ?? undefined });
             });
         } catch {
             // Index missing or no permission → query per-list subcollections

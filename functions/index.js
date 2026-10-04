@@ -34,6 +34,7 @@ module.exports = {
     ...require('./modules/media'),
     ...require('./modules/admin/admin-tags'),
     ...require('./modules/admin/admin-users'),
+    ...require('./modules/admin/admin-reviews'),
     ...require('./modules/admin/admin-misc'),
     ...require('./modules/admin/admin-lists'),
     ...require('./modules/minilist-sync'),

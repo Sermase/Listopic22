@@ -1,14 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { db } from '../../firebase';
 import {
-    collection, collectionGroup, query, where, getDocs,
-    limit as firestoreLimit, deleteDoc, doc, updateDoc, documentId,
+    collection, query, where, getDocs,
+    deleteDoc, doc, documentId,
     writeBatch, deleteField
 } from 'firebase/firestore';
-import { useAuth } from '../../context/AuthContext';
+import { adminSearchReviews } from '../../services/developerAdmin';
+import { ReviewAdminModal } from './ReviewAdminModal';
 import {
     RefreshCw, Trash2, ChevronUp, ChevronDown, ArrowUpDown,
-    ExternalLink, Star, User, MapPin, FileText, X, Save, AlertCircle, ChevronRight,
+    ExternalLink, Star, User, MapPin, FileText, X, AlertCircle,
     ShieldCheck, Wrench
 } from 'lucide-react';
 
@@ -29,219 +30,6 @@ const FILTER_LABELS: Record<FilterMode, string> = {
     'no-author': 'Sin autor',
     'no-list': 'Sin lista',
     'no-rating': 'Sin nota',
-};
-
-// ─── Inline Edit Modal ─────────────────────────────────────────────────────────
-
-interface ReviewEditModalProps {
-    review: any;
-    onClose: () => void;
-    onSaved: () => void;
-}
-
-const ReviewEditModal: React.FC<ReviewEditModalProps> = ({ review, onClose, onSaved }) => {
-    const [fields, setFields] = useState({
-        userId: review.userId || '',
-        authorId: review.authorId || '',
-        authorName: review.authorName || '',
-        placeId: review.placeId || '',
-        placeName: review.placeName || '',
-        listId: review.listId || '',
-        itemName: review.itemName || '',
-        comment: review.comment || '',
-    });
-    const [isSaving, setIsSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [criteriaOpen, setCriteriaOpen] = useState(false);
-
-    const set = (k: keyof typeof fields, v: string) =>
-        setFields(prev => ({ ...prev, [k]: v }));
-
-    const handleSave = async () => {
-        if (!confirm(`¿Guardar cambios en la reseña ${review.id}?`)) return;
-        setIsSaving(true);
-        setError(null);
-        try {
-            let docRef;
-            if (review._path) {
-                docRef = doc(db, review._path);
-            } else if (review.listId) {
-                docRef = doc(db, 'lists', review.listId, 'reviews', review.id);
-            } else {
-                docRef = doc(db, 'reviews', review.id);
-            }
-
-            const patch: Record<string, any> = {};
-            if (fields.userId) patch.userId = fields.userId;
-            if (fields.authorId) patch.authorId = fields.authorId;
-            if (fields.authorName) patch.authorName = fields.authorName;
-            if (fields.placeId) patch.placeId = fields.placeId;
-            if (fields.placeName) patch.placeName = fields.placeName;
-            if (fields.listId) patch.listId = fields.listId;
-            if (fields.itemName !== review.itemName) patch.itemName = fields.itemName;
-            if (fields.comment !== review.comment) patch.comment = fields.comment;
-
-            await updateDoc(docRef, patch);
-            onSaved();
-            onClose();
-        } catch (err: any) {
-            setError(err.message || 'Error al guardar');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const Field = ({ label, k, textarea }: { label: string; k: keyof typeof fields; textarea?: boolean }) => (
-        <div className="space-y-1">
-            <label className="text-xs font-bold text-gray-400 uppercase">{label}</label>
-            {textarea ? (
-                <textarea
-                    value={fields[k]}
-                    onChange={e => set(k, e.target.value)}
-                    rows={3}
-                    className="w-full bg-[#1e253c] border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-[var(--lt-accent-border)] resize-y"
-                />
-            ) : (
-                <input
-                    value={fields[k]}
-                    onChange={e => set(k, e.target.value)}
-                    className="w-full bg-[#1e253c] border border-white/10 rounded-lg px-3 py-2 text-sm text-gray-200 outline-none focus:border-[var(--lt-accent-border)]"
-                />
-            )}
-        </div>
-    );
-
-    // Parse criteria scores from the review
-    const scores: Record<string, number> = review.scores || {};
-    const criteriaDefinition: any[] = review.criteriaDefinition || [];
-    const criteriaEntries = Object.entries(scores).map(([key, value]) => {
-        const def = criteriaDefinition.find((c: any) => c.id === key);
-        return {
-            key,
-            label: def?.label || key,
-            value: value as number,
-            isPonderable: def ? def.ponderable !== false && def.isPonderable !== false : true,
-        };
-    }).sort((a, b) => (b.isPonderable ? 1 : 0) - (a.isPonderable ? 1 : 0));
-
-    const ratingColor = (v: number) =>
-        v >= 8 ? 'text-emerald-400' : v >= 5 ? 'text-amber-400' : 'text-red-400';
-
-    return (
-        <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
-            onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-        >
-            <div
-                className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl"
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Header */}
-                <div className="flex justify-between items-center p-5 border-b border-white/10 shrink-0">
-                    <div>
-                        <h2 className="text-lg font-bold text-white">Editar Reseña</h2>
-                        <div className="flex items-center gap-3 mt-0.5">
-                            <p className="text-xs text-gray-400 font-mono">ID: {review.id}</p>
-                            {review.overallRating != null && (
-                                <span className={`text-xs font-bold flex items-center gap-1 ${ratingColor(review.overallRating)}`}>
-                                    <Star className="w-3 h-3" />{review.overallRating} (calculado)
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white">
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
-
-                {/* Body */}
-                <div className="p-5 overflow-y-auto flex-1 space-y-4">
-                    {error && (
-                        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2 text-red-400 text-sm">
-                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                            {error}
-                        </div>
-                    )}
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <Field label="User ID (autor)" k="userId" />
-                        <Field label="Author ID (legacy)" k="authorId" />
-                        <Field label="Nombre del autor" k="authorName" />
-                        <Field label="Place ID" k="placeId" />
-                        <Field label="Nombre del lugar" k="placeName" />
-                        <Field label="List ID" k="listId" />
-                        <Field label="Elemento (itemName)" k="itemName" />
-                    </div>
-                    <Field label="Comentario" k="comment" textarea />
-
-                    {/* Read-only info */}
-                    <div className="bg-black/20 border border-white/5 rounded-lg p-3 space-y-1 text-xs text-gray-500">
-                        <p><span className="text-gray-400">Fecha:</span> {formatDate(review)}</p>
-                        <p><span className="text-gray-400">Ruta:</span> <span className="font-mono">{review._path || (review.listId ? `lists/${review.listId}/reviews/${review.id}` : `reviews/${review.id}`)}</span></p>
-                        {review.photoUrl && (
-                            <p><span className="text-gray-400">Foto:</span> <a href={review.photoUrl} target="_blank" rel="noreferrer" className="text-[var(--lt-accent)] hover:underline truncate inline-block max-w-xs align-bottom">{review.photoUrl}</a></p>
-                        )}
-                    </div>
-
-                    {/* Criteria scores collapsible */}
-                    {criteriaEntries.length > 0 && (
-                        <div className="border border-white/10 rounded-xl overflow-hidden">
-                            <button
-                                onClick={() => setCriteriaOpen(o => !o)}
-                                className="w-full flex items-center justify-between px-4 py-3 bg-white/[0.03] hover:bg-white/[0.05] transition-colors text-sm font-semibold text-gray-300"
-                            >
-                                <span className="flex items-center gap-2">
-                                    <Star className="w-4 h-4 text-amber-400" />
-                                    Puntuaciones por criterio ({criteriaEntries.length})
-                                </span>
-                                <ChevronRight className={`w-4 h-4 text-gray-500 transition-transform ${criteriaOpen ? 'rotate-90' : ''}`} />
-                            </button>
-
-                            {criteriaOpen && (
-                                <div className="p-4 space-y-2 bg-black/20">
-                                    {criteriaEntries.map(({ key, label, value, isPonderable }) => (
-                                        <div key={key} className="flex items-center justify-between gap-3">
-                                            <div className="flex items-center gap-2 min-w-0">
-                                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${isPonderable ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'bg-white/10 text-gray-400'}`}>
-                                                    {isPonderable ? 'P' : 'NP'}
-                                                </span>
-                                                <span className="text-sm text-gray-300 truncate">{label}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                <div className="w-24 h-1.5 rounded-full bg-white/10 overflow-hidden">
-                                                    <div
-                                                        className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500"
-                                                        style={{ width: `${Math.min(100, (value / 10) * 100)}%` }}
-                                                    />
-                                                </div>
-                                                <span className={`text-sm font-bold w-8 text-right ${ratingColor(value)}`}>{value}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                    <p className="text-xs text-gray-600 pt-1">P = ponderable · NP = no ponderable. Solo lectura (calculado al guardar la reseña).</p>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </div>
-
-                {/* Footer */}
-                <div className="p-5 border-t border-white/10 flex justify-end gap-3 shrink-0 bg-[#0a0c10]/50">
-                    <button onClick={onClose} className="px-5 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white font-bold transition-colors">
-                        Cancelar
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        disabled={isSaving}
-                        className="px-5 py-2 rounded-lg bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 text-white font-bold transition-colors flex items-center gap-2"
-                    >
-                        {isSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
-                        {isSaving ? 'Guardando...' : 'Guardar'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
 };
 
 // ─── Search Bar Component ──────────────────────────────────────────────────────
@@ -306,7 +94,6 @@ interface AuditIssue {
 // ─── Main Tab ──────────────────────────────────────────────────────────────────
 
 export const ReviewsManagerTab: React.FC = () => {
-    const { user } = useAuth();
 
     const [reviews, setReviews] = useState<any[]>([]);
     const [listsCache, setListsCache] = useState<Record<string, string>>({});
@@ -324,65 +111,24 @@ export const ReviewsManagerTab: React.FC = () => {
 
     const addLog = (msg: string) => setLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 49)]);
 
+    // Por el servidor (adminSearchReviews): desde el navegador las reglas rechazaban la
+    // colección raíz antigua y cualquier consulta de más de 100 valoraciones.
     const loadReviews = async () => {
         setLoading(true);
         setLog([]);
         try {
-            addLog(`Cargando hasta ${fetchLimit} reseñas desde colección raíz...`);
-
-            const rootSnap = await getDocs(
-                query(collection(db, 'reviews'), firestoreLimit(fetchLimit))
-            );
-            const rootReviews = rootSnap.docs.map(d => ({
-                id: d.id,
-                ...d.data(),
-                _source: 'root',
-                _path: `reviews/${d.id}`,
+            addLog(`Cargando hasta ${fetchLimit} valoraciones (servidor)...`);
+            const result = await adminSearchReviews({ limit: fetchLimit, full: true });
+            const all = result.reviews.map((row) => ({
+                ...row,
+                _source: row.legacy ? 'root' : 'subcollection',
+                _path: row.path,
+                createdAt: row.createdAtMs ? { seconds: row.createdAtMs / 1000 } : null,
+                updatedAt: row.updatedAtMs ? { seconds: row.updatedAtMs / 1000 } : null,
             }));
-            addLog(`Raíz: ${rootReviews.length} reseñas.`);
-
-            const subSnap = await getDocs(
-                query(collectionGroup(db, 'reviews'), firestoreLimit(fetchLimit))
-            ).catch(() => null);
-
-            const subReviews: any[] = [];
-            if (subSnap) {
-                subSnap.docs.forEach(d => {
-                    const path = d.ref.path;
-                    if (!path.startsWith('reviews/')) {
-                        subReviews.push({
-                            id: d.id,
-                            ...d.data(),
-                            _source: 'subcollection',
-                            _path: path,
-                        });
-                    }
-                });
-                addLog(`Subcolecciones: ${subReviews.length} reseñas.`);
-            }
-
-            const map = new Map<string, any>();
-            [...subReviews, ...rootReviews].forEach(r => map.set(r.id, r));
-            const all = Array.from(map.values());
-
             setReviews(all);
-            addLog(`Total: ${all.length} reseñas cargadas.`);
-
-            // Fetch list names for the unique listIds
-            const listIds = [...new Set(all.map((r: any) => r.listId).filter(Boolean))] as string[];
-            if (listIds.length > 0) {
-                const cache: Record<string, string> = {};
-                const chunks: string[][] = [];
-                for (let i = 0; i < listIds.length; i += 10) chunks.push(listIds.slice(i, i + 10));
-                await Promise.all(chunks.map(async chunk => {
-                    try {
-                        const snap = await getDocs(query(collection(db, 'lists'), where(documentId(), 'in', chunk)));
-                        snap.docs.forEach(d => { cache[d.id] = (d.data().name as string) || d.id; });
-                    } catch { /* silently skip */ }
-                }));
-                setListsCache(cache);
-                addLog(`Nombres de ${Object.keys(cache).length} listas cargados.`);
-            }
+            setListsCache(Object.fromEntries(all.filter((r) => r.listId && r.listName).map((r) => [r.listId as string, r.listName as string])));
+            addLog(`Total: ${all.length} de ${result.total} valoraciones (${result.scanned} revisadas${result.truncated ? ', búsqueda recortada: filtra por usuario, sitio o Lista' : ''}).`);
         } catch (err: any) {
             addLog(`Error: ${err.message}`);
         } finally {
@@ -713,6 +459,7 @@ export const ReviewsManagerTab: React.FC = () => {
                         <option value={200}>200</option>
                         <option value={500}>500</option>
                         <option value={1000}>1000</option>
+                        <option value={2000}>2000</option>
                     </select>
                     <button
                         onClick={loadReviews}
@@ -872,7 +619,7 @@ export const ReviewsManagerTab: React.FC = () => {
                                                     )}
                                                     <button
                                                         onClick={() => setEditingReview(review)}
-                                                        title="Editar"
+                                                        title="Ver y editar"
                                                         className="p-1.5 hover:bg-[var(--lt-accent)]/20 rounded-lg text-gray-400 hover:text-[var(--lt-accent)] transition-colors"
                                                     >
                                                         <FileText className="w-4 h-4" />
@@ -1059,10 +806,10 @@ export const ReviewsManagerTab: React.FC = () => {
             )}
 
             {editingReview && (
-                <ReviewEditModal
-                    review={editingReview}
+                <ReviewAdminModal
+                    path={editingReview._path}
                     onClose={() => setEditingReview(null)}
-                    onSaved={() => { loadReviews(); setEditingReview(null); }}
+                    onSaved={() => { loadReviews(); }}
                 />
             )}
         </div>

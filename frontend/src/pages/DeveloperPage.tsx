@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useJefeClaim } from '../hooks/useJefeClaim';
+import { adminSearchReviews } from '../services/developerAdmin';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { PlaceService } from '../services/PlaceService';
 import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
-import { collection, collectionGroup, query, where, getDocs, doc, getDoc, getDocFromServer, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, getDocFromServer, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion, onSnapshot, orderBy } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useQueryClient } from '@tanstack/react-query';
 import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, MapPinned, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown, ClipboardList, Activity, BarChart3, Building2, Sparkles } from 'lucide-react';
@@ -66,6 +68,8 @@ export const DeveloperPage: React.FC = () => {
     // Reactive: un usuario al que se le acaba de quitar el rol 'jefe' pierde
     // acceso inmediatamente sin recargar la página.
     const isAuthorized: boolean | null = loadingAuth ? null : isJefe;
+    // Claim `admin` del token: sin él, las reglas no reconocen al jefe (ver hooks/useJefeClaim).
+    const jefeClaim = useJefeClaim(user, Boolean(isJefe));
 
     // Other Settings State
     const [otherSettings, setOtherSettings] = useState({
@@ -539,14 +543,13 @@ export const DeveloperPage: React.FC = () => {
                     // Batch-update de las reseñas del lugar (lists/{listId}/reviews vía
                     // collection group) para que ReviewCard muestre el estado de cierre.
                     try {
-                        const reviewsSnap = await getDocs(
-                            query(collectionGroup(db, 'reviews'), where('placeId', '==', placeTargetId), firestoreLimit(100))
-                        );
-                        const batch = writeBatch(db);
-                        reviewsSnap.docs.forEach(d => {
-                            batch.update(d.ref, { placeClosedStatus: closedStatus });
-                        });
-                        if (reviewsSnap.docs.length > 0) await batch.commit();
+                        // Rutas por el servidor: la consulta del navegador la rechazan las reglas.
+                        const { reviews: placeReviews } = await adminSearchReviews({ placeId: placeTargetId, limit: 5000 });
+                        for (let i = 0; i < placeReviews.length; i += 450) {
+                            const batch = writeBatch(db);
+                            placeReviews.slice(i, i + 450).forEach((r) => batch.update(doc(db, r.path), { placeClosedStatus: closedStatus }));
+                            await batch.commit();
+                        }
                     } catch (batchErr) {
                         console.warn('Could not batch-update reviews with closedStatus:', batchErr);
                     }
@@ -872,6 +875,17 @@ export const DeveloperPage: React.FC = () => {
 
                     {/* Main Content */}
                     <main className="flex-1 overflow-y-auto bg-[#0a0c10] p-8">
+                        {jefeClaim.status === 'checking' || jefeClaim.status === 'provisioning' ? (
+                            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-6 text-sm text-gray-300">
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                {jefeClaim.status === 'provisioning' ? 'Activando tus permisos de Developer (solo la primera vez)…' : 'Comprobando permisos…'}
+                            </div>
+                        ) : (<>
+                        {jefeClaim.status === 'error' && (
+                            <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                                No se pudieron activar los permisos de Developer ({jefeClaim.error}). Lo que lee Firestore directamente (Listas, Usuarios, Reportes…) puede fallar; Reseñas y la ficha de usuario van por el servidor y sí funcionan.
+                            </div>
+                        )}
 
                         {activeTab === 'console' && (
                             <div className="space-y-6">
@@ -2391,6 +2405,7 @@ export const DeveloperPage: React.FC = () => {
                                 <GeoAnalyticsTab />
                             </DeveloperLazyPanel>
                         )}
+                        </>)}
                     </main >
                 </div >
             )}
