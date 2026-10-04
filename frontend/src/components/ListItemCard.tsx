@@ -47,6 +47,8 @@ interface ListItemCardProps {
     disableLift?: boolean;
     /** Clave del elemento (lib/listElements): la misma en la Lista y en Buscar. */
     elementKey?: string;
+    /** Elementos (groupingMode 'dish'): sitio como título y el elemento en la segunda línea. */
+    placeFirst?: boolean;
 }
 
 // Sin nota pública: se dice, en vez de enseñar un 0.
@@ -80,10 +82,14 @@ const ScoreBadge: React.FC<{ value: number | null; kind?: 'bot'; size: 'sm' | 'l
 // El enlace del título cubre toda la tarjeta (::after); lo demás clicable va encima (relative z-10).
 const TITLE_LINK = "hover:underline after:absolute after:inset-0 after:content-['']";
 
-export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextRankLabel, isGrid, groupingMode = 'place', listId, disableLift = false, elementKey }) => {
+export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextRankLabel, isGrid, groupingMode = 'place', listId, disableLift = false, elementKey, placeFirst = false }) => {
     // Una misma etiqueta puede llegar repetida (varias valoraciones del elemento).
     const tags = Array.from(new Set(item.tags || []));
     const normalizedClosedStatus = String(item.placeClosedStatus || '').trim().toLowerCase();
+    // Elemento en una Lista: con placeFirst el título es el sitio y debajo va el elemento.
+    const swapTitle = Boolean(placeFirst && groupingMode === 'dish' && item.placeName && item.placeName !== item.name);
+    const dishTitle = swapTitle ? item.placeName : item.name;
+    const dishSubtitle = swapTitle ? item.name : item.placeName;
     const isPermanentlyClosed = normalizedClosedStatus === 'permanently_closed' || normalizedClosedStatus === 'closed_permanently';
     const photoPlaceholderVariant = groupingMode === 'dish' ? 'group' : 'place';
 
@@ -347,7 +353,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                                 to={`/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`}
                                                 className={TITLE_LINK}
                                             >
-                                                {item.name}
+                                                {dishTitle}
                                             </Link>
                                         ) : (
                                             <Link to={`/place/${item.placeId}`} className={TITLE_LINK}>{item.name}</Link>
@@ -362,8 +368,8 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                     {/* Place Context (Items/Places) */}
                                     {item.placeName && item.placeName !== item.name && (
                                         <span className="flex items-center gap-1 font-medium text-gray-400 truncate max-w-full">
-                                            <MapPin className="w-3 h-3 shrink-0" />
-                                            <span className="truncate">{item.placeName}</span>
+                                            {!swapTitle && <MapPin className="w-3 h-3 shrink-0" />}
+                                            <span className="truncate">{dishSubtitle}</span>
                                         </span>
                                     )}
 
