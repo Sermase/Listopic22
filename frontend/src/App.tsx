@@ -22,6 +22,7 @@ import { useScrollRestoration } from './hooks/useScrollRestoration';
 
 // Lazy Load Pages
 const HomePage = React.lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
+const PlansPage = React.lazy(() => import('./pages/PlansPage').then(m => ({ default: m.PlansPage })));
 const SearchPage = React.lazy(() => import('./pages/SearchPage').then(m => ({ default: m.SearchPage })));
 const ListPage = React.lazy(() => import('./pages/ListPage').then(m => ({ default: m.ListPage })));
 const EditListPage = React.lazy(() => import('./pages/EditListPage').then(m => ({ default: m.EditListPage })));
@@ -248,6 +249,7 @@ const AppRoutes = () => {
               <Route path="/chats/:chatId" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
 
               {/* Public info pages */}
+              <Route path="/planes" element={<PlansPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/child-safety" element={<ChildSafetyPage />} />

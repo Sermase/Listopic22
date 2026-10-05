@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
 import { BUSINESS_PRO_CHECKOUT_ENABLED, BUSINESS_PRO_ENFORCED } from '../config/features';
 import { createBusinessProCheckoutSession } from '../services/BusinessBillingService';
+import { PLAN_BETA_TRIAL_DAYS } from '../config/planBeta';
+import { describePlanInterestResult, registerPlanInterest } from '../services/PlanInterestService';
 import type { BusinessPlan } from '../utils/businessPlan';
 
 const PRO_BENEFITS = [
@@ -34,6 +36,24 @@ export const BusinessProUpsellCard: React.FC<{ placeId: string }> = ({ placeId }
         }
     };
 
+    // Beta gratuita: activa Business Pro como prueba y recarga para ver las pestañas.
+    const startBetaTrial = async () => {
+        setStarting(true);
+        setError(null);
+        try {
+            const result = await registerPlanInterest('business_pro', 'monthly', placeId);
+            if (result.status === 'trial_started' || result.status === 'already_active') {
+                window.location.reload();
+                return;
+            }
+            setError(describePlanInterestResult(result));
+        } catch (trialError) {
+            console.error('BusinessProUpsellCard: beta trial failed', trialError);
+            setError(getErrorMessage(trialError));
+        }
+        setStarting(false);
+    };
+
     return (
         <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-8 text-center">
             <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
@@ -62,10 +82,20 @@ export const BusinessProUpsellCard: React.FC<{ placeId: string }> = ({ placeId }
                     Hazte Business Pro
                 </button>
             ) : (
-                <p role="note" className="mx-auto mt-6 max-w-md rounded-xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-4 py-3 text-sm text-[var(--lt-text)]">
-                    La contratación online de Business Pro todavía no está abierta. El equipo de Listopic puede activarlo
-                    para tu local mientras tanto.
-                </p>
+                <>
+                    <button
+                        type="button"
+                        onClick={startBetaTrial}
+                        disabled={starting}
+                        className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-3 text-sm font-black text-white shadow-lg disabled:opacity-60"
+                    >
+                        {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                        Pruébalo gratis {PLAN_BETA_TRIAL_DAYS} días
+                    </button>
+                    <p role="note" className="mx-auto mt-4 max-w-md rounded-xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-4 py-3 text-sm text-[var(--lt-text)]">
+                        Beta gratuita por tiempo limitado: sin tarjeta y sin cobros. Al acabar, el local vuelve solo al plan gratuito.
+                    </p>
+                </>
             )}
             {error && (
                 <p className="mx-auto mt-4 max-w-md rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200">
