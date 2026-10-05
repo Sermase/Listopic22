@@ -10,6 +10,8 @@ import {
     getOpenSponsoredPlacements,
     getPendingItemProposals,
     getSpotlightPricing,
+    impulsesPriceEur,
+    packDiscountPercent,
     reviewItemProposal,
     reviewItemSpotlight,
     reviewSponsoredPlacement,
@@ -447,8 +449,9 @@ export const ProProposalsTab: React.FC = () => {
                                         <span className="text-xs text-gray-400">· {spotlight.placeName || spotlight.placeId}</span>
                                     </div>
                                     <p className="mt-1 text-xs text-gray-500">
-                                        {spotlight.units} impulso{spotlight.units === 1 ? '' : 's'} · radio {spotlight.radiusKm} km
-                                        {spotlight.weeks ? ` · ${spotlight.weeks} semana${spotlight.weeks === 1 ? '' : 's'}` : ''}
+                                        ×{spotlight.units} · radio {spotlight.radiusKm} km
+                                        {spotlight.days ? ` · ${spotlight.days} día${spotlight.days === 1 ? '' : 's'}` : spotlight.weeks ? ` · ${spotlight.weeks} semana${spotlight.weeks === 1 ? '' : 's'}` : ''}
+                                        {spotlight.impulses ? ` · ${spotlight.impulses.toLocaleString('es-ES')} impulsos` : ''}
                                         {typeof spotlight.totalPriceEur === 'number' ? ` · ${spotlight.totalPriceEur.toFixed(2)} €` : ''}
                                         {spotlight.endsAt ? ` · activa hasta ${spotlight.endsAt}` : ' · el periodo empieza al activarla'}
                                     </p>
@@ -579,34 +582,86 @@ export const ProProposalsTab: React.FC = () => {
             <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-6">
                 <h3 className="flex items-center gap-2 text-lg font-bold text-white">
                     <Euro className="h-5 w-5 text-emerald-300" />
-                    Fórmula de precios de platos destacados
+                    Precio de los impulsos
                 </h3>
                 <p className="mt-1 text-sm text-gray-400">
-                    Precio por <strong>impulso</strong> = precio por tramo de 0,2 km × número de tramos × semanas. Con los valores por
-                    defecto: 1 km × 1 semana → {`${(DEFAULT_SPOTLIGHT_PRICING.pricePerRadiusStepPerWeek * (1 / SPOTLIGHT_RADIUS_STEP_KM)).toFixed(2)}`} €/impulso.
-                    Quien quiera más visibilidad compra más impulsos (más papeletas en el sorteo),
-                    no tarifas más caras.
+                    1 impulso = 0,2 km de radio × 1 día × 1 papeleta. Una campaña gasta tramos × días × intensidad.
+                    Ejemplo con el precio actual: 1 km × 7 días × ×1 = 35 impulsos = {impulsesPriceEur(pricing, 35).toFixed(2)} €;
+                    5 km × 10 días × ×4 = 1.000 impulsos = {impulsesPriceEur(pricing, 1000).toFixed(2)} €.
                 </p>
-                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
                     {([
-                        ['pricePerRadiusStepPerWeek', '€ por cada 0,2 km · semana'],
-                        ['minRadiusKm', 'Radio mínimo (km)'],
-                        ['maxRadiusKm', 'Radio máximo (km)'],
-                        ['maxUnitsPerCampaign', 'Impulsos máx.'],
-                        ['maxWeeks', 'Semanas máx.'],
-                    ] as Array<[keyof SpotlightPricing, string]>).map(([key, label]) => (
+                        ['pricePerImpulseEur', '€ por impulso', 0.001],
+                        ['minRadiusKm', 'Radio mínimo (km)', SPOTLIGHT_RADIUS_STEP_KM],
+                        ['maxRadiusKm', 'Radio máximo (km)', SPOTLIGHT_RADIUS_STEP_KM],
+                        ['maxIntensity', 'Intensidad máx. (×)', 1],
+                        ['maxDays', 'Días máx.', 1],
+                        ['minPurchaseImpulses', 'Compra mínima (impulsos)', 1],
+                    ] as Array<[Exclude<keyof SpotlightPricing, 'packs'>, string, number]>).map(([key, label, step]) => (
                         <label key={key} className="block">
                             <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-500">{label}</span>
                             <input
                                 type="number"
                                 min={0}
-                                step={key === 'pricePerRadiusStepPerWeek' ? 0.01 : (key === 'minRadiusKm' || key === 'maxRadiusKm') ? SPOTLIGHT_RADIUS_STEP_KM : 1}
+                                step={step}
                                 value={pricing[key]}
                                 onChange={(event) => setPricing((prev) => ({ ...prev, [key]: Number(event.target.value) || 0 }))}
                                 className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
                             />
                         </label>
                     ))}
+                </div>
+                <div className="mt-5">
+                    <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Paquetes (salen más baratos que comprar suelto)</p>
+                    <div className="mt-2 space-y-2">
+                        {pricing.packs.map((pack, index) => (
+                            <div key={index} className="flex flex-wrap items-center gap-2">
+                                <input
+                                    type="number"
+                                    min={1}
+                                    step={1}
+                                    aria-label={`Impulsos del paquete ${index + 1}`}
+                                    value={pack.impulses}
+                                    onChange={(event) => setPricing((prev) => ({
+                                        ...prev,
+                                        packs: prev.packs.map((row, i) => i === index ? { ...row, impulses: Math.floor(Number(event.target.value)) || 0 } : row),
+                                    }))}
+                                    className="w-32 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white"
+                                />
+                                <span className="text-xs text-gray-400">impulsos por</span>
+                                <input
+                                    type="number"
+                                    min={0.5}
+                                    step={0.5}
+                                    aria-label={`Precio del paquete ${index + 1}`}
+                                    value={pack.priceEur}
+                                    onChange={(event) => setPricing((prev) => ({
+                                        ...prev,
+                                        packs: prev.packs.map((row, i) => i === index ? { ...row, priceEur: Number(event.target.value) || 0 } : row),
+                                    }))}
+                                    className="w-28 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white"
+                                />
+                                <span className="text-xs text-gray-400">€ · {packDiscountPercent(pricing, pack)} % de descuento</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setPricing((prev) => ({ ...prev, packs: prev.packs.filter((_, i) => i !== index) }))}
+                                    className="rounded-lg p-2 text-gray-400 hover:bg-white/10 hover:text-white"
+                                    aria-label={`Quitar paquete ${index + 1}`}
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </div>
+                        ))}
+                        {pricing.packs.length < 8 && (
+                            <button
+                                type="button"
+                                onClick={() => setPricing((prev) => ({ ...prev, packs: [...prev.packs, { impulses: 1000, priceEur: 45 }] }))}
+                                className="rounded-xl bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/15"
+                            >
+                                Añadir paquete
+                            </button>
+                        )}
+                    </div>
                 </div>
                 <button
                     type="button"
@@ -615,7 +670,7 @@ export const ProProposalsTab: React.FC = () => {
                     className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[var(--lt-accent)] px-4 py-2.5 text-sm font-black text-white disabled:opacity-50"
                 >
                     {savingPricing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                    Guardar fórmula
+                    Guardar precios
                 </button>
             </div>
         </div>

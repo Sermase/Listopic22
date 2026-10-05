@@ -16,6 +16,15 @@ const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestor
 const { assertJefeAccess, rateLimit, rateLimitKey, writeAuditLog } = require("./lib/auth");
 const { assertBusinessProAccess } = require("./business-pro");
 const { sendNotification } = require("./notifications");
+const { isCheckoutEnabled } = require("./lib/billing-flags");
+const {
+  IMPULSE_RADIUS_STEP_KM,
+  loadImpulsePricing,
+  validateImpulsePricingInput,
+  campaignImpulses,
+  impulsesPriceEur,
+  normalizeCampaignRequest,
+} = require("./lib/impulse-pricing");
 
 const db = getFirestore();
 
@@ -137,108 +146,37 @@ const reviewSponsoredPlacement = onCall({ invoker: "public" }, async (request) =
 
 // ── Impulsos: platos destacados por radio y tiempo ──────────────────────────
 //
-// El negocio compra "impulsos" para destacar un plato en un radio de X km
-// durante N semanas. El radio se vende en tramos de 0,2 km y el precio de
-// cada tramo es editable en Developer (config/sponsoredPricing). Quien quiera más
-// visibilidad no paga tarifas más caras: compra más impulsos, que son pesos
-// en el sorteo del carrusel — 2 impulsos = doble probabilidad que 1.
+// 1 impulso = 0,2 km de radio × 1 día × 1 papeleta (lib/impulse-pricing.js).
+// El negocio elige plato, radio, días e intensidad (papeletas en el sorteo del
+// carrusel: ×2 = doble probabilidad que ×1 frente a otras campañas de la zona).
+// La campaña gasta impulsos del saldo del local (spotlightCredits); el precio por
+// impulso, los límites y los paquetes se editan en Developer (config/sponsoredPricing).
 // El reloj de la campaña arranca cuando el admin la activa.
 
-const SPOTLIGHT_RADIUS_STEP_KM = 0.2;
-const DEFAULT_SPOTLIGHT_PRICING = {
-  pricePerRadiusStepPerWeek: 0.08,
-  minRadiusKm: 0.2,
-  maxRadiusKm: 20,
-  maxUnitsPerCampaign: 10,
-  maxWeeks: 8,
-};
-
-const roundRadius = (value) => Number(value.toFixed(1));
-
-async function getSpotlightPricing() {
-  const snap = await db.collection("config").doc("sponsoredPricing").get().catch(() => null);
-  const data = snap?.exists ? snap.data() || {} : {};
-  const merged = { ...DEFAULT_SPOTLIGHT_PRICING };
-  Object.keys(DEFAULT_SPOTLIGHT_PRICING).forEach((key) => {
-    if (typeof data[key] === "number" && Number.isFinite(data[key]) && data[key] > 0) merged[key] = data[key];
-  });
-  // Compatibilidad con la fórmula anterior mientras existan documentos que
-  // solo tengan pricePerKmPerWeek.
-  if (!(typeof data.pricePerRadiusStepPerWeek === "number" && data.pricePerRadiusStepPerWeek > 0)
-      && typeof data.pricePerKmPerWeek === "number" && data.pricePerKmPerWeek > 0) {
-    merged.pricePerRadiusStepPerWeek = Number((data.pricePerKmPerWeek * SPOTLIGHT_RADIUS_STEP_KM).toFixed(2));
-  }
-  merged.minRadiusKm = roundRadius(Math.ceil(merged.minRadiusKm / SPOTLIGHT_RADIUS_STEP_KM) * SPOTLIGHT_RADIUS_STEP_KM);
-  merged.maxRadiusKm = roundRadius(Math.floor(merged.maxRadiusKm / SPOTLIGHT_RADIUS_STEP_KM) * SPOTLIGHT_RADIUS_STEP_KM);
-  if (merged.maxRadiusKm < merged.minRadiusKm) merged.maxRadiusKm = merged.minRadiusKm;
-  return merged;
-}
-
-function computeSpotlightUnitPrice(pricing, radiusKm, weeks) {
-  const effectiveRadius = Math.max(pricing.minRadiusKm, radiusKm);
-  const radiusSteps = Math.ceil((effectiveRadius / SPOTLIGHT_RADIUS_STEP_KM) - 1e-9);
-  return Number((pricing.pricePerRadiusStepPerWeek * radiusSteps * weeks).toFixed(2));
-}
+const getSpotlightPricing = () => loadImpulsePricing(db);
 
 const adminUpdateSpotlightPricing = onCall({ invoker: "public" }, async (request) => {
   const uid = request.auth?.uid;
   await assertJefeAccess(uid, "Solo un administrador puede cambiar el precio de los impulsos.");
 
-  const pricePerRadiusStepPerWeek = Number(request.data?.pricePerRadiusStepPerWeek);
-  const minRadiusKm = Number(request.data?.minRadiusKm);
-  const maxRadiusKm = Number(request.data?.maxRadiusKm);
-  const maxUnitsPerCampaign = Number(request.data?.maxUnitsPerCampaign);
-  const maxWeeks = Number(request.data?.maxWeeks);
+  const validated = validateImpulsePricingInput(request.data || {});
+  if (validated.error) throw new HttpsError("invalid-argument", validated.error);
+  const { pricing } = validated;
 
-  if (!Number.isFinite(pricePerRadiusStepPerWeek) || pricePerRadiusStepPerWeek < 0.01 || pricePerRadiusStepPerWeek > 100) {
-    throw new HttpsError("invalid-argument", "El precio por cada 0,2 km y semana debe estar entre 0,01 € y 100 €.");
-  }
-  const isRadiusStep = (value) => Number.isFinite(value)
-    && Math.abs((value / SPOTLIGHT_RADIUS_STEP_KM) - Math.round(value / SPOTLIGHT_RADIUS_STEP_KM)) < 1e-6;
-  if (!isRadiusStep(minRadiusKm) || minRadiusKm < SPOTLIGHT_RADIUS_STEP_KM || minRadiusKm > 100) {
-    throw new HttpsError("invalid-argument", "El radio mínimo debe ser un múltiplo de 0,2 km.");
-  }
-  if (!isRadiusStep(maxRadiusKm) || maxRadiusKm < minRadiusKm || maxRadiusKm > 100) {
-    throw new HttpsError("invalid-argument", "El radio máximo debe ser un múltiplo de 0,2 km y no puede ser menor que el mínimo.");
-  }
-  if (!Number.isInteger(maxUnitsPerCampaign) || maxUnitsPerCampaign < 1 || maxUnitsPerCampaign > 100) {
-    throw new HttpsError("invalid-argument", "El máximo de impulsos debe ser un entero entre 1 y 100.");
-  }
-  if (!Number.isInteger(maxWeeks) || maxWeeks < 1 || maxWeeks > 52) {
-    throw new HttpsError("invalid-argument", "El máximo de semanas debe ser un entero entre 1 y 52.");
-  }
-
-  const pricing = {
-    pricePerRadiusStepPerWeek: Number(pricePerRadiusStepPerWeek.toFixed(2)),
-    radiusStepKm: SPOTLIGHT_RADIUS_STEP_KM,
-    minRadiusKm: roundRadius(minRadiusKm),
-    maxRadiusKm: roundRadius(maxRadiusKm),
-    maxUnitsPerCampaign,
-    maxWeeks,
+  await db.collection("config").doc("sponsoredPricing").set({
+    ...pricing,
+    radiusStepKm: IMPULSE_RADIUS_STEP_KM,
     updatedBy: uid,
     updatedAt: FieldValue.serverTimestamp(),
+    // Campos de la fórmula anterior por semanas.
+    pricePerRadiusStepPerWeek: FieldValue.delete(),
     pricePerKmPerWeek: FieldValue.delete(),
-  };
-  await db.collection("config").doc("sponsoredPricing").set(pricing, { merge: true });
-  await writeAuditLog(uid, "sponsored.pricingUpdated", {
-    pricePerRadiusStepPerWeek: pricing.pricePerRadiusStepPerWeek,
-    radiusStepKm: SPOTLIGHT_RADIUS_STEP_KM,
-    minRadiusKm: pricing.minRadiusKm,
-    maxRadiusKm: pricing.maxRadiusKm,
-    maxUnitsPerCampaign,
-    maxWeeks,
-  });
+    maxUnitsPerCampaign: FieldValue.delete(),
+    maxWeeks: FieldValue.delete(),
+  }, { merge: true });
+  await writeAuditLog(uid, "sponsored.pricingUpdated", { ...pricing, radiusStepKm: IMPULSE_RADIUS_STEP_KM });
 
-  return {
-    ok: true,
-    pricing: {
-      pricePerRadiusStepPerWeek: pricing.pricePerRadiusStepPerWeek,
-      minRadiusKm: pricing.minRadiusKm,
-      maxRadiusKm: pricing.maxRadiusKm,
-      maxUnitsPerCampaign,
-      maxWeeks,
-    },
-  };
+  return { ok: true, pricing };
 });
 
 function isoDatePlusDays(days) {
@@ -318,25 +256,14 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
   const uid = request.auth?.uid;
   const placeId = asString(request.data?.placeId, 300);
   const itemId = asString(request.data?.itemId, 300);
-  const units = Number(request.data?.units);
-  const radiusKm = Number(request.data?.radiusKm);
-  const weeks = Number(request.data?.weeks);
 
   if (!itemId) throw new HttpsError("invalid-argument", "Falta el elemento a destacar.");
 
   const pricing = await getSpotlightPricing();
-  if (!Number.isInteger(units) || units < 1 || units > pricing.maxUnitsPerCampaign) {
-    throw new HttpsError("invalid-argument", `Los impulsos deben estar entre 1 y ${pricing.maxUnitsPerCampaign}.`);
-  }
-  if (!Number.isFinite(radiusKm) || radiusKm < pricing.minRadiusKm || radiusKm > pricing.maxRadiusKm) {
-    throw new HttpsError("invalid-argument", `El radio debe estar entre ${pricing.minRadiusKm} y ${pricing.maxRadiusKm} km.`);
-  }
-  if (Math.abs((radiusKm / SPOTLIGHT_RADIUS_STEP_KM) - Math.round(radiusKm / SPOTLIGHT_RADIUS_STEP_KM)) >= 1e-6) {
-    throw new HttpsError("invalid-argument", "El radio debe avanzar en tramos de 0,2 km.");
-  }
-  if (!Number.isInteger(weeks) || weeks < 1 || weeks > pricing.maxWeeks) {
-    throw new HttpsError("invalid-argument", `La duración debe estar entre 1 y ${pricing.maxWeeks} semanas.`);
-  }
+  const campaign = normalizeCampaignRequest(request.data || {}, pricing);
+  if (campaign.error) throw new HttpsError("invalid-argument", campaign.error);
+  const { intensity, days, radiusKm } = campaign;
+  const impulses = campaignImpulses(campaign, pricing);
 
   const { placeRef, place } = await assertBusinessProAccess(placeId, uid);
 
@@ -361,10 +288,13 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     throw new HttpsError("resource-exhausted", "Ya hay demasiadas campañas de platos abiertas para este negocio.");
   }
 
-  const unitPriceEur = computeSpotlightUnitPrice(pricing, radiusKm, weeks);
+  // Con la compra online abierta, la campaña se paga entera con impulsos del
+  // saldo. Durante la beta (sin compra online) se permite pedirla igualmente y
+  // lo que falte queda anotado como importe pendiente.
+  const prepaidOnly = isCheckoutEnabled(process.env);
   const spotlightRef = db.collection("sponsoredItemSpotlights").doc();
   // El saldo y la campaña se escriben en una sola transacción para que dos
-  // solicitudes simultáneas no puedan gastar los mismos impulsos regalo.
+  // solicitudes simultáneas no puedan gastar los mismos impulsos.
   const billing = await db.runTransaction(async (tx) => {
     const freshPlaceSnap = await tx.get(placeRef);
     if (!freshPlaceSnap.exists) throw new HttpsError("not-found", "El negocio no existe.");
@@ -372,9 +302,16 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     const availableCredits = Number(freshPlace.spotlightCredits) > 0
       ? Math.floor(Number(freshPlace.spotlightCredits))
       : 0;
-    const creditsUsed = Math.min(availableCredits, units);
-    const billedUnits = units - creditsUsed;
-    const totalPriceEur = Number((unitPriceEur * billedUnits).toFixed(2));
+    const creditsUsed = Math.min(availableCredits, impulses);
+    const billedImpulses = impulses - creditsUsed;
+    if (prepaidOnly && billedImpulses > 0) {
+      throw new HttpsError(
+        "failed-precondition",
+        `Te faltan ${billedImpulses} impulsos para esta campaña. Compra un paquete o lo que falta y vuelve a solicitarla.`,
+        { missingImpulses: billedImpulses },
+      );
+    }
+    const totalPriceEur = impulsesPriceEur(billedImpulses, pricing);
 
     if (creditsUsed > 0) {
       tx.set(placeRef, {
@@ -393,11 +330,14 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
       itemReviewCount: typeof item.stats?.reviewCount === "number" ? item.stats.reviewCount : 0,
       center,
       radiusKm,
-      units,
-      weeks,
-      unitPriceEur,
+      // `units` es el peso en el sorteo del carrusel (papeletas).
+      units: intensity,
+      intensity,
+      days,
+      impulses,
+      pricePerImpulseEur: pricing.pricePerImpulseEur,
       creditsUsed,
-      billedUnits,
+      billedImpulses,
       totalPriceEur,
       pricingSnapshot: pricing,
       startsAt: null,
@@ -406,10 +346,10 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
       createdBy: uid,
       createdAt: FieldValue.serverTimestamp(),
     });
-    return { creditsUsed, billedUnits, totalPriceEur };
+    return { creditsUsed, billedImpulses, totalPriceEur };
   });
 
-  const { creditsUsed, totalPriceEur } = billing;
+  const { creditsUsed, billedImpulses, totalPriceEur } = billing;
 
   await writeAuditLog(uid, "sponsored.itemSpotlightRequested", {
     spotlightId: spotlightRef.id,
@@ -417,18 +357,20 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     placeName: place.name || null,
     itemId,
     itemName: item.canonicalName || itemId,
-    units,
+    intensity,
     radiusKm,
-    weeks,
+    days,
+    impulses,
     creditsUsed,
+    billedImpulses,
     totalPriceEur,
   });
 
-  return { ok: true, spotlightId: spotlightRef.id, unitPriceEur, creditsUsed, totalPriceEur };
+  return { ok: true, spotlightId: spotlightRef.id, impulses, creditsUsed, billedImpulses, totalPriceEur };
 });
 
-// Regala impulsos a un negocio desde Developer: se acumulan en el lugar y se
-// consumen automáticamente al solicitar campañas (antes de cobrar nada).
+// Regala impulsos a un negocio desde Developer: se suman a su saldo y se
+// consumen automáticamente al solicitar campañas.
 // Sirve para probar el sistema y para invitar a negocios concretos.
 const adminGrantSpotlightCredits = onCall({ invoker: "public" }, async (request) => {
   const uid = request.auth?.uid;
@@ -438,8 +380,8 @@ const adminGrantSpotlightCredits = onCall({ invoker: "public" }, async (request)
   const credits = Number(request.data?.credits);
   const notes = asString(request.data?.notes, 300).replace(/[<>]/g, "");
   if (!placeId) throw new HttpsError("invalid-argument", "Falta placeId.");
-  if (!Number.isInteger(credits) || credits === 0 || Math.abs(credits) > 500) {
-    throw new HttpsError("invalid-argument", "Los impulsos deben ser un entero entre -500 y 500 (negativo para retirar).");
+  if (!Number.isInteger(credits) || credits === 0 || Math.abs(credits) > 100000) {
+    throw new HttpsError("invalid-argument", "Los impulsos deben ser un entero entre -100.000 y 100.000 (negativo para retirar).");
   }
 
   const placeRef = db.collection("places").doc(placeId);
@@ -498,10 +440,13 @@ const reviewItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     reviewedAt: FieldValue.serverTimestamp(),
   };
   if (decision === "activate") {
-    // El periodo contratado (semanas) empieza a contar al activar.
-    const weeks = Number(spotlight.weeks) >= 1 ? Number(spotlight.weeks) : 1;
+    // El periodo contratado empieza a contar al activar. Las campañas
+    // anteriores al cambio guardaban semanas en vez de días.
+    const days = Number.isInteger(spotlight.days) && spotlight.days >= 1
+      ? spotlight.days
+      : (Number(spotlight.weeks) >= 1 ? Number(spotlight.weeks) * 7 : 1);
     patch.startsAt = isoDatePlusDays(0);
-    patch.endsAt = isoDatePlusDays(weeks * 7);
+    patch.endsAt = isoDatePlusDays(days);
   }
   if (decision === "reject" && Number(spotlight.creditsUsed) > 0 && spotlight.creditsRefunded !== true) {
     const creditsToRefund = Math.floor(Number(spotlight.creditsUsed));

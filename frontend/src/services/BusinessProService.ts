@@ -458,54 +458,95 @@ export const reviewSponsoredPlacement = async (
     await callable({ placementId, decision, adminNotes });
 };
 
-// ── Platos destacados por radio (sorteo ponderado por unidades) ─────────────
+// ── Platos destacados por radio (sorteo ponderado por papeletas) ────────────
 
-// Nombre comercial de las unidades de patrocinio: cada "impulso" es un peso
-// en el sorteo del carrusel (2 impulsos = doble probabilidad que 1).
+// 1 impulso = 0,2 km de radio × 1 día × 1 papeleta. Una campaña gasta
+// tramos × días × intensidad impulsos del saldo del local. La intensidad son
+// papeletas en el sorteo del carrusel (×2 = doble probabilidad que ×1).
+// Espejo de functions/modules/lib/impulse-pricing.js.
 export const SPOTLIGHT_UNIT_SINGULAR = 'impulso';
 export const SPOTLIGHT_UNIT_PLURAL = 'impulsos';
 export const SPOTLIGHT_RADIUS_STEP_KM = 0.2;
 
+export interface ImpulsePack {
+    impulses: number;
+    priceEur: number;
+}
+
 export interface SpotlightPricing {
-    pricePerRadiusStepPerWeek: number;
+    pricePerImpulseEur: number;
     minRadiusKm: number;
     maxRadiusKm: number;
-    maxUnitsPerCampaign: number;
-    maxWeeks: number;
+    maxIntensity: number;
+    maxDays: number;
+    minPurchaseImpulses: number;
+    packs: ImpulsePack[];
 }
 
 export const DEFAULT_SPOTLIGHT_PRICING: SpotlightPricing = {
-    pricePerRadiusStepPerWeek: 0.08,
+    pricePerImpulseEur: 0.05,
     minRadiusKm: 0.2,
     maxRadiusKm: 20,
-    maxUnitsPerCampaign: 10,
-    maxWeeks: 8,
+    maxIntensity: 10,
+    maxDays: 60,
+    minPurchaseImpulses: 100,
+    packs: [
+        { impulses: 100, priceEur: 5 },
+        { impulses: 500, priceEur: 22.5 },
+        { impulses: 2000, priceEur: 80 },
+        { impulses: 10000, priceEur: 350 },
+    ],
+};
+
+const isPositiveNumber = (value: unknown): value is number =>
+    typeof value === 'number' && Number.isFinite(value) && value > 0;
+
+export const normalizeSpotlightPricing = (data: Record<string, unknown>): SpotlightPricing => {
+    const pricing: SpotlightPricing = { ...DEFAULT_SPOTLIGHT_PRICING, packs: DEFAULT_SPOTLIGHT_PRICING.packs.map((pack) => ({ ...pack })) };
+    (['pricePerImpulseEur', 'minRadiusKm', 'maxRadiusKm', 'maxIntensity', 'maxDays', 'minPurchaseImpulses'] as const).forEach((key) => {
+        const value = data[key];
+        if (isPositiveNumber(value)) pricing[key] = value;
+    });
+    // Configuración anterior (impulsos = papeletas por semanas).
+    if (!isPositiveNumber(data.maxIntensity) && isPositiveNumber(data.maxUnitsPerCampaign)) pricing.maxIntensity = data.maxUnitsPerCampaign;
+    if (!isPositiveNumber(data.maxDays) && isPositiveNumber(data.maxWeeks)) pricing.maxDays = data.maxWeeks * 7;
+    if (Array.isArray(data.packs)) {
+        pricing.packs = data.packs
+            .filter((pack): pack is ImpulsePack => Boolean(pack) && Number.isInteger((pack as ImpulsePack).impulses)
+                && (pack as ImpulsePack).impulses > 0 && isPositiveNumber((pack as ImpulsePack).priceEur))
+            .map((pack) => ({ impulses: pack.impulses, priceEur: pack.priceEur }))
+            .sort((a, b) => a.impulses - b.impulses);
+    }
+    pricing.maxIntensity = Math.floor(pricing.maxIntensity);
+    pricing.maxDays = Math.floor(pricing.maxDays);
+    pricing.minPurchaseImpulses = Math.floor(pricing.minPurchaseImpulses);
+    pricing.minRadiusKm = Number((Math.ceil((pricing.minRadiusKm / SPOTLIGHT_RADIUS_STEP_KM) - 1e-9) * SPOTLIGHT_RADIUS_STEP_KM).toFixed(1));
+    pricing.maxRadiusKm = Number((Math.floor((pricing.maxRadiusKm / SPOTLIGHT_RADIUS_STEP_KM) + 1e-9) * SPOTLIGHT_RADIUS_STEP_KM).toFixed(1));
+    if (pricing.maxRadiusKm < pricing.minRadiusKm) pricing.maxRadiusKm = pricing.minRadiusKm;
+    return pricing;
 };
 
 export const getSpotlightPricing = async (): Promise<SpotlightPricing> => {
     const snap = await getDoc(doc(db, 'config', 'sponsoredPricing')).catch(() => null);
-    const data = snap?.exists() ? snap.data() as Record<string, unknown> : {};
-    const merged = { ...DEFAULT_SPOTLIGHT_PRICING };
-    (Object.keys(DEFAULT_SPOTLIGHT_PRICING) as Array<keyof SpotlightPricing>).forEach((key) => {
-        const value = data[key];
-        if (typeof value === 'number' && Number.isFinite(value) && value > 0) merged[key] = value;
-    });
-    // Migra de forma transparente la configuración anterior expresada por km.
-    if (!(typeof data.pricePerRadiusStepPerWeek === 'number' && data.pricePerRadiusStepPerWeek > 0)
-        && typeof data.pricePerKmPerWeek === 'number' && data.pricePerKmPerWeek > 0) {
-        merged.pricePerRadiusStepPerWeek = Number((data.pricePerKmPerWeek * SPOTLIGHT_RADIUS_STEP_KM).toFixed(2));
-    }
-    merged.minRadiusKm = Number((Math.ceil(merged.minRadiusKm / SPOTLIGHT_RADIUS_STEP_KM) * SPOTLIGHT_RADIUS_STEP_KM).toFixed(1));
-    merged.maxRadiusKm = Number((Math.floor(merged.maxRadiusKm / SPOTLIGHT_RADIUS_STEP_KM) * SPOTLIGHT_RADIUS_STEP_KM).toFixed(1));
-    if (merged.maxRadiusKm < merged.minRadiusKm) merged.maxRadiusKm = merged.minRadiusKm;
-    return merged;
+    return normalizeSpotlightPricing(snap?.exists() ? snap.data() as Record<string, unknown> : {});
 };
 
-// Precio por impulso = precio del tramo × nº de tramos de 0,2 km × semanas.
-export const computeSpotlightUnitPrice = (pricing: SpotlightPricing, radiusKm: number, weeks: number): number => {
-    const effectiveRadius = Math.max(pricing.minRadiusKm, radiusKm);
-    const radiusSteps = Math.ceil((effectiveRadius / SPOTLIGHT_RADIUS_STEP_KM) - 1e-9);
-    return Number((pricing.pricePerRadiusStepPerWeek * radiusSteps * weeks).toFixed(2));
+export const spotlightRadiusSteps = (pricing: SpotlightPricing, radiusKm: number): number =>
+    Math.ceil((Math.max(pricing.minRadiusKm, radiusKm) / SPOTLIGHT_RADIUS_STEP_KM) - 1e-9);
+
+// Impulsos de una campaña = tramos de 0,2 km × días × intensidad.
+export const computeSpotlightImpulses = (
+    pricing: SpotlightPricing,
+    campaign: { radiusKm: number; days: number; intensity: number },
+): number => spotlightRadiusSteps(pricing, campaign.radiusKm) * campaign.days * campaign.intensity;
+
+export const impulsesPriceEur = (pricing: SpotlightPricing, impulses: number): number =>
+    Math.round(impulses * pricing.pricePerImpulseEur * 100) / 100;
+
+// Precio por impulso de un paquete (para enseñar el descuento frente al precio de lista).
+export const packDiscountPercent = (pricing: SpotlightPricing, pack: ImpulsePack): number => {
+    const list = pack.impulses * pricing.pricePerImpulseEur;
+    return list > 0 ? Math.max(0, Math.round((1 - pack.priceEur / list) * 100)) : 0;
 };
 
 export const updateSpotlightPricing = async (pricing: SpotlightPricing): Promise<SpotlightPricing> => {
@@ -528,9 +569,11 @@ export interface ItemSpotlight {
     itemReviewCount: number;
     center: { lat: number; lng: number } | null;
     radiusKm: number;
+    // Papeletas en el sorteo (intensidad).
     units: number;
+    days?: number;
     weeks?: number;
-    unitPriceEur?: number;
+    impulses?: number;
     totalPriceEur?: number;
     startsAt?: string;
     endsAt?: string;
@@ -560,8 +603,9 @@ const mapSpotlight = (id: string, data: Record<string, unknown>): ItemSpotlight 
             : null,
         radiusKm: typeof data.radiusKm === 'number' ? data.radiusKm : 0,
         units: typeof data.units === 'number' && data.units > 0 ? data.units : 1,
+        days: typeof data.days === 'number' && data.days > 0 ? data.days : undefined,
         weeks: typeof data.weeks === 'number' && data.weeks > 0 ? data.weeks : undefined,
-        unitPriceEur: typeof data.unitPriceEur === 'number' ? data.unitPriceEur : undefined,
+        impulses: typeof data.impulses === 'number' && data.impulses > 0 ? data.impulses : undefined,
         totalPriceEur: typeof data.totalPriceEur === 'number' ? data.totalPriceEur : undefined,
         startsAt: typeof data.startsAt === 'string' ? data.startsAt : undefined,
         endsAt: typeof data.endsAt === 'string' ? data.endsAt : undefined,
@@ -572,14 +616,22 @@ const mapSpotlight = (id: string, data: Record<string, unknown>): ItemSpotlight 
     };
 };
 
+export interface ItemSpotlightRequestResult {
+    spotlightId: string;
+    impulses: number;
+    creditsUsed: number;
+    billedImpulses: number;
+    totalPriceEur: number;
+}
+
 export const requestItemSpotlight = async (input: {
     placeId: string;
     itemId: string;
-    units: number;
     radiusKm: number;
-    weeks: number;
-}): Promise<{ spotlightId: string; totalPriceEur: number }> => {
-    const callable = httpsCallable<unknown, { spotlightId: string; totalPriceEur: number }>(functions, 'requestItemSpotlight');
+    days: number;
+    intensity: number;
+}): Promise<ItemSpotlightRequestResult> => {
+    const callable = httpsCallable<unknown, ItemSpotlightRequestResult>(functions, 'requestItemSpotlight');
     const result = await callable(input);
     return result.data;
 };

@@ -611,3 +611,14 @@ describe('Beta de planes: el interés y la prueba gratis solo los escribe el ser
     await assertSucceeds(getDocs(collection(jefe(), 'planInterest')));
   });
 });
+
+describe('Impulsos: las compras y el saldo solo los escribe el servidor', () => {
+  it('❌ bob se apunta una compra pagada o lee las de otros', async () => {
+    await assertFails(setDoc(doc(as('bob'), 'impulsePurchases/cs_test_1'), { placeId: 'p1', impulses: 100000, status: 'paid' }));
+    await assertFails(getDocs(collection(as('bob'), 'impulsePurchases')));
+  });
+
+  it('✅ un jefe lee las compras de impulsos', async () => {
+    await assertSucceeds(getDocs(collection(jefe(), 'impulsePurchases')));
+  });
+});

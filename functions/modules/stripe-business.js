@@ -1,4 +1,3 @@
-const crypto = require("crypto");
 const { onCall, HttpsError, onRequest } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
@@ -16,6 +15,9 @@ const stripeBusinessProPriceId = defineSecret("STRIPE_BUSINESS_PRO_PRICE_ID");
 const PUBLIC_ORIGIN = (process.env.PUBLIC_ORIGIN || "https://listopic.es").replace(/\/$/, "");
 const STRIPE_API_VERSION = "2024-06-20";
 const { isCheckoutEnabled } = require("./lib/billing-flags");
+const { assertBusinessProAccess } = require("./business-pro");
+const { loadImpulsePricing, resolveImpulsePurchase } = require("./lib/impulse-pricing");
+const { verifyStripeSignature } = require("./lib/stripe-signature");
 
 const asString = (value, maxLength = 500) => (typeof value === "string" ? value.trim().slice(0, maxLength) : "");
 
@@ -117,24 +119,129 @@ const createBusinessProCheckoutSession = onCall({
   return { id: session.id, url: session.url };
 });
 
-function verifyStripeSignature(rawBody, signatureHeader, secret) {
-  const parts = String(signatureHeader || "").split(",").reduce((acc, part) => {
-    const [key, value] = part.split("=");
-    if (key && value) acc[key] = value;
-    return acc;
-  }, {});
+// Compra de impulsos (pago único): un paquete o lo que falta a precio de lista.
+// Los impulsos se suman al saldo del local solo cuando el webhook confirma el pago.
+const createImpulsePackCheckoutSession = onCall({
+  secrets: [stripeSecretKey],
+}, async (request) => {
+  const uid = request.auth?.uid;
+  const placeId = asString(request.data?.placeId, 300);
+  if (!placeId) throw new HttpsError("invalid-argument", "Falta placeId.");
+  if (!isCheckoutEnabled(process.env)) {
+    throw new HttpsError("failed-precondition", "La compra online de impulsos todavía no está activa.");
+  }
+  const secretKey = getSecretValue(stripeSecretKey, "STRIPE_SECRET_KEY");
+  if (!secretKey) throw new HttpsError("failed-precondition", "Stripe no está configurado.");
 
-  const timestamp = parts.t;
-  const signature = parts.v1;
-  if (!timestamp || !signature) throw new Error("Firma de Stripe incompleta.");
+  const { place } = await assertBusinessProAccess(placeId, uid);
+  const pricing = await loadImpulsePricing(db);
+  const purchase = resolveImpulsePurchase(request.data || {}, pricing);
+  if (purchase.error) throw new HttpsError("invalid-argument", purchase.error);
 
-  const signedPayload = `${timestamp}.${rawBody.toString("utf8")}`;
-  const expected = crypto.createHmac("sha256", secret).update(signedPayload).digest("hex");
-  const expectedBuffer = Buffer.from(expected, "hex");
-  const signatureBuffer = Buffer.from(signature, "hex");
+  const amountCents = Math.round(purchase.priceEur * 100);
+  const impulsesLabel = purchase.impulses.toLocaleString("es-ES");
+  const returnBase = `${PUBLIC_ORIGIN}/businesses/${encodeURIComponent(placeId)}/manage?tab=sponsored`;
+  const metadata = {
+    kind: "impulse_pack",
+    placeId,
+    userId: uid,
+    impulses: String(purchase.impulses),
+    priceEur: String(purchase.priceEur),
+    packIndex: purchase.packIndex === null ? "" : String(purchase.packIndex),
+  };
 
-  if (expectedBuffer.length !== signatureBuffer.length || !crypto.timingSafeEqual(expectedBuffer, signatureBuffer)) {
-    throw new Error("Firma de Stripe no válida.");
+  const form = new URLSearchParams();
+  form.set("mode", "payment");
+  form.set("line_items[0][quantity]", "1");
+  form.set("line_items[0][price_data][currency]", "eur");
+  form.set("line_items[0][price_data][unit_amount]", String(amountCents));
+  form.set("line_items[0][price_data][product_data][name]", `${impulsesLabel} impulsos de Listopic`);
+  form.set("line_items[0][price_data][product_data][description]", `Para destacar platos de ${asString(place.name, 80) || "tu local"}`);
+  form.set("client_reference_id", placeId);
+  form.set("customer_email", asString(request.auth?.token?.email, 180));
+  form.set("success_url", `${returnBase}&impulsos=ok`);
+  form.set("cancel_url", `${returnBase}&impulsos=cancelado`);
+  for (const [key, value] of Object.entries(metadata)) {
+    form.set(`metadata[${key}]`, value);
+    form.set(`payment_intent_data[metadata][${key}]`, value);
+  }
+
+  const session = await stripeRequest("checkout/sessions", form, secretKey);
+
+  await db.collection("impulsePurchases").doc(session.id).set({
+    placeId,
+    placeName: place.name || null,
+    userId: uid,
+    impulses: purchase.impulses,
+    priceEur: purchase.priceEur,
+    amountCents,
+    packIndex: purchase.packIndex,
+    status: "pending",
+    stripeSessionId: session.id,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  await writeAuditLog(uid, "sponsored.impulseCheckoutCreated", {
+    placeId,
+    placeName: place.name || null,
+    impulses: purchase.impulses,
+    priceEur: purchase.priceEur,
+    stripeSessionId: session.id || null,
+  });
+
+  return { id: session.id, url: session.url, impulses: purchase.impulses, priceEur: purchase.priceEur };
+});
+
+// Suma al saldo los impulsos de una compra pagada. Idempotente por sesión de
+// Checkout: Stripe puede reenviar el mismo evento.
+async function applyImpulsePurchase(event) {
+  const session = event.data?.object || {};
+  const metadata = session.metadata || {};
+  const sessionId = asString(session.id, 300);
+  const placeId = asString(metadata.placeId, 300);
+  const impulses = Number(metadata.impulses);
+
+  if (session.payment_status !== "paid") {
+    logger.info("stripeBusiness: compra de impulsos aún sin pagar", { sessionId, paymentStatus: session.payment_status });
+    return;
+  }
+  if (!sessionId || !placeId || !Number.isInteger(impulses) || impulses <= 0) {
+    logger.warn("stripeBusiness: compra de impulsos con metadatos incompletos", { eventId: event.id, sessionId });
+    return;
+  }
+
+  const purchaseRef = db.collection("impulsePurchases").doc(sessionId);
+  const placeRef = db.collection("places").doc(placeId);
+  const credited = await db.runTransaction(async (tx) => {
+    const purchaseSnap = await tx.get(purchaseRef);
+    if (purchaseSnap.exists && purchaseSnap.data()?.status === "paid") return false;
+    tx.set(placeRef, {
+      spotlightCredits: FieldValue.increment(impulses),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    tx.set(purchaseRef, {
+      placeId,
+      userId: asString(metadata.userId, 300) || null,
+      impulses,
+      amountTotalCents: typeof session.amount_total === "number" ? session.amount_total : null,
+      currency: asString(session.currency, 10) || null,
+      stripeSessionId: sessionId,
+      stripePaymentIntentId: asString(session.payment_intent, 300) || null,
+      stripeEventId: event.id || null,
+      status: "paid",
+      paidAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return true;
+  });
+
+  if (credited) {
+    await writeAuditLog(asString(metadata.userId, 300) || "stripe", "sponsored.impulsesPurchased", {
+      placeId,
+      impulses,
+      amountTotalCents: typeof session.amount_total === "number" ? session.amount_total : null,
+      stripeSessionId: sessionId,
+      stripeEventId: event.id || null,
+    });
   }
 }
 
@@ -245,8 +352,14 @@ const stripeBusinessWebhook = onRequest({
 
   const event = JSON.parse(rawBody.toString("utf8"));
   try {
-    if ([
-      "checkout.session.completed",
+    const object = event.data?.object || {};
+    const isCheckoutEvent = event.type === "checkout.session.completed"
+      || event.type === "checkout.session.async_payment_succeeded";
+    if (isCheckoutEvent && object.metadata?.kind === "impulse_pack") {
+      await applyImpulsePurchase(event);
+    } else if (event.type === "checkout.session.completed" && object.mode === "subscription") {
+      await applyBusinessProSubscription(event);
+    } else if ([
       "customer.subscription.updated",
       "customer.subscription.deleted",
     ].includes(event.type)) {
@@ -261,5 +374,6 @@ const stripeBusinessWebhook = onRequest({
 
 module.exports = {
   createBusinessProCheckoutSession,
+  createImpulsePackCheckoutSession,
   stripeBusinessWebhook,
 };
