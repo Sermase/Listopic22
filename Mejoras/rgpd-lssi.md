@@ -29,10 +29,9 @@ los textos legales conviene que los revise un profesional antes de darlos por bu
 
 ## Pendiente antes de publicar
 
-1. Rellenar `ownerName` en `frontend/src/config/legal.json` (sin él se ve
-   «[Pendiente: nombre y apellidos del titular]»). `ownerNif` y `ownerAddress` son opcionales
-   mientras no haya actividad económica; si Listopic empieza a cobrar (planes Business, Stripe,
-   patrocinios) pasan a ser obligatorios.
+1. Titular: `ownerName` en `frontend/src/config/legal.json`. `ownerNif` y `ownerAddress` son
+   opcionales mientras no haya actividad económica; si Listopic empieza a cobrar (planes
+   Business, Stripe, patrocinios) pasan a ser obligatorios.
 2. Desplegar Functions y reglas (workflow «Desplegar Functions y reglas»).
 3. Índices: `firestore.indexes.json` añade índices de grupo de colecciones para comments,
    photos, messages, reactions (userId) y notifications (actorId). El workflow no despliega
