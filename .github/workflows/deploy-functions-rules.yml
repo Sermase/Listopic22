@@ -41,12 +41,12 @@ jobs:
     steps:
       # Si la confirmación no es DESPLEGAR, el run falla con un mensaje claro
       # (antes se saltaba en silencio y parecía que no había pasado nada).
-      # Se ignoran espacios y mayúsculas.
+      # Se ignoran los espacios al principio y al final y las mayúsculas.
       - name: Confirmación
         env:
           CONFIRMACION: ${{ inputs.confirmacion }}
         run: |
-          normalizada="$(printf '%s' "$CONFIRMACION" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+          normalizada="$(printf '%s' "$CONFIRMACION" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:lower:]' '[:upper:]')"
           if [ "$normalizada" != "DESPLEGAR" ]; then
             echo "::error title=Despliegue cancelado::Escribe DESPLEGAR en el campo de confirmación. No se ha desplegado nada."
             exit 1
