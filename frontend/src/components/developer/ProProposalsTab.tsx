@@ -3,6 +3,7 @@ import { addDoc, collection, doc, getDocs, limit, query, serverTimestamp, setDoc
 import { Check, Euro, ExternalLink, Inbox, Loader2, Megaphone, RefreshCw, Save, Swords, Tags, UtensilsCrossed, X } from 'lucide-react';
 import { db } from '../../firebase';
 import { mapDuel, type Duel } from '../../types/duel';
+import { formatEur } from '../../config/planBeta';
 import {
     DEFAULT_SPOTLIGHT_PRICING,
     describeProposal,
@@ -452,7 +453,7 @@ export const ProProposalsTab: React.FC = () => {
                                         ×{spotlight.units} · radio {spotlight.radiusKm} km
                                         {spotlight.days ? ` · ${spotlight.days} día${spotlight.days === 1 ? '' : 's'}` : spotlight.weeks ? ` · ${spotlight.weeks} semana${spotlight.weeks === 1 ? '' : 's'}` : ''}
                                         {spotlight.impulses ? ` · ${spotlight.impulses.toLocaleString('es-ES')} impulsos` : ''}
-                                        {typeof spotlight.totalPriceEur === 'number' ? ` · ${spotlight.totalPriceEur.toFixed(2)} €` : ''}
+                                        {typeof spotlight.totalPriceEur === 'number' ? ` · ${formatEur(spotlight.totalPriceEur)}` : ''}
                                         {spotlight.endsAt ? ` · activa hasta ${spotlight.endsAt}` : ' · el periodo empieza al activarla'}
                                     </p>
                                     {spotlight.status === 'active' && (
@@ -586,8 +587,8 @@ export const ProProposalsTab: React.FC = () => {
                 </h3>
                 <p className="mt-1 text-sm text-gray-400">
                     1 impulso = 0,2 km de radio × 1 día × 1 papeleta. Una campaña gasta tramos × días × intensidad.
-                    Ejemplo con el precio actual: 1 km × 7 días × ×1 = 35 impulsos = {impulsesPriceEur(pricing, 35).toFixed(2)} €;
-                    5 km × 10 días × ×4 = 1.000 impulsos = {impulsesPriceEur(pricing, 1000).toFixed(2)} €.
+                    Ejemplo con el precio actual: 1 km × 7 días × ×1 = 35 impulsos = {formatEur(impulsesPriceEur(pricing, 35))};
+                    5 km × 10 días × ×4 = 1.000 impulsos = {formatEur(impulsesPriceEur(pricing, 1000))}.
                 </p>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
                     {([
@@ -641,7 +642,11 @@ export const ProProposalsTab: React.FC = () => {
                                     }))}
                                     className="w-28 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white"
                                 />
-                                <span className="text-xs text-gray-400">€ · {packDiscountPercent(pricing, pack)} % de descuento</span>
+                                {packDiscountPercent(pricing, pack) < 0 ? (
+                                    <span className="text-xs font-bold text-red-300">€ · más caro que suelto</span>
+                                ) : (
+                                    <span className="text-xs text-gray-400">€ · {packDiscountPercent(pricing, pack)} % de descuento</span>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => setPricing((prev) => ({ ...prev, packs: prev.packs.filter((_, i) => i !== index) }))}

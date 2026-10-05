@@ -233,12 +233,12 @@ const expireManualPlans = onSchedule(
       });
     }
 
-    // Campañas patrocinadas (impulsos de platos y emplazamientos) cuya fecha
-    // de fin ya pasó: se marcan como finalizadas.
+    // Campañas patrocinadas (impulsos de platos y emplazamientos) cuyo último
+    // día (endsAt, incluido) ya pasó: se marcan como finalizadas.
     const today = new Date().toISOString().slice(0, 10);
     for (const collectionName of ['sponsoredItemSpotlights', 'sponsoredPlacements']) {
       const expiredCampaigns = await db.collection(collectionName)
-        .where('endsAt', '<=', today)
+        .where('endsAt', '<', today)
         .limit(200)
         .get();
       for (const campaignDoc of expiredCampaigns.docs) {

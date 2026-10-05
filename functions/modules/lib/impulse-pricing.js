@@ -144,9 +144,16 @@ function validateImpulsePricingInput(input = {}) {
   if (new Set(packs.map((pack) => pack.impulses)).size !== packs.length) {
     return { error: "No puede haber dos paquetes con los mismos impulsos." };
   }
+  const savedPrice = Math.round(price * 10000) / 10000;
+  const overpriced = packs.find((pack) => pack.priceEur > round2(pack.impulses * savedPrice) + 1e-9);
+  if (overpriced) {
+    return {
+      error: `El paquete de ${overpriced.impulses} impulsos cuesta más que comprarlos sueltos (${round2(overpriced.impulses * savedPrice)} €). Bájalo o quítalo.`,
+    };
+  }
   return {
     pricing: {
-      pricePerImpulseEur: Math.round(price * 10000) / 10000,
+      pricePerImpulseEur: savedPrice,
       minRadiusKm: roundRadius(minRadiusKm),
       maxRadiusKm: roundRadius(maxRadiusKm),
       maxIntensity,
@@ -172,12 +179,18 @@ function impulsesPriceEur(impulses, pricing) {
 }
 
 /**
- * Normaliza la petición de campaña. Acepta también el formato anterior
- * (units = papeletas, weeks) de clientes con la web antigua en caché.
+ * Normaliza la petición de campaña. El formato anterior (units, weeks) se
+ * rechaza en vez de traducirse: la web o la app antiguas enseñan otro precio.
  */
 function normalizeCampaignRequest(data = {}, pricing) {
-  const intensity = Number(data.intensity ?? data.units);
-  const days = data.days !== undefined ? Number(data.days) : Number(data.weeks) * 7;
+  if (data.days === undefined || data.intensity === undefined) {
+    return {
+      error: "El formulario de impulsos ha cambiado. Recarga la página o actualiza la app para ver el precio actual.",
+      code: "failed-precondition",
+    };
+  }
+  const intensity = Number(data.intensity);
+  const days = Number(data.days);
   const radiusKm = Number(data.radiusKm);
   if (!Number.isInteger(intensity) || intensity < 1 || intensity > pricing.maxIntensity) {
     return { error: `La intensidad debe estar entre ×1 y ×${pricing.maxIntensity}.` };

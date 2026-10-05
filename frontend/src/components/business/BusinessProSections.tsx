@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { BUSINESS_PRO_CHECKOUT_ENABLED } from '../../config/features';
+import { formatEur } from '../../config/planBeta';
 import { createImpulsePackCheckoutSession } from '../../services/BusinessBillingService';
 import { getBusinessPlaceAnalytics, type BusinessPlaceAnalyticsResult } from '../../services/AnalyticsService';
 import { getCanonicalPlaceItems, type CanonicalPlaceItem } from '../../services/CanonicalItemService';
@@ -82,6 +83,47 @@ const BUSINESS_SHARE_ENTITY_LABELS: Record<string, string> = {
 };
 
 const inputClass = 'w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-[var(--lt-text)] outline-none transition-colors placeholder:text-[var(--lt-text-muted)] focus:border-[var(--lt-accent-border)]';
+
+// Campaña que se estaba configurando al ir a Stripe a comprar lo que falta:
+// se guarda para recuperarla al volver.
+interface SpotlightDraft {
+    itemId: string;
+    radiusKm: number;
+    days: number;
+    intensity: number;
+    balanceBefore: number;
+}
+
+const spotlightDraftKey = (placeId: string) => `spotlightDraft:${placeId}`;
+
+const takeSpotlightDraft = (placeId: string): SpotlightDraft | null => {
+    try {
+        const raw = sessionStorage.getItem(spotlightDraftKey(placeId));
+        sessionStorage.removeItem(spotlightDraftKey(placeId));
+        const data = raw ? JSON.parse(raw) as Partial<SpotlightDraft> : null;
+        if (!data) return null;
+        return {
+            itemId: typeof data.itemId === 'string' ? data.itemId : '',
+            radiusKm: Number(data.radiusKm) || 2,
+            days: Math.floor(Number(data.days)) || 7,
+            intensity: Math.floor(Number(data.intensity)) || 1,
+            balanceBefore: Number.isFinite(Number(data.balanceBefore)) ? Number(data.balanceBefore) : 0,
+        };
+    } catch {
+        return null;
+    }
+};
+
+const saveSpotlightDraft = (placeId: string, draft: SpotlightDraft) => {
+    try {
+        sessionStorage.setItem(spotlightDraftKey(placeId), JSON.stringify(draft));
+    } catch {
+        // Sin sessionStorage solo se pierde el borrador.
+    }
+};
+
+// Comprobaciones del saldo al volver de Stripe (segundos desde la vuelta).
+const IMPULSE_RETURN_POLL_SECONDS = [3, 6, 10, 15, 25, 40, 60, 90, 120, 180];
 
 const getErrorMessage = (error: unknown, fallback: string) => {
     if (error && typeof error === 'object' && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
@@ -1110,18 +1152,21 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
     const [items, setItems] = useState<CanonicalPlaceItem[]>([]);
     const [spotlights, setSpotlights] = useState<ItemSpotlight[]>([]);
     const [pricing, setPricing] = useState<SpotlightPricing>(DEFAULT_SPOTLIGHT_PRICING);
-    const [spotlightItemId, setSpotlightItemId] = useState('');
-    const [spotlightIntensity, setSpotlightIntensity] = useState(1);
-    const [spotlightRadius, setSpotlightRadius] = useState(2);
-    const [spotlightDays, setSpotlightDays] = useState(7);
+    const [searchParams, setSearchParams] = useSearchParams();
+    // Vuelta de Stripe tras comprar impulsos. El saldo lo suma el webhook al
+    // confirmar el pago, así que puede tardar en aparecer.
+    const [impulsePurchaseReturn] = useState<string | null>(() => searchParams.get('impulsos'));
+    const [restoredDraft] = useState<SpotlightDraft | null>(() => (impulsePurchaseReturn ? takeSpotlightDraft(placeId) : null));
+    const [spotlightItemId, setSpotlightItemId] = useState(() => restoredDraft?.itemId || '');
+    const [spotlightIntensity, setSpotlightIntensity] = useState(() => restoredDraft?.intensity || 1);
+    const [spotlightRadius, setSpotlightRadius] = useState(() => restoredDraft?.radiusKm || 2);
+    // El campo de días guarda el texto tal cual para poder borrarlo y escribir.
+    const [spotlightDaysInput, setSpotlightDaysInput] = useState(() => String(restoredDraft?.days || 7));
     const [spotlightCredits, setSpotlightCredits] = useState(0);
     const [requestingSpotlight, setRequestingSpotlight] = useState(false);
     const [buyingImpulses, setBuyingImpulses] = useState<string | null>(null);
-    const [searchParams, setSearchParams] = useSearchParams();
+    const [awaitingImpulses, setAwaitingImpulses] = useState(false);
 
-    // Vuelta de Stripe tras comprar impulsos. El saldo lo suma el webhook al
-    // confirmar el pago, así que puede tardar unos segundos en aparecer.
-    const [impulsePurchaseReturn] = useState<string | null>(() => searchParams.get('impulsos'));
     useEffect(() => {
         if (!searchParams.has('impulsos')) return;
         const next = new URLSearchParams(searchParams);
@@ -1134,18 +1179,43 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
             setMessage({ type: 'error', text: 'Compra cancelada: no se ha cobrado nada.' });
             return;
         }
-        setMessage({ type: 'success', text: 'Pago recibido. Tus impulsos aparecerán en el saldo en unos segundos.' });
+        setMessage({
+            type: 'success',
+            text: 'Estamos confirmando el pago con Stripe. Los impulsos se sumarán a tu saldo en cuanto se confirme.',
+        });
+        setAwaitingImpulses(true);
+        const baseline = restoredDraft?.balanceBefore ?? null;
         let cancelled = false;
-        const timers = [3000, 8000, 15000].map((delay) => window.setTimeout(() => {
+        let done = false;
+        const timers = IMPULSE_RETURN_POLL_SECONDS.map((seconds, index) => window.setTimeout(() => {
+            if (done) return;
             void getPlaceSpotlightCredits(placeId)
-                .then((balance) => { if (!cancelled) setSpotlightCredits(balance); })
-                .catch(() => undefined);
-        }, delay));
+                .then((balance) => {
+                    if (cancelled || done) return;
+                    setSpotlightCredits(balance);
+                    if (baseline !== null && balance > baseline) {
+                        done = true;
+                        setAwaitingImpulses(false);
+                        setMessage({ type: 'success', text: 'Impulsos añadidos a tu saldo.' });
+                    } else if (index === IMPULSE_RETURN_POLL_SECONDS.length - 1) {
+                        setAwaitingImpulses(false);
+                        if (baseline !== null) {
+                            setMessage({
+                                type: 'success',
+                                text: 'Stripe aún no ha confirmado el pago. Con algunos métodos, como el adeudo SEPA, tarda unos días: los impulsos se sumarán solos al confirmarse.',
+                            });
+                        }
+                    }
+                })
+                .catch(() => {
+                    if (!cancelled && index === IMPULSE_RETURN_POLL_SECONDS.length - 1) setAwaitingImpulses(false);
+                });
+        }, seconds * 1000));
         return () => {
             cancelled = true;
             timers.forEach((timer) => window.clearTimeout(timer));
         };
-    }, [impulsePurchaseReturn, placeId]);
+    }, [impulsePurchaseReturn, placeId, restoredDraft]);
 
     useEffect(() => {
         let cancelled = false;
@@ -1170,7 +1240,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                         const clamped = Math.max(pricingConfig.minRadiusKm, Math.min(pricingConfig.maxRadiusKm, current));
                         return Number((Math.round(clamped / SPOTLIGHT_RADIUS_STEP_KM) * SPOTLIGHT_RADIUS_STEP_KM).toFixed(1));
                     });
-                    setSpotlightDays((current) => Math.max(1, Math.min(pricingConfig.maxDays, current)));
+                    setSpotlightDaysInput((current) => String(Math.max(1, Math.min(pricingConfig.maxDays, Math.floor(Number(current)) || 1))));
                     setSpotlightIntensity((current) => Math.max(1, Math.min(pricingConfig.maxIntensity, current)));
                     setSpotlightCredits(creditsBalance);
                 }
@@ -1186,6 +1256,9 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
         };
     }, [placeId]);
 
+    const spotlightDaysParsed = Math.floor(Number(spotlightDaysInput));
+    const spotlightDaysValid = spotlightDaysInput.trim() !== '' && Number.isFinite(spotlightDaysParsed) && spotlightDaysParsed >= 1;
+    const spotlightDays = Math.max(1, Math.min(pricing.maxDays, spotlightDaysValid ? spotlightDaysParsed : 1));
     const spotlightRadiusStepCount = spotlightRadiusSteps(pricing, spotlightRadius);
     const spotlightImpulses = computeSpotlightImpulses(pricing, {
         radiusKm: spotlightRadius,
@@ -1205,6 +1278,13 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
         setMessage(null);
         try {
             const session = await createImpulsePackCheckoutSession(placeId, purchase);
+            saveSpotlightDraft(placeId, {
+                itemId: spotlightItemId,
+                radiusKm: spotlightRadius,
+                days: spotlightDays,
+                intensity: spotlightIntensity,
+                balanceBefore: spotlightCredits,
+            });
             window.location.assign(session.url);
         } catch (error) {
             console.error('BusinessSponsoredSection: impulse checkout failed', error);
@@ -1235,7 +1315,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                 ? `Se han descontado ${result.creditsUsed.toLocaleString('es-ES')} impulsos de tu saldo. `
                 : '';
             const pending = result.billedImpulses > 0
-                ? `Quedan ${result.billedImpulses.toLocaleString('es-ES')} impulsos pendientes (${result.totalPriceEur.toFixed(2)} €); te confirmaremos las condiciones antes de activarla. `
+                ? `Quedan ${result.billedImpulses.toLocaleString('es-ES')} impulsos pendientes (${formatEur(result.totalPriceEur)}); te confirmaremos las condiciones antes de activarla. `
                 : '';
             setMessage({ type: 'success', text: `Solicitud enviada. ${used}${pending}Un administrador la activará.` });
         } catch (error) {
@@ -1522,8 +1602,9 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                                     min={1}
                                     max={pricing.maxDays}
                                     className={inputClass}
-                                    value={spotlightDays}
-                                    onChange={(event) => setSpotlightDays(Math.max(1, Math.min(pricing.maxDays, Math.floor(Number(event.target.value)) || 1)))}
+                                    value={spotlightDaysInput}
+                                    onChange={(event) => setSpotlightDaysInput(event.target.value)}
+                                    onBlur={() => setSpotlightDaysInput(String(spotlightDays))}
                                 />
                             </Field>
                             <Field label="Intensidad">
@@ -1545,7 +1626,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                                 <p className="text-xs text-[var(--lt-text-muted)]">
                                     {spotlightRadiusStepCount} tramos de 0,2 km × {spotlightDays} día{spotlightDays === 1 ? '' : 's'} × ×{spotlightIntensity}
                                     <span className="block text-sm font-black text-[var(--lt-text)]">
-                                        {spotlightImpulses.toLocaleString('es-ES')} impulsos · {spotlightValueEur.toFixed(2)} €
+                                        {spotlightImpulses.toLocaleString('es-ES')} impulsos · {formatEur(spotlightValueEur)}
                                     </span>
                                 </p>
                                 <p className="text-right text-xs text-[var(--lt-text-muted)]">
@@ -1555,7 +1636,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                             </div>
                             {spotlightMissing > 0 ? (
                                 <p className="text-[11px] font-bold text-amber-200">
-                                    Te faltan {spotlightMissing.toLocaleString('es-ES')} impulsos ({spotlightMissingEur.toFixed(2)} €).
+                                    Te faltan {spotlightMissing.toLocaleString('es-ES')} impulsos ({formatEur(spotlightMissingEur)}).
                                     {BUSINESS_PRO_CHECKOUT_ENABLED
                                         ? ' Compra lo que falta o un paquete y vuelve a solicitarla.'
                                         : ' La compra online aún no está abierta: puedes solicitarla igualmente y te confirmaremos las condiciones antes de activarla.'}
@@ -1568,7 +1649,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                             <button
                                 type="button"
                                 onClick={requestSpotlight}
-                                disabled={requestingSpotlight || !spotlightItemId || spotlightBlockedByBalance}
+                                disabled={requestingSpotlight || !spotlightItemId || !spotlightDaysValid || spotlightBlockedByBalance}
                                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2.5 text-sm font-black text-white shadow-lg disabled:opacity-60"
                             >
                                 {requestingSpotlight ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
@@ -1578,11 +1659,11 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                                 <button
                                     type="button"
                                     onClick={() => void buyImpulses('missing', { impulses: spotlightMissing })}
-                                    disabled={buyingImpulses !== null}
+                                    disabled={buyingImpulses !== null || awaitingImpulses || !spotlightDaysValid}
                                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-black text-amber-100 disabled:opacity-60"
                                 >
                                     {buyingImpulses === 'missing' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                                    Comprar {spotlightTopUp.toLocaleString('es-ES')} impulsos · {impulsesPriceEur(pricing, spotlightTopUp).toFixed(2)} €
+                                    Comprar {spotlightTopUp.toLocaleString('es-ES')} impulsos · {formatEur(impulsesPriceEur(pricing, spotlightTopUp))}
                                 </button>
                             )}
                         </div>
@@ -1598,13 +1679,13 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                                             <div key={pack.impulses} className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/10 px-3 py-2">
                                                 <p className="text-xs text-[var(--lt-text-muted)]">
                                                     <span className="block text-sm font-black text-[var(--lt-text)]">{pack.impulses.toLocaleString('es-ES')} impulsos</span>
-                                                    {pack.priceEur.toFixed(2)} €{discount > 0 ? ` · −${discount} %` : ''}
+                                                    {formatEur(pack.priceEur)}{discount > 0 ? ` · −${discount} %` : ''}
                                                 </p>
                                                 {BUSINESS_PRO_CHECKOUT_ENABLED && (
                                                     <button
                                                         type="button"
                                                         onClick={() => void buyImpulses(`pack-${index}`, { packIndex: index })}
-                                                        disabled={buyingImpulses !== null}
+                                                        disabled={buyingImpulses !== null || awaitingImpulses}
                                                         className="inline-flex items-center gap-1 rounded-lg bg-[var(--lt-accent)] px-3 py-1.5 text-xs font-black text-white disabled:opacity-60"
                                                     >
                                                         {buyingImpulses === `pack-${index}` && <Loader2 className="h-3 w-3 animate-spin" />}
@@ -1629,7 +1710,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                                                     ×{spotlight.units} · {spotlight.radiusKm} km
                                                     {spotlight.days ? ` · ${spotlight.days} día${spotlight.days === 1 ? '' : 's'}` : spotlight.weeks ? ` · ${spotlight.weeks} sem.` : ''}
                                                     {spotlight.impulses ? ` · ${spotlight.impulses.toLocaleString('es-ES')} impulsos` : ''}
-                                                    {typeof spotlight.totalPriceEur === 'number' ? ` · ${spotlight.totalPriceEur.toFixed(2)} €` : ''}
+                                                    {typeof spotlight.totalPriceEur === 'number' ? ` · ${formatEur(spotlight.totalPriceEur)}` : ''}
                                                     {spotlight.endsAt ? ` · hasta ${spotlight.endsAt}` : ''}
                                                 </p>
                                                 {spotlight.adminNotes && <p className="text-[11px] text-[var(--lt-text-muted)]">Admin: {spotlight.adminNotes}</p>}

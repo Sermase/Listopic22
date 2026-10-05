@@ -41,7 +41,10 @@ test('impulsos: la configuración antigua por semanas no fija el precio nuevo', 
 
 test('impulsos: petición de campaña (formato nuevo y antiguo)', () => {
   assert.deepEqual(normalizeCampaignRequest({ radiusKm: 2, days: 3, intensity: 2 }, pricing), { intensity: 2, days: 3, radiusKm: 2 });
-  assert.deepEqual(normalizeCampaignRequest({ radiusKm: 2, weeks: 2, units: 3 }, pricing), { intensity: 3, days: 14, radiusKm: 2 });
+  const legacyRequest = normalizeCampaignRequest({ radiusKm: 2, weeks: 2, units: 3 }, pricing);
+  assert.equal(legacyRequest.code, "failed-precondition");
+  assert.ok(legacyRequest.error);
+  assert.equal(normalizeCampaignRequest({ radiusKm: 2, days: 14, units: 3 }, pricing).code, "failed-precondition");
   assert.ok(normalizeCampaignRequest({ radiusKm: 0.3, days: 1, intensity: 1 }, pricing).error);
   assert.ok(normalizeCampaignRequest({ radiusKm: 2, days: 0, intensity: 1 }, pricing).error);
   assert.ok(normalizeCampaignRequest({ radiusKm: 2, days: 1, intensity: 11 }, pricing).error);
@@ -71,6 +74,8 @@ test('impulsos: validación de lo que guarda un jefe', () => {
   assert.ok(validateImpulsePricingInput({ ...base, minPurchaseImpulses: 5 }).error, 'menos de 0,50 €');
   assert.ok(validateImpulsePricingInput({ ...base, packs: [{ impulses: 10, priceEur: 0.2 }] }).error);
   assert.ok(validateImpulsePricingInput({ ...base, packs: [{ impulses: 100, priceEur: 5 }, { impulses: 100, priceEur: 4 }] }).error);
+  assert.match(validateImpulsePricingInput({ ...base, pricePerImpulseEur: 0.03, packs: [{ impulses: 10000, priceEur: 350 }] }).error, /más que comprarlos sueltos/);
+  assert.equal(validateImpulsePricingInput({ ...base, packs: [{ impulses: 100, priceEur: 5 }] }).error, undefined, 'igual que suelto vale');
   assert.equal(validateImpulsePricingInput(base).error, undefined);
 });
 

@@ -543,10 +543,10 @@ export const computeSpotlightImpulses = (
 export const impulsesPriceEur = (pricing: SpotlightPricing, impulses: number): number =>
     Math.round(impulses * pricing.pricePerImpulseEur * 100) / 100;
 
-// Precio por impulso de un paquete (para enseñar el descuento frente al precio de lista).
+// Descuento de un paquete frente al precio de lista (negativo si sale más caro).
 export const packDiscountPercent = (pricing: SpotlightPricing, pack: ImpulsePack): number => {
     const list = pack.impulses * pricing.pricePerImpulseEur;
-    return list > 0 ? Math.max(0, Math.round((1 - pack.priceEur / list) * 100)) : 0;
+    return list > 0 ? Math.round((1 - pack.priceEur / list) * 100) : 0;
 };
 
 export const updateSpotlightPricing = async (pricing: SpotlightPricing): Promise<SpotlightPricing> => {

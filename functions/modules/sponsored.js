@@ -261,7 +261,7 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
 
   const pricing = await getSpotlightPricing();
   const campaign = normalizeCampaignRequest(request.data || {}, pricing);
-  if (campaign.error) throw new HttpsError("invalid-argument", campaign.error);
+  if (campaign.error) throw new HttpsError(campaign.code || "invalid-argument", campaign.error);
   const { intensity, days, radiusKm } = campaign;
   const impulses = campaignImpulses(campaign, pricing);
 
@@ -299,6 +299,8 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     const freshPlaceSnap = await tx.get(placeRef);
     if (!freshPlaceSnap.exists) throw new HttpsError("not-found", "El negocio no existe.");
     const freshPlace = freshPlaceSnap.data() || {};
+    // Los saldos regalados antes de este modelo (1 crédito = 1 papeleta) se
+    // leen 1:1 como impulsos: eran regalos y se pueden ajustar desde Developer.
     const availableCredits = Number(freshPlace.spotlightCredits) > 0
       ? Math.floor(Number(freshPlace.spotlightCredits))
       : 0;
@@ -384,21 +386,25 @@ const adminGrantSpotlightCredits = onCall({ invoker: "public" }, async (request)
     throw new HttpsError("invalid-argument", "Los impulsos deben ser un entero entre -100.000 y 100.000 (negativo para retirar).");
   }
 
+  // En transacción: el webhook de Stripe y las solicitudes también tocan el
+  // saldo, y una escritura con un valor leído antes podría borrar sus cambios.
   const placeRef = db.collection("places").doc(placeId);
-  const placeSnap = await placeRef.get();
-  if (!placeSnap.exists) throw new HttpsError("not-found", "El negocio no existe.");
-  const place = placeSnap.data() || {};
-  const current = Number(place.spotlightCredits) > 0 ? Math.floor(Number(place.spotlightCredits)) : 0;
-  const next = Math.max(0, current + credits);
-
-  await placeRef.set({
-    spotlightCredits: next,
-    updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
+  const { current, next, placeName } = await db.runTransaction(async (tx) => {
+    const placeSnap = await tx.get(placeRef);
+    if (!placeSnap.exists) throw new HttpsError("not-found", "El negocio no existe.");
+    const place = placeSnap.data() || {};
+    const balance = Number(place.spotlightCredits) > 0 ? Math.floor(Number(place.spotlightCredits)) : 0;
+    const updated = Math.max(0, balance + credits);
+    tx.set(placeRef, {
+      spotlightCredits: updated,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return { current: balance, next: updated, placeName: place.name || null };
+  });
 
   await writeAuditLog(uid, "sponsored.creditsGranted", {
     placeId,
-    placeName: place.name || null,
+    placeName,
     credits,
     previousBalance: current,
     newBalance: next,

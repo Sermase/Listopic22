@@ -33,5 +33,6 @@ describe('impulsos (0,2 km × 1 día × 1 papeleta)', () => {
         expect(packDiscountPercent(DEFAULT_SPOTLIGHT_PRICING, { impulses: 100, priceEur: 5 })).toBe(0);
         expect(packDiscountPercent(DEFAULT_SPOTLIGHT_PRICING, { impulses: 2000, priceEur: 80 })).toBe(20);
         expect(packDiscountPercent(DEFAULT_SPOTLIGHT_PRICING, { impulses: 10000, priceEur: 350 })).toBe(30);
+        expect(packDiscountPercent({ ...DEFAULT_SPOTLIGHT_PRICING, pricePerImpulseEur: 0.03 }, { impulses: 10000, priceEur: 350 })).toBeLessThan(0);
     });
 });
