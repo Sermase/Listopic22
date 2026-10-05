@@ -947,6 +947,12 @@ service cloud.firestore {
     // config/serverSecrets: solo jefe (secretos del servidor).
     // La regla genérica de config/* excluye explícitamente este documento
     // para que el wildcard no lo exponga aunque "allow read: if true" lo cubra.
+    // Beta de planes («Lo quiero»): solo la escribe registerPlanInterest.
+    match /planInterest/{interestId} {
+      allow read: if request.auth != null && isJefe(request.auth.uid);
+      allow write: if false;
+    }
+
     match /config/serverSecrets {
       allow read, write: if request.auth != null && isJefe(request.auth.uid);
     }

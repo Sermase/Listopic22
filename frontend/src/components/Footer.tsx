@@ -30,6 +30,9 @@ export const Footer: React.FC<{ compact?: boolean }> = ({ compact }) => {
 
                     {/* Links */}
                     <nav className="flex flex-wrap justify-center md:justify-center gap-x-6 gap-y-3 text-sm">
+                        <Link to="/planes" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
+                            Planes
+                        </Link>
                         <Link to="/about" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
                             Sobre Listopic
                         </Link>

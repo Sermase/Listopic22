@@ -24,6 +24,7 @@ module.exports = {
     ...require('./modules/google-admin'),
     ...require('./modules/business-claims'),
     ...require('./modules/stripe-business'),
+    ...require('./modules/plan-interest'),
     ...require('./modules/business-pro'),
     ...require('./modules/business-items'),
     ...require('./modules/sponsored'),

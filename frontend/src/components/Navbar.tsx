@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Archive, Bell, Building2, Dice5, Eye, Home, Info, Menu, MessageSquare, Plus, Search, User, X } from 'lucide-react';
+import { Archive, Bell, Building2, Dice5, Eye, Home, Info, Menu, MessageSquare, Plus, Search, Sparkles, User, X } from 'lucide-react';
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig, useAppConfigLoading } from '../context/AppConfigContext';
@@ -295,6 +295,7 @@ export const Navbar: React.FC = () => {
                             <NavItem to="/businesses" icon={Building2} label="Negocios" isActive={location.pathname === '/businesses'} />
                         )}
                         <NavItem to="/chats" icon={MessageSquare} label="Chats" count={unreadChatCount} isActive={location.pathname === '/chats'} onClick={guardProtectedLink('abrir tus chats')} />
+                        <NavItem to="/planes" icon={Sparkles} label="Planes" isActive={location.pathname === '/planes'} />
                     </nav>
 
                     <div className="hidden md:flex items-center gap-4">
@@ -492,6 +493,9 @@ export const Navbar: React.FC = () => {
                             )}
                             <Link to="/archive" onClick={guardProtectedLink('ver tus colecciones')} className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
                                 <Archive className="w-5 h-5 text-[var(--lt-accent)]" /> Colecciones
+                            </Link>
+                            <Link to="/planes" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
+                                <Sparkles className="w-5 h-5 text-[var(--lt-accent)]" /> Planes · beta gratis
                             </Link>
                             {user && managedBusinessCount > 0 && (
                                 <Link to="/businesses" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)] justify-between">

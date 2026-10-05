@@ -4,6 +4,7 @@ import { Building2, CalendarClock, Crown, ExternalLink, Loader2, RefreshCw, Sear
 import { db } from '../../firebase';
 import { adminSetBusinessPlan, adminSetUserPlan } from '../../services/PlanAdminService';
 import { adminGrantSpotlightCredits } from '../../services/BusinessProService';
+import { PlanInterestStats } from './PlanInterestStats';
 import { formatPlanExpiry, getBusinessPlanFromPlace, PLAN_SOURCE_LABELS, type BusinessPlan } from '../../utils/businessPlan';
 
 interface PlanPlace {
@@ -313,6 +314,7 @@ export const PlansManagerTab: React.FC = () => {
 
     return (
         <div className="max-w-6xl mx-auto space-y-5">
+            <PlanInterestStats />
             <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>

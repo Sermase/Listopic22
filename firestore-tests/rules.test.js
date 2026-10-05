@@ -568,3 +568,18 @@ describe('V10 · Una Minilista no es más pública que su Lista madre', () => {
     await assertSucceeds(updateDoc(doc(as('alice'), 'lists/pesada'), { isPublic: false, visibility: 'private' }));
   });
 });
+
+describe('Beta de planes: el interés y la prueba gratis solo los escribe el servidor', () => {
+  it('❌ bob se apunta a mano en planInterest o lee el de otros', async () => {
+    await assertFails(setDoc(doc(as('bob'), 'planInterest/premium_user_bob'), { plan: 'premium', userId: 'bob' }));
+    await assertFails(getDocs(collection(as('bob'), 'planInterest')));
+  });
+
+  it('❌ bob se activa premium a sí mismo', async () => {
+    await assertFails(updateDoc(doc(as('bob'), 'users/bob'), { premium: { active: true, source: 'trial' } }));
+  });
+
+  it('✅ un jefe lee los registros de interés', async () => {
+    await assertSucceeds(getDocs(collection(jefe(), 'planInterest')));
+  });
+});
