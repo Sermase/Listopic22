@@ -12,6 +12,8 @@ import { Capacitor } from '@capacitor/core';
 import { Loader2, Lock, Mail, User } from 'lucide-react';
 import { auth } from '../firebase';
 import { useAuth } from '../context/AuthContext';
+import { LegalConsentChecks } from './legal/LegalConsentChecks';
+import { markSignupAcceptance, recordLegalAcceptance } from '../services/LegalService';
 
 export type AuthFormMode = 'login' | 'register';
 
@@ -43,6 +45,8 @@ export const AuthForm: React.FC<AuthFormProps> = ({ initialMode = 'login', onAut
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
+    const [termsAccepted, setTermsAccepted] = useState(false);
+    const [ageConfirmed, setAgeConfirmed] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
@@ -80,8 +84,18 @@ export const AuthForm: React.FC<AuthFormProps> = ({ initialMode = 'login', onAut
 
         try {
             if (isRegistering) {
-                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-                if (name) await updateProfile(userCredential.user, { displayName: name });
+                if (!termsAccepted || !ageConfirmed) {
+                    setError('Para crear la cuenta tienes que aceptar los Términos y la Política de privacidad y confirmar tu edad.');
+                    return;
+                }
+                markSignupAcceptance(true);
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                    await recordLegalAcceptance(userCredential.user.uid, 'signup');
+                    if (name) await updateProfile(userCredential.user, { displayName: name });
+                } finally {
+                    markSignupAcceptance(false);
+                }
             } else {
                 await signInWithEmailAndPassword(auth, email, password);
             }
@@ -163,9 +177,18 @@ export const AuthForm: React.FC<AuthFormProps> = ({ initialMode = 'login', onAut
                     />
                 </div>
 
+                {isRegistering && (
+                    <LegalConsentChecks
+                        termsAccepted={termsAccepted}
+                        onTermsChange={setTermsAccepted}
+                        ageConfirmed={ageConfirmed}
+                        onAgeChange={setAgeConfirmed}
+                    />
+                )}
+
                 <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || (isRegistering && (!termsAccepted || !ageConfirmed))}
                     className="w-full bg-[var(--lt-accent)] text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-[var(--lt-accent-shadow)] transition-all hover:scale-[1.01] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                     {loading && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -194,6 +217,11 @@ export const AuthForm: React.FC<AuthFormProps> = ({ initialMode = 'login', onAut
                 </svg>
                 <span>Google</span>
             </button>
+            {isRegistering && (
+                <p className="mt-3 text-xs text-center text-[var(--lt-text-muted)]">
+                    Si es tu primera vez con Google, te pediremos aceptar los Términos y la Política de privacidad antes de empezar.
+                </p>
+            )}
 
             <div className="mt-6 text-center">
                 <button

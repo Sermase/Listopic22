@@ -8,6 +8,8 @@ const { getAuth } = require('firebase-admin/auth');
 const { assertJefeAccess, writeAuditLog } = require('../lib/auth');
 const { tallyReviewsByUser } = require('../lib/review-tally');
 const { userReviewDocs } = require('../lib/user-reviews');
+const { cleanupUserFootprint } = require('./admin-gdpr');
+const { GDPR_AUDIT_RETAIN_DAYS } = require('../lib/gdpr');
 
 const db = getFirestore();
 const BATCH_LIMIT = 450;
@@ -339,6 +341,10 @@ const deleteOwnAccount = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (
   const usernameLower = typeof userData.usernameLower === 'string'
     ? userData.usernameLower.trim().toLowerCase()
     : '';
+  // Primero lo que está fuera de users/{uid} (necesita aún sus seguidores):
+  // fotos, comentarios, foros, chats, notificaciones enviadas y archivos.
+  const footprint = await cleanupUserFootprint(uid, { keepContributions: keepReviews });
+
   const state = { batch: db.batch(), count: 0 };
   const counters = { reviews: 0, lists: 0, subcollections: 0 };
 
@@ -371,15 +377,18 @@ const deleteOwnAccount = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (
     state.count++;
   }
   await commitBatchIfNeeded(state, true);
+  // Lo que quede colgando de users/{uid} (p. ej. archives/*/items).
+  await db.recursiveDelete(db.collection('users').doc(uid));
 
   await getAuth().deleteUser(uid);
   await writeAuditLog(uid, 'deleteOwnAccount', {
     keepReviews,
     keepSublists,
     counters,
-  });
+    footprint,
+  }, { retainDays: GDPR_AUDIT_RETAIN_DAYS });
 
-  return { success: true, ...counters };
+  return { success: true, ...counters, footprint };
 });
 
 module.exports = {

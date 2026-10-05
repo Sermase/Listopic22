@@ -24,7 +24,7 @@ const DIMENSIONS: Record<ModernCardVariant, { width: number; height: number }> =
     landscape: { width: 1200, height: 630 },
 };
 
-const FONT = "'Manrope', 'Poppins', system-ui, -apple-system, sans-serif";
+const FONT = "'Manrope Variable', 'Manrope', 'Poppins', system-ui, -apple-system, sans-serif";
 const BRAND_LOGO_URL = '/images/listopic-app-icon.png';
 
 // Escala única de notas (lib/scoreScale), variante para fondo oscuro.

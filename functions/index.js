@@ -42,5 +42,6 @@ module.exports = {
     ...require('./modules/admin/criteria-migration'),
     ...require('./modules/admin/admin-plans'),
     ...require('./modules/admin/admin-backup'),
+    ...require('./modules/admin/admin-gdpr'),
 };
 // Force redeploy

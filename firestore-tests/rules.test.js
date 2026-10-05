@@ -313,6 +313,34 @@ describe('V4 · Un usuario no puede ascenderse a sí mismo', () => {
 });
 
 // ---------------------------------------------------------------------------
+describe('V11 · Aceptación de condiciones (RGPD): fecha del servidor y edad', () => {
+  const acceptance = (overrides = {}) => ({
+    legalAcceptance: { version: '2026-10-05', acceptedAt: serverTimestamp(), ageConfirmed: true, method: 'prompt', ...overrides },
+  });
+
+  it('✅ alta con el payload real de LegalService (registro con email)', async () => {
+    await assertSucceeds(setDoc(doc(as('nuevo'), 'users/nuevo'), acceptance({ method: 'signup' }), { merge: true }));
+  });
+
+  it('✅ un usuario existente acepta la versión nueva', async () => {
+    await assertSucceeds(setDoc(doc(as('alice'), 'users/alice'), acceptance(), { merge: true }));
+  });
+
+  it('❌ fecha inventada, sin confirmar la edad o con campos extra', async () => {
+    const ref = doc(as('alice'), 'users/alice');
+    await assertFails(setDoc(ref, acceptance({ acceptedAt: new Date('2020-01-01') }), { merge: true }));
+    await assertFails(setDoc(ref, acceptance({ ageConfirmed: false }), { merge: true }));
+    await assertFails(setDoc(ref, acceptance({ method: 'jefe' }), { merge: true }));
+    await assertFails(setDoc(ref, { legalAcceptance: { version: '2026-10-05', acceptedAt: serverTimestamp(), ageConfirmed: true, method: 'prompt', extra: 1 } }, { merge: true }));
+  });
+
+  it('❌ nadie escribe la aceptación de otra persona (tampoco un jefe)', async () => {
+    await assertFails(setDoc(doc(as('bob'), 'users/alice'), acceptance(), { merge: true }));
+    await assertFails(setDoc(doc(jefe(), 'users/alice'), acceptance(), { merge: true }));
+  });
+});
+
+// ---------------------------------------------------------------------------
 describe('V5 · Lugares: nada de Business Pro gratis ni notas falsas', () => {
   const fallbackPlace = (extra = {}) => ({
     name: 'Casa Pepe', name_normalized: 'casa pepe', address: 'C/ Mayor 1', address_normalized: 'c/ mayor 1',

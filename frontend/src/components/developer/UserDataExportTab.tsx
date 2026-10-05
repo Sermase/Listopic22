@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { db } from '../../firebase';
-import { adminSearchReviews } from '../../services/developerAdmin';
+import { adminExportUserData, adminSearchReviews } from '../../services/developerAdmin';
 import {
     doc,
     getDoc,
@@ -9,7 +9,7 @@ import {
     where,
     getDocs,
 } from 'firebase/firestore';
-import { FileDown, Search, Loader2, AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { FileDown, FileJson, Search, Loader2, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import jsPDF from 'jspdf';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
@@ -397,6 +397,30 @@ export const UserDataExportTab: React.FC = () => {
         }
     };
 
+    // JSON completo (perfil, cuenta, reseñas, listas, fotos, comentarios, foros,
+    // chats propios, denuncias...): sirve para la portabilidad (art. 20 RGPD).
+    const downloadJSON = async () => {
+        if (!preview) return;
+        setLoading(true);
+        setError(null);
+        setSuccess(null);
+        try {
+            const result = await adminExportUserData(preview.id);
+            const blob = new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `listopic-datos-${preview.username || preview.id}-${new Date().toISOString().slice(0, 10)}.json`;
+            link.click();
+            URL.revokeObjectURL(url);
+            setSuccess('JSON descargado. Envíalo junto con el PDF al correo de la cuenta.');
+        } catch (err: unknown) {
+            setError(`Error generando JSON: ${err instanceof Error ? err.message : String(err)}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const downloadPDF = async () => {
         if (!preview) return;
         setLoading(true);
@@ -502,8 +526,13 @@ export const UserDataExportTab: React.FC = () => {
                     <FileDown className="w-5 h-5 text-[var(--lt-accent)]" /> Exportar datos de usuario (RGPD)
                 </h2>
                 <p className="text-sm text-gray-500">
-                    Genera un PDF con toda la información almacenada de un usuario. Útil para responder solicitudes de acceso a datos (Art. 15 RGPD).
+                    Genera un PDF legible (derecho de acceso, art. 15 RGPD) y un JSON completo (portabilidad, art. 20) con los datos de un usuario.
                 </p>
+                <ul className="mt-3 text-xs text-gray-500 list-disc list-inside space-y-1">
+                    <li>Atiende solo solicitudes enviadas desde el correo de la cuenta; si no, pide que lo confirme.</li>
+                    <li>Plazo: un mes desde la solicitud. Es gratis.</li>
+                    <li>Envía los dos archivos a ese correo y no los guardes después.</li>
+                </ul>
             </div>
 
             {/* Index warning */}
@@ -575,14 +604,24 @@ export const UserDataExportTab: React.FC = () => {
                                 <p className="text-xs text-gray-500 truncate">{preview.email} · {preview.id}</p>
                             </div>
                         </div>
+                        <div className="flex gap-2 shrink-0">
+                        <button
+                            onClick={downloadJSON}
+                            disabled={loading}
+                            className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/15 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white text-sm font-bold transition-colors"
+                        >
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileJson className="w-4 h-4" />}
+                            JSON
+                        </button>
                         <button
                             onClick={downloadPDF}
                             disabled={loading}
                             className="flex items-center gap-2 px-4 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-white text-sm font-bold transition-colors shrink-0"
                         >
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
-                            Descargar PDF
+                            PDF
                         </button>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm">
@@ -602,7 +641,7 @@ export const UserDataExportTab: React.FC = () => {
                     </div>
 
                     <p className="text-xs text-gray-500">
-                        El PDF incluye: perfil, preferencias, gamificación, red social, chats, listas y reseñas. Puede tardar unos segundos.
+                        El PDF resume perfil, preferencias, gamificación, red social, chats, listas y reseñas. El JSON incluye además cuenta, aceptación de condiciones, fotos, comentarios, foros, archivos, notificaciones y denuncias.
                     </p>
                 </div>
             )}

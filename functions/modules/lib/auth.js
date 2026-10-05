@@ -5,7 +5,7 @@
 const { getAuth } = require("firebase-admin/auth");
 const { HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 
 const db = getFirestore();
 
@@ -114,14 +114,17 @@ function rateLimitKey(req, decodedAuth) {
 /**
  * Guarda una entrada en el audit log de admin.
  * Solo se invoca desde Cloud Functions (admin SDK bypassa reglas).
+ * `retainDays` añade `expiresAt` (política TTL de Firestore sobre
+ * adminAuditLog.expiresAt) para entradas con datos de personas (RGPD).
  */
-async function writeAuditLog(actorUid, action, details = {}) {
+async function writeAuditLog(actorUid, action, details = {}, { retainDays } = {}) {
   try {
     await db.collection('adminAuditLog').add({
       actorUid: actorUid || null,
       action,
       details,
       createdAt: FieldValue.serverTimestamp(),
+      ...(retainDays ? { expiresAt: Timestamp.fromMillis(Date.now() + retainDays * 24 * 60 * 60 * 1000) } : {}),
     });
   } catch (error) {
     logger.error('writeAuditLog: fallo al escribir audit log', { action, error: error.message });

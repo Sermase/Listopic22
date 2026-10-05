@@ -11,6 +11,10 @@ interface AuthContextType {
     loading: boolean;
     userTypes: UserTypeValue[];
     isJefe: boolean;
+    /** Versión de Términos/Privacidad aceptada (users/{uid}.legalAcceptance.version). */
+    acceptedLegalVersion: string | null;
+    /** true cuando ya se ha leído users/{uid} al menos una vez para esta sesión. */
+    profileLoaded: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -18,6 +22,8 @@ const AuthContext = createContext<AuthContextType>({
     loading: true,
     userTypes: [],
     isJefe: false,
+    acceptedLegalVersion: null,
+    profileLoaded: false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -32,6 +38,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
     const [userTypes, setUserTypes] = useState<UserTypeValue[]>([]);
+    const [acceptedLegalVersion, setAcceptedLegalVersion] = useState<string | null>(null);
+    const [profileLoaded, setProfileLoaded] = useState(false);
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -46,13 +54,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Reactive subscription to the user profile so userType (incl. 'jefe')
     // changes propagate without requiring a reload.
     useEffect(() => {
+        setProfileLoaded(false);
+        setAcceptedLegalVersion(null);
         if (!user) { setUserTypes([]); return; }
         const userRef = doc(db, 'users', user.uid);
         const unsub = onSnapshot(userRef, (snap) => {
-            setUserTypes(normalizeUserTypes(snap.data()?.userType));
+            const data = snap.data();
+            setUserTypes(normalizeUserTypes(data?.userType));
+            const version = data?.legalAcceptance?.version;
+            setAcceptedLegalVersion(typeof version === 'string' ? version : null);
+            setProfileLoaded(true);
         }, (err) => {
             console.warn('AuthContext: onSnapshot users/ failed', err);
             setUserTypes([]);
+            setProfileLoaded(true);
         });
         return () => unsub();
     }, [user]);
@@ -64,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // cada escritura disparaba triggers y reindexaba el usuario en Algolia.
 
     return (
-        <AuthContext.Provider value={{ user, loading, userTypes, isJefe }}>
+        <AuthContext.Provider value={{ user, loading, userTypes, isJefe, acceptedLegalVersion, profileLoaded }}>
             {loading ? (
                 <div style={{ minHeight: '100vh', background: '#0b1021', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: 32, height: 32, borderRadius: '50%', border: '3px solid rgba(99,102,241,0.2)', borderTopColor: '#6366f1', animation: 'lp-spin 0.75s linear infinite' }} />

@@ -24,7 +24,8 @@ service cloud.firestore {
         'location', 'residence', 'bio', 'email', 'emailLowerCase',
         'photoUrl', 'photoURL', 'photoStoragePath', 'defaultDistanceKm',
         'mapLayerPreference', 'themePreference', 'notificationPreferences',
-        'isOnline', 'lastActiveAt', 'createdAt', 'updatedAt', 'usernameLockedAt'
+        'isOnline', 'lastActiveAt', 'createdAt', 'updatedAt', 'usernameLockedAt',
+        'legalAcceptance'
       ];
     }
 
@@ -53,8 +54,30 @@ service cloud.firestore {
         'photoUrl', 'photoURL', 'photoStoragePath', 'defaultDistanceKm',
         'mapLayerPreference', 'themePreference', 'notificationPreferences',
         'isOnline', 'lastActiveAt', 'createdAt', 'updatedAt', 'usernameLockedAt',
-        'notifiedLevel', 'notifiedBadges'
+        'notifiedLevel', 'notifiedBadges', 'legalAcceptance'
       ];
+    }
+
+    // Aceptación de Términos y Privacidad (prueba RGPD): solo la versión, la
+    // confirmación de edad y el método; la fecha la pone el servidor.
+    function legalAcceptanceIsValid(value) {
+      return value is map &&
+             value.keys().hasOnly(['version', 'acceptedAt', 'ageConfirmed', 'method']) &&
+             value.keys().hasAll(['version', 'acceptedAt', 'ageConfirmed', 'method']) &&
+             value.version is string && value.version.size() > 0 && value.version.size() <= 20 &&
+             value.acceptedAt == request.time &&
+             value.ageConfirmed == true &&
+             value.method in ['signup', 'prompt'];
+    }
+
+    function userCreateLegalAcceptanceOk() {
+      return !('legalAcceptance' in request.resource.data) ||
+             legalAcceptanceIsValid(request.resource.data.legalAcceptance);
+    }
+
+    function userUpdateLegalAcceptanceOk() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['legalAcceptance']) ||
+             legalAcceptanceIsValid(request.resource.data.legalAcceptance);
     }
 
     function userCreateHasOnlyAllowedFields() {
@@ -439,11 +462,13 @@ service cloud.firestore {
       allow create: if request.auth != null &&
                     request.auth.uid == userId &&
                     doesNotSetUserType() &&
-                    userCreateHasOnlyAllowedFields();
+                    userCreateHasOnlyAllowedFields() &&
+                    userCreateLegalAcceptanceOk();
       allow update: if request.auth != null && (
         (
           request.auth.uid == userId && doesNotChangeUserType()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(userSelfUpdateKeys())
+          && userUpdateLegalAcceptanceOk()
         ) || (isJefe(request.auth.uid) && userUpdateChangesOnlyAllowedFields())
       );
       // Un usuario puede borrarse a sí mismo O un jefe puede borrarlo.

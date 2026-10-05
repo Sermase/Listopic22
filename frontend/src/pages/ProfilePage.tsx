@@ -41,6 +41,7 @@ import {
   HeartHandshake,
 } from "lucide-react";
 import { ReportModal } from "../components/ReportModal";
+import { MyDataRequest } from "../components/profile/MyDataRequest";
 import {
   doc,
   setDoc,
@@ -2672,6 +2673,8 @@ export const ProfilePage: React.FC = () => {
                         </div>
                       </div>
                     </div>
+
+                    {user && <MyDataRequest uid={user.uid} email={user.email} />}
                   </>
                 )}
 
@@ -2872,9 +2875,11 @@ export const ProfilePage: React.FC = () => {
                   <div className="space-y-5">
                     <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
                       <p className="text-red-300 text-sm leading-relaxed">
-                        <span className="font-bold text-white">Esta acción es irreversible.</span> Tu cuenta y todos tus datos serán eliminados permanentemente. Revisa las opciones antes de continuar.
+                        <span className="font-bold text-white">Esta acción es irreversible.</span> Se borran siempre tu perfil, tu foto, tus seguidores y seguidos, tus notificaciones, tus chats privados y tus mensajes en grupos. Revisa las opciones antes de continuar.
                       </p>
                     </div>
+
+                    {user && <MyDataRequest uid={user.uid} email={user.email} />}
 
                     {/* Razón */}
                     <div>
@@ -2905,8 +2910,8 @@ export const ProfilePage: React.FC = () => {
 
                     {/* Reseñas */}
                     <div>
-                      <label className="text-gray-400 text-xs uppercase font-bold block mb-1">¿Mantener tus valoraciones de forma anónima?</label>
-                      <p className="text-gray-500 text-xs mb-2">Si dices que sí, tus valoraciones quedarán en la app sin asociarse a ningún usuario.</p>
+                      <label className="text-gray-400 text-xs uppercase font-bold block mb-1">¿Mantener tus aportaciones de forma anónima?</label>
+                      <p className="text-gray-500 text-xs mb-2">Valoraciones, fotos, comentarios y mensajes en foros. Si dices que sí, se quedan en la app firmadas como «Usuario eliminado». Si dices que no, se borran.</p>
                       <div className="flex gap-2">
                         {([true, false] as const).map((val) => (
                           <button

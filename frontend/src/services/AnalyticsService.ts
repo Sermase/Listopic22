@@ -87,7 +87,10 @@ export interface ReviewHeatmapBackfillResult {
     coverageCapped: boolean;
 }
 
-const SESSION_STORAGE_KEY = 'listopicAnalyticsSession';
+// Identificador de visita solo en memoria: no se guarda nada en el dispositivo
+// (ni cookies ni sessionStorage), así la analítica no necesita banner de
+// consentimiento (art. 22.2 LSSI). Una recarga cuenta como visita nueva.
+let memorySessionId: string | null = null;
 let trackedInitialRoute = false;
 
 export const normalizeAnalyticsPath = (pathname: string): string => {
@@ -118,15 +121,8 @@ const newSessionId = (): string => {
 const newEventId = (): string => newSessionId();
 
 export const getAnalyticsSessionId = (): string => {
-    try {
-        const current = window.sessionStorage.getItem(SESSION_STORAGE_KEY);
-        if (current && current.length >= 16) return current;
-        const created = newSessionId();
-        window.sessionStorage.setItem(SESSION_STORAGE_KEY, created);
-        return created;
-    } catch {
-        return newSessionId();
-    }
+    if (!memorySessionId) memorySessionId = newSessionId();
+    return memorySessionId;
 };
 
 const detectDevice = (): AnalyticsDevice => {

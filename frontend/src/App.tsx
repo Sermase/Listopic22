@@ -3,6 +3,7 @@ import React, { Suspense } from 'react';
 import { ToastProvider } from './context/ToastContext';
 import { ConfirmProvider } from './context/ConfirmContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { LegalAcceptanceGate } from './components/legal/LegalAcceptanceGate';
 import { Navbar } from './components/Navbar';
 import { App as CapApp } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
@@ -42,6 +43,8 @@ const PrivacyPage = React.lazy(() => import('./pages/PrivacyPage').then(m => ({ 
 const ChildSafetyPage = React.lazy(() => import('./pages/ChildSafetyPage').then(m => ({ default: m.ChildSafetyPage })));
 const IstariCorePage = React.lazy(() => import('./pages/IstariCorePage').then(m => ({ default: m.IstariCorePage })));
 const TermsPage = React.lazy(() => import('./pages/TermsPage').then(m => ({ default: m.TermsPage })));
+const CookiesPage = React.lazy(() => import('./pages/CookiesPage').then(m => ({ default: m.CookiesPage })));
+const LegalNoticePage = React.lazy(() => import('./pages/LegalNoticePage').then(m => ({ default: m.LegalNoticePage })));
 const LabPage = React.lazy(() => import('./pages/LabPage').then(m => ({ default: m.LabPage })));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
 
@@ -250,6 +253,8 @@ const AppRoutes = () => {
               <Route path="/child-safety" element={<ChildSafetyPage />} />
               <Route path="/istari-core" element={<IstariCorePage />} />
               <Route path="/terms" element={<TermsPage />} />
+              <Route path="/cookies" element={<CookiesPage />} />
+              <Route path="/aviso-legal" element={<LegalNoticePage />} />
 
               {/* Lab / Easter egg — visibility gated by config.showLab */}
               <Route path="/lab" element={<LabPage />} />
@@ -284,6 +289,7 @@ function App() {
               <NotificationBanner />
               <AppRoutes />
               <PushSetup />
+              <LegalAcceptanceGate />
             </div>
           </AuthPromptProvider>
         </Router>

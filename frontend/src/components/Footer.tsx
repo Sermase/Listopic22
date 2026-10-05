@@ -42,6 +42,12 @@ export const Footer: React.FC<{ compact?: boolean }> = ({ compact }) => {
                         <Link to="/terms" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
                             Términos de Uso
                         </Link>
+                        <Link to="/cookies" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
+                            Cookies
+                        </Link>
+                        <Link to="/aviso-legal" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
+                            Aviso legal
+                        </Link>
                         <Link to="/istari-core" className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors">
                             Istari Core
                         </Link>

@@ -19,6 +19,8 @@ const { getAuth } = require('firebase-admin/auth');
 
 const PROJECT = 'demo-listopic';
 const vectors = JSON.parse(readFileSync(fileURLToPath(new URL('../frontend/src/lib/listElements.vectors.json', import.meta.url)), 'utf8'));
+// Versión vigente de Términos/Privacidad: sin ella, la app pide aceptarlas al entrar.
+const legal = JSON.parse(readFileSync(fileURLToPath(new URL('../frontend/src/config/legal.json', import.meta.url)), 'utf8'));
 export const PASSWORD = 'secreto-e2e';
 const ALGOLIA = process.env.ALGOLIA_MOCK_URL || 'http://127.0.0.1:7700';
 
@@ -44,7 +46,10 @@ async function seed() {
       if (e.code !== 'auth/uid-already-exists') throw e;
     });
     const profile = { username: u.name, displayName: u.name, userType: u.types };
-    await db.doc(`users/${u.uid}`).set({ ...profile, email: `${u.uid}@e2e.test`, createdAt: Timestamp.now() });
+    await db.doc(`users/${u.uid}`).set({
+      ...profile, email: `${u.uid}@e2e.test`, createdAt: Timestamp.now(),
+      legalAcceptance: { version: legal.version, acceptedAt: Timestamp.now(), ageConfirmed: true, method: 'signup' },
+    });
     await db.doc(`publicProfiles/${u.uid}`).set({ ...profile, reviewsCount: 0 });
   }
   for (const [id, place] of Object.entries(vectors.places)) {
