@@ -22,6 +22,8 @@ export interface AppConfig {
     showLab: boolean;
     showWeeklyDuel: boolean;
     showTastePassport: boolean;
+    /** Página de Lista: título = sitio y segunda línea = elemento (false: al revés). */
+    listTitlePlaceFirst: boolean;
 }
 
 interface AppConfigContextValue {
@@ -43,6 +45,7 @@ const defaultConfig: AppConfig = {
     showLab: false,
     showWeeklyDuel: false,
     showTastePassport: false,
+    listTitlePlaceFirst: true,
 };
 
 const AppConfigContext = createContext<AppConfigContextValue>({
@@ -87,6 +90,9 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     showTastePassport: typeof data.showTastePassport === 'boolean'
                         ? data.showTastePassport
                         : defaultConfig.showTastePassport,
+                    listTitlePlaceFirst: typeof data.listTitlePlaceFirst === 'boolean'
+                        ? data.listTitlePlaceFirst
+                        : defaultConfig.listTitlePlaceFirst,
                 } as AppConfig);
             }
             setIsConfigLoading(false);

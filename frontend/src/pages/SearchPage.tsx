@@ -366,13 +366,18 @@ const CustomSearchBox = ({ rawQuery = '', onQueryChange, ...props }: CustomSearc
     const ref = useRef<HTMLInputElement>(null);
 
     useEffect(() => { if (rawQuery !== val) setVal(rawQuery); }, [rawQuery]); // eslint-disable-line
+    // El temporizador solo se rearma al escribir, y la URL solo se toca si el texto cambió:
+    // si no, al pulsar un resultado justo después de un re-render, el setSearchParams
+    // diferido devolvía a /search (reemplazando la navegación al elemento).
+    const latest = useRef({ rawQuery, onQueryChange });
+    useEffect(() => { latest.current = { rawQuery, onQueryChange }; }, [rawQuery, onQueryChange]);
     useEffect(() => {
         const t = setTimeout(() => {
             refine(SearchQueryParser.parse(val).cleanedQuery);
-            onQueryChange?.(val);
+            if (val !== latest.current.rawQuery) latest.current.onQueryChange?.(val);
         }, 300);
         return () => clearTimeout(t);
-    }, [val, refine, onQueryChange]);
+    }, [val, refine]);
 
     const select = (term: string) => {
         setVal(term);

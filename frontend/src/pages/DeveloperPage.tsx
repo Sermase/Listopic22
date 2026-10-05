@@ -81,6 +81,7 @@ export const DeveloperPage: React.FC = () => {
         showLab: false,
         showWeeklyDuel: false,
         showTastePassport: false,
+        listTitlePlaceFirst: true,
     });
     const [otherSettingsLoading, setOtherSettingsLoading] = useState(false);
     const [otherSettingsSaving, setOtherSettingsSaving] = useState(false);
@@ -638,6 +639,7 @@ export const DeveloperPage: React.FC = () => {
                 showLab: typeof data.showLab === 'boolean' ? data.showLab : false,
                 showWeeklyDuel: typeof data.showWeeklyDuel === 'boolean' ? data.showWeeklyDuel : false,
                 showTastePassport: typeof data.showTastePassport === 'boolean' ? data.showTastePassport : false,
+                listTitlePlaceFirst: typeof data.listTitlePlaceFirst === 'boolean' ? data.listTitlePlaceFirst : true,
             });
         } catch (error: any) {
             console.error('Error fetching other settings:', error);
@@ -660,6 +662,7 @@ export const DeveloperPage: React.FC = () => {
                 showLab: otherSettings.showLab,
                 showWeeklyDuel: otherSettings.showWeeklyDuel,
                 showTastePassport: otherSettings.showTastePassport,
+                listTitlePlaceFirst: otherSettings.listTitlePlaceFirst,
                 updatedAt: new Date(),
             }, { merge: true });
             setOtherSettingsMessage({ type: 'success', text: 'Ajustes guardados correctamente.' });
@@ -1381,6 +1384,24 @@ export const DeveloperPage: React.FC = () => {
                                                         }`}
                                                 >
                                                     {otherSettings.showWeeklyDuel ? 'ACTIVO' : 'INACTIVO'}
+                                                </button>
+                                            </div>
+
+                                            <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-white/10 bg-black/20">
+                                                <div>
+                                                    <div className="text-sm font-bold text-white">Título de los elementos (página de Lista)</div>
+                                                    <div className="text-xs text-gray-400">
+                                                        {otherSettings.listTitlePlaceFirst
+                                                            ? 'Grande el sitio; debajo, el elemento.'
+                                                            : 'Grande el elemento; debajo, el sitio.'}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setOtherSettings((prev) => ({ ...prev, listTitlePlaceFirst: !prev.listTitlePlaceFirst }))}
+                                                    className="px-3 py-1.5 rounded-full text-xs font-bold transition-colors bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                                                >
+                                                    {otherSettings.listTitlePlaceFirst ? 'SITIO PRIMERO' : 'ELEMENTO PRIMERO'}
                                                 </button>
                                             </div>
 

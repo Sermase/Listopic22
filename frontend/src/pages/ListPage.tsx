@@ -23,6 +23,7 @@ import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
 import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
 import { useAuthPrompt } from '../context/AuthPromptContext';
+import { useAppConfig } from '../context/AppConfigContext';
 import { compareElementsByRank, isScoreValue, reviewScoreForList } from '../lib/scoring';
 import { elementKey } from '../lib/listElements';
 import { scoreBadgeStyle } from '../lib/scoreScale';
@@ -169,6 +170,7 @@ const ToolbarToggle: React.FC<ToolbarToggleProps> = ({ label, title, pressed, ic
 );
 
 export const ListPage: React.FC = () => {
+    const { listTitlePlaceFirst } = useAppConfig();
     const { listId } = useParams<{ listId: string }>();
     const routerLocation = useRouterLocation();
     const navigate = useNavigate();
@@ -1454,6 +1456,7 @@ export const ListPage: React.FC = () => {
                                             isGrid={false}
                                             groupingMode={groupingMode}
                                             listId={listId}
+                                            placeFirst={listTitlePlaceFirst}
                                         />
                                     </div>
                                 ))}

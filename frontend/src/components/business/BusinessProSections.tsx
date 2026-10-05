@@ -306,6 +306,28 @@ const itemBusinessDataFrom = (item: CanonicalPlaceItem | null): ItemBusinessData
     };
 };
 
+// Carta del sitio para elegir elementos. Si hay reseñas (de cualquiera, bots incluidos)
+// cuyo elemento no está en places/{id}/items (sitios anteriores a la carta persistida),
+// se reconstruye una vez y se vuelve a leer.
+const healedPlaces = new Set<string>();
+const getPlaceItemsHealed = async (placeId: string): Promise<CanonicalPlaceItem[]> => {
+    const [itemRows, reviewRows] = await Promise.all([
+        getCanonicalPlaceItems(placeId),
+        getPlaceReviewsForManager(placeId).catch(() => [] as ManagerPlaceReview[]),
+    ]);
+    const knownIds = new Set(itemRows.map((item) => item.id));
+    const hasOrphans = reviewRows.some((review) => review.itemName && !knownIds.has(review.itemId));
+    if (!hasOrphans || healedPlaces.has(placeId)) return itemRows;
+    healedPlaces.add(placeId);
+    try {
+        await rebuildPlaceItems(placeId);
+        return await getCanonicalPlaceItems(placeId);
+    } catch (error) {
+        console.warn('getPlaceItemsHealed: rebuild failed', error);
+        return itemRows;
+    }
+};
+
 const formatReviewDate = (ms: number): string => {
     if (!ms) return '';
     return new Date(ms).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -1097,7 +1119,7 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                 const [offerRows, placementRows, itemRows, spotlightRows, pricingConfig, creditsBalance] = await Promise.all([
                     getBusinessOffers(placeId),
                     getPlaceSponsoredPlacements(placeId).catch(() => [] as SponsoredPlacement[]),
-                    getCanonicalPlaceItems(placeId).catch(() => [] as CanonicalPlaceItem[]),
+                    getPlaceItemsHealed(placeId).catch(() => [] as CanonicalPlaceItem[]),
                     getPlaceItemSpotlights(placeId).catch(() => [] as ItemSpotlight[]),
                     getSpotlightPricing().catch(() => DEFAULT_SPOTLIGHT_PRICING),
                     getPlaceSpotlightCredits(placeId).catch(() => 0),
