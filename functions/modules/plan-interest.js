@@ -1,6 +1,8 @@
 // functions/modules/plan-interest.js
 //
 // registerPlanInterest: botón «Lo quiero» de /planes y del paywall de Business Pro.
+// Hoy solo admite Business Pro; la rama de premium personal queda lista para
+// cuando se añada a PLAN_BETA.plans.
 // Guarda la intención en planInterest/{id} (lo leen los jefes en Developer → Planes)
 // y, mientras la beta esté abierta, activa el plan como prueba gratuita
 // (source 'trial' con caducidad; expireManualPlans lo degrada al vencer).

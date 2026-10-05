@@ -4,7 +4,8 @@ const { PLAN_BETA, normalizeInterestRequest, interestDocId, priceShown, trialExp
 
 test('beta de planes: valida plan y periodo', () => {
   assert.ok(normalizeInterestRequest({ plan: 'gold' }).error);
-  assert.deepEqual(normalizeInterestRequest({ plan: 'premium', billing: 'raro', placeId: 'x' }), { plan: 'premium', billing: 'monthly', placeId: '' });
+  assert.ok(normalizeInterestRequest({ plan: 'premium' }).error, 'Premium aún no está en la beta');
+  assert.deepEqual(normalizeInterestRequest({ plan: 'business_pro', billing: 'raro' }), { plan: 'business_pro', billing: 'monthly', placeId: '' });
   assert.deepEqual(normalizeInterestRequest({ plan: 'business_pro', billing: 'yearly', placeId: ' p1 ' }), { plan: 'business_pro', billing: 'yearly', placeId: 'p1' });
 });
 
@@ -15,7 +16,7 @@ test('beta de planes: un registro por usuario o por local', () => {
 });
 
 test('beta de planes: precio enseñado y caducidad de la prueba', () => {
-  assert.equal(priceShown('premium', 'monthly'), PLAN_BETA.plans.premium.monthlyEur);
+  assert.equal(priceShown('business_pro', 'monthly'), PLAN_BETA.plans.business_pro.monthlyEur);
   assert.equal(priceShown('business_pro', 'yearly'), PLAN_BETA.plans.business_pro.yearlyEur);
   assert.equal(trialExpiry(0).getTime(), PLAN_BETA.trialDays * 86400000);
 });

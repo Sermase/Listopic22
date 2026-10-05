@@ -4,7 +4,7 @@ import { BarChart3, RefreshCw } from 'lucide-react';
 import { db } from '../../firebase';
 
 // Resultados de la beta «Lo quiero» (/planes y paywall de Business Pro).
-// Un registro por usuario (Premium, o negocio sin local verificado) o por local.
+// Un registro por local, o por usuario si aún no tiene local verificado.
 
 interface InterestRow {
     id: string;
@@ -66,10 +66,8 @@ export const PlanInterestStats: React.FC = () => {
             trials: list.filter((row) => row.trialGranted).length,
             activeTrials: list.filter((row) => row.trialExpiresAt && row.trialExpiresAt.getTime() > now).length,
         });
-        const premium = rows.filter((row) => row.plan === 'premium');
         const business = rows.filter((row) => row.plan === 'business_pro');
         return {
-            premium: summarize(premium),
             business: summarize(business),
             businessWithoutPlace: business.filter((row) => !row.hasPlace).length,
             recent: [...rows].sort((a, b) => (b.lastAt?.getTime() || 0) - (a.lastAt?.getTime() || 0)).slice(0, 15),
@@ -91,7 +89,7 @@ export const PlanInterestStats: React.FC = () => {
                     <h3 className="flex items-center gap-2 text-lg font-bold text-white">
                         <BarChart3 className="h-5 w-5 text-amber-300" /> Beta «Lo quiero»
                     </h3>
-                    <p className="mt-1 text-sm text-gray-400">Quién ha pedido Premium o Business Pro gratis desde /planes o el paywall.</p>
+                    <p className="mt-1 text-sm text-gray-400">Negocios que han pedido Business Pro gratis desde /planes o el paywall.</p>
                 </div>
                 <button
                     onClick={() => void load()}
@@ -104,10 +102,8 @@ export const PlanInterestStats: React.FC = () => {
 
             {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {tile('Quieren Premium', stats.premium.total, `${stats.premium.yearly} eligieron pago anual`)}
-                {tile('Premium en prueba ahora', stats.premium.activeTrials, `${stats.premium.trials} pruebas en total`)}
-                {tile('Negocios que lo quieren', stats.business.total, `${stats.businessWithoutPlace} aún sin local verificado`)}
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                {tile('Negocios que lo quieren', stats.business.total, `${stats.businessWithoutPlace} aún sin local verificado · ${stats.business.yearly} anual`)}
                 {tile('Business Pro en prueba ahora', stats.business.activeTrials, `${stats.business.trials} pruebas en total`)}
             </div>
 

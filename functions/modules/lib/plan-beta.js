@@ -1,14 +1,14 @@
 // functions/modules/lib/plan-beta.js
 //
-// Beta gratuita de planes («Lo quiero»): mide cuánta gente quiere Premium o
-// Business Pro sin cobrar nada. Los precios son los que se enseñan en /planes
-// para medir disposición a pagar; espejo en frontend/src/config/planBeta.ts.
+// Beta gratuita de planes («Lo quiero»): mide cuántos negocios quieren
+// Business Pro sin cobrar nada (Premium de usuario queda para más adelante).
+// Los precios son los que se enseñan en /planes para medir disposición a
+// pagar; espejo en frontend/src/config/planBeta.ts.
 
 const PLAN_BETA = {
   open: true,
   trialDays: 90,
   plans: {
-    premium: { monthlyEur: 3.99, yearlyEur: 39 },
     business_pro: { monthlyEur: 12, yearlyEur: 120 },
   },
 };
@@ -25,8 +25,8 @@ function normalizeInterestRequest(data = {}) {
   return { plan, billing, placeId };
 }
 
-// Un documento por usuario (premium o negocio sin local) o por local
-// (Business Pro): repetir el clic no infla el recuento ni reabre la prueba.
+// Un documento por usuario (negocio sin local verificado) o por local:
+// repetir el clic no infla el recuento ni reabre la prueba.
 function interestDocId({ plan, placeId }, uid) {
   if (plan === "business_pro" && placeId) return `business_pro_place_${placeId}`;
   return `${plan}_user_${uid}`;

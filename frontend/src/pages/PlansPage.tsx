@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
-import { Building2, Check, Gift, Loader2, Sparkles, Star } from 'lucide-react';
+import { Building2, Check, Gift, Loader2, Sparkles } from 'lucide-react';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useAuthPrompt } from '../context/AuthPromptContext';
@@ -19,15 +19,6 @@ const FREE_FEATURES = [
     'Crear listas y minilistas, valorar y reseñar.',
     'Seguir a gente, colecciones y chats.',
     'Retos, niveles e insignias.',
-];
-
-// Aún no existen: se anuncian como «en camino» para medir el interés.
-const PREMIUM_FEATURES = [
-    'Insignia de supporter en tu perfil.',
-    'Mapa personal de tus sitios y pasaporte por barrios.',
-    'Galería de hasta 3 fotos de perfil.',
-    'Feed sin lugares patrocinados.',
-    'Acceso temprano a lo nuevo.',
 ];
 
 const BUSINESS_FEATURES = [
@@ -91,13 +82,13 @@ export const PlansPage: React.FC = () => {
 
     const handleWant = async (plan: BetaPlanId) => {
         if (!user) {
-            openAuthPrompt(plan === 'premium' ? 'probar Premium gratis' : 'probar Business Pro gratis');
+            openAuthPrompt('probar Business Pro gratis');
             return;
         }
         setWorking(plan);
         setMessages((prev) => ({ ...prev, [plan]: undefined }));
         try {
-            const result = await registerPlanInterest(plan, billing, plan === 'business_pro' ? placeId || undefined : undefined);
+            const result = await registerPlanInterest(plan, billing, placeId || undefined);
             setMessages((prev) => ({ ...prev, [plan]: { ok: true, text: describePlanInterestResult(result) } }));
         } catch (error) {
             console.error('PlansPage: registerPlanInterest failed', error);
@@ -146,7 +137,7 @@ export const PlansPage: React.FC = () => {
                     <header className="text-center">
                         <h1 className="text-3xl font-display font-bold text-[var(--lt-text)] sm:text-4xl">Planes de Listopic</h1>
                         <p className="mx-auto mt-2 max-w-xl text-sm text-[var(--lt-text-muted)]">
-                            Estamos decidiendo qué planes lanzar. Dinos cuál quieres y pruébalo gratis.
+                            Listopic es gratis para todos. Si tienes un negocio, prueba Business Pro gratis y dinos si te encaja.
                         </p>
                     </header>
 
@@ -177,7 +168,7 @@ export const PlansPage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="mt-8 grid gap-5 md:grid-cols-3">
+                    <div className="mx-auto mt-8 grid max-w-3xl gap-5 md:grid-cols-2">
                         <section className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-6">
                             <h2 className="text-lg font-black text-[var(--lt-text)]">Gratis</h2>
                             <p className="mt-1 text-2xl font-black text-[var(--lt-text)]">0 €</p>
@@ -191,27 +182,8 @@ export const PlansPage: React.FC = () => {
                             </ul>
                         </section>
 
-                        <section className="rounded-2xl border border-[var(--lt-accent-border)] bg-[var(--lt-card-strong)] p-6">
-                            <h2 className="flex items-center gap-2 text-lg font-black text-[var(--lt-text)]">
-                                <Star className="h-5 w-5 text-[var(--lt-accent)]" /> Premium
-                            </h2>
-                            <p className="mt-1 text-2xl font-black text-[var(--lt-text)]">
-                                {price('premium')} <span className="text-sm font-bold text-emerald-400">· gratis en beta</span>
-                            </p>
-                            <p className="mt-2 text-xs text-[var(--lt-text-muted)]">Para quien quiere apoyar Listopic. Lo que llegará:</p>
-                            <ul className="mt-3 space-y-2 text-sm text-[var(--lt-text-muted)]">
-                                {PREMIUM_FEATURES.map((feature) => (
-                                    <li key={feature} className="flex items-start gap-2">
-                                        <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-[var(--lt-accent)]" />
-                                        <span>{feature}</span>
-                                    </li>
-                                ))}
-                            </ul>
-                            {wantButton('premium', 'Lo quiero gratis')}
-                            {renderMessage('premium')}
-                        </section>
 
-                        <section className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-6">
+                        <section className="rounded-2xl border border-[var(--lt-accent-border)] bg-[var(--lt-card-strong)] p-6">
                             <h2 className="flex items-center gap-2 text-lg font-black text-[var(--lt-text)]">
                                 <Building2 className="h-5 w-5 text-[var(--lt-accent)]" /> Business Pro
                             </h2>
