@@ -213,7 +213,7 @@ async function cleanupUserFootprint(uid, { keepContributions }) {
   } catch (error) {
     logger.warn('cleanupUserFootprint: sin bucket de Storage; no se borran archivos', { error: error.message });
   }
-  const counters = { comments: 0, forumMessages: 0, placePhotos: 0, chatsDeleted: 0, chatsLeft: 0, notificationsSent: 0, followLinks: 0, reports: 0, placeCovers: 0 };
+  const counters = { comments: 0, reactions: 0, forumMessages: 0, placePhotos: 0, chatsDeleted: 0, chatsLeft: 0, notificationsSent: 0, followLinks: 0, reports: 0, placeCovers: 0 };
   const commentParents = new Map();
 
   for (const docSnap of await collectionGroupDocsByField(db, 'comments', 'userId', uid)) {
@@ -226,6 +226,12 @@ async function cleanupUserFootprint(uid, { keepContributions }) {
       if (parent && parent.parent.id === 'reviews') commentParents.set(parent.path, { ref: parent, n: (commentParents.get(parent.path)?.n || 0) + 1 });
     }
     counters.comments++;
+  }
+
+  // Sus «me gusta» en reseñas (lists/*/reviews/*/reactions/{uid}): no llevan contenido, se borran siempre.
+  for (const docSnap of await collectionGroupDocsByField(db, 'reactions', 'userId', uid)) {
+    await writer.add((b) => b.delete(docSnap.ref));
+    counters.reactions++;
   }
 
   for (const docSnap of await collectionGroupDocsByField(db, 'messages', 'userId', uid)) {
@@ -257,8 +263,8 @@ async function cleanupUserFootprint(uid, { keepContributions }) {
     });
   }
 
-  // Notificaciones que esta persona generó a otras (llevan su nombre y foto).
-  for (const docSnap of await collectionGroupDocsByField(db, 'notifications', 'actorId', uid)) {
+  // Notificaciones que esta persona generó a otras (sendNotification guarda senderId, senderName y senderPhoto).
+  for (const docSnap of await collectionGroupDocsByField(db, 'notifications', 'senderId', uid)) {
     await writer.add((b) => b.delete(docSnap.ref));
     counters.notificationsSent++;
   }
