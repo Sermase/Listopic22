@@ -45,6 +45,17 @@ export interface AdminReviewSearch {
 export const adminSearchReviews = (params: AdminReviewSearch) =>
     call<{ reviews: Array<AdminReviewRow & Record<string, unknown>>; total: number; scanned: number; truncated: boolean }>('adminSearchReviews', { ...params });
 
+/** RGPD (admin-gdpr.js): todos los datos de una persona en JSON, para atender su solicitud de acceso o portabilidad. */
+export interface AdminUserDataExport {
+    format: 'listopic-user-data';
+    version: number;
+    generatedAt: string;
+    userId: string;
+    data: Record<string, unknown>;
+}
+
+export const adminExportUserData = (userId: string) => call<AdminUserDataExport>('adminExportUserData', { userId });
+
 export interface AdminCriterion { id: string; label?: string; order?: number; ponderable?: boolean; isPonderable?: boolean; weight?: number }
 
 export interface AdminReviewDetail {

@@ -1,11 +1,11 @@
 @import "tailwindcss";
-/* Las fuentes (Manrope y Space Grotesk) se cargan con <link> en index.html:
-   un @import aquí encadenaba CSS -> CSS -> fuentes y retrasaba el primer pintado. */
+/* Las fuentes (Manrope y Space Grotesk) van empaquetadas con la app
+   (@fontsource-variable, importadas en main.tsx): no se pide nada a Google Fonts. */
 
 
 @theme {
-    --font-sans: 'Manrope', sans-serif;
-    --font-display: 'Space Grotesk', sans-serif;
+    --font-sans: 'Manrope Variable', 'Manrope', sans-serif;
+    --font-display: 'Space Grotesk Variable', 'Space Grotesk', sans-serif;
 
     --color-brand-navy: #0b1021;
     --color-brand-indigo: #5C7CFA;

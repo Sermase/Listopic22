@@ -147,6 +147,11 @@ export const AboutPage: React.FC = () => {
                     <ExternalLink className="w-4 h-4 text-gray-500 group-hover:text-violet-400 transition-colors shrink-0" />
                 </Link>
 
+                <div className="flex justify-center gap-6 text-xs text-gray-500">
+                    <Link to="/cookies" className="hover:text-gray-300 transition-colors">Política de cookies</Link>
+                    <Link to="/aviso-legal" className="hover:text-gray-300 transition-colors">Aviso legal</Link>
+                </div>
+
             </div>
         </div>
         <Footer compact />
