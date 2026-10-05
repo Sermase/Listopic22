@@ -44,6 +44,8 @@ test('toda la tarjeta del resultado lleva al elemento, no solo el nombre', async
   await page.goto(url('city:Valladolid'));
   const card = page.locator('[data-element-key]').first();
   await expect(card).toBeVisible();
+  // Las fuentes van empaquetadas y se cargan después: medir antes movería el clic.
+  await page.evaluate(() => document.fonts.ready);
   const box = await card.boundingBox();
   // Esquina inferior izquierda: la foto, lejos del nombre.
   await page.mouse.click(box!.x + 16, box!.y + box!.height - 16);
