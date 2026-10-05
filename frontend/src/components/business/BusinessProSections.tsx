@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
     ArrowRightLeft,
     BarChart3,
@@ -16,12 +17,18 @@ import {
     Trash2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { BUSINESS_PRO_CHECKOUT_ENABLED } from '../../config/features';
+import { formatEur } from '../../config/planBeta';
+import { createImpulsePackCheckoutSession } from '../../services/BusinessBillingService';
 import { getBusinessPlaceAnalytics, type BusinessPlaceAnalyticsResult } from '../../services/AnalyticsService';
 import { getCanonicalPlaceItems, type CanonicalPlaceItem } from '../../services/CanonicalItemService';
 import {
     ALLERGEN_OPTIONS,
     allergenLabel,
-    computeSpotlightUnitPrice,
+    computeSpotlightImpulses,
+    impulsesPriceEur,
+    packDiscountPercent,
+    spotlightRadiusSteps,
     createBusinessItem,
     DEFAULT_SPOTLIGHT_PRICING,
     deleteBusinessOffer,
@@ -76,6 +83,47 @@ const BUSINESS_SHARE_ENTITY_LABELS: Record<string, string> = {
 };
 
 const inputClass = 'w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-[var(--lt-text)] outline-none transition-colors placeholder:text-[var(--lt-text-muted)] focus:border-[var(--lt-accent-border)]';
+
+// Campaña que se estaba configurando al ir a Stripe a comprar lo que falta:
+// se guarda para recuperarla al volver.
+interface SpotlightDraft {
+    itemId: string;
+    radiusKm: number;
+    days: number;
+    intensity: number;
+    balanceBefore: number;
+}
+
+const spotlightDraftKey = (placeId: string) => `spotlightDraft:${placeId}`;
+
+const takeSpotlightDraft = (placeId: string): SpotlightDraft | null => {
+    try {
+        const raw = sessionStorage.getItem(spotlightDraftKey(placeId));
+        sessionStorage.removeItem(spotlightDraftKey(placeId));
+        const data = raw ? JSON.parse(raw) as Partial<SpotlightDraft> : null;
+        if (!data) return null;
+        return {
+            itemId: typeof data.itemId === 'string' ? data.itemId : '',
+            radiusKm: Number(data.radiusKm) || 2,
+            days: Math.floor(Number(data.days)) || 7,
+            intensity: Math.floor(Number(data.intensity)) || 1,
+            balanceBefore: Number.isFinite(Number(data.balanceBefore)) ? Number(data.balanceBefore) : 0,
+        };
+    } catch {
+        return null;
+    }
+};
+
+const saveSpotlightDraft = (placeId: string, draft: SpotlightDraft) => {
+    try {
+        sessionStorage.setItem(spotlightDraftKey(placeId), JSON.stringify(draft));
+    } catch {
+        // Sin sessionStorage solo se pierde el borrador.
+    }
+};
+
+// Comprobaciones del saldo al volver de Stripe (segundos desde la vuelta).
+const IMPULSE_RETURN_POLL_SECONDS = [3, 6, 10, 15, 25, 40, 60, 90, 120, 180];
 
 const getErrorMessage = (error: unknown, fallback: string) => {
     if (error && typeof error === 'object' && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
@@ -1104,12 +1152,70 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
     const [items, setItems] = useState<CanonicalPlaceItem[]>([]);
     const [spotlights, setSpotlights] = useState<ItemSpotlight[]>([]);
     const [pricing, setPricing] = useState<SpotlightPricing>(DEFAULT_SPOTLIGHT_PRICING);
-    const [spotlightItemId, setSpotlightItemId] = useState('');
-    const [spotlightUnits, setSpotlightUnits] = useState(1);
-    const [spotlightRadius, setSpotlightRadius] = useState(2);
-    const [spotlightWeeks, setSpotlightWeeks] = useState(2);
+    const [searchParams, setSearchParams] = useSearchParams();
+    // Vuelta de Stripe tras comprar impulsos. El saldo lo suma el webhook al
+    // confirmar el pago, así que puede tardar en aparecer.
+    const [impulsePurchaseReturn] = useState<string | null>(() => searchParams.get('impulsos'));
+    const [restoredDraft] = useState<SpotlightDraft | null>(() => (impulsePurchaseReturn ? takeSpotlightDraft(placeId) : null));
+    const [spotlightItemId, setSpotlightItemId] = useState(() => restoredDraft?.itemId || '');
+    const [spotlightIntensity, setSpotlightIntensity] = useState(() => restoredDraft?.intensity || 1);
+    const [spotlightRadius, setSpotlightRadius] = useState(() => restoredDraft?.radiusKm || 2);
+    // El campo de días guarda el texto tal cual para poder borrarlo y escribir.
+    const [spotlightDaysInput, setSpotlightDaysInput] = useState(() => String(restoredDraft?.days || 7));
     const [spotlightCredits, setSpotlightCredits] = useState(0);
     const [requestingSpotlight, setRequestingSpotlight] = useState(false);
+    const [buyingImpulses, setBuyingImpulses] = useState<string | null>(null);
+    const [awaitingImpulses, setAwaitingImpulses] = useState(false);
+
+    useEffect(() => {
+        if (!searchParams.has('impulsos')) return;
+        const next = new URLSearchParams(searchParams);
+        next.delete('impulsos');
+        setSearchParams(next, { replace: true });
+    }, [searchParams, setSearchParams]);
+    useEffect(() => {
+        if (!impulsePurchaseReturn) return;
+        if (impulsePurchaseReturn !== 'ok') {
+            setMessage({ type: 'error', text: 'Compra cancelada: no se ha cobrado nada.' });
+            return;
+        }
+        setMessage({
+            type: 'success',
+            text: 'Estamos confirmando el pago con Stripe. Los impulsos se sumarán a tu saldo en cuanto se confirme.',
+        });
+        setAwaitingImpulses(true);
+        const baseline = restoredDraft?.balanceBefore ?? null;
+        let cancelled = false;
+        let done = false;
+        const timers = IMPULSE_RETURN_POLL_SECONDS.map((seconds, index) => window.setTimeout(() => {
+            if (done) return;
+            void getPlaceSpotlightCredits(placeId)
+                .then((balance) => {
+                    if (cancelled || done) return;
+                    setSpotlightCredits(balance);
+                    if (baseline !== null && balance > baseline) {
+                        done = true;
+                        setAwaitingImpulses(false);
+                        setMessage({ type: 'success', text: 'Impulsos añadidos a tu saldo.' });
+                    } else if (index === IMPULSE_RETURN_POLL_SECONDS.length - 1) {
+                        setAwaitingImpulses(false);
+                        if (baseline !== null) {
+                            setMessage({
+                                type: 'success',
+                                text: 'Stripe aún no ha confirmado el pago. Con algunos métodos, como el adeudo SEPA, tarda unos días: los impulsos se sumarán solos al confirmarse.',
+                            });
+                        }
+                    }
+                })
+                .catch(() => {
+                    if (!cancelled && index === IMPULSE_RETURN_POLL_SECONDS.length - 1) setAwaitingImpulses(false);
+                });
+        }, seconds * 1000));
+        return () => {
+            cancelled = true;
+            timers.forEach((timer) => window.clearTimeout(timer));
+        };
+    }, [impulsePurchaseReturn, placeId, restoredDraft]);
 
     useEffect(() => {
         let cancelled = false;
@@ -1134,6 +1240,8 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                         const clamped = Math.max(pricingConfig.minRadiusKm, Math.min(pricingConfig.maxRadiusKm, current));
                         return Number((Math.round(clamped / SPOTLIGHT_RADIUS_STEP_KM) * SPOTLIGHT_RADIUS_STEP_KM).toFixed(1));
                     });
+                    setSpotlightDaysInput((current) => String(Math.max(1, Math.min(pricingConfig.maxDays, Math.floor(Number(current)) || 1))));
+                    setSpotlightIntensity((current) => Math.max(1, Math.min(pricingConfig.maxIntensity, current)));
                     setSpotlightCredits(creditsBalance);
                 }
             } catch (error) {
@@ -1148,11 +1256,42 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
         };
     }, [placeId]);
 
-    const spotlightUnitPrice = computeSpotlightUnitPrice(pricing, spotlightRadius, spotlightWeeks);
-    const spotlightRadiusSteps = Math.ceil((spotlightRadius / SPOTLIGHT_RADIUS_STEP_KM) - 1e-9);
-    const spotlightCreditsUsed = Math.min(spotlightCredits, spotlightUnits);
-    const spotlightBilledUnits = spotlightUnits - spotlightCreditsUsed;
-    const spotlightTotal = Number((spotlightUnitPrice * spotlightBilledUnits).toFixed(2));
+    const spotlightDaysParsed = Math.floor(Number(spotlightDaysInput));
+    const spotlightDaysValid = spotlightDaysInput.trim() !== '' && Number.isFinite(spotlightDaysParsed) && spotlightDaysParsed >= 1;
+    const spotlightDays = Math.max(1, Math.min(pricing.maxDays, spotlightDaysValid ? spotlightDaysParsed : 1));
+    const spotlightRadiusStepCount = spotlightRadiusSteps(pricing, spotlightRadius);
+    const spotlightImpulses = computeSpotlightImpulses(pricing, {
+        radiusKm: spotlightRadius,
+        days: spotlightDays,
+        intensity: spotlightIntensity,
+    });
+    const spotlightValueEur = impulsesPriceEur(pricing, spotlightImpulses);
+    const spotlightCreditsUsed = Math.min(spotlightCredits, spotlightImpulses);
+    const spotlightMissing = spotlightImpulses - spotlightCreditsUsed;
+    const spotlightMissingEur = impulsesPriceEur(pricing, spotlightMissing);
+    const spotlightTopUp = Math.max(spotlightMissing, pricing.minPurchaseImpulses);
+    // Con la compra online abierta, la campaña se paga entera con saldo.
+    const spotlightBlockedByBalance = BUSINESS_PRO_CHECKOUT_ENABLED && spotlightMissing > 0;
+
+    const buyImpulses = async (key: string, purchase: { packIndex: number } | { impulses: number }) => {
+        setBuyingImpulses(key);
+        setMessage(null);
+        try {
+            const session = await createImpulsePackCheckoutSession(placeId, purchase);
+            saveSpotlightDraft(placeId, {
+                itemId: spotlightItemId,
+                radiusKm: spotlightRadius,
+                days: spotlightDays,
+                intensity: spotlightIntensity,
+                balanceBefore: spotlightCredits,
+            });
+            window.location.assign(session.url);
+        } catch (error) {
+            console.error('BusinessSponsoredSection: impulse checkout failed', error);
+            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo iniciar la compra de impulsos.') });
+            setBuyingImpulses(null);
+        }
+    };
 
     const requestSpotlight = async () => {
         if (!spotlightItemId) {
@@ -1162,23 +1301,23 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
         setRequestingSpotlight(true);
         setMessage(null);
         try {
-            await requestItemSpotlight({
+            const result = await requestItemSpotlight({
                 placeId,
                 itemId: spotlightItemId,
-                units: spotlightUnits,
                 radiusKm: spotlightRadius,
-                weeks: spotlightWeeks,
+                days: spotlightDays,
+                intensity: spotlightIntensity,
             });
             setSpotlightItemId('');
-            setSpotlightUnits(1);
             setSpotlights(await getPlaceItemSpotlights(placeId).catch(() => spotlights));
-            setSpotlightCredits(await getPlaceSpotlightCredits(placeId).catch(() => Math.max(0, spotlightCredits - spotlightCreditsUsed)));
-            setMessage({
-                type: 'success',
-                text: spotlightCreditsUsed > 0
-                    ? `Solicitud enviada usando ${spotlightCreditsUsed} impulso${spotlightCreditsUsed === 1 ? '' : 's'} de regalo (a pagar: ${spotlightTotal.toFixed(2)} €). Un administrador la activará.`
-                    : `Solicitud enviada (${spotlightTotal.toFixed(2)} €). Un administrador la activará.`,
-            });
+            setSpotlightCredits(await getPlaceSpotlightCredits(placeId).catch(() => Math.max(0, spotlightCredits - result.creditsUsed)));
+            const used = result.creditsUsed > 0
+                ? `Se han descontado ${result.creditsUsed.toLocaleString('es-ES')} impulsos de tu saldo. `
+                : '';
+            const pending = result.billedImpulses > 0
+                ? `Quedan ${result.billedImpulses.toLocaleString('es-ES')} impulsos pendientes (${formatEur(result.totalPriceEur)}); te confirmaremos las condiciones antes de activarla. `
+                : '';
+            setMessage({ type: 'success', text: `Solicitud enviada. ${used}${pending}Un administrador la activará.` });
         } catch (error) {
             console.error('BusinessSponsoredSection: spotlight request failed', error);
             setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo solicitar el plato destacado.') });
@@ -1428,9 +1567,9 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                         <div>
                             <h3 className="text-sm font-black text-[var(--lt-text)]">Destacar un plato por cercanía</h3>
                             <p className="text-xs text-[var(--lt-text-muted)]">
-                                Compra <strong>impulsos</strong> para que tu plato entre en el sorteo del carrusel de
-                                destacados cuando el usuario esté dentro del radio, durante las semanas que elijas.
-                                Cada impulso es una papeleta: 2 impulsos = doble probabilidad que 1.
+                                Tu plato entra en el sorteo del carrusel de destacados cuando alguien está dentro del radio.
+                                {' '}<strong>1 impulso = 0,2 km de radio durante 1 día</strong> ({pricing.pricePerImpulseEur.toLocaleString('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 3 })}).
+                                {' '}La intensidad multiplica tus papeletas frente a otros negocios de la zona: si nadie más compite allí, con ×1 ya sales siempre.
                             </p>
                         </div>
                         <Field label="Plato">
@@ -1446,63 +1585,119 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                             </select>
                         </Field>
                         <div className="grid gap-4 sm:grid-cols-3">
-                            <Field label="Impulsos">
-                                <input
-                                    type="number"
-                                    min={1}
-                                    max={pricing.maxUnitsPerCampaign}
-                                    className={inputClass}
-                                    value={spotlightUnits}
-                                    onChange={(event) => setSpotlightUnits(Math.max(1, Math.min(pricing.maxUnitsPerCampaign, Number(event.target.value) || 1)))}
-                                />
-                            </Field>
-                            <Field label={`Radio: ${spotlightRadius} km`}>
+                            <Field label={`Radio: ${spotlightRadius.toLocaleString('es-ES')} km`}>
                                 <input
                                     type="range"
                                     min={pricing.minRadiusKm}
                                     max={pricing.maxRadiusKm}
                                     step={SPOTLIGHT_RADIUS_STEP_KM}
                                     value={spotlightRadius}
-                                    onChange={(event) => setSpotlightRadius(Number(event.target.value))}
+                                    onChange={(event) => setSpotlightRadius(Number(Number(event.target.value).toFixed(1)))}
                                     className="mt-3 w-full accent-[var(--lt-accent)]"
                                 />
                             </Field>
-                            <Field label="Duración">
+                            <Field label="Días">
+                                <input
+                                    type="number"
+                                    min={1}
+                                    max={pricing.maxDays}
+                                    className={inputClass}
+                                    value={spotlightDaysInput}
+                                    onChange={(event) => setSpotlightDaysInput(event.target.value)}
+                                    onBlur={() => setSpotlightDaysInput(String(spotlightDays))}
+                                />
+                            </Field>
+                            <Field label="Intensidad">
                                 <select
                                     className={inputClass}
-                                    value={spotlightWeeks}
-                                    onChange={(event) => setSpotlightWeeks(Number(event.target.value) || 1)}
+                                    value={spotlightIntensity}
+                                    onChange={(event) => setSpotlightIntensity(Number(event.target.value) || 1)}
                                 >
-                                    {Array.from({ length: pricing.maxWeeks }, (_, i) => i + 1).map((weeks) => (
-                                        <option key={weeks} value={weeks}>{weeks} semana{weeks === 1 ? '' : 's'}</option>
+                                    {Array.from({ length: pricing.maxIntensity }, (_, i) => i + 1).map((intensity) => (
+                                        <option key={intensity} value={intensity}>
+                                            ×{intensity} {intensity === 1 ? '(normal)' : `(${intensity} papeletas)`}
+                                        </option>
                                     ))}
                                 </select>
                             </Field>
                         </div>
-                        {spotlightCredits > 0 && (
-                            <p className="rounded-xl border border-yellow-500/25 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-200">
-                                🎁 Tienes {spotlightCredits} impulso{spotlightCredits === 1 ? '' : 's'} de regalo: se usan automáticamente antes de cobrar.
-                            </p>
-                        )}
-                        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/10 px-3 py-2.5">
-                            <p className="text-xs text-[var(--lt-text-muted)]">
-                                {spotlightUnits} impulso{spotlightUnits === 1 ? '' : 's'} × {spotlightUnitPrice.toFixed(2)} €
-                                <span className="block text-[10px]">({pricing.pricePerRadiusStepPerWeek.toFixed(2)} € × {spotlightRadiusSteps} tramos de 0,2 km × {spotlightWeeks} sem.)</span>
-                                {spotlightCreditsUsed > 0 && (
-                                    <span className="block text-[10px] text-yellow-200">− {spotlightCreditsUsed} de regalo → pagas {spotlightBilledUnits}</span>
-                                )}
-                            </p>
-                            <p className="text-lg font-black text-[var(--lt-text)]">{spotlightTotal.toFixed(2)} €</p>
+                        <div className="space-y-1 rounded-xl border border-white/10 bg-black/10 px-3 py-2.5">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <p className="text-xs text-[var(--lt-text-muted)]">
+                                    {spotlightRadiusStepCount} tramos de 0,2 km × {spotlightDays} día{spotlightDays === 1 ? '' : 's'} × ×{spotlightIntensity}
+                                    <span className="block text-sm font-black text-[var(--lt-text)]">
+                                        {spotlightImpulses.toLocaleString('es-ES')} impulsos · {formatEur(spotlightValueEur)}
+                                    </span>
+                                </p>
+                                <p className="text-right text-xs text-[var(--lt-text-muted)]">
+                                    Tu saldo
+                                    <span className="block text-sm font-black text-yellow-200">{spotlightCredits.toLocaleString('es-ES')} impulsos</span>
+                                </p>
+                            </div>
+                            {spotlightMissing > 0 ? (
+                                <p className="text-[11px] font-bold text-amber-200">
+                                    Te faltan {spotlightMissing.toLocaleString('es-ES')} impulsos ({formatEur(spotlightMissingEur)}).
+                                    {BUSINESS_PRO_CHECKOUT_ENABLED
+                                        ? ' Compra lo que falta o un paquete y vuelve a solicitarla.'
+                                        : ' La compra online aún no está abierta: puedes solicitarla igualmente y te confirmaremos las condiciones antes de activarla.'}
+                                </p>
+                            ) : (
+                                <p className="text-[11px] text-emerald-300">Se descontarán de tu saldo al solicitarla.</p>
+                            )}
                         </div>
-                        <button
-                            type="button"
-                            onClick={requestSpotlight}
-                            disabled={requestingSpotlight || !spotlightItemId}
-                            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2.5 text-sm font-black text-white shadow-lg disabled:opacity-60"
-                        >
-                            {requestingSpotlight ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                            Solicitar plato destacado
-                        </button>
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                type="button"
+                                onClick={requestSpotlight}
+                                disabled={requestingSpotlight || !spotlightItemId || !spotlightDaysValid || spotlightBlockedByBalance}
+                                className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2.5 text-sm font-black text-white shadow-lg disabled:opacity-60"
+                            >
+                                {requestingSpotlight ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                                Solicitar plato destacado
+                            </button>
+                            {BUSINESS_PRO_CHECKOUT_ENABLED && spotlightMissing > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => void buyImpulses('missing', { impulses: spotlightMissing })}
+                                    disabled={buyingImpulses !== null || awaitingImpulses || !spotlightDaysValid}
+                                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-2.5 text-sm font-black text-amber-100 disabled:opacity-60"
+                                >
+                                    {buyingImpulses === 'missing' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                                    Comprar {spotlightTopUp.toLocaleString('es-ES')} impulsos · {formatEur(impulsesPriceEur(pricing, spotlightTopUp))}
+                                </button>
+                            )}
+                        </div>
+                        {pricing.packs.length > 0 && (
+                            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                                <p className="text-xs font-black text-[var(--lt-text)]">
+                                    Paquetes de impulsos {BUSINESS_PRO_CHECKOUT_ENABLED ? '' : '(próximamente)'}
+                                </p>
+                                <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                    {pricing.packs.map((pack, index) => {
+                                        const discount = packDiscountPercent(pricing, pack);
+                                        return (
+                                            <div key={pack.impulses} className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-black/10 px-3 py-2">
+                                                <p className="text-xs text-[var(--lt-text-muted)]">
+                                                    <span className="block text-sm font-black text-[var(--lt-text)]">{pack.impulses.toLocaleString('es-ES')} impulsos</span>
+                                                    {formatEur(pack.priceEur)}{discount > 0 ? ` · −${discount} %` : ''}
+                                                </p>
+                                                {BUSINESS_PRO_CHECKOUT_ENABLED && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => void buyImpulses(`pack-${index}`, { packIndex: index })}
+                                                        disabled={buyingImpulses !== null || awaitingImpulses}
+                                                        className="inline-flex items-center gap-1 rounded-lg bg-[var(--lt-accent)] px-3 py-1.5 text-xs font-black text-white disabled:opacity-60"
+                                                    >
+                                                        {buyingImpulses === `pack-${index}` && <Loader2 className="h-3 w-3 animate-spin" />}
+                                                        Comprar
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
                         {spotlights.length > 0 && (
                             <div className="max-h-[220px] space-y-2 overflow-y-auto pr-1">
                                 {spotlights.map((spotlight) => {
@@ -1512,9 +1707,10 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                                             <div className="min-w-0">
                                                 <p className="truncate text-xs font-bold text-[var(--lt-text)]">{spotlight.itemName}</p>
                                                 <p className="text-[11px] text-[var(--lt-text-muted)]">
-                                                    {spotlight.units} impulso{spotlight.units === 1 ? '' : 's'} · {spotlight.radiusKm} km
-                                                    {spotlight.weeks ? ` · ${spotlight.weeks} sem.` : ''}
-                                                    {typeof spotlight.totalPriceEur === 'number' ? ` · ${spotlight.totalPriceEur.toFixed(2)} €` : ''}
+                                                    ×{spotlight.units} · {spotlight.radiusKm} km
+                                                    {spotlight.days ? ` · ${spotlight.days} día${spotlight.days === 1 ? '' : 's'}` : spotlight.weeks ? ` · ${spotlight.weeks} sem.` : ''}
+                                                    {spotlight.impulses ? ` · ${spotlight.impulses.toLocaleString('es-ES')} impulsos` : ''}
+                                                    {typeof spotlight.totalPriceEur === 'number' ? ` · ${formatEur(spotlight.totalPriceEur)}` : ''}
                                                     {spotlight.endsAt ? ` · hasta ${spotlight.endsAt}` : ''}
                                                 </p>
                                                 {spotlight.adminNotes && <p className="text-[11px] text-[var(--lt-text-muted)]">Admin: {spotlight.adminNotes}</p>}

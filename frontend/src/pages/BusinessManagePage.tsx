@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import {
     Accessibility,
@@ -83,7 +83,8 @@ type PlaceHeader = {
 };
 
 type Message = { type: 'success' | 'error'; text: string } | null;
-type BusinessManageTab = 'general' | 'visual' | 'items' | 'sponsored' | 'stats';
+const BUSINESS_MANAGE_TABS = ['general', 'visual', 'items', 'sponsored', 'stats'] as const;
+type BusinessManageTab = typeof BUSINESS_MANAGE_TABS[number];
 
 const weekdays = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 const emptySections: Record<BusinessInfoSection, BusinessInfoDocument> = {
@@ -216,10 +217,15 @@ const BUSINESS_SERVICE_GROUPS: OptionGroup[] = [
 
 export const BusinessManagePage: React.FC = () => {
     const { placeId } = useParams<{ placeId: string }>();
+    const [searchParams] = useSearchParams();
     const [place, setPlace] = useState<PlaceHeader | null>(null);
     const [plan, setPlan] = useState<BusinessPlan>(FREE_BUSINESS_PLAN);
     const [sections, setSections] = useState<Record<BusinessInfoSection, BusinessInfoDocument>>(emptySections);
-    const [activeBusinessTab, setActiveBusinessTab] = useState<BusinessManageTab>('general');
+    // ?tab=sponsored al volver de Stripe tras comprar impulsos.
+    const [activeBusinessTab, setActiveBusinessTab] = useState<BusinessManageTab>(() => {
+        const requested = searchParams.get('tab');
+        return BUSINESS_MANAGE_TABS.includes(requested as BusinessManageTab) ? requested as BusinessManageTab : 'general';
+    });
     const [activeSection, setActiveSection] = useState<BusinessInfoSection>('identity');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState<BusinessInfoSection | null>(null);

@@ -110,7 +110,7 @@ export const PlansManagerTab: React.FC = () => {
     const [duration, setDuration] = useState<Duration>('indefinite');
     const [customDate, setCustomDate] = useState('');
     const [notes, setNotes] = useState('');
-    const [creditsToGrant, setCreditsToGrant] = useState(5);
+    const [creditsToGrant, setCreditsToGrant] = useState(100);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
     const [userSearch, setUserSearch] = useState('');
@@ -375,8 +375,8 @@ export const PlansManagerTab: React.FC = () => {
                         <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-500">Impulsos a regalar</span>
                         <input
                             type="number"
-                            min={-500}
-                            max={500}
+                            min={-100000}
+                            max={100000}
                             value={creditsToGrant}
                             onChange={(event) => setCreditsToGrant(Number(event.target.value) || 0)}
                             className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
