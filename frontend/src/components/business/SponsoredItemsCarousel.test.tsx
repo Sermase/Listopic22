@@ -16,6 +16,7 @@ const spotlight: ItemSpotlight = {
     radiusKm: 1,
     units: 1,
     status: 'active',
+    itemInactive: false,
     metrics: {} as ItemSpotlight['metrics'],
     createdAtMs: 0,
 };

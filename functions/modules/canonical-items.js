@@ -214,7 +214,7 @@ async function applyReviewStamps(stamps, updateTimes, resolveContext) {
  * reseñas el nombre canónico de los elementos curados (ver
  * lib/canonical-resolve.js). Solo escribe campos derivados en los elementos
  * existentes: nunca su canonicalName, businessData, source,
- * curatedAliasesNormalized, mergedInto ni createdAt.
+ * curatedAliasesNormalized, curatedRawAliases, mergedInto ni createdAt.
  */
 async function rebuildCanonicalItemsForPlace(placeId, { dryRun = false } = {}) {
   const empty = {

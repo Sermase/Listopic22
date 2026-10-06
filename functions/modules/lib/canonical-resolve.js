@@ -87,6 +87,51 @@ function curatedAliasesOf(item) {
   return Array.from(new Set(item.curatedAliasesNormalized.map(normalizeItemName).filter(Boolean)));
 }
 
+// Nombres sin letras latinas ni cifras ('寿司', '🍺') no tienen nombre
+// normalizado (todos darían el slug 'sin-nombre'): se comparan tal cual, sin
+// mayúsculas ni espacios en los extremos, como en createBusinessItem. Sus
+// alias curados van aparte, en curatedRawAliases.
+function rawNameKey(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function rawAliasesOf(item) {
+  if (!item || !Array.isArray(item.curatedRawAliases)) return [];
+  return Array.from(new Set(item.curatedRawAliases
+    .filter((name) => typeof name === 'string' && !normalizeItemName(name))
+    .map(rawNameKey)
+    .filter(Boolean)));
+}
+
+/** Reparte nombres en alias normalizados y alias tal cual (los no normalizables). */
+function splitCuratedNames(names) {
+  const normalized = new Set();
+  const raw = new Set();
+  (names || []).forEach((name) => {
+    if (typeof name !== 'string') return;
+    const key = normalizeItemName(name);
+    if (key) normalized.add(key);
+    else if (rawNameKey(name)) raw.add(rawNameKey(name));
+  });
+  return { normalized: Array.from(normalized), raw: Array.from(raw) };
+}
+
+/** Mismo nombre de plato: por nombre normalizado o, si no lo hay, tal cual. */
+function sameItemName(a, b) {
+  const left = normalizeItemName(a);
+  const right = normalizeItemName(b);
+  if (left || right) return left === right;
+  return rawNameKey(a) === rawNameKey(b);
+}
+
+/** ¿El nombre escrito es un alias curado del elemento? */
+function isCuratedAliasOf(item, name) {
+  const normalized = normalizeItemName(name);
+  if (normalized) return curatedAliasesOf(item).includes(normalized);
+  const raw = rawNameKey(name);
+  return Boolean(raw) && rawAliasesOf(item).includes(raw);
+}
+
 function canonicalNameOf(item) {
   return item && typeof item.canonicalName === 'string' ? item.canonicalName.trim() : '';
 }
@@ -118,6 +163,7 @@ function isBusinessCurated(item) {
   return item.source === 'business'
     || item.businessCreated === true
     || curatedAliasesOf(item).length > 0
+    || rawAliasesOf(item).length > 0
     || hasMeaningfulBusinessData(item.businessData);
 }
 
@@ -189,28 +235,37 @@ function followMerged(itemId, itemsById) {
   return current;
 }
 
-// Nombres sin letras latinas ni cifras ('寿司', '🍺') no tienen nombre
-// normalizado (todos darían el slug 'sin-nombre'): se comparan tal cual, sin
-// mayúsculas ni espacios en los extremos, como en createBusinessItem.
-function rawNameKey(value) {
-  return String(value || '').trim().toLowerCase();
-}
-
 /**
  * Índice nombre tal cual → itemId de los elementos no inactivos cuyo nombre no
- * se puede normalizar. Gana el curado por el negocio y, si no, el id menor.
+ * se puede normalizar (su canonicalName y sus curatedRawAliases). Gana el
+ * curado por el negocio, luego el que lo tiene como canonicalName y luego el
+ * id menor.
  */
 function buildRawNameIndex(itemsById) {
   const items = toItemMap(itemsById);
-  const index = new Map();
-  Array.from(items.keys()).sort().forEach((itemId) => {
-    const item = items.get(itemId);
+  const candidates = new Map();
+  const addCandidate = (key, itemId, viaCanonical) => {
+    if (!key) return;
+    if (!candidates.has(key)) candidates.set(key, new Map());
+    const byItem = candidates.get(key);
+    byItem.set(itemId, Boolean(viaCanonical || byItem.get(itemId)));
+  };
+  for (const [itemId, item] of items.entries()) {
+    if (!item || item.status === 'inactive') continue;
     const name = canonicalNameOf(item);
-    if (!item || item.status === 'inactive' || !name || normalizeItemName(name)) return;
-    const key = rawNameKey(name);
-    const current = index.get(key);
-    if (!current || (!isBusinessCurated(items.get(current)) && isBusinessCurated(item))) index.set(key, itemId);
-  });
+    if (name && !normalizeItemName(name)) addCandidate(rawNameKey(name), itemId, true);
+    rawAliasesOf(item).forEach((alias) => addCandidate(alias, itemId, false));
+  }
+  const index = new Map();
+  for (const [key, byItem] of candidates.entries()) {
+    const rank = (itemId) => [isBusinessCurated(items.get(itemId)) ? 0 : 1, byItem.get(itemId) ? 0 : 1];
+    const winner = Array.from(byItem.keys()).sort((a, b) => {
+      const ra = rank(a);
+      const rb = rank(b);
+      return (ra[0] - rb[0]) || (ra[1] - rb[1]) || (a < b ? -1 : a > b ? 1 : 0);
+    })[0];
+    index.set(key, winner);
+  }
   return index;
 }
 
@@ -267,11 +322,10 @@ function resolveReview(review, ctx = {}) {
 function planReviewStamp(review, resolution, targetItem) {
   if (!review || !resolution || !resolution.itemId) return null;
   const typed = typedItemName(review);
-  const normalizedTyped = normalizeItemName(typed);
   const canonicalName = canonicalNameOf(targetItem);
   const shouldRename = Boolean(canonicalName)
-    && normalizedTyped !== normalizeItemName(canonicalName)
-    && (resolution.via === 'pin' || resolution.followedMerge === true || curatedAliasesOf(targetItem).includes(normalizedTyped));
+    && !sameItemName(typed, canonicalName)
+    && (resolution.via === 'pin' || resolution.followedMerge === true || isCuratedAliasOf(targetItem, typed));
 
   const patch = {};
   const finalName = shouldRename ? canonicalName : typed;
@@ -723,21 +777,30 @@ function toMillis(value) {
 function seedRepairPlan({ itemsById, proposals = [], reviews = [] } = {}) {
   const original = toItemMap(itemsById);
   const items = new Map();
-  original.forEach((item, itemId) => items.set(itemId, { ...item, curatedAliasesNormalized: curatedAliasesOf(item) }));
+  original.forEach((item, itemId) => items.set(itemId, {
+    ...item,
+    curatedAliasesNormalized: curatedAliasesOf(item),
+    curatedRawAliases: rawAliasesOf(item),
+  }));
 
   const patches = new Map();
   const patchFor = (itemId) => {
-    if (!patches.has(itemId)) patches.set(itemId, { itemId, addCuratedAliases: new Set() });
+    if (!patches.has(itemId)) patches.set(itemId, { itemId, addCuratedAliases: new Set(), addCuratedRawAliases: new Set() });
     return patches.get(itemId);
   };
   const addAliases = (itemId, names) => {
     const item = items.get(itemId);
     if (!item) return;
-    (names || []).forEach((name) => {
-      const normalized = normalizeItemName(name);
-      if (!normalized || item.curatedAliasesNormalized.includes(normalized)) return;
-      item.curatedAliasesNormalized.push(normalized);
-      patchFor(itemId).addCuratedAliases.add(normalized);
+    const { normalized, raw } = splitCuratedNames(names);
+    normalized.forEach((alias) => {
+      if (item.curatedAliasesNormalized.includes(alias)) return;
+      item.curatedAliasesNormalized.push(alias);
+      patchFor(itemId).addCuratedAliases.add(alias);
+    });
+    raw.forEach((alias) => {
+      if (item.curatedRawAliases.includes(alias)) return;
+      item.curatedRawAliases.push(alias);
+      patchFor(itemId).addCuratedRawAliases.add(alias);
     });
   };
 
@@ -794,6 +857,7 @@ function seedRepairPlan({ itemsById, proposals = [], reviews = [] } = {}) {
         payload.sourceItemName,
         source?.canonicalName,
         ...curatedAliasesOf(source),
+        ...rawAliasesOf(source),
         ...(Array.isArray(source?.aliasesNormalized) ? source.aliasesNormalized : []),
       ]);
       // El origen de una fusión aprobada queda inactivo y apuntando al destino
@@ -841,8 +905,13 @@ function seedRepairPlan({ itemsById, proposals = [], reviews = [] } = {}) {
   });
 
   const itemPatches = Array.from(patches.values())
-    .map((patch) => ({ ...patch, addCuratedAliases: Array.from(patch.addCuratedAliases).sort() }))
-    .filter((patch) => patch.addCuratedAliases.length > 0 || patch.status || patch.clearMergedInto || patch.mergedInto);
+    .map((patch) => ({
+      ...patch,
+      addCuratedAliases: Array.from(patch.addCuratedAliases).sort(),
+      addCuratedRawAliases: Array.from(patch.addCuratedRawAliases).sort(),
+    }))
+    .filter((patch) => patch.addCuratedAliases.length > 0 || patch.addCuratedRawAliases.length > 0
+      || patch.status || patch.clearMergedInto || patch.mergedInto);
 
   return {
     itemsById: items,
@@ -865,6 +934,10 @@ module.exports = {
   getItem,
   toItemMap,
   curatedAliasesOf,
+  rawAliasesOf,
+  rawNameKey,
+  splitCuratedNames,
+  sameItemName,
   isBusinessCurated,
   buildAliasIndex,
   followMerged,

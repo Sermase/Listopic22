@@ -4,7 +4,8 @@
 // (places/{placeId}/items/{itemId}). Modelo de identidad en
 // lib/canonical-resolve.js; en resumen:
 // - El id de un elemento no cambia; canonicalName es su nombre visible y
-//   curatedAliasesNormalized los nombres que el negocio o un admin declararon
+//   curatedAliasesNormalized (y curatedRawAliases, para nombres sin letras
+//   latinas ni cifras) los nombres que el negocio o un admin declararon
 //   suyos (alta, renombrados, fusiones). El rebuild nunca toca esos campos.
 // - Cuando un elemento está curado, el servidor reescribe itemName de sus
 //   reseñas con el canonicalName (el texto escrito queda en originalItemName),
@@ -40,6 +41,11 @@ const {
   itemDocIdFromName,
   safeDocId,
   buildAliasIndex,
+  createResolveContext,
+  rawNameKey,
+  rawAliasesOf,
+  splitCuratedNames,
+  sameItemName,
   followMerged,
   planReassignStamp,
   planPlaceRebuild,
@@ -80,10 +86,6 @@ function itemsMapFromSnap(snap) {
   return itemsById;
 }
 
-function uniqueNormalized(names) {
-  return Array.from(new Set((names || []).map(normalizeItemName).filter(Boolean)));
-}
-
 async function bumpBusinessMenu(placeId) {
   await db.collection("places").doc(placeId).set({
     businessMenuUpdatedAt: FieldValue.serverTimestamp(),
@@ -91,11 +93,14 @@ async function bumpBusinessMenu(placeId) {
 }
 
 // Elemento no inactivo que ya reclama un nombre (canonicalName o alias
-// curado), distinto de `exceptItemId`. Null si el nombre está libre.
+// curado), distinto de `exceptItemId`. Null si el nombre está libre. Los
+// nombres sin letras latinas ni cifras ("寿司", "🍺") se buscan tal cual,
+// también entre los alias crudos.
 function findNameOwner(itemsById, name, exceptItemId = null) {
   const normalized = normalizeItemName(name);
-  if (!normalized) return null;
-  const ownerId = buildAliasIndex(itemsById).index.get(normalized);
+  let ownerId = null;
+  if (normalized) ownerId = buildAliasIndex(itemsById).index.get(normalized);
+  else if (rawNameKey(name)) ownerId = createResolveContext(itemsById).rawNameIndex.get(rawNameKey(name));
   if (!ownerId || ownerId === exceptItemId) return null;
   return { itemId: ownerId, item: itemsById.get(ownerId) || {} };
 }
@@ -163,7 +168,6 @@ const createBusinessItem = onCall({ invoker: "public" }, async (request) => {
   const { placeRef, place } = await assertBusinessMenuAccess(placeId, uid);
 
   const sanitized = sanitizeItemBusinessData(request.data?.businessData);
-  const normalized = normalizeItemName(name);
   const itemsRef = placeRef.collection("items");
 
   // En transacción: dos altas seguidas del mismo nombre (doble Enter, dos
@@ -174,35 +178,23 @@ const createBusinessItem = onCall({ invoker: "public" }, async (request) => {
     const owner = findNameOwner(itemsById, name);
     if (owner) {
       const ownerName = owner.item.canonicalName || owner.itemId;
-      const formerName = normalizeItemName(ownerName) !== normalized ? ` Antes se llamaba «${name}».` : "";
+      const formerName = !sameItemName(ownerName, name) ? ` Antes se llamaba «${name}».` : "";
       throw new HttpsError(
         "already-exists",
         `Ya existe «${ownerName}» en tu carta.${formerName}`,
         { itemId: owner.itemId, canonicalName: ownerName },
       );
     }
-    // Nombres sin letras latinas ni cifras ("寿司", "🍺"): no tienen nombre
-    // normalizado, así que se comparan tal cual.
-    if (!normalized) {
-      const sameName = Array.from(itemsById.values()).find((item) => item.status !== "inactive"
-        && String(item.canonicalName || "").trim().toLowerCase() === name.toLowerCase());
-      if (sameName) {
-        throw new HttpsError(
-          "already-exists",
-          `Ya existe «${sameName.canonicalName}» en tu carta.`,
-          { itemId: sameName.id, canonicalName: sameName.canonicalName },
-        );
-      }
-    }
-
     const picked = pickNewItemId(itemsById, name);
-    const aliases = normalized ? [normalized] : [];
+    const curated = splitCuratedNames([name]);
+    const aliases = curated.normalized;
     // set sin merge: un elemento inactivo se revive limpio (sin mergedInto,
     // stats ni listas viejas). Sus listStats los pone al día el próximo rebuild.
     tx.set(itemsRef.doc(picked.itemId), {
       canonicalName: name,
       aliasesNormalized: aliases,
       curatedAliasesNormalized: aliases,
+      curatedRawAliases: curated.raw,
       sourceNames: [],
       linkedListIds: [],
       source: "business",
@@ -365,15 +357,17 @@ async function applyMerge(placeId, payload) {
     throw new HttpsError("failed-precondition", "El elemento destino ya no está activo.");
   }
 
-  const aliases = uniqueNormalized([
+  const aliases = splitCuratedNames([
     source.canonicalName,
     ...(Array.isArray(source.curatedAliasesNormalized) ? source.curatedAliasesNormalized : []),
+    ...rawAliasesOf(source),
     ...(Array.isArray(source.aliasesNormalized) ? source.aliasesNormalized : []),
   ]);
   const batch = db.batch();
-  if (aliases.length > 0) {
+  if (aliases.normalized.length > 0 || aliases.raw.length > 0) {
     batch.set(itemsRef.doc(targetId), {
-      curatedAliasesNormalized: FieldValue.arrayUnion(...aliases),
+      ...(aliases.normalized.length > 0 ? { curatedAliasesNormalized: FieldValue.arrayUnion(...aliases.normalized) } : {}),
+      ...(aliases.raw.length > 0 ? { curatedRawAliases: FieldValue.arrayUnion(...aliases.raw) } : {}),
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
   }
@@ -412,13 +406,16 @@ async function applyRename(placeId, payload) {
   if (!newName) throw new HttpsError("invalid-argument", "Falta el nombre nuevo.");
   assertRenameIsFree(itemsById, itemId, newName);
 
-  const aliases = uniqueNormalized([item.canonicalName, payload.currentName, newName]);
+  // Los nombres sin letras latinas ni cifras van como alias crudos: si no, un
+  // '🍺' renombrado a '🍷' perdería sus reseñas hacia el slug 'sin-nombre'.
+  const aliases = splitCuratedNames([item.canonicalName, payload.currentName, newName]);
   await db.collection("places").doc(placeId).collection("items").doc(itemId).set({
     canonicalName: newName,
-    ...(aliases.length > 0 ? {
-      curatedAliasesNormalized: FieldValue.arrayUnion(...aliases),
-      aliasesNormalized: FieldValue.arrayUnion(...aliases),
+    ...(aliases.normalized.length > 0 ? {
+      curatedAliasesNormalized: FieldValue.arrayUnion(...aliases.normalized),
+      aliasesNormalized: FieldValue.arrayUnion(...aliases.normalized),
     } : {}),
+    ...(aliases.raw.length > 0 ? { curatedRawAliases: FieldValue.arrayUnion(...aliases.raw) } : {}),
     updatedAt: FieldValue.serverTimestamp(),
   }, { merge: true });
   await bumpBusinessMenu(placeId);
@@ -575,6 +572,7 @@ async function repairPlaceItems(placeId, { dryRun }) {
   for (const patch of seed.itemPatches) {
     const data = { updatedAt: FieldValue.serverTimestamp() };
     if (patch.addCuratedAliases.length > 0) data.curatedAliasesNormalized = FieldValue.arrayUnion(...patch.addCuratedAliases);
+    if (patch.addCuratedRawAliases?.length > 0) data.curatedRawAliases = FieldValue.arrayUnion(...patch.addCuratedRawAliases);
     if (patch.status) data.status = patch.status;
     if (patch.clearMergedInto) data.mergedInto = FieldValue.delete();
     else if (patch.mergedInto) data.mergedInto = patch.mergedInto;
