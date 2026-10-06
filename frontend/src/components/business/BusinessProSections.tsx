@@ -1970,6 +1970,9 @@ export const BusinessSponsoredSection: React.FC<{ placeId: string }> = ({ placeI
                                                     {typeof spotlight.totalPriceEur === 'number' ? ` · ${formatEur(spotlight.totalPriceEur)}` : ''}
                                                     {spotlight.endsAt ? ` · hasta ${spotlight.endsAt}` : ''}
                                                 </p>
+                                                {spotlight.itemInactive && (
+                                                    <p className="text-[11px] font-bold text-rose-300">🚫 Este plato ya no está en tu carta: la campaña está en pausa hasta que el equipo la revise.</p>
+                                                )}
                                                 {spotlight.adminNotes && <p className="text-[11px] text-[var(--lt-text-muted)]">Admin: {spotlight.adminNotes}</p>}
                                                 {spotlight.status === 'active' && (
                                                     <p className="text-[11px] font-bold text-amber-300/80">

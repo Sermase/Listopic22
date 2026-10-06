@@ -14,6 +14,9 @@ const {
   planPlaceRebuild,
   hasCanonicalItemSignalChanged,
   seedRepairPlan,
+  splitCuratedNames,
+  sameItemName,
+  createResolveContext,
 } = require('../modules/lib/canonical-resolve');
 
 const PLACE = 'ChIJc7hBUzEvQg0R_skP3Lbqgrc';
@@ -560,6 +563,67 @@ test('nombres sin letras latinas: cada plato recibe sus reseñas y un renombrado
   assert.equal(second.itemWrites.some((write) => write.isNew), false);
   assert.equal(state.items.get('croqueta').stats.reviewCount, 1);
   assert.equal(state.reviews.get('lists/croquetas/reviews/c').canonicalItemId, 'croqueta');
+});
+
+test('renombrar entre nombres sin letras latinas (🍺 → 🍷) conserva las reseñas sin crear un plato nuevo', () => {
+  const state = makeState({
+    'sin-nombre': { canonicalName: '寿司', source: 'business', status: 'active', curatedAliasesNormalized: [] },
+    'sin-nombre-2': { canonicalName: '🍺', source: 'business', status: 'active', curatedAliasesNormalized: [], curatedRawAliases: ['🍺'] },
+  }, [
+    review('a', { itemName: '🍺', overallRating: 8 }),
+    review('b', { itemName: '寿司', overallRating: 6 }),
+  ]);
+  rebuild(state);
+  assert.equal(state.items.get('sin-nombre-2').stats.reviewCount, 1);
+
+  // Lo que escribe applyRename: el nombre nuevo y los antiguos como alias crudos.
+  const aliases = splitCuratedNames(['🍺', '🍺', '🍷']);
+  assert.deepEqual(aliases.normalized, []);
+  const item = state.items.get('sin-nombre-2');
+  state.items.set('sin-nombre-2', {
+    ...item,
+    canonicalName: '🍷',
+    curatedRawAliases: Array.from(new Set([...(item.curatedRawAliases || []), ...aliases.raw])),
+  });
+  rebuild(state);
+  assert.equal(state.reviews.get('lists/croquetas/reviews/a').itemName, '🍷');
+  assert.equal(state.reviews.get('lists/croquetas/reviews/a').originalItemName, '🍺');
+  assert.equal(state.items.get('sin-nombre-2').stats.reviewCount, 1);
+  assert.equal(state.items.get('sin-nombre').stats.reviewCount, 1);
+  assert.equal(Array.from(state.items.keys()).some((id) => !['sin-nombre', 'sin-nombre-2'].includes(id)), false);
+  const second = rebuild(state);
+  assert.equal(second.reviewStamps.length, 0);
+  assert.equal(second.itemWrites.some((write) => write.isNew), false);
+
+  // Una reseña nueva con el nombre antiguo también va al plato renombrado.
+  state.reviews.set('lists/croquetas/reviews/n', review('n', { itemName: '🍺', overallRating: 9 }));
+  rebuild(state);
+  assert.equal(state.items.get('sin-nombre-2').stats.reviewCount, 2);
+  assert.equal(state.reviews.get('lists/croquetas/reviews/n').itemName, '🍷');
+});
+
+test('fusionar un plato sin letras latinas pasa su nombre como alias crudo al destino', () => {
+  const state = makeState({
+    'sin-nombre': { canonicalName: '寿司', source: 'business', status: 'active', curatedAliasesNormalized: [] },
+    sushi: { canonicalName: 'Sushi', source: 'business', status: 'active', curatedAliasesNormalized: ['sushi'] },
+  }, [review('a', { itemName: '寿司', overallRating: 8 })]);
+  rebuild(state);
+  // Lo que escribe applyMerge: origen inactivo y sus nombres en el destino.
+  const aliases = splitCuratedNames(['寿司']);
+  state.items.set('sin-nombre', { ...state.items.get('sin-nombre'), status: 'inactive', mergedInto: 'sushi' });
+  state.items.set('sushi', { ...state.items.get('sushi'), curatedRawAliases: aliases.raw });
+  rebuild(state);
+  assert.equal(state.items.get('sushi').stats.reviewCount, 1);
+  assert.equal(state.reviews.get('lists/croquetas/reviews/a').itemName, 'Sushi');
+  // Un plato nuevo «寿司» ya tiene dueño: no se duplica.
+  assert.equal(createResolveContext(state.items).rawNameIndex.get('寿司'), 'sushi');
+});
+
+test('splitCuratedNames y sameItemName separan nombres normalizables de los crudos', () => {
+  assert.deepEqual(splitCuratedNames(['Croqueta', ' croqueta ', '寿司', '寿司', '', null]), { normalized: ['croqueta'], raw: ['寿司'] });
+  assert.equal(sameItemName('Croquetá', 'croqueta'), true);
+  assert.equal(sameItemName('🍺', '🍷'), false);
+  assert.equal(sameItemName('寿司', ' 寿司 '), true);
 });
 
 test('normalizeItemName e itemDocIdFromName siguen igual (reexportados por canonical-items)', () => {

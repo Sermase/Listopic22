@@ -626,6 +626,9 @@ export interface ItemSpotlight {
     endsAt?: string;
     status: ItemSpotlightStatus;
     adminNotes?: string;
+    // El plato salió de la carta sin fusión: la campaña no se sirve hasta que
+    // un admin decida (lo marca el servidor al reconstruir la carta).
+    itemInactive: boolean;
     metrics: SponsoredMetrics;
     createdAtMs: number;
 }
@@ -658,6 +661,7 @@ const mapSpotlight = (id: string, data: Record<string, unknown>): ItemSpotlight 
         endsAt: typeof data.endsAt === 'string' ? data.endsAt : undefined,
         status: (['requested', 'active', 'rejected', 'ended'].includes(String(data.status)) ? data.status : 'requested') as ItemSpotlightStatus,
         adminNotes: typeof data.adminNotes === 'string' ? data.adminNotes : undefined,
+        itemInactive: data.itemInactive === true,
         metrics: mapSponsoredMetrics(data),
         createdAtMs: typeof createdAt?.toMillis === 'function' ? createdAt.toMillis() : 0,
     };
@@ -717,7 +721,8 @@ export const getActiveItemSpotlights = async (): Promise<ItemSpotlight[]> => {
     ));
     return snap.docs
         .map((spotlightDoc) => mapSpotlight(spotlightDoc.id, spotlightDoc.data() as Record<string, unknown>))
-        .filter((spotlight) => (!spotlight.startsAt || spotlight.startsAt <= today)
+        .filter((spotlight) => !spotlight.itemInactive
+            && (!spotlight.startsAt || spotlight.startsAt <= today)
             && (!spotlight.endsAt || spotlight.endsAt >= today));
 };
 

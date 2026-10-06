@@ -623,6 +623,11 @@ export const ProProposalsTab: React.FC = () => {
                                         </span>
                                         <span className="truncate text-sm font-bold text-white">{spotlight.itemName}</span>
                                         <span className="text-xs text-gray-400">· {spotlight.placeName || spotlight.placeId}</span>
+                                        {spotlight.itemInactive && (
+                                            <span className="rounded-full border border-rose-500/25 bg-rose-500/10 px-2 py-0.5 text-[10px] font-black text-rose-200">
+                                                🚫 El plato ya no está en la carta · no se muestra
+                                            </span>
+                                        )}
                                     </div>
                                     <p className="mt-1 text-xs text-gray-500">
                                         ×{spotlight.units} · radio {spotlight.radiusKm} km
