@@ -25,6 +25,11 @@ const {
   impulsesPriceEur,
   normalizeCampaignRequest,
 } = require("./lib/impulse-pricing");
+const {
+  spotlightCenterFromPlace,
+  resolveSpotlightItem,
+  buildSpotlightSyncPatch,
+} = require("./lib/spotlight-sync");
 
 const db = getFirestore();
 
@@ -273,10 +278,9 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
   }
   const item = itemSnap.data() || {};
 
-  const center = place.location && typeof place.location.latitude === "number"
-    ? { lat: place.location.latitude, lng: place.location.longitude }
-    : null;
-  if (!center) {
+  // Acepta todas las formas de coordenadas de places/ (location o coordinates
+  // como GeoPoint o mapa, geopoint, lat/lng sueltos).
+  if (!spotlightCenterFromPlace(place)) {
     throw new HttpsError("failed-precondition", "El lugar no tiene coordenadas; no se puede calcular el radio.");
   }
 
@@ -299,6 +303,10 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     const freshPlaceSnap = await tx.get(placeRef);
     if (!freshPlaceSnap.exists) throw new HttpsError("not-found", "El negocio no existe.");
     const freshPlace = freshPlaceSnap.data() || {};
+    const center = spotlightCenterFromPlace(freshPlace);
+    if (!center) {
+      throw new HttpsError("failed-precondition", "El lugar no tiene coordenadas; no se puede calcular el radio.");
+    }
     // Los saldos regalados antes de este modelo (1 crédito = 1 papeleta) se
     // leen 1:1 como impulsos: eran regalos y se pueden ajustar desde Developer.
     const availableCredits = Number(freshPlace.spotlightCredits) > 0
@@ -445,7 +453,23 @@ const reviewItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     reviewedBy: uid,
     reviewedAt: FieldValue.serverTimestamp(),
   };
+  let itemName = spotlight.itemName;
   if (decision === "activate") {
+    // Al activar se refrescan el centro (desde el lugar) y el plato (nombre
+    // actual, listas y stats; si se fusionó, el plato destino).
+    const placeRef = db.collection("places").doc(spotlight.placeId);
+    const [placeSnap, itemsSnap] = await Promise.all([placeRef.get(), placeRef.collection("items").get()]);
+    const center = spotlightCenterFromPlace(placeSnap.data() || {});
+    if (!center) {
+      throw new HttpsError("failed-precondition", "El lugar no tiene coordenadas; no se puede activar la campaña.");
+    }
+    const itemsById = new Map(itemsSnap.docs.map((docSnap) => [docSnap.id, { id: docSnap.id, ...docSnap.data() }]));
+    if (!resolveSpotlightItem(spotlight, itemsById)) {
+      throw new HttpsError("failed-precondition", "El plato de esta campaña ya no está activo en la carta.");
+    }
+    Object.assign(patch, buildSpotlightSyncPatch(spotlight, itemsById) || {}, { center });
+    itemName = patch.itemName || spotlight.itemName;
+
     // El periodo contratado empieza a contar al activar. Las campañas
     // anteriores al cambio guardaban semanas en vez de días.
     const days = Number.isInteger(spotlight.days) && spotlight.days >= 1
@@ -480,16 +504,16 @@ const reviewItemSpotlight = onCall({ invoker: "public" }, async (request) => {
   await writeAuditLog(uid, "sponsored.itemSpotlightReviewed", {
     spotlightId,
     placeId: spotlight.placeId || null,
-    itemName: spotlight.itemName || null,
+    itemName: itemName || null,
     decision,
     nextStatus,
   });
 
   if (spotlight.createdBy) {
     const statusMessages = {
-      active: `Tu plato destacado "${spotlight.itemName}" está activo.`,
-      rejected: `Tu solicitud de plato destacado "${spotlight.itemName}" ha sido rechazada${adminNotes ? `: ${adminNotes}` : "."}`,
-      ended: `Tu campaña del plato "${spotlight.itemName}" ha finalizado.`,
+      active: `Tu plato destacado "${itemName}" está activo.`,
+      rejected: `Tu solicitud de plato destacado "${itemName}" ha sido rechazada${adminNotes ? `: ${adminNotes}` : "."}`,
+      ended: `Tu campaña del plato "${itemName}" ha finalizado.`,
     };
     await sendNotification(spotlight.createdBy, "business_pro_update", {
       message: statusMessages[nextStatus],
@@ -502,6 +526,38 @@ const reviewItemSpotlight = onCall({ invoker: "public" }, async (request) => {
   return { ok: true, spotlightId, status: nextStatus };
 });
 
+// Pone al día las campañas abiertas (solicitadas o activas) de un lugar con sus
+// elementos: nombre canónico, listas, nota y nº de reseñas; si el plato se
+// fusionó, la campaña pasa al plato destino; si ya no existe, se marca
+// itemInactive para que un admin decida. La llama el rebuild de elementos
+// (canonical-items.js) y la reparación de cartas. Devuelve cuántas cambian.
+async function syncSpotlightsForPlace(placeId, itemsById, { dryRun = false } = {}) {
+  if (!placeId || !itemsById) return 0;
+  const snap = await db.collection("sponsoredItemSpotlights")
+    .where("placeId", "==", placeId)
+    .where("status", "in", ["requested", "active"])
+    .get();
+  let updated = 0;
+  let batch = db.batch();
+  let pending = 0;
+  for (const docSnap of snap.docs) {
+    const patch = buildSpotlightSyncPatch(docSnap.data() || {}, itemsById);
+    if (!patch) continue;
+    updated += 1;
+    if (dryRun) continue;
+    batch.set(docSnap.ref, patch, { merge: true });
+    pending += 1;
+    if (pending >= 400) {
+      await batch.commit();
+      batch = db.batch();
+      pending = 0;
+    }
+  }
+  if (pending > 0) await batch.commit();
+  if (updated > 0) logger.info("sponsored: platos destacados sincronizados", { placeId, updated, dryRun });
+  return updated;
+}
+
 module.exports = {
   requestSponsoredPlacement,
   reviewSponsoredPlacement,
@@ -510,4 +566,6 @@ module.exports = {
   adminGrantSpotlightCredits,
   adminUpdateSpotlightPricing,
   recordSponsoredEvent,
+  // Helper compartido con canonical-items.js y business-items.js.
+  syncSpotlightsForPlace,
 };

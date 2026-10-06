@@ -5,225 +5,95 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const logger = require('firebase-functions/logger');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { assertJefeAccess } = require('./lib/auth');
+const {
+  DELETE,
+  SERVER_TIMESTAMP,
+  normalizeItemName,
+  itemDocIdFromName,
+  safeDocId,
+  typedItemName,
+  createResolveContext,
+  resolveReview,
+  planReviewStamp,
+  planPlaceRebuild,
+  groupReviewCopies,
+  hasCanonicalItemSignalChanged,
+} = require('./lib/canonical-resolve');
 
 const db = getFirestore();
 const BATCH_LIMIT = 450;
+const GET_ALL_CHUNK = 300;
 
-function normalizeItemName(value) {
-  return String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim()
-    .replace(/\s+/g, ' ');
-}
+// Firestore: código de error de una precondición o de un documento que ya
+// existe / ya no existe (gRPC).
+const GRPC_NOT_FOUND = 5;
+const GRPC_ALREADY_EXISTS = 6;
+const GRPC_FAILED_PRECONDITION = 9;
 
-function itemDocIdFromName(value) {
-  const normalized = normalizeItemName(value);
-  return normalized
-    ? normalized.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 140)
-    : 'sin-nombre';
-}
-
-function safeDocId(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  return raw.replace(/\//g, '-').slice(0, 300);
-}
-
-function isNumber(value) {
-  return typeof value === 'number' && Number.isFinite(value);
-}
-
-function getReviewListId(review, fallbackListId) {
-  return String(review.listId || fallbackListId || review.parentListId || 'sin-lista').trim() || 'sin-lista';
-}
-
-function hasCanonicalItemSignalChanged(beforeData, afterData) {
-  const fields = [
-    'placeId',
-    'listId',
-    'parentListId',
-    'itemName',
-    'itemNameOriginal',
-    'canonicalItemId',
-    'canonicalItemName',
-    'overallRating',
-    'photoUrl',
-  ];
-  return fields.some((field) => JSON.stringify(beforeData?.[field] ?? null) !== JSON.stringify(afterData?.[field] ?? null))
-    || JSON.stringify(beforeData?.scores || {}) !== JSON.stringify(afterData?.scores || {});
-}
-
-function getReviewItemId(review) {
-  const canonicalItemId = safeDocId(review.canonicalItemId);
-  if (canonicalItemId) return canonicalItemId;
-  return itemDocIdFromName(review.itemName || review.itemNameOriginal || review.canonicalItemName);
-}
-
-function addCriteriaScores(target, scores) {
-  if (!scores || typeof scores !== 'object') return;
-  Object.entries(scores).forEach(([key, value]) => {
-    if (!isNumber(value)) return;
-    if (!target[key]) target[key] = { total: 0, count: 0 };
-    target[key].total += value;
-    target[key].count += 1;
-  });
-}
-
-function summarizeCriteria(criteriaTotals) {
+// Traduce los marcadores del plan puro a FieldValue.
+function toFirestoreData(data) {
+  if (data === DELETE) return FieldValue.delete();
+  if (data === SERVER_TIMESTAMP) return FieldValue.serverTimestamp();
+  if (!data || typeof data !== 'object' || Array.isArray(data) || Object.getPrototypeOf(data) !== Object.prototype) {
+    return data;
+  }
   const result = {};
-  Object.entries(criteriaTotals || {}).forEach(([key, value]) => {
-    const count = value.count || 0;
-    if (count <= 0) return;
-    result[key] = {
-      count,
-      total: Number(value.total.toFixed(4)),
-      average: Number((value.total / count).toFixed(2)),
-    };
+  Object.entries(data).forEach(([key, value]) => {
+    result[key] = toFirestoreData(value);
   });
   return result;
 }
 
-function sortedSourceNames(nameCounts) {
-  return Array.from(nameCounts.entries())
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'es'))
-    .slice(0, 40);
-}
-
-function chooseCanonicalName(existingItem, reviewNameCounts, fallbackName) {
-  if (typeof existingItem?.canonicalName === 'string' && existingItem.canonicalName.trim()) {
-    return existingItem.canonicalName.trim();
-  }
-  const first = sortedSourceNames(reviewNameCounts)[0]?.name;
-  return first || String(fallbackName || 'Elemento sin nombre').trim();
-}
-
-async function fetchReviewsForPlace(placeId) {
+/** Todas las copias (root y anidadas) de las reseñas de un lugar. */
+async function fetchReviewCopiesForPlace(placeId) {
   // collectionGroup('reviews') incluye también la colección raíz reviews/
-  // (legacy), así que una sola query cubre ambas ubicaciones. El Map dedupe
-  // por id las copias root+anidada de una misma reseña mientras convivan.
+  // (legacy), así que una sola query cubre ambas ubicaciones.
   const snap = await db.collectionGroup('reviews').where('placeId', '==', placeId).get();
-  const byId = new Map();
-  snap.docs.forEach((docSnap) => {
+  const updateTimes = new Map();
+  const copies = snap.docs.map((docSnap) => {
     const path = docSnap.ref.path.split('/');
     const fallbackListId = path[0] === 'lists' ? path[1] : docSnap.data().listId || null;
-    const review = {
+    updateTimes.set(docSnap.ref.path, docSnap.updateTime);
+    return {
       id: docSnap.id,
       refPath: docSnap.ref.path,
       fallbackListId,
       ...docSnap.data(),
     };
-    // Preferimos la copia anidada (canónica) si ya vimos la root.
-    if (!byId.has(review.id) || path[0] === 'lists') byId.set(review.id, review);
   });
-  return Array.from(byId.values());
+  return { copies, updateTimes };
+}
+
+/** Reseñas del lugar sin duplicados root + anidada (la anidada manda). */
+async function fetchReviewsForPlace(placeId) {
+  const { copies } = await fetchReviewCopiesForPlace(placeId);
+  return groupReviewCopies(copies).map((group) => group.primary);
+}
+
+/**
+ * Id del elemento de una reseña. Con los elementos del lugar se usa el
+ * resolutor completo (alias curados, fusiones); sin ellos, la regla que usan
+ * los clientes: canonicalItemId || slug del nombre.
+ */
+function getReviewItemId(review, itemsById) {
+  if (itemsById) return resolveReview(review, createResolveContext(itemsById)).itemId;
+  return safeDocId(review?.canonicalItemId) || itemDocIdFromName(typedItemName(review));
+}
+
+async function fetchItemsWithMeta(placeId) {
+  const snap = await db.collection('places').doc(placeId).collection('items').get();
+  const itemsById = new Map();
+  const updateTimes = new Map();
+  snap.forEach((docSnap) => {
+    itemsById.set(docSnap.id, { id: docSnap.id, ...docSnap.data() });
+    updateTimes.set(docSnap.id, docSnap.updateTime);
+  });
+  return { itemsById, updateTimes };
 }
 
 async function fetchExistingItems(placeId) {
-  const snap = await db.collection('places').doc(placeId).collection('items').get();
-  const map = new Map();
-  snap.forEach((docSnap) => map.set(docSnap.id, { id: docSnap.id, ...docSnap.data() }));
-  return map;
-}
-
-function buildItemAggregates(reviews, existingItems) {
-  const items = new Map();
-
-  for (const review of reviews) {
-    const itemId = getReviewItemId(review);
-    const rawName = String(review.itemName || review.itemNameOriginal || review.canonicalItemName || 'Elemento sin nombre').trim();
-    const normalizedName = normalizeItemName(rawName);
-    const listId = getReviewListId(review, review.fallbackListId);
-
-    if (!items.has(itemId)) {
-      items.set(itemId, {
-        itemId,
-        nameCounts: new Map(),
-        aliasesNormalized: new Set(),
-        linkedListIds: new Set(),
-        reviewCount: 0,
-        ratingCount: 0,
-        ratingTotal: 0,
-        photoCount: 0,
-        criteriaTotals: {},
-        listStats: new Map(),
-      });
-    }
-
-    const item = items.get(itemId);
-    item.reviewCount += 1;
-    item.linkedListIds.add(listId);
-    if (rawName) item.nameCounts.set(rawName, (item.nameCounts.get(rawName) || 0) + 1);
-    if (normalizedName) item.aliasesNormalized.add(normalizedName);
-    if (isNumber(review.overallRating)) {
-      item.ratingCount += 1;
-      item.ratingTotal += review.overallRating;
-    }
-    if (review.photoUrl || (Array.isArray(review.photoUrls) && review.photoUrls.length > 0)) {
-      item.photoCount += 1;
-    }
-    addCriteriaScores(item.criteriaTotals, review.scores);
-
-    if (!item.listStats.has(listId)) {
-      item.listStats.set(listId, {
-        listId,
-        reviewCount: 0,
-        ratingCount: 0,
-        ratingTotal: 0,
-        criteriaTotals: {},
-      });
-    }
-    const listStat = item.listStats.get(listId);
-    listStat.reviewCount += 1;
-    if (isNumber(review.overallRating)) {
-      listStat.ratingCount += 1;
-      listStat.ratingTotal += review.overallRating;
-    }
-    addCriteriaScores(listStat.criteriaTotals, review.scores);
-  }
-
-  return Array.from(items.values()).map((item) => {
-    const existingItem = existingItems.get(item.itemId);
-    const sourceNames = sortedSourceNames(item.nameCounts);
-    const canonicalName = chooseCanonicalName(existingItem, item.nameCounts, sourceNames[0]?.name);
-    const averageRating = item.ratingCount > 0 ? Number((item.ratingTotal / item.ratingCount).toFixed(2)) : null;
-    const listStats = Array.from(item.listStats.values()).map((stat) => ({
-      listId: stat.listId,
-      reviewCount: stat.reviewCount,
-      ratingCount: stat.ratingCount,
-      ratingTotal: Number(stat.ratingTotal.toFixed(4)),
-      averageRating: stat.ratingCount > 0 ? Number((stat.ratingTotal / stat.ratingCount).toFixed(2)) : null,
-      criteriaStats: summarizeCriteria(stat.criteriaTotals),
-      updatedAt: FieldValue.serverTimestamp(),
-    }));
-
-    return {
-      itemId: item.itemId,
-      doc: {
-        canonicalName,
-        aliasesNormalized: Array.from(item.aliasesNormalized).sort(),
-        sourceNames,
-        linkedListIds: Array.from(item.linkedListIds).sort(),
-        source: existingItem?.source || 'community',
-        status: existingItem?.status === 'unavailable' ? 'unavailable' : 'active',
-        businessData: existingItem?.businessData || {},
-        stats: {
-          reviewCount: item.reviewCount,
-          ratingCount: item.ratingCount,
-          ratingTotal: Number(item.ratingTotal.toFixed(4)),
-          averageRating,
-          photoCount: item.photoCount,
-          criteriaStats: summarizeCriteria(item.criteriaTotals),
-        },
-        updatedAt: FieldValue.serverTimestamp(),
-        createdAt: existingItem?.createdAt || FieldValue.serverTimestamp(),
-      },
-      listStats,
-    };
-  });
+  const { itemsById } = await fetchItemsWithMeta(placeId);
+  return itemsById;
 }
 
 async function commitBatch(batchState) {
@@ -243,65 +113,226 @@ function queueDelete(batchState, ref) {
   batchState.count += 1;
 }
 
-async function rebuildCanonicalItemsForPlace(placeId) {
-  if (!placeId) return { placeId, itemCount: 0, reviewCount: 0 };
+function sameUpdateTime(a, b) {
+  if (!a || !b) return !a && !b;
+  return typeof a.isEqual === 'function' ? a.isEqual(b) : String(a) === String(b);
+}
+
+async function getAllInChunks(refs) {
+  const snaps = [];
+  for (let i = 0; i < refs.length; i += GET_ALL_CHUNK) {
+    const chunk = refs.slice(i, i + GET_ALL_CHUNK);
+    if (chunk.length > 0) snaps.push(...await db.getAll(...chunk));
+  }
+  return snaps;
+}
+
+// Un elemento nuevo se crea con create(): si otro proceso (alta del negocio)
+// lo ha creado mientras tanto, solo se escriben los campos derivados y no se
+// pisan su nombre, origen ni ficha.
+async function writeNewItem(itemRef, write) {
+  try {
+    await itemRef.create(toFirestoreData(write.createData));
+  } catch (error) {
+    if (error?.code !== GRPC_ALREADY_EXISTS) throw error;
+    await itemRef.set(toFirestoreData(write.data), { merge: true });
+  }
+}
+
+// Estampa las reseñas con BulkWriter y precondición de updateTime: si la
+// reseña cambió desde la lectura (p. ej. el autor la editó) se relee, se
+// vuelve a resolver y se reintenta una vez.
+async function applyReviewStamps(stamps, updateTimes, resolveContext) {
+  if (stamps.length === 0) return { written: 0, skipped: 0 };
+  let written = 0;
+  const retry = [];
+
+  const runStamps = async (entries) => {
+    const writer = db.bulkWriter();
+    const failures = [];
+    const ops = entries.map((entry) => {
+      const ref = db.doc(entry.refPath);
+      const op = entry.updateTime
+        ? writer.update(ref, toFirestoreData(entry.patch), { lastUpdateTime: entry.updateTime })
+        : writer.update(ref, toFirestoreData(entry.patch));
+      return op.then(() => {
+        written += 1;
+      }).catch((error) => {
+        failures.push({ entry, error });
+      });
+    });
+    await writer.close();
+    await Promise.all(ops);
+    return failures;
+  };
+
+  const firstFailures = await runStamps(stamps.map((stamp) => ({
+    ...stamp,
+    updateTime: updateTimes.get(stamp.refPath) || null,
+  })));
+
+  let skipped = 0;
+  firstFailures.forEach(({ entry, error }) => {
+    if (error?.code === GRPC_FAILED_PRECONDITION) retry.push(entry);
+    else {
+      skipped += 1;
+      if (error?.code !== GRPC_NOT_FOUND) {
+        logger.warn('canonicalItems: no se pudo estampar una reseña', { refPath: entry.refPath, error: error?.message });
+      }
+    }
+  });
+
+  if (retry.length > 0) {
+    const snaps = await getAllInChunks(retry.map((entry) => db.doc(entry.refPath)));
+    const second = [];
+    snaps.forEach((snap) => {
+      if (!snap.exists) {
+        skipped += 1;
+        return;
+      }
+      const review = { id: snap.id, refPath: snap.ref.path, ...snap.data() };
+      const resolution = resolveReview(review, resolveContext);
+      const target = resolveContext.itemsById.get(resolution.itemId) || null;
+      const stamp = planReviewStamp(review, resolution, target);
+      if (stamp) second.push({ refPath: snap.ref.path, patch: stamp.patch, updateTime: snap.updateTime });
+    });
+    const secondFailures = await runStamps(second);
+    skipped += secondFailures.length;
+    secondFailures.forEach(({ entry, error }) => {
+      logger.warn('canonicalItems: reseña cambiada dos veces durante el estampado; se deja para el próximo rebuild', {
+        refPath: entry.refPath,
+        error: error?.message,
+      });
+    });
+  }
+
+  return { written, skipped };
+}
+
+/**
+ * Reconstruye los elementos de un lugar desde sus reseñas y estampa en las
+ * reseñas el nombre canónico de los elementos curados (ver
+ * lib/canonical-resolve.js). Solo escribe campos derivados en los elementos
+ * existentes: nunca su canonicalName, businessData, source,
+ * curatedAliasesNormalized, mergedInto ni createdAt.
+ */
+async function rebuildCanonicalItemsForPlace(placeId, { dryRun = false } = {}) {
+  const empty = {
+    placeId,
+    itemCount: 0,
+    reviewCount: 0,
+    stampedReviews: 0,
+    renamedReviews: 0,
+    deactivatedItems: 0,
+    mergedItems: 0,
+    conflicts: [],
+    spotlightsUpdated: 0,
+  };
+  if (!placeId) return empty;
 
   const placeRef = db.collection('places').doc(placeId);
-  const [reviews, existingItems] = await Promise.all([
-    fetchReviewsForPlace(placeId),
-    fetchExistingItems(placeId),
+  const [{ copies, updateTimes: reviewUpdateTimes }, { itemsById, updateTimes: itemUpdateTimes }] = await Promise.all([
+    fetchReviewCopiesForPlace(placeId),
+    fetchItemsWithMeta(placeId),
   ]);
-  const aggregates = buildItemAggregates(reviews, existingItems);
-  const activeIds = new Set(aggregates.map((item) => item.itemId));
+  const plan = planPlaceRebuild({ reviews: copies, itemsById });
+  const summary = { ...empty, ...plan.summary, conflicts: plan.conflicts };
+
+  if (dryRun) {
+    return {
+      ...summary,
+      dryRun: true,
+      duplicates: plan.duplicates,
+      activeMergedItems: plan.activeMergedItems,
+    };
+  }
+
+  const itemsRef = placeRef.collection('items');
   const batchState = { batch: db.batch(), count: 0 };
 
-  for (const item of aggregates) {
-    const itemRef = placeRef.collection('items').doc(item.itemId);
-    queueSet(batchState, itemRef, item.doc, { merge: true });
+  // 1) Elementos con reseñas: campos derivados + listStats.
+  for (const write of plan.itemWrites) {
+    const itemRef = itemsRef.doc(write.itemId);
+    if (write.isNew) await writeNewItem(itemRef, write);
+    else queueSet(batchState, itemRef, toFirestoreData(write.data), { merge: true });
 
-    const existingListStats = await itemRef.collection('listStats').get();
-    const activeListIds = new Set(item.listStats.map((stat) => stat.listId));
-    existingListStats.forEach((docSnap) => {
+    const existingListStats = write.isNew ? null : await itemRef.collection('listStats').get();
+    const activeListIds = new Set(write.listStats.map((stat) => safeDocId(stat.listId)));
+    existingListStats?.forEach((docSnap) => {
       if (!activeListIds.has(docSnap.id)) queueDelete(batchState, docSnap.ref);
     });
-
-    item.listStats.forEach((stat) => {
-      queueSet(batchState, itemRef.collection('listStats').doc(safeDocId(stat.listId)), stat, { merge: true });
+    write.listStats.forEach((stat) => {
+      queueSet(batchState, itemRef.collection('listStats').doc(safeDocId(stat.listId)), toFirestoreData(stat), { merge: true });
     });
 
     if (batchState.count >= BATCH_LIMIT) await commitBatch(batchState);
   }
+  await commitBatch(batchState);
 
-  for (const [itemId, existingItem] of existingItems.entries()) {
-    if (activeIds.has(itemId)) continue;
-    // Los items creados por el negocio (carta oficial) pueden no tener reseñas
-    // todavía: no se desactivan en el rebuild.
-    if (existingItem.source === 'business') continue;
-    const itemRef = placeRef.collection('items').doc(itemId);
-    queueSet(batchState, itemRef, {
-      status: existingItem.status === 'unavailable' ? 'unavailable' : 'inactive',
-      stats: {
-        reviewCount: 0,
-        ratingCount: 0,
-        ratingTotal: 0,
-        averageRating: null,
-        photoCount: 0,
-        criteriaStats: {},
-      },
-      linkedListIds: [],
-      updatedAt: FieldValue.serverTimestamp(),
-    }, { merge: true });
-    if (batchState.count >= BATCH_LIMIT) await commitBatch(batchState);
+  // 2) Elementos sin reseñas. Antes de escribir se releen: si alguno cambió
+  //    desde la primera lectura (p. ej. el negocio acaba de darlo de alta o de
+  //    revivirlo) se deja para el siguiente rebuild.
+  let deactivatedItems = 0;
+  let mergedItems = 0;
+  if (plan.emptyItemWrites.length > 0) {
+    const freshSnaps = await getAllInChunks(plan.emptyItemWrites.map((write) => itemsRef.doc(write.itemId)));
+    const freshById = new Map(freshSnaps.map((snap) => [snap.id, snap]));
+    for (const write of plan.emptyItemWrites) {
+      const fresh = freshById.get(write.itemId);
+      if (!fresh?.exists || !sameUpdateTime(fresh.updateTime, itemUpdateTimes.get(write.itemId))) {
+        logger.info('canonicalItems: elemento cambiado durante el rebuild, no se toca', { placeId, itemId: write.itemId });
+        plan.itemsAfter.set(write.itemId, { id: write.itemId, ...(fresh?.data() || {}) });
+        continue;
+      }
+      const itemRef = itemsRef.doc(write.itemId);
+      queueSet(batchState, itemRef, toFirestoreData(write.data), { merge: true });
+      const leftovers = await itemRef.collection('listStats').get();
+      leftovers.forEach((docSnap) => queueDelete(batchState, docSnap.ref));
+      if (write.deactivate) deactivatedItems += 1;
+      if (write.mergedInto) mergedItems += 1;
+      if (batchState.count >= BATCH_LIMIT) await commitBatch(batchState);
+    }
   }
 
   queueSet(batchState, placeRef, {
     canonicalItemsUpdatedAt: FieldValue.serverTimestamp(),
-    canonicalItemsCount: aggregates.length,
+    canonicalItemsCount: plan.summary.itemCount,
   }, { merge: true });
   await commitBatch(batchState);
 
-  logger.info('canonicalItems: rebuilt place items', { placeId, itemCount: aggregates.length, reviewCount: reviews.length });
-  return { placeId, itemCount: aggregates.length, reviewCount: reviews.length };
+  // 3) Reseñas: nombre canónico y derivados, sin tocar updatedAt.
+  const stampResult = await applyReviewStamps(plan.reviewStamps, reviewUpdateTimes, plan.resolveContext);
+
+  // 4) Campañas de platos destacados abiertas: nombre, listas y stats al día.
+  let spotlightsUpdated = 0;
+  try {
+    // require diferido: sponsored.js no depende de este módulo, pero así
+    // evitamos cualquier ciclo futuro al cargar los módulos.
+    const { syncSpotlightsForPlace } = require('./sponsored');
+    spotlightsUpdated = await syncSpotlightsForPlace(placeId, plan.itemsAfter);
+  } catch (error) {
+    logger.error('canonicalItems: no se pudieron sincronizar los platos destacados', { placeId, error: error.message });
+  }
+
+  const result = {
+    ...summary,
+    deactivatedItems,
+    mergedItems,
+    stampSkipped: stampResult.skipped,
+    spotlightsUpdated,
+  };
+  logger.info('canonicalItems: rebuilt place items', {
+    placeId,
+    itemCount: result.itemCount,
+    reviewCount: result.reviewCount,
+    stampedReviews: result.stampedReviews,
+    renamedReviews: result.renamedReviews,
+    deactivatedItems,
+    mergedItems,
+    conflicts: result.conflicts.length,
+    spotlightsUpdated,
+  });
+  return result;
 }
 
 async function rebuildChangedPlaces(beforeData, afterData) {
@@ -339,7 +370,13 @@ module.exports = {
   // Helpers internos reutilizados por business-items.js (propuestas de carta).
   rebuildCanonicalItemsForPlace,
   fetchReviewsForPlace,
+  fetchReviewCopiesForPlace,
+  fetchExistingItems,
+  toFirestoreData,
+  // Reexportados desde lib/canonical-resolve.js (compatibilidad).
   normalizeItemName,
   itemDocIdFromName,
+  safeDocId,
   getReviewItemId,
+  hasCanonicalItemSignalChanged,
 };

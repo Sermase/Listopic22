@@ -4,7 +4,11 @@ import { Check, Euro, ExternalLink, Inbox, Loader2, Megaphone, RefreshCw, Save, 
 import { db } from '../../firebase';
 import { mapDuel, type Duel } from '../../types/duel';
 import { formatEur } from '../../config/planBeta';
+import { useConfirm } from '../../context/ConfirmContext';
+import { useToast } from '../../context/ToastContext';
+import { Button, Card } from '../ui';
 import {
+    adminRepairPlaceItems,
     DEFAULT_SPOTLIGHT_PRICING,
     describeProposal,
     getOpenItemSpotlights,
@@ -20,6 +24,9 @@ import {
     updateSpotlightPricing,
     type ItemProposal,
     type ItemSpotlight,
+    type RepairPlaceItemsCounters,
+    type RepairPlaceItemsPlace,
+    type RepairPlaceItemsResult,
     type SponsoredPlacement,
     type SpotlightPricing,
 } from '../../services/BusinessProService';
@@ -40,6 +47,172 @@ const PROPOSAL_TYPE_LABELS: Record<ItemProposal['type'], string> = {
 const PLACEMENT_TYPE_LABELS: Record<SponsoredPlacement['type'], string> = {
     home: 'Home',
     search: 'Búsquedas',
+};
+
+const REPAIR_COUNTER_LABELS: Array<{ key: keyof RepairPlaceItemsCounters; label: string }> = [
+    { key: 'renamedReviews', label: 'valoraciones renombradas' },
+    { key: 'stampedReviews', label: 'valoraciones actualizadas' },
+    { key: 'mergedItems', label: 'elementos fusionados' },
+    { key: 'deactivatedItems', label: 'elementos desactivados' },
+    { key: 'fixedMergedItems', label: 'fusiones corregidas' },
+    { key: 'spotlightsUpdated', label: 'destacados actualizados' },
+];
+
+const repairPlaceHasNews = (row: RepairPlaceItemsPlace) => Boolean(row.error)
+    || row.conflicts.length > 0
+    || row.duplicates.length > 0
+    || REPAIR_COUNTER_LABELS.some(({ key }) => row[key] > 0);
+
+const RepairCounters: React.FC<{ counters: RepairPlaceItemsCounters }> = ({ counters }) => {
+    const shown = REPAIR_COUNTER_LABELS.filter(({ key }) => counters[key] > 0);
+    if (shown.length === 0) return <span className="text-xs text-gray-500">Sin cambios</span>;
+    return (
+        <div className="flex flex-wrap gap-1.5">
+            {shown.map(({ key, label }) => (
+                <span key={key} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-gray-300">
+                    <span className="font-black text-white">{counters[key]}</span> {label}
+                </span>
+            ))}
+        </div>
+    );
+};
+
+/**
+ * Reparación de cartas (adminRepairPlaceItems): pasa los datos antiguos al
+ * modelo nuevo. «Simular» solo cuenta; «Aplicar» escribe.
+ */
+const RepairPlaceItemsCard: React.FC = () => {
+    const confirm = useConfirm();
+    const { showToast } = useToast();
+    const [placeId, setPlaceId] = useState('');
+    const [running, setRunning] = useState<'dry' | 'apply' | null>(null);
+    const [result, setResult] = useState<RepairPlaceItemsResult | null>(null);
+
+    const run = async (dryRun: boolean) => {
+        if (running) return;
+        const target = placeId.trim();
+        if (!dryRun) {
+            const accepted = await confirm({
+                title: target ? '¿Reparar la carta de este sitio?' : '¿Reparar todas las cartas?',
+                message: target
+                    ? `Se reescribirán las valoraciones y los elementos de ${target}. Conviene simular antes.`
+                    : 'Se repararán los sitios verificados y los que tienen propuestas aprobadas (hasta 300). Conviene simular antes.',
+                confirmLabel: 'Aplicar',
+                destructive: true,
+            });
+            if (!accepted) return;
+        }
+        setRunning(dryRun ? 'dry' : 'apply');
+        try {
+            const response = await adminRepairPlaceItems({ placeId: target || undefined, dryRun });
+            setResult(response);
+            showToast({
+                variant: 'success',
+                message: dryRun ? 'Simulación lista: no se ha cambiado nada.' : 'Cartas reparadas.',
+            });
+        } catch (error) {
+            console.error('ProProposalsTab: repair place items failed', error);
+            showToast({ variant: 'error', message: getErrorMessage(error, 'No se pudieron reparar las cartas.') });
+        } finally {
+            setRunning(null);
+        }
+    };
+
+    const rowsWithNews = result ? result.places.filter(repairPlaceHasNews) : [];
+    const quietPlaces = result ? result.places.length - rowsWithNews.length : 0;
+
+    return (
+        <Card className="p-6">
+            <h3 className="text-lg font-bold text-white">🧹 Reparar cartas</h3>
+            <p className="mt-1 max-w-3xl text-sm text-gray-400">
+                Pone al día los datos antiguos: las valoraciones movidas o renombradas pasan a llevar el nombre oficial del
+                elemento, se recuperan los nombres de renombres y fusiones aprobados, se cierran duplicados y se actualizan
+                los platos destacados. Sin sitio, repasa los verificados y los que tienen propuestas aprobadas.
+            </p>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                <input
+                    value={placeId}
+                    onChange={(event) => setPlaceId(event.target.value)}
+                    onKeyDown={(event) => {
+                        if (event.key === 'Enter') void run(true);
+                    }}
+                    aria-label="placeId del sitio a reparar"
+                    placeholder="placeId (opcional, vacío para todos)"
+                    className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-4 py-2.5 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
+                />
+                <div className="flex gap-2">
+                    <Button variant="secondary" onClick={() => run(true)} disabled={running !== null}>
+                        {running === 'dry' && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Simular
+                    </Button>
+                    <Button variant="danger" onClick={() => run(false)} disabled={running !== null}>
+                        {running === 'apply' && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Aplicar
+                    </Button>
+                </div>
+            </div>
+
+            {result && (
+                <div className="mt-4 space-y-3" data-testid="repair-result">
+                    <div className="rounded-xl border border-white/10 bg-black/15 p-4">
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">
+                            {result.dryRun ? 'Simulación (no se ha cambiado nada)' : 'Aplicado'} · {result.totals.places} {result.totals.places === 1 ? 'sitio' : 'sitios'}
+                        </p>
+                        <RepairCounters counters={result.totals} />
+                        {result.truncated && (
+                            <p className="mt-2 text-xs text-amber-300">
+                                Se cortó antes de terminar (máximo de sitios o de tiempo). Vuelve a lanzarlo para seguir.
+                            </p>
+                        )}
+                    </div>
+                    {rowsWithNews.map((row) => (
+                        <div key={row.placeId} className="rounded-xl border border-white/10 bg-black/15 p-4">
+                            <div className="mb-2 flex flex-wrap items-center gap-2">
+                                <span className="truncate text-sm font-bold text-white">{row.placeName || row.placeId}</span>
+                                <a
+                                    href={`/place/${row.placeId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-gray-500 hover:text-white"
+                                    title="Abrir lugar"
+                                >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                </a>
+                            </div>
+                            {row.error ? (
+                                <p className="text-xs text-red-300">Error: {row.error}</p>
+                            ) : (
+                                <RepairCounters counters={row} />
+                            )}
+                            {row.conflicts.length > 0 && (
+                                <ul className="mt-2 space-y-0.5 text-xs text-amber-200">
+                                    {row.conflicts.map((conflict) => (
+                                        <li key={`c-${conflict.name}`}>
+                                            Conflicto «{conflict.name}»: {conflict.itemIds.join(', ')} (gana {conflict.itemIds[0]})
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                            {row.duplicates.length > 0 && (
+                                <ul className="mt-2 space-y-0.5 text-xs text-gray-400">
+                                    {row.duplicates.map((duplicate) => (
+                                        <li key={`d-${duplicate.name}`}>
+                                            Duplicado «{duplicate.name}»: {duplicate.itemIds.join(', ')}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    ))}
+                    {quietPlaces > 0 && (
+                        <p className="text-xs text-gray-500">
+                            {quietPlaces} {quietPlaces === 1 ? 'sitio sin cambios' : 'sitios sin cambios'}.
+                        </p>
+                    )}
+                </div>
+            )}
+        </Card>
+    );
 };
 
 export const ProProposalsTab: React.FC = () => {
@@ -331,6 +504,8 @@ export const ProProposalsTab: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            <RepairPlaceItemsCard />
 
             <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-6">
                 <h3 className="flex items-center gap-2 text-lg font-bold text-white">

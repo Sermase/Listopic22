@@ -26,6 +26,7 @@ import type { BusinessClaim } from '../services/BusinessClaimService';
 import { CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_LABELS, PET_POLICY_LABELS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { allergenLabel, itemDocIdFromName } from '../services/BusinessProService';
+import { reviewItemId } from '../lib/placeItems';
 import { compareByRank } from '../lib/scoring';
 import { PlaceStatsPanel } from '../components/place/PlaceStatsPanel';
 import { scoreBadgeStyle } from '../lib/scoreScale';
@@ -393,6 +394,12 @@ export const PlacePage: React.FC = () => {
         }
     };
 
+    // Elementos oficiales de la carta por id (solo con Business Pro activo).
+    const officialItemsById = useMemo(
+        () => new Map((place?.officialItems || []).map((item) => [item.id, item] as const)),
+        [place?.officialItems],
+    );
+
     // --- Dishes Aggregation (Menu Mode: Platos) ---
     const dishes = useMemo(() => {
         if (!place?.reviews) return [];
@@ -401,18 +408,17 @@ export const PlacePage: React.FC = () => {
         // igual que el backend: así las fusiones y correcciones aprobadas
         // ("reggina rosa" → "regina rossa") se reflejan SIEMPRE, con o sin plan
         // Pro activo — las correcciones son datos comunitarios permanentes.
+        // El nombre sale del elemento oficial con ese id si está cargado; si no,
+        // del nombre más escrito (el servidor lo reescribe al canónico al curar).
         const dishMap: Record<string, {
             total: number; count: number; photos: string[]; listId?: string;
-            canonicalName?: string; nameCounts: Record<string, number>;
+            nameCounts: Record<string, number>;
         }> = {};
 
         place.reviews.forEach(r => {
             if (!r.itemName) return;
-            const review = r as typeof r & { canonicalItemId?: string; canonicalItemName?: string };
             const name = r.itemName.trim();
-            const key = (typeof review.canonicalItemId === 'string' && review.canonicalItemId)
-                ? review.canonicalItemId.replace(/\//g, '-')
-                : itemDocIdFromName(name);
+            const key = reviewItemId(r);
 
             if (!dishMap[key]) {
                 dishMap[key] = { total: 0, count: 0, photos: [], listId: r.listId, nameCounts: {} };
@@ -421,24 +427,22 @@ export const PlacePage: React.FC = () => {
             dish.total += r.overallRating;
             dish.count += 1;
             dish.nameCounts[name] = (dish.nameCounts[name] || 0) + 1;
-            if (typeof review.canonicalItemName === 'string' && review.canonicalItemName) {
-                dish.canonicalName = review.canonicalItemName;
-            }
             if (r.photoUrl) dish.photos.push(r.photoUrl);
             if (!dish.listId && r.listId) dish.listId = r.listId;
         });
 
-        return Object.values(dishMap).map(d => {
+        return Object.entries(dishMap).map(([itemId, d]) => {
             const mostFrequentName = Object.entries(d.nameCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
             return {
-                name: d.canonicalName || mostFrequentName,
+                itemId,
+                name: officialItemsById.get(itemId)?.name || mostFrequentName,
                 avg: d.total / d.count,
                 count: d.count,
                 photo: d.photos[0],
                 listId: d.listId,
             };
         }).sort((a, b) => compareByRank({ average: a.avg, count: a.count }, { average: b.avg, count: b.count }));
-    }, [place?.reviews]);
+    }, [place?.reviews, officialItemsById]);
 
 
     // Carta por secciones (Business Pro): items oficiales agrupados por las
@@ -449,13 +453,17 @@ export const PlacePage: React.FC = () => {
         const sections = place.menuSections || [];
         if (officialItems.length === 0) return null;
 
+        // Foto por id del elemento; por nombre solo para datos sin enlazar.
+        const photoByItemId = new Map<string, string>();
         const photoByKey = new Map<string, string>();
         dishes.forEach((dish) => {
-            if (dish.photo) photoByKey.set(dish.name.trim().toLowerCase(), dish.photo);
+            if (!dish.photo) return;
+            photoByItemId.set(dish.itemId, dish.photo);
+            photoByKey.set(dish.name.trim().toLowerCase(), dish.photo);
         });
         const withPhoto = officialItems.map((item) => ({
             ...item,
-            photo: item.keys.map((key) => photoByKey.get(key)).find(Boolean),
+            photo: photoByItemId.get(item.id) || item.keys.map((key) => photoByKey.get(key)).find(Boolean),
         }));
 
         const byName = (a: { rating: number | null; name: string }, b: { rating: number | null; name: string }) =>
@@ -473,7 +481,7 @@ export const PlacePage: React.FC = () => {
         const knownKeys = new Set(withPhoto.flatMap((item) => [...item.keys, item.id]));
         dishes.forEach((dish) => {
             const dishKey = dish.name.trim().toLowerCase();
-            if (knownKeys.has(dishKey) || knownKeys.has(itemDocIdFromName(dish.name))) return;
+            if (knownKeys.has(dish.itemId) || knownKeys.has(dishKey) || knownKeys.has(itemDocIdFromName(dish.name))) return;
             others.push({
                 id: `dish-${dishKey}`,
                 name: dish.name,
@@ -1936,7 +1944,7 @@ export const PlacePage: React.FC = () => {
                                             const isTop = dish.avg >= 8.5 && idx < 3;
                                             const scoreColor = dish.avg >= 8 ? 'text-emerald-400' : dish.avg >= 6 ? 'text-amber-400' : 'text-red-400';
                                             const official = place.hasBusinessPro
-                                                ? place.officialItemData?.[dish.name.trim().toLowerCase()]
+                                                ? (officialItemsById.get(dish.itemId) ?? place.officialItemData?.[dish.name.trim().toLowerCase()])
                                                 : undefined;
                                             return (
                                                 <Link

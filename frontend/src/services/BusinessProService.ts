@@ -2,6 +2,7 @@ import { collection, collectionGroup, doc, getDoc, getDocs, limit, query, where 
 import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions } from '../firebase';
 import { getAnalyticsSessionId } from './AnalyticsService';
+import type { CanonicalPlaceItem } from './CanonicalItemService';
 
 // Datos Business Pro: lectura directa de Firestore (colecciones públicas de solo
 // lectura) y escritura vía callables que validan gestor + plan Pro activo.
@@ -315,14 +316,60 @@ export const rebuildPlaceItems = async (placeId: string): Promise<void> => {
     await callable({ placeId });
 };
 
+// Elemento recién creado tal y como queda en places/{placeId}/items/{itemId}
+// (precio ya normalizado por el servidor), para pintarlo sin recargar la carta.
+export interface CreatedBusinessItem {
+    itemId: string;
+    name: string;
+    item: CanonicalPlaceItem;
+}
+
+interface CreateBusinessItemResponse {
+    ok?: boolean;
+    itemId?: string;
+    name?: string;
+    item?: Partial<CanonicalPlaceItem> | null;
+}
+
 export const createBusinessItem = async (
     placeId: string,
     name: string,
     businessData?: Partial<ItemBusinessData>,
-): Promise<{ itemId: string }> => {
-    const callable = httpsCallable<unknown, { itemId: string }>(functions, 'createBusinessItem');
+): Promise<CreatedBusinessItem> => {
+    const callable = httpsCallable<unknown, CreateBusinessItemResponse>(functions, 'createBusinessItem');
     const result = await callable({ placeId, name, businessData });
-    return result.data;
+    const data = result.data || {};
+    const raw = data.item || {};
+    const itemId = data.itemId || (typeof raw.id === 'string' && raw.id) || itemDocIdFromName(name);
+    const canonicalName = (typeof raw.canonicalName === 'string' && raw.canonicalName) || data.name || name;
+    // Si el backend aún no devuelve `item` (despliegue anterior), se reconstruye
+    // con lo enviado para no tener que recargar.
+    const item: CanonicalPlaceItem = {
+        id: itemId,
+        canonicalName,
+        status: raw.status || 'active',
+        source: raw.source || 'business',
+        businessData: raw.businessData || { ...EMPTY_ITEM_BUSINESS_DATA, ...(businessData || {}) },
+        stats: raw.stats || { reviewCount: 0, ratingCount: 0, ratingTotal: 0, averageRating: null, photoCount: 0 },
+    };
+    return { itemId, name: canonicalName, item };
+};
+
+// details del HttpsError 'already-exists' de createBusinessItem: el elemento
+// que ya ocupa ese nombre (o lo tuvo antes de un renombre).
+export interface BusinessItemExistsDetails {
+    itemId: string;
+    canonicalName: string;
+}
+
+export const getBusinessItemExistsDetails = (error: unknown): BusinessItemExistsDetails | null => {
+    if (!error || typeof error !== 'object') return null;
+    const { code, details } = error as { code?: unknown; details?: unknown };
+    if (code !== 'functions/already-exists' && code !== 'already-exists') return null;
+    if (!details || typeof details !== 'object') return null;
+    const { itemId, canonicalName } = details as { itemId?: unknown; canonicalName?: unknown };
+    if (typeof itemId !== 'string' || !itemId) return null;
+    return { itemId, canonicalName: typeof canonicalName === 'string' ? canonicalName : '' };
 };
 
 export const submitItemProposal = async (
@@ -766,4 +813,85 @@ export const weightedSampleSpotlights = (candidates: ItemSpotlight[], count: num
         pool.splice(index, 1);
     }
     return picked;
+};
+
+// ── Reparación de cartas (solo jefe) ────────────────────────────────────────
+
+export interface RepairNameGroup {
+    name: string;
+    itemIds: string[];
+}
+
+export interface RepairPlaceItemsCounters {
+    renamedReviews: number;
+    stampedReviews: number;
+    deactivatedItems: number;
+    mergedItems: number;
+    fixedMergedItems: number;
+    spotlightsUpdated: number;
+}
+
+export interface RepairPlaceItemsPlace extends RepairPlaceItemsCounters {
+    placeId: string;
+    placeName: string | null;
+    conflicts: RepairNameGroup[];
+    duplicates: RepairNameGroup[];
+    /** El servidor sigue con el resto de lugares si uno falla. */
+    error?: string;
+}
+
+export interface RepairPlaceItemsResult {
+    ok: boolean;
+    dryRun: boolean;
+    places: RepairPlaceItemsPlace[];
+    totals: RepairPlaceItemsCounters & { places: number };
+    truncated: boolean;
+}
+
+const REPAIR_COUNTER_KEYS: Array<keyof RepairPlaceItemsCounters> = [
+    'renamedReviews', 'stampedReviews', 'deactivatedItems', 'mergedItems', 'fixedMergedItems', 'spotlightsUpdated',
+];
+
+const asCount = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0);
+
+const mapNameGroups = (value: unknown): RepairNameGroup[] => (Array.isArray(value) ? value : [])
+    .map((entry) => {
+        const row = (entry && typeof entry === 'object' ? entry : {}) as { name?: unknown; itemIds?: unknown };
+        return {
+            name: typeof row.name === 'string' ? row.name : '',
+            itemIds: Array.isArray(row.itemIds) ? row.itemIds.filter((id): id is string => typeof id === 'string') : [],
+        };
+    });
+
+const mapRepairCounters = (data: Record<string, unknown>): RepairPlaceItemsCounters => (
+    Object.fromEntries(REPAIR_COUNTER_KEYS.map((key) => [key, asCount(data[key])])) as unknown as RepairPlaceItemsCounters
+);
+
+// Alinea los elementos de carta con el modelo nuevo: reescribe el nombre de las
+// valoraciones curadas, recupera alias de renombres/fusiones aprobados, cierra
+// duplicados y refresca los platos destacados. Con dryRun solo cuenta.
+export const adminRepairPlaceItems = async (input: { placeId?: string; dryRun: boolean }): Promise<RepairPlaceItemsResult> => {
+    const callable = httpsCallable<unknown, Record<string, unknown>>(functions, 'adminRepairPlaceItems');
+    const placeId = input.placeId?.trim();
+    const result = await callable(placeId ? { placeId, dryRun: input.dryRun } : { dryRun: input.dryRun });
+    const data = result.data || {};
+    const places = (Array.isArray(data.places) ? data.places : []).map((entry): RepairPlaceItemsPlace => {
+        const row = (entry && typeof entry === 'object' ? entry : {}) as Record<string, unknown>;
+        return {
+            placeId: typeof row.placeId === 'string' ? row.placeId : '',
+            placeName: typeof row.placeName === 'string' && row.placeName ? row.placeName : null,
+            ...mapRepairCounters(row),
+            conflicts: mapNameGroups(row.conflicts),
+            duplicates: mapNameGroups(row.duplicates),
+            ...(typeof row.error === 'string' && row.error ? { error: row.error } : {}),
+        };
+    });
+    const totals = (data.totals && typeof data.totals === 'object' ? data.totals : {}) as Record<string, unknown>;
+    return {
+        ok: data.ok === true,
+        dryRun: data.dryRun !== false,
+        places,
+        totals: { places: asCount(totals.places) || places.length, ...mapRepairCounters(totals) },
+        truncated: data.truncated === true,
+    };
 };

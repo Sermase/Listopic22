@@ -37,6 +37,8 @@ const authors = [...new Set(vectors.reviews.map((r) => r.userId))];
 const users = [
   { uid: 'duena', name: 'Dueña', types: ['basico'] },
   { uid: 'jefe', name: 'Jefa', types: ['basico', 'jefe'] },
+  // Gestora del negocio Business Pro de carta.spec.ts.
+  { uid: 'gerente', name: 'Gerente', types: ['basico'] },
   ...authors.map((uid) => ({ uid, name: uid === 'bot' ? 'ListopIA' : uid, types: vectors.botAuthorIds.includes(uid) ? ['basico', 'bot'] : ['basico'] })),
 ];
 
@@ -74,6 +76,20 @@ async function seed() {
       establishmentName: 'Bar Robot', authorUserType: ['basico', 'bot'], createdAt: Timestamp.fromMillis(1_790_000_000_000),
     });
   }
+
+  // Carta (carta.spec.ts): negocio Business Pro con gestora y una valoración con el
+  // nombre del plato mal escrito, en su propia Lista para no tocar el caso de «bravas».
+  await db.doc('places/p_carta').set({
+    name: 'Casa Carta', city: 'Valladolid', province: 'Valladolid', region: 'Castilla y León', country: 'España',
+    location: new GeoPoint(41.6548, -4.7231), address: 'Casa Carta, Valladolid',
+    businessVerified: true, businessProActive: true, businessTier: 'pro', businessPlanSource: 'manual', businessManagerIds: ['gerente'],
+  });
+  await db.doc('lists/croquetas').set({ ...base, name: 'Croquetas E2E', isPublic: true, visibility: 'public', criteriaDefinition: list.criteriaDefinition, scoringWeights: list.scoringWeights });
+  await db.doc('lists/croquetas/reviews/rc1').set({
+    userId: 'ana', authorName: 'ana', placeId: 'p_carta', itemName: 'Croketa de jamon', visibility: 'public', overallRating: 8, listId: 'croquetas',
+    comment: 'Cremosa por dentro y crujiente por fuera.', establishmentName: 'Casa Carta', authorUserType: ['basico'],
+    createdAt: Timestamp.fromMillis(1_790_000_000_000),
+  });
 
   for (const r of vectors.reviews) {
     const { id, createdAtMs, ...data } = r;
@@ -131,6 +147,8 @@ async function main() {
   await callFunction('adminRecalculateAllLists', {}, 'jefe@e2e.test');
   // Contadores y notas de sitios (lib/place-rating.js) con la Function real.
   await callFunction('adminRecountReviewCounters', {}, 'jefe@e2e.test');
+  // Elementos de la carta de p_carta desde su valoración (sembrada con los triggers apagados).
+  await callFunction('rebuildPlaceItemsForManager', { placeId: 'p_carta' }, 'jefe@e2e.test');
   const result = await callFunction('adminBackfillAlgolia', { collectionName: 'grouped_items' }, 'jefe@e2e.test');
   for (const collectionName of ['lists', 'places', 'users']) await callFunction('adminBackfillAlgolia', { collectionName }, 'jefe@e2e.test');
   const records = await algoliaRecords('grouped_items', 'listId:"bravas"');

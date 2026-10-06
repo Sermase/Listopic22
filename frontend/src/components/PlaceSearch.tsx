@@ -12,7 +12,7 @@ interface PlaceSearchProps {
 }
 
 export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder = "Ej: La Pizzería Genial", prefillValue, onManualToggle }) => {
-    const { location, loading: locLoading } = useLocation();
+    const { location, loading: locLoading, requestLocation } = useLocation();
     const [query, setQuery] = useState(prefillValue || '');
     const [results, setResults] = useState<PlaceResult[]>([]);
     const [loading, setLoading] = useState(false);
@@ -43,50 +43,29 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
 
                 setStatusMessage("Obteniendo ubicación...");
 
-                // Use cached location or fetch fresh
-                const lat = location?.latitude;
-                const lng = location?.longitude;
-
-                if (lat && lng) {
-                    setStatusMessage("Buscando sitios cercanos...");
-                    const data = await PlaceService.searchNearby(lat, lng);
-
-                    // Sort by distance
-                    data.sort((a, b) => {
-                        if (a.distance === undefined) return 1;
-                        if (b.distance === undefined) return -1;
-                        return a.distance - b.distance;
-                    });
-
-                    setResults(data);
-                    setIsOpen(true);
-                    if (data.length === 0) setStatusMessage("No se encontraron sitios cercanos.");
-                    else setStatusMessage(null);
-                } else {
-                    // Force refresh if hook didn't catch it yet
-                    navigator.geolocation.getCurrentPosition(async (pos) => {
-                        const data = await PlaceService.searchNearby(pos.coords.latitude, pos.coords.longitude);
-
-                        // Sort by distance
-                        data.sort((a, b) => {
-                            if (a.distance === undefined) return 1;
-                            if (b.distance === undefined) return -1;
-                            return a.distance - b.distance;
-                        });
-
-                        setResults(data);
-                        setIsOpen(true);
-                        setLoading(false);
-                        if (data.length === 0) setStatusMessage("No se encontraron sitios cercanos.");
-                        else setStatusMessage(null);
-                    }, (err) => {
-                        console.warn("Geo error", err);
-                        setStatusMessage("No se pudo obtener la ubicación.");
-                        setLoading(false);
-                    });
-                    // Return here to wait for callback
+                // Ubicación compartida de la app: si aún no la hay se pide (o se
+                // espera la petición en curso) y la reciben también el resto de
+                // pantallas.
+                const current = location ?? await requestLocation();
+                if (!current) {
+                    setStatusMessage("No se pudo obtener la ubicación.");
                     return;
                 }
+
+                setStatusMessage("Buscando sitios cercanos...");
+                const data = await PlaceService.searchNearby(current.latitude, current.longitude);
+
+                // Sort by distance
+                data.sort((a, b) => {
+                    if (a.distance === undefined) return 1;
+                    if (b.distance === undefined) return -1;
+                    return a.distance - b.distance;
+                });
+
+                setResults(data);
+                setIsOpen(true);
+                if (data.length === 0) setStatusMessage("No se encontraron sitios cercanos.");
+                else setStatusMessage(null);
             }
             // Case 2: Text Query -> Text Search
             else {

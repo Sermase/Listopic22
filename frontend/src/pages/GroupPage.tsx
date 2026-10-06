@@ -20,9 +20,20 @@ import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
 import { ElementRanks } from '../components/ElementRanks';
 import { useAuthPrompt } from '../context/AuthPromptContext';
+import { itemNameKey, resolvePlaceItemByName, reviewItemId, type PlaceItemLike } from '../lib/placeItems';
 
 import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
 
+
+// react-router ya entrega el parámetro decodificado: un segundo decode rompe
+// con nombres como «100% ternera». Se mantiene por enlaces doblemente codificados.
+const safeDecode = (value: string): string => {
+    try {
+        return decodeURIComponent(value);
+    } catch {
+        return value;
+    }
+};
 
 const toMillis = (value: any): number => {
     if (!value) return 0;
@@ -37,7 +48,7 @@ export const GroupPage: React.FC = () => {
     const { user } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
     const navigate = useNavigate();
-    const decodedName = decodeURIComponent(itemName || '');
+    const decodedName = safeDecode(itemName || '');
 
     // Redirect if no item name
     useEffect(() => {
@@ -61,6 +72,17 @@ export const GroupPage: React.FC = () => {
     const location = useLocation();
     const searchParams = new URLSearchParams(location.search);
     const fromListId = searchParams.get('listId');
+    // Para conservar ?listId=… al redirigir un nombre antiguo al canónico.
+    const searchRef = React.useRef(location.search);
+    useEffect(() => {
+        searchRef.current = location.search;
+    }, [location.search]);
+    // Elementos de la carta del sitio (solo se leen si el nombre no casa con ninguna reseña).
+    const placeItemsRef = React.useRef<{ placeId: string; items: PlaceItemLike[] } | null>(null);
+    // Un solo salto por navegación: nunca se encadenan redirecciones.
+    const justRedirectedRef = React.useRef(false);
+    // Cuenta las cargas: una que ya no es la vigente (otro nombre o página) no redirige.
+    const fetchSeqRef = React.useRef(0);
 
     // Logic for "Valorar"
     const [isFlowOpen, setIsFlowOpen] = useState(false);
@@ -111,6 +133,10 @@ export const GroupPage: React.FC = () => {
     const fetchData = React.useCallback(async () => {
         if (!placeId || !decodedName) return;
         setLoading(true);
+        let redirecting = false;
+        const seq = ++fetchSeqRef.current;
+        const alreadyRedirected = justRedirectedRef.current;
+        justRedirectedRef.current = false;
         try {
 
             // 1. Fetch Place Details First to get authoritative Name
@@ -173,21 +199,52 @@ export const GroupPage: React.FC = () => {
 
             const allPlaceReviews = Array.from(reviewMap.values());
 
-            // Robust normalization for filtering
-            const normalize = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-            const targetName = normalize(decodedName);
-            const normalizedPlaceName = normalize(fetchedPlaceName);
+            // Misma comparación que la agrupación de las Listas («Bravás!» = «bravas»).
+            const targetName = itemNameKey(decodedName);
+            const isPlaceGroup = Boolean(fetchedPlaceName) && itemNameKey(fetchedPlaceName) === targetName;
 
-            const feats: ReviewEntity[] = allPlaceReviews
-                .filter(r => {
-                    if (r.itemName) {
-                        return normalize(r.itemName) === targetName;
+            let feats: ReviewEntity[] = allPlaceReviews.filter(r => {
+                if (r.itemName) {
+                    return itemNameKey(r.itemName) === targetName;
+                }
+                // If review has no item name, it belongs to the Place.
+                // Include it ONLY if the current Group Page IS the Place Page (TargetName == PlaceName)
+                return isPlaceGroup;
+            });
+
+            // Ninguna reseña con ese nombre: puede ser un nombre antiguo (renombre,
+            // fusión) o el oficial de un elemento cuyas reseñas aún no ha
+            // reescrito el servidor. Se resuelve contra la carta del sitio.
+            if (feats.length === 0 && !isPlaceGroup && pSnap.exists()) {
+                let placeItems = placeItemsRef.current?.placeId === placeId ? placeItemsRef.current.items : null;
+                if (!placeItems) {
+                    try {
+                        const itemsSnap = await getDocs(collection(db, 'places', placeId, 'items'));
+                        placeItems = itemsSnap.docs.map((itemDoc) => ({ id: itemDoc.id, ...itemDoc.data() }) as PlaceItemLike);
+                    } catch (error) {
+                        console.warn('Error loading place items for group page', error);
+                        placeItems = [];
                     }
-                    // If review has no item name, it belongs to the Place.
-                    // Include it ONLY if the current Group Page IS the Place Page (TargetName == PlaceName)
-                    return normalizedPlaceName === targetName;
-                })
-                .sort((a: any, b: any) => toMillis(b.createdAt) - toMillis(a.createdAt));
+                    placeItemsRef.current = { placeId, items: placeItems };
+                }
+                const item = resolvePlaceItemByName(placeItems, decodedName);
+                const canonicalName = typeof item?.canonicalName === 'string' ? item.canonicalName.trim() : '';
+                if (item && canonicalName && itemNameKey(canonicalName) !== targetName && !alreadyRedirected
+                    && seq === fetchSeqRef.current) {
+                    // Los enlaces y favoritos con el nombre antiguo siguen funcionando.
+                    redirecting = true;
+                    justRedirectedRef.current = true;
+                    navigate(`/group/${placeId}/${encodeURIComponent(canonicalName)}${searchRef.current}`, { replace: true });
+                    return;
+                }
+                if (item) {
+                    // Reseñas enlazadas al elemento (movidas antes del nuevo modelo o
+                    // con el nombre anterior a un renombre).
+                    feats = allPlaceReviews.filter(r => Boolean(r.itemName) && reviewItemId(r) === item.id);
+                }
+            }
+
+            feats.sort((a: any, b: any) => toMillis(b.createdAt) - toMillis(a.createdAt));
 
 
             // --- Enrichment: Users & Lists (FIX for missing names) ---
@@ -243,12 +300,16 @@ export const GroupPage: React.FC = () => {
         } catch (error) {
             console.error("Error fetching group data", error);
         } finally {
-            setLoading(false);
+            // Al redirigir al nombre canónico se sigue cargando con el nuevo nombre.
+            if (!redirecting) setLoading(false);
         }
-    }, [placeId, decodedName, user?.uid]); // Dependencies for callback
+    }, [placeId, decodedName, user?.uid, navigate]); // Dependencies for callback
 
     useEffect(() => {
         fetchData();
+        return () => {
+            fetchSeqRef.current += 1;
+        };
     }, [fetchData]);
 
     // Aggregate Stats (Overall + Criteria) - REFACTORED to use Primary List Order
