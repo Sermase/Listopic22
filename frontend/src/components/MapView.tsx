@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { createRatingMarkerIcon, createEmojiMarkerIcon, createSponsoredMarkerIcon, getRatingColor, MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
@@ -63,16 +63,33 @@ const UserLocationFeatures = ({ range }: { range: number | null }) => {
 const CustomLocateControl = () => {
     const map = useMap();
     const { location, requestLocation, loading } = useLocation();
+    // El toque deja el vuelo pendiente y se vuela cuando llega la posición
+    // (antes el primer toque no hacía nada: leía la ubicación del render previo).
+    const pendingFlyRef = useRef(false);
+
+    useEffect(() => {
+        if (!pendingFlyRef.current || !location) return;
+        pendingFlyRef.current = false;
+        map.flyTo([location.latitude, location.longitude], 14, {
+            animate: true,
+            duration: 1.5
+        });
+    }, [location, map]);
 
     const handleLocate = (e: React.MouseEvent) => {
         e.stopPropagation();
-        requestLocation();
-        if (location) {
-            map.flyTo([location.latitude, location.longitude], 14, {
+        const known = location;
+        if (known) {
+            map.flyTo([known.latitude, known.longitude], 14, {
                 animate: true,
                 duration: 1.5
             });
         }
+        pendingFlyRef.current = true;
+        void requestLocation().then((fresh) => {
+            // Sin posición o la misma de antes: ya no queda nada por volar.
+            if (!fresh || fresh === known) pendingFlyRef.current = false;
+        });
     };
 
     return (
@@ -199,7 +216,9 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
     return null;
 }
 
-export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center = [40.416, -3.703], range = null, showLayerControl = true }) => {
+const DEFAULT_CENTER: [number, number] = [40.416, -3.703];
+
+export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center = DEFAULT_CENTER, range = null, showLayerControl = true }) => {
 
     const { location } = useLocation();
     const { user, isJefe } = useAuth();
@@ -255,8 +274,11 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
 
     const activeLayer = MAP_LAYERS[currentLayer];
 
-    // Normalize Items based on input to match Interface
-    const validItems: MapItem[] = items.flatMap((item, index) => {
+    // Normalize Items based on input to match Interface. Memorizado: la
+    // ubicación es compartida y cada cambio (p. ej. «buscando…») re-renderiza
+    // el mapa; sin esto MapUpdater re-encuadraría y anularía «Centrar en mi
+    // ubicación».
+    const validItems: MapItem[] = useMemo(() => items.flatMap((item, index) => {
         const lat = item.lat ?? item.latitude;
         const lng = item.lng ?? item.longitude;
 
@@ -277,14 +299,16 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
             color: item.color,
             items: item.items
         }];
-    });
+    }), [items]);
+    const [centerLat, centerLng] = center;
+    const stableCenter = useMemo<[number, number]>(() => [centerLat, centerLng], [centerLat, centerLng]);
 
     // Determine Initial Map Center (Fallback)
     const initialCenter = location
         ? [location.latitude, location.longitude] as [number, number]
         : (validItems.length > 0 && validItems[0].lat && validItems[0].lng
             ? [validItems[0].lat!, validItems[0].lng!] as [number, number]
-            : center);
+            : stableCenter);
 
     return (
         <div className="h-full w-full relative z-0">
@@ -296,7 +320,7 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                 />
                 <TileFilterApplier filter={activeLayer.tileFilter} />
 
-                <MapUpdater center={center} items={validItems} range={range} location={location} />
+                <MapUpdater center={stableCenter} items={validItems} range={range} location={location} />
 
                 {/* User Location Features */}
                 <UserLocationFeatures range={range} />

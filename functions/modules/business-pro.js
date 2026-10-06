@@ -10,12 +10,17 @@
 // Todas exigen gestor/propietario del negocio + plan Business Pro activo
 // (el jefe puede escribir siempre, para pruebas y soporte). Las reglas de
 // Firestore dejan estas colecciones en solo lectura para el cliente.
+//
+// Límite diario por usuario y local: la edición de la carta (alta de
+// elementos, ficha, secciones) tiene su propio cupo amplio (MENU_RATE_LIMIT);
+// propuestas, patrocinios y ofertas siguen con 100. Los admin no tienen límite.
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { assertJefeAccess, rateLimit, writeAuditLog } = require("./lib/auth");
 const { hasActiveBusinessPro } = require("./lib/business-plan");
+const { parseMenuPrice } = require("./lib/menu-price");
 
 const db = getFirestore();
 
@@ -25,6 +30,8 @@ const VALID_VISUAL_STYLES = new Set(["editorial", "clean", "warm", "night"]);
 const VALID_OFFER_STATUSES = new Set(["draft", "active"]);
 const MAX_OFFERS = 20;
 const MAX_MENU_SECTIONS = 20;
+const DEFAULT_RATE_LIMIT = { bucket: "businessProUpdate", limit: 100 };
+const MENU_RATE_LIMIT = { bucket: "businessProMenu", limit: 600 };
 
 // Los 14 alérgenos de declaración obligatoria en la UE.
 const VALID_ALLERGENS = new Set([
@@ -33,11 +40,16 @@ const VALID_ALLERGENS = new Set([
 ]);
 
 // Sanitización compartida de la ficha oficial de un item (también la usa
-// business-items.js al crear elementos nuevos).
-function sanitizeItemBusinessData(raw = {}) {
+// business-items.js al crear elementos nuevos). El precio se normaliza
+// ("1,2" → "1,20 €") y se guardan también los céntimos (null si no es un
+// número, p. ej. "Según mercado").
+function sanitizeItemBusinessData(raw) {
+  raw = raw && typeof raw === "object" ? raw : {};
+  const { price, priceCents } = parseMenuPrice(typeof raw.price === "number" ? raw.price : asString(raw.price, 40));
   return {
     group: asString(raw.group, 60),
-    price: asString(raw.price, 40),
+    price,
+    priceCents,
     discount: asString(raw.discount, 80),
     ingredients: asString(raw.ingredients, 300).replace(/[<>]/g, ""),
     description: asString(raw.description, 500).replace(/[<>]/g, ""),
@@ -70,7 +82,7 @@ const sanitizeDateString = (value) => {
   return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : "";
 };
 
-async function assertBusinessProAccess(placeId, uid) {
+async function assertBusinessProAccess(placeId, uid, { bucket = DEFAULT_RATE_LIMIT.bucket, limit = DEFAULT_RATE_LIMIT.limit } = {}) {
   if (!uid) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
   if (!placeId) throw new HttpsError("invalid-argument", "Falta placeId.");
 
@@ -97,12 +109,20 @@ async function assertBusinessProAccess(placeId, uid) {
     throw new HttpsError("permission-denied", "Este local no tiene Business Pro activo.");
   }
 
-  const rate = await rateLimit("businessProUpdate", `${uid}_${placeId}`, 100, 24 * 60 * 60);
-  if (!rate.allowed) {
-    throw new HttpsError("resource-exhausted", "Has hecho demasiados cambios hoy en este negocio.");
+  if (!isAdmin) {
+    const rate = await rateLimit(bucket, `${uid}_${placeId}`, limit, 24 * 60 * 60);
+    if (!rate.allowed) {
+      throw new HttpsError("resource-exhausted", "Has hecho demasiados cambios hoy en este negocio.");
+    }
   }
 
-  return { placeRef, place };
+  return { placeRef, place, isAdmin };
+}
+
+// Edición de la carta (alta de elementos, ficha, secciones): mismo control de
+// acceso con el cupo propio de la carta.
+function assertBusinessMenuAccess(placeId, uid) {
+  return assertBusinessProAccess(placeId, uid, MENU_RATE_LIMIT);
 }
 
 // invoker: 'public' fuerza la invocación no autenticada a nivel de Cloud Run;
@@ -141,7 +161,7 @@ const updateCanonicalItemBusinessData = onCall({ invoker: "public" }, async (req
   const itemId = asString(request.data?.itemId, 300);
   if (!itemId) throw new HttpsError("invalid-argument", "Falta itemId.");
 
-  const { placeRef, place } = await assertBusinessProAccess(placeId, uid);
+  const { placeRef, place } = await assertBusinessMenuAccess(placeId, uid);
 
   const itemRef = placeRef.collection("items").doc(itemId);
   const itemSnap = await itemRef.get();
@@ -176,7 +196,7 @@ const updateCanonicalItemBusinessData = onCall({ invoker: "public" }, async (req
 const updateBusinessMenuSections = onCall({ invoker: "public" }, async (request) => {
   const uid = request.auth?.uid;
   const placeId = asString(request.data?.placeId, 300);
-  const { placeRef, place } = await assertBusinessProAccess(placeId, uid);
+  const { placeRef, place } = await assertBusinessMenuAccess(placeId, uid);
 
   const rawSections = Array.isArray(request.data?.sections) ? request.data.sections : [];
   const seen = new Set();
@@ -307,4 +327,5 @@ module.exports = {
   // Helpers compartidos con business-items.js y sponsored.js.
   assertBusinessProAccess,
   sanitizeItemBusinessData,
+  assertBusinessMenuAccess,
 };

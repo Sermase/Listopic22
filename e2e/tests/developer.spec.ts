@@ -17,7 +17,8 @@ test('Reseñas: carga todo por el servidor y se edita una valoración en su moda
   await expect(page.getByText(/Activando tus permisos/)).toBeHidden({ timeout: 20_000 });
   await openTab(page, 'Reseñas');
   await page.getByRole('button', { name: /^\s*Cargar\s*$/ }).click();
-  await expect(page.getByText(/\d+ \/ 27 reseñas/)).toBeVisible();
+  // 25 del caso compartido + 2 de «Bar Robot» + 1 de «Casa Carta» (carta.spec.ts).
+  await expect(page.getByText(/\d+ \/ 28 reseñas/)).toBeVisible();
 
   // La de «Bar Robot» (Lista «Robots E2E»): ninguna prueba posterior depende de ella.
   await page.getByPlaceholder('itemName...').fill('Bravas robot');

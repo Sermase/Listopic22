@@ -17,6 +17,7 @@ import {
     Trash2,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useConfirm } from '../../context/ConfirmContext';
 import { BUSINESS_PRO_CHECKOUT_ENABLED } from '../../config/features';
 import { formatEur } from '../../config/planBeta';
 import { createImpulsePackCheckoutSession } from '../../services/BusinessBillingService';
@@ -37,6 +38,7 @@ import {
     EMPTY_OFFER_DATA,
     EMPTY_VISUAL_DATA,
     getBusinessMenuSections,
+    getBusinessItemExistsDetails,
     getBusinessOffers,
     getBusinessVisual,
     getMyItemProposals,
@@ -45,6 +47,7 @@ import {
     getPlaceSponsoredPlacements,
     getPlaceSpotlightCredits,
     getSpotlightPricing,
+    normalizeItemName,
     rebuildPlaceItems,
     requestItemSpotlight,
     requestSponsoredPlacement,
@@ -381,25 +384,71 @@ const formatReviewDate = (ms: number): string => {
     return new Date(ms).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+// Mismo orden que getCanonicalPlaceItems (más valoraciones primero, luego por
+// nombre), para colocar un plato recién creado sin recargar la carta.
+const sortPlaceItems = (rows: CanonicalPlaceItem[]): CanonicalPlaceItem[] => [...rows].sort((a, b) =>
+    (b.stats?.reviewCount || 0) - (a.stats?.reviewCount || 0)
+    || (a.canonicalName || a.id).localeCompare(b.canonicalName || b.id, 'es'));
+
+const itemGroupOf = (item: CanonicalPlaceItem): string => {
+    const group = (item.businessData as Record<string, unknown> | undefined)?.group;
+    return typeof group === 'string' ? group : '';
+};
+
+const MAX_MENU_SECTIONS = 20;
+
+// En escritorio (lg) la ficha está al lado de la lista; en móvil queda debajo.
+const isSideBySideLayout = (): boolean => typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(min-width: 1024px)').matches;
+
 export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId }) => {
     const { user } = useAuth();
+    const confirm = useConfirm();
     const rebuildAttempted = React.useRef(false);
     const [items, setItems] = useState<CanonicalPlaceItem[]>([]);
     const [reviews, setReviews] = useState<ManagerPlaceReview[]>([]);
     const [proposals, setProposals] = useState<ItemProposal[]>([]);
     const [loading, setLoading] = useState(true);
+    // Recargas posteriores a la primera: no cambian la lista por el spinner.
+    const [refreshing, setRefreshing] = useState(false);
+    // Sube con cada cambio local de `items`: una lectura que empezó antes no lo pisa.
+    const itemsVersion = React.useRef(0);
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const selectedIdRef = React.useRef<string | null>(null);
     const [form, setForm] = useState<ItemBusinessData>(EMPTY_ITEM_BUSINESS_DATA);
     const [saving, setSaving] = useState(false);
-    const [message, setMessage] = useState<Message>(null);
+    // Cada aviso se pinta junto al control que lo produce.
+    const [addMessage, setAddMessage] = useState<Message>(null);
+    const [addedItemId, setAddedItemId] = useState<string | null>(null);
+    const [sectionsMessage, setSectionsMessage] = useState<Message>(null);
+    const [itemMessage, setItemMessage] = useState<Message>(null);
+    const [reviewsMessage, setReviewsMessage] = useState<Message>(null);
+    const [proposalMessage, setProposalMessage] = useState<Message>(null);
 
     const [newItemName, setNewItemName] = useState('');
+    const [newItemGroup, setNewItemGroup] = useState('');
+    const [newItemPrice, setNewItemPrice] = useState('');
     const [creatingItem, setCreatingItem] = useState(false);
+    const creatingItemRef = React.useRef(false);
+    const newItemInputRef = React.useRef<HTMLInputElement>(null);
+    const itemsListRef = React.useRef<HTMLDivElement>(null);
+    const sheetRef = React.useRef<HTMLDivElement>(null);
+    const pendingRevealId = React.useRef<string | null>(null);
 
     const [sections, setSections] = useState<MenuSection[]>([]);
     const [sectionDraft, setSectionDraft] = useState('');
     const [savingSections, setSavingSections] = useState(false);
-    const [sectionsDirty, setSectionsDirty] = useState(false);
+    const [sectionsSaved, setSectionsSaved] = useState(false);
+    // Las secciones se guardan al momento y en orden. load() no pisa las locales
+    // si hay guardados en curso o si cambiaron mientras leía.
+    const sectionsVersion = React.useRef(0);
+    const pendingSectionSaves = React.useRef(0);
+    const sectionsSaveChain = React.useRef<Promise<void>>(Promise.resolve());
+    // No se tocan hasta leer las guardadas de este sitio: como cada cambio guarda la
+    // lista entera, uno hecho antes borraría las que ya había en el servidor.
+    const [sectionsReadyFor, setSectionsReadyFor] = useState<string | null>(null);
+    const sectionsReady = sectionsReadyFor === placeId;
 
     const [showPreview, setShowPreview] = useState(false);
     const [mergeTargetId, setMergeTargetId] = useState('');
@@ -409,8 +458,11 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
     const [movingReviewPath, setMovingReviewPath] = useState<string | null>(null);
     const [moveTargetId, setMoveTargetId] = useState('');
 
-    const load = async () => {
-        setLoading(true);
+    const load = async ({ silent = false }: { silent?: boolean } = {}): Promise<CanonicalPlaceItem[] | null> => {
+        if (silent) setRefreshing(true);
+        else setLoading(true);
+        const startItemsVersion = itemsVersion.current;
+        const startSectionsVersion = sectionsVersion.current;
         try {
             const [itemRows, reviewRows, proposalRows, sectionRows] = await Promise.all([
                 getCanonicalPlaceItems(placeId),
@@ -419,32 +471,54 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                     return [] as ManagerPlaceReview[];
                 }),
                 user ? getMyItemProposals(placeId, user.uid).catch(() => [] as ItemProposal[]) : Promise.resolve([] as ItemProposal[]),
-                getBusinessMenuSections(placeId).catch(() => [] as MenuSection[]),
+                getBusinessMenuSections(placeId).catch((error) => {
+                    console.error('BusinessItemsSection: sections load failed', error);
+                    return null;
+                }),
             ]);
-            setItems(itemRows);
             setReviews(reviewRows);
             setProposals(proposalRows);
-            setSections(sectionRows);
-            setSectionsDirty(false);
+            if (sectionRows) {
+                if (pendingSectionSaves.current === 0 && sectionsVersion.current === startSectionsVersion) {
+                    setSections(sectionRows);
+                }
+                setSectionsReadyFor(placeId);
+            } else if (sectionsReadyFor !== placeId) {
+                setSectionsMessage({ type: 'error', text: 'No se pudieron cargar tus secciones. Recarga la página para editarlas.' });
+            }
 
             // Autocuración: si hay reseñas cuyo elemento no está persistido
             // (lugares con reseñas anteriores al sistema de items), se
             // reconstruyen los items del lugar una sola vez y se recarga.
+            let nextItems = itemRows;
             const knownIds = new Set(itemRows.map((item) => item.id));
             const hasOrphanReviews = reviewRows.some((review) => review.itemName && !knownIds.has(review.itemId));
             if (hasOrphanReviews && !rebuildAttempted.current) {
                 rebuildAttempted.current = true;
                 try {
                     await rebuildPlaceItems(placeId);
-                    setItems(await getCanonicalPlaceItems(placeId));
+                    nextItems = await getCanonicalPlaceItems(placeId);
                 } catch (error) {
                     console.warn('BusinessItemsSection: rebuild failed', error);
                 }
             }
+            if (itemsVersion.current === startItemsVersion) {
+                setItems(nextItems);
+            } else {
+                // Hubo cambios locales durante la lectura (un plato recién creado):
+                // se conservan y se añade lo que faltaba.
+                setItems((prev) => {
+                    const localIds = new Set(prev.map((item) => item.id));
+                    return sortPlaceItems([...prev, ...nextItems.filter((item) => !localIds.has(item.id))]);
+                });
+            }
+            return nextItems;
         } catch (error) {
             console.error('BusinessItemsSection: load failed', error);
+            return null;
         } finally {
-            setLoading(false);
+            if (silent) setRefreshing(false);
+            else setLoading(false);
         }
     };
 
@@ -452,6 +526,25 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
         void load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [placeId, user?.uid]);
+
+    // Tras añadir (o reabrir) un plato desde el alta rápida: su fila se trae a la
+    // vista dentro de la lista y, si la ficha está al lado, también la ficha. En
+    // móvil la ficha queda debajo y no se salta allí para seguir añadiendo platos.
+    useEffect(() => {
+        const revealId = pendingRevealId.current;
+        if (!revealId) return;
+        pendingRevealId.current = null;
+        const container = itemsListRef.current;
+        const row = Array.from(container?.querySelectorAll<HTMLElement>('[data-item-id]') || [])
+            .find((element) => element.dataset.itemId === revealId);
+        if (container && row) {
+            const box = container.getBoundingClientRect();
+            const rect = row.getBoundingClientRect();
+            if (rect.top < box.top) container.scrollTop -= box.top - rect.top;
+            else if (rect.bottom > box.bottom) container.scrollTop += rect.bottom - box.bottom;
+        }
+        if (isSideBySideLayout()) sheetRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+    }, [items, selectedId]);
 
     const reviewsByItem = useMemo(() => {
         const map = new Map<string, ManagerPlaceReview[]>();
@@ -497,69 +590,136 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
     }, [items, sections]);
 
     const selectItem = (item: CanonicalPlaceItem) => {
+        selectedIdRef.current = item.id;
         setSelectedId(item.id);
         setForm(itemBusinessDataFrom(item));
         setMergeTargetId('');
         setRenameValue('');
+        setProposalNote('');
         setMovingReviewPath(null);
-        setMessage(null);
+        setMoveTargetId('');
+        setItemMessage(null);
+        setReviewsMessage(null);
+        setProposalMessage(null);
+    };
+
+    // El servidor normaliza el precio ('1,2' → '1,20 €'): se relee la carta para
+    // mostrarlo tal y como ha quedado guardado.
+    const syncStoredPrice = async (itemId: string, sentPrice: string) => {
+        if (!sentPrice.trim()) return;
+        const startVersion = itemsVersion.current;
+        const fresh = await getCanonicalPlaceItems(placeId)
+            .then((rows) => rows.find((item) => item.id === itemId) || null)
+            .catch(() => null);
+        const stored = fresh?.businessData?.price;
+        if (!fresh || typeof stored !== 'string' || stored === sentPrice) return;
+        if (itemsVersion.current !== startVersion) return;
+        setItems((prev) => prev.map((item) => item.id === itemId ? { ...item, businessData: fresh.businessData } : item));
+        if (selectedIdRef.current === itemId) {
+            setForm((prev) => prev.price === sentPrice ? { ...prev, price: stored } : prev);
+        }
     };
 
     const save = async () => {
         if (!selectedId) return;
+        const itemId = selectedId;
+        const data = form;
         setSaving(true);
-        setMessage(null);
+        setItemMessage(null);
         try {
-            await updateCanonicalItemBusinessData(placeId, selectedId, form);
-            setItems((prev) => prev.map((item) => item.id === selectedId
-                ? { ...item, businessData: { ...(item.businessData || {}), ...form } }
+            await updateCanonicalItemBusinessData(placeId, itemId, data);
+            itemsVersion.current += 1;
+            setItems((prev) => prev.map((item) => item.id === itemId
+                ? { ...item, businessData: { ...(item.businessData || {}), ...data } }
                 : item));
-            setMessage({ type: 'success', text: 'Ficha oficial guardada.' });
+            setItemMessage({ type: 'success', text: 'Ficha oficial guardada.' });
+            void syncStoredPrice(itemId, data.price);
         } catch (error) {
             console.error('BusinessItemsSection: save failed', error);
-            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo guardar la ficha del elemento.') });
+            setItemMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo guardar la ficha del elemento.') });
         } finally {
             setSaving(false);
         }
     };
 
+    // Guarda la lista completa de secciones al momento (sin estado oculto sin guardar).
+    // Los guardados van en cola y cada uno lleva la lista entera: si falla el último,
+    // se vuelve a lo que hay guardado.
+    const persistSections = (next: MenuSection[]) => {
+        sectionsVersion.current += 1;
+        pendingSectionSaves.current += 1;
+        setSections(next);
+        setSavingSections(true);
+        setSectionsSaved(false);
+        setSectionsMessage(null);
+        const names = next.map((section) => section.name);
+        sectionsSaveChain.current = sectionsSaveChain.current.then(async () => {
+            let failure: unknown = null;
+            try {
+                await updateBusinessMenuSections(placeId, names);
+            } catch (error) {
+                failure = error;
+                console.error('BusinessItemsSection: save sections failed', error);
+            }
+            pendingSectionSaves.current -= 1;
+            if (pendingSectionSaves.current > 0) return;
+            if (failure) {
+                const startVersion = sectionsVersion.current;
+                const saved = await getBusinessMenuSections(placeId).catch(() => null);
+                // Si entretanto hubo otro cambio, su guardado informa.
+                if (sectionsVersion.current !== startVersion) return;
+                if (saved) setSections(saved);
+                setSectionsMessage({
+                    type: 'error',
+                    text: `${getErrorMessage(failure, 'No se pudieron guardar las secciones.')}${saved ? ' Te muestro las que había guardadas.' : ''}`,
+                });
+            } else {
+                setSectionsSaved(true);
+            }
+            setSavingSections(false);
+        });
+    };
+
     const addSection = () => {
-        const name = sectionDraft.trim().slice(0, 40);
-        if (!name || sections.some((section) => section.name.toLowerCase() === name.toLowerCase())) return;
-        setSections((prev) => [...prev, { name, order: prev.length }]);
+        const name = sectionDraft.replace(/[<>]/g, '').trim().slice(0, 40);
+        if (!name || !sectionsReady) return;
+        if (sections.some((section) => section.name.toLowerCase() === name.toLowerCase())) {
+            setSectionsMessage({ type: 'error', text: `Ya tienes la sección «${name}».` });
+            return;
+        }
+        if (sections.length >= MAX_MENU_SECTIONS) {
+            setSectionsMessage({ type: 'error', text: `Puedes tener hasta ${MAX_MENU_SECTIONS} secciones.` });
+            return;
+        }
         setSectionDraft('');
-        setSectionsDirty(true);
+        persistSections([...sections, { name, order: sections.length }]);
     };
 
     const moveSection = (index: number, direction: -1 | 1) => {
-        setSections((prev) => {
-            const target = index + direction;
-            if (target < 0 || target >= prev.length) return prev;
-            const next = [...prev];
-            [next[index], next[target]] = [next[target], next[index]];
-            return next.map((section, order) => ({ ...section, order }));
-        });
-        setSectionsDirty(true);
+        const target = index + direction;
+        if (!sectionsReady || target < 0 || target >= sections.length) return;
+        const next = [...sections];
+        [next[index], next[target]] = [next[target], next[index]];
+        persistSections(next.map((section, order) => ({ ...section, order })));
     };
 
-    const removeSection = (index: number) => {
-        setSections((prev) => prev.filter((_, i) => i !== index).map((section, order) => ({ ...section, order })));
-        setSectionsDirty(true);
-    };
-
-    const saveSections = async () => {
-        setSavingSections(true);
-        setMessage(null);
-        try {
-            await updateBusinessMenuSections(placeId, sections.map((section) => section.name));
-            setSectionsDirty(false);
-            setMessage({ type: 'success', text: 'Secciones de la carta guardadas.' });
-        } catch (error) {
-            console.error('BusinessItemsSection: save sections failed', error);
-            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudieron guardar las secciones.') });
-        } finally {
-            setSavingSections(false);
+    const removeSection = async (index: number) => {
+        const section = sections[index];
+        if (!section || !sectionsReady) return;
+        const dishCount = items.filter((item) => itemGroupOf(item) === section.name).length;
+        if (dishCount > 0) {
+            const confirmed = await confirm({
+                title: `¿Quitar la sección «${section.name}»?`,
+                message: `${dishCount === 1 ? 'Tiene 1 plato, que pasará' : `Tiene ${dishCount} platos, que pasarán`} a «Sin sección». En tu carta saldrán en «Otros».`,
+                confirmLabel: 'Quitar sección',
+                destructive: true,
+            });
+            if (!confirmed) return;
         }
+        if (newItemGroup === section.name) setNewItemGroup('');
+        persistSections(sections
+            .filter((entry) => entry.name !== section.name)
+            .map((entry, order) => ({ ...entry, order })));
     };
 
     const toggleAllergen = (value: string) => {
@@ -571,21 +731,60 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
         }));
     };
 
+    // Alta rápida: nombre, sección y precio en una sola llamada. El plato se
+    // inserta en la lista sin recargar, se abre su ficha y la sección elegida se
+    // mantiene para el siguiente.
     const addItem = async () => {
         const name = newItemName.trim();
-        if (!name) return;
+        // Enter y el botón pueden llegar seguidos: solo una alta a la vez.
+        if (!name || creatingItem || creatingItemRef.current) return;
+        creatingItemRef.current = true;
         setCreatingItem(true);
-        setMessage(null);
+        setAddMessage(null);
+        setAddedItemId(null);
+        // Solo una sección que siga en la lista (si se quitó o se revirtió, «Sin sección»).
+        const group = sections.some((section) => section.name === newItemGroup) ? newItemGroup : '';
+        const price = newItemPrice.trim();
         try {
-            await createBusinessItem(placeId, name);
+            const created = await createBusinessItem(placeId, name, { group, price });
+            itemsVersion.current += 1;
+            setItems((prev) => sortPlaceItems([...prev.filter((item) => item.id !== created.itemId), created.item]));
+            pendingRevealId.current = created.itemId;
+            selectItem(created.item);
+            setAddedItemId(created.itemId);
             setNewItemName('');
-            setMessage({ type: 'success', text: `Elemento "${name}" añadido a la carta.` });
-            await load();
+            setNewItemPrice('');
+            setAddMessage({
+                type: 'success',
+                text: group ? `«${created.name}» añadido a ${group}.` : `«${created.name}» añadido a la carta.`,
+            });
         } catch (error) {
-            console.error('BusinessItemsSection: create item failed', error);
-            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo crear el elemento.') });
+            const existing = getBusinessItemExistsDetails(error);
+            const known = existing
+                ? items.find((item) => item.id === existing.itemId)
+                    || (await load({ silent: true }))?.find((item) => item.id === existing.itemId)
+                : undefined;
+            if (existing && known) {
+                pendingRevealId.current = known.id;
+                selectItem(known);
+                setAddedItemId(known.id);
+                setNewItemName('');
+                setNewItemPrice('');
+                const shownName = known.canonicalName || existing.canonicalName || known.id;
+                setAddMessage({
+                    type: 'success',
+                    text: normalizeItemName(shownName) === normalizeItemName(name)
+                        ? 'Ya estaba en tu carta: te lo abro.'
+                        : `Ya estaba en tu carta como «${shownName}»: te lo abro.`,
+                });
+            } else {
+                console.error('BusinessItemsSection: create item failed', error);
+                setAddMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo añadir el plato.') });
+            }
         } finally {
+            creatingItemRef.current = false;
             setCreatingItem(false);
+            newItemInputRef.current?.focus();
         }
     };
 
@@ -594,11 +793,14 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
         type: 'merge' | 'rename' | 'reassign_review',
         payload: Record<string, string>,
     ) => {
+        // Mover una valoración se avisa en su tarjeta; fusión y renombre, en "Proponer corrección".
+        const setResult = type === 'reassign_review' ? setReviewsMessage : setProposalMessage;
         setSubmittingProposal(key);
-        setMessage(null);
+        setReviewsMessage(null);
+        setProposalMessage(null);
         try {
             await submitItemProposal(placeId, type, payload, proposalNote.trim() || undefined);
-            setMessage({ type: 'success', text: 'Propuesta enviada. Un administrador la revisará y te llegará una notificación.' });
+            setResult({ type: 'success', text: 'Propuesta enviada. Un administrador la revisará y te llegará una notificación.' });
             setMergeTargetId('');
             setRenameValue('');
             setProposalNote('');
@@ -607,7 +809,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
             if (user) setProposals(await getMyItemProposals(placeId, user.uid).catch(() => proposals));
         } catch (error) {
             console.error('BusinessItemsSection: proposal failed', error);
-            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo enviar la propuesta.') });
+            setResult({ type: 'error', text: getErrorMessage(error, 'No se pudo enviar la propuesta.') });
         } finally {
             setSubmittingProposal(null);
         }
@@ -692,7 +894,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                 </div>
             )}
 
-            <div className="grid gap-5 lg:grid-cols-[1fr,1.2fr]">
+            <div className="grid gap-5 lg:grid-cols-[1fr_1.2fr]">
                 {/* Columna izquierda: lista de elementos + crear */}
                 <div className="space-y-4">
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -700,42 +902,83 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                             <h3 className="text-sm font-black text-[var(--lt-text)]">Añadir elemento a la carta</h3>
                             <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Para platos que aún no tienen valoraciones. Se crea al momento.</p>
                         </div>
-                        <div className="flex gap-2">
+                        <form
+                            className="space-y-2"
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                void addItem();
+                            }}
+                        >
                             <input
+                                ref={newItemInputRef}
                                 className={inputClass}
                                 value={newItemName}
                                 onChange={(event) => setNewItemName(event.target.value)}
-                                onKeyDown={(event) => { if (event.key === 'Enter') void addItem(); }}
                                 placeholder="Nombre del plato o producto"
+                                aria-label="Nombre del plato o producto"
+                                maxLength={120}
                             />
-                            <button
-                                type="button"
-                                onClick={addItem}
-                                disabled={creatingItem || !newItemName.trim()}
-                                className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-[var(--lt-accent)] px-3 py-2 text-xs font-black text-white disabled:opacity-50"
-                            >
-                                {creatingItem ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                                Añadir
-                            </button>
-                        </div>
+                            <div className="flex gap-2">
+                                {sections.length > 0 && (
+                                    <select
+                                        className={`${inputClass} min-w-0 flex-1`}
+                                        value={newItemGroup}
+                                        onChange={(event) => setNewItemGroup(event.target.value)}
+                                        aria-label="Sección del plato"
+                                    >
+                                        <option value="">Sin sección</option>
+                                        {sections.map((section) => (
+                                            <option key={section.name} value={section.name}>{section.name}</option>
+                                        ))}
+                                    </select>
+                                )}
+                                <input
+                                    className={`${inputClass} min-w-0 flex-1`}
+                                    value={newItemPrice}
+                                    onChange={(event) => setNewItemPrice(event.target.value)}
+                                    placeholder="6,50 €"
+                                    aria-label="Precio del plato"
+                                    maxLength={40}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={creatingItem || !newItemName.trim()}
+                                    className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-[var(--lt-accent)] px-3 py-2 text-xs font-black text-white disabled:opacity-50"
+                                >
+                                    {creatingItem ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                                    Añadir
+                                </button>
+                            </div>
+                        </form>
+                        {addMessage && (
+                            <div className="mt-3 space-y-1.5" role="status">
+                                <SectionMessage message={addMessage} />
+                                {addMessage.type === 'success' && addedItemId && addedItemId === selectedId && (
+                                    <button
+                                        type="button"
+                                        onClick={() => sheetRef.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' })}
+                                        className="text-xs font-bold text-[var(--lt-accent)] lg:hidden"
+                                    >
+                                        Completar su ficha (alérgenos, descripción...)
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                         <div className="mb-3 flex items-center justify-between gap-2">
                             <div>
                                 <h3 className="text-sm font-black text-[var(--lt-text)]">Secciones de la carta</h3>
-                                <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Entrantes, primeros, postres... el orden aquí es el orden público.</p>
+                                <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Entrantes, primeros, postres... el orden aquí es el orden público. Los cambios se guardan al momento.</p>
                             </div>
-                            {sectionsDirty && (
-                                <button
-                                    type="button"
-                                    onClick={saveSections}
-                                    disabled={savingSections}
-                                    className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-[var(--lt-accent)] px-3 py-2 text-xs font-black text-white disabled:opacity-50"
-                                >
-                                    {savingSections ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-                                    Guardar
-                                </button>
+                            {(savingSections || sectionsSaved) && (
+                                <span className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-[var(--lt-text-muted)]" role="status">
+                                    {savingSections
+                                        ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        : <Check className="h-3.5 w-3.5 text-emerald-300" />}
+                                    {savingSections ? 'Guardando...' : 'Guardado'}
+                                </span>
                             )}
                         </div>
                         <div className="flex gap-2">
@@ -745,12 +988,16 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                                 onChange={(event) => setSectionDraft(event.target.value)}
                                 onKeyDown={(event) => { if (event.key === 'Enter') addSection(); }}
                                 placeholder="Nueva sección (ej. Entrantes)"
+                                aria-label="Nueva sección"
+                                maxLength={40}
+                                disabled={!sectionsReady}
                             />
                             <button
                                 type="button"
                                 onClick={addSection}
-                                disabled={!sectionDraft.trim()}
+                                disabled={!sectionsReady || !sectionDraft.trim()}
                                 className="shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-black text-[var(--lt-text)] disabled:opacity-50"
+                                aria-label="Añadir sección"
                             >
                                 <Plus className="h-3.5 w-3.5" />
                             </button>
@@ -761,21 +1008,25 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                                     <div key={section.name} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
                                         <span className="w-4 text-right font-mono text-[11px] text-[var(--lt-text-muted)]">{index + 1}</span>
                                         <span className="min-w-0 flex-1 truncate text-sm font-bold text-[var(--lt-text)]">{section.name}</span>
-                                        <button type="button" onClick={() => moveSection(index, -1)} disabled={index === 0} className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] disabled:opacity-30" title="Subir">↑</button>
-                                        <button type="button" onClick={() => moveSection(index, 1)} disabled={index === sections.length - 1} className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] disabled:opacity-30" title="Bajar">↓</button>
-                                        <button type="button" onClick={() => removeSection(index)} className="text-red-300/70 hover:text-red-300" title="Eliminar">
+                                        <button type="button" onClick={() => moveSection(index, -1)} disabled={index === 0} className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] disabled:opacity-30" title="Subir" aria-label={`Subir ${section.name}`}>↑</button>
+                                        <button type="button" onClick={() => moveSection(index, 1)} disabled={index === sections.length - 1} className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] disabled:opacity-30" title="Bajar" aria-label={`Bajar ${section.name}`}>↓</button>
+                                        <button type="button" onClick={() => void removeSection(index)} className="text-red-300/70 hover:text-red-300" title="Eliminar" aria-label={`Quitar ${section.name}`}>
                                             <Trash2 className="h-3.5 w-3.5" />
                                         </button>
                                     </div>
                                 ))}
                             </div>
                         )}
+                        {sectionsMessage && <div className="mt-3"><SectionMessage message={sectionsMessage} /></div>}
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                        <div className="mb-4">
-                            <h3 className="text-sm font-black text-[var(--lt-text)]">Elementos del lugar</h3>
-                            <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Toca un elemento para ver sus valoraciones y editar su ficha.</p>
+                        <div className="mb-4 flex items-start justify-between gap-2">
+                            <div>
+                                <h3 className="text-sm font-black text-[var(--lt-text)]">Elementos del lugar</h3>
+                                <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Toca un elemento para ver sus valoraciones y editar su ficha.</p>
+                            </div>
+                            {refreshing && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-[var(--lt-accent)]" aria-label="Actualizando" />}
                         </div>
 
                         {loading ? (
@@ -788,15 +1039,19 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                                 Todavía no hay elementos. Añade el primero arriba o espera a que lleguen valoraciones.
                             </div>
                         ) : (
-                            <div className="max-h-[440px] space-y-2 overflow-y-auto pr-1">
+                            <div ref={itemsListRef} className="max-h-[440px] space-y-2 overflow-y-auto pr-1">
                                 {items.map((item) => {
                                     const hasOfficialData = Boolean((item.businessData as Record<string, unknown> | undefined)?.price
                                         || (item.businessData as Record<string, unknown> | undefined)?.group);
-                                    const reviewRows = reviewsByItem.get(item.id) || [];
+                                    // stats.reviewCount es el total; las reseñas cargadas van limitadas.
+                                    const reviewCount = typeof item.stats?.reviewCount === 'number'
+                                        ? item.stats.reviewCount
+                                        : (reviewsByItem.get(item.id) || []).length;
                                     return (
                                         <button
                                             key={item.id}
                                             type="button"
+                                            data-item-id={item.id}
                                             onClick={() => selectItem(item)}
                                             className={`w-full rounded-xl border px-3 py-3 text-left transition-colors ${
                                                 selectedId === item.id
@@ -808,7 +1063,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                                                 <div className="min-w-0">
                                                     <h4 className="truncate text-sm font-black text-[var(--lt-text)]">{item.canonicalName || item.id}</h4>
                                                     <p className="mt-1 text-xs text-[var(--lt-text-muted)]">
-                                                        {reviewRows.length || item.stats?.reviewCount || 0} valoraciones
+                                                        {reviewCount} valoraciones
                                                         {typeof item.stats?.averageRating === 'number' ? ` · ${item.stats.averageRating.toFixed(2)}` : ''}
                                                         {item.source === 'business' ? ' · añadido por el negocio' : ''}
                                                     </p>
@@ -854,7 +1109,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
 
                 {/* Columna derecha: ficha + reseñas + propuestas del elemento */}
                 <div className="space-y-4">
-                    <div className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                    <div ref={sheetRef} className="scroll-mt-4 space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                         <div>
                             <h3 className="text-sm font-black text-[var(--lt-text)]">Ficha oficial del elemento</h3>
                             <p className="text-xs text-[var(--lt-text-muted)]">
@@ -961,7 +1216,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                                     />
                                     Disponible actualmente en carta
                                 </label>
-                                <SectionMessage message={message} />
+                                <SectionMessage message={itemMessage} />
                                 <SaveButton saving={saving} onClick={save} label="Guardar ficha" />
                             </>
                         ) : (
@@ -1042,6 +1297,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                                         ))}
                                     </div>
                                 )}
+                                {reviewsMessage && <div className="mt-3"><SectionMessage message={reviewsMessage} /></div>}
                             </div>
 
                             {/* Correcciones del elemento */}
@@ -1101,6 +1357,7 @@ export const BusinessItemsSection: React.FC<{ placeId: string }> = ({ placeId })
                                         placeholder="Ej. Es el mismo plato, escrito con errata."
                                     />
                                 </Field>
+                                <SectionMessage message={proposalMessage} />
                             </div>
                         </>
                     )}
