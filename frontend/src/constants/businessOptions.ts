@@ -1,66 +1,23 @@
-export const PRICE_RANGE_LABELS: Record<string, string> = {
-    low: 'Económico',
-    medium: 'Medio',
-    high: 'Alto',
-    premium: 'Premium',
-};
+import {
+    DELIVERY_PROVIDER_OPTIONS as DELIVERY_PROVIDER_CATALOGUE,
+    PAYMENT_OPTIONS,
+    PET_CONDITION_OPTIONS,
+    PRICE_RANGE_OPTIONS,
+    SERVICE_OPTIONS,
+} from './businessInfoOptions';
 
-export const PAYMENT_METHOD_OPTIONS = [
-    'Efectivo',
-    'Tarjeta',
-    'Contactless',
-    'Bizum',
-    'Apple Pay',
-    'Google Pay',
-    'PayPal',
-    'Transferencia',
-    'Cheque gourmet',
-    'Ticket Restaurant',
-    'Sodexo',
-    'American Express',
-    'Visa',
-    'Mastercard',
-    'Pago online',
-    'Pago en app',
-    'Contra reembolso',
-];
+// Legacy: lo que usan los formularios actuales de la Ficha
+// (components/business/info). El catálogo con emoji es businessInfoOptions.ts:
+// el código nuevo debe usar ese. Lo que coincide se deriva de él; solo quedan
+// aquí los textos largos de los selects actuales.
 
-export const BUSINESS_SERVICE_OPTIONS = [
-    'Comer en local',
-    'Terraza',
-    'Reservas',
-    'Para llevar',
-    'Menú del día',
-    'Menú infantil',
-    'Desayunos',
-    'Brunch',
-    'Comidas',
-    'Cenas',
-    'Copas',
-    'Café',
-    'Cócteles',
-    'Vino',
-    'Cerveza',
-    'Música en directo',
-    'Eventos privados',
-    'Catering',
-    'Cumpleaños',
-    'Apto para grupos',
-    'Apto para familias',
-    'Tronas',
-    'WiFi',
-    'Enchufes',
-    'Aire acondicionado',
-    'Calefacción',
-    'Televisión',
-    'Parking',
-    'Parking cercano',
-    'Aparcacoches',
-    'Zona fumadores',
-    'Zona tranquila',
-    'Vistas',
-    'Azotea',
-];
+export const PRICE_RANGE_LABELS: Record<string, string> = Object.fromEntries(
+    PRICE_RANGE_OPTIONS.map((option) => [option.value, option.label]),
+);
+
+export const PAYMENT_METHOD_OPTIONS: string[] = PAYMENT_OPTIONS.map((option) => option.value);
+
+export const BUSINESS_SERVICE_OPTIONS: string[] = SERVICE_OPTIONS.map((option) => option.value);
 
 export const CROSS_CONTAMINATION_LABELS: Record<string, string> = {
     unknown: 'No indicado',
@@ -69,18 +26,11 @@ export const CROSS_CONTAMINATION_LABELS: Record<string, string> = {
     dedicated: 'Zona o preparación separada sin gluten',
 };
 
-export const DELIVERY_PROVIDER_LABELS: Record<string, string> = {
-    glovo: 'Glovo',
-    justeat: 'Just Eat',
-    ubereats: 'Uber Eats',
-    deliveroo: 'Deliveroo',
-    deliverect: 'Deliverect',
-    own: 'Web propia',
-    whatsapp: 'WhatsApp',
-    custom: 'Otro',
-};
+export const DELIVERY_PROVIDER_LABELS: Record<string, string> = Object.fromEntries(
+    DELIVERY_PROVIDER_CATALOGUE.map((option) => [option.value, option.label]),
+);
 
-export const DELIVERY_PROVIDER_OPTIONS = Object.entries(DELIVERY_PROVIDER_LABELS).map(([value, label]) => ({
+export const DELIVERY_PROVIDER_OPTIONS = DELIVERY_PROVIDER_CATALOGUE.map(({ value, label }) => ({
     value,
     label,
 }));
@@ -94,10 +44,5 @@ export const PET_POLICY_LABELS: Record<string, string> = {
     not_allowed: 'No admite mascotas',
 };
 
-export const PET_RESTRICTION_OPTIONS = [
-    'Solo perros pequeños',
-    'Solo con correa',
-    'No se permite subir a sillas',
-    'Evitar horas de mucha afluencia',
-    'Consultar antes de reservar',
-];
+/** Textos guardados tal cual, en el orden de siempre. */
+export const PET_RESTRICTION_OPTIONS: string[] = PET_CONDITION_OPTIONS.map((option) => option.value);

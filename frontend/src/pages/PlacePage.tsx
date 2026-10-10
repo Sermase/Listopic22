@@ -23,12 +23,36 @@ import type { ReviewEntity } from '../hooks/useListDetails';
 import { EntityHero } from '../components/EntityHero';
 import { BusinessClaimModal } from '../components/BusinessClaimModal';
 import type { BusinessClaim } from '../services/BusinessClaimService';
-import { CROSS_CONTAMINATION_LABELS, DELIVERY_PROVIDER_LABELS, PET_POLICY_LABELS, PRICE_RANGE_LABELS } from '../constants/businessOptions';
+import {
+    ACCESSIBILITY_GROUPS,
+    ALLERGEN_INFO_OPTIONS,
+    ALLERGEN_OPTIONS,
+    CROSS_CONTAMINATION_OPTIONS,
+    CUISINE_OPTIONS,
+    DELIVERY_PROVIDER_OPTIONS,
+    DIET_OPTIONS,
+    FAMILY_OPTIONS,
+    GLUTEN_OPTIONS,
+    PAYMENT_OPTIONS,
+    PET_AMENITY_OPTIONS,
+    PET_CONDITION_OPTIONS,
+    PET_POLICY_FLAGS,
+    PET_POLICY_OPTIONS,
+    PRICE_RANGE_OPTIONS,
+    RESERVATION_PROVIDER_OPTIONS,
+    SERVICE_OPTIONS,
+    findLanguageOption,
+    findOptionByText,
+    findOptionByValue,
+} from '../constants/businessInfoOptions';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { allergenLabel, itemDocIdFromName } from '../services/BusinessProService';
 import { reviewItemId } from '../lib/placeItems';
 import { compareByRank } from '../lib/scoring';
 import { PlaceStatsPanel } from '../components/place/PlaceStatsPanel';
+import { PlaceOfferCard } from '../components/business/sponsored/PlaceOfferCard';
+import { heroStyleOf } from '../components/business/visual/heroStyles';
+import { cn } from '../lib/utils';
 import { scoreBadgeStyle } from '../lib/scoreScale';
 import { todayHours } from '../lib/openingHours';
 import { NO_PUBLIC_RATING_LABEL } from '../lib/placeRating';
@@ -52,37 +76,35 @@ const splitHoursLine = (line: string) => {
     };
 };
 
-const providerLabel = (provider?: string) => {
-    const labels: Record<string, string> = {
-        covermanager: 'CoverManager',
-        thefork: 'TheFork',
-        opentable: 'OpenTable',
-        zenchef: 'Zenchef',
-        resy: 'Resy',
-        google: 'Google Reserve',
-        custom: 'Reservas',
-    };
-    return provider ? labels[provider] || 'Reservas' : 'Reservas';
-};
-
-const deliveryProviderLabel = (provider?: string) => (
-    provider ? DELIVERY_PROVIDER_LABELS[provider] || 'Delivery' : 'Delivery'
+// Etiquetas y emoji de la Ficha del negocio: catálogo único en constants/businessInfoOptions.
+const providerLabel = (provider?: string) => (
+    provider && provider !== 'custom'
+        ? findOptionByValue(RESERVATION_PROVIDER_OPTIONS, provider)?.label || 'Reservas'
+        : 'Reservas'
 );
 
-const languageLabel = (language: string) => {
-    const labels: Record<string, string> = {
-        es: 'Español',
-        en: 'Inglés',
-        ca: 'Catalán',
-        eu: 'Euskera',
-        gl: 'Gallego',
-        fr: 'Francés',
-        it: 'Italiano',
-        de: 'Alemán',
-        pt: 'Portugués',
-    };
-    return labels[language.toLowerCase()] || language;
-};
+const deliveryProviderLabel = (provider?: string) => (
+    findOptionByValue(DELIVERY_PROVIDER_OPTIONS, provider)?.label || 'Delivery'
+);
+
+/** Emoji y etiqueta del catálogo para un texto guardado; si no está, el texto tal cual. */
+const storedTextChip = (option: { emoji: string; label: string } | undefined, stored: string, fallbackEmoji?: string) => ({
+    emoji: option?.emoji || fallbackEmoji,
+    label: option?.label || stored,
+});
+
+const languageChip = (language: string) => storedTextChip(findLanguageOption(language), language);
+
+const DIETARY_PUBLIC_FLAGS = [...GLUTEN_OPTIONS, ...DIET_OPTIONS, ...ALLERGEN_INFO_OPTIONS];
+const PET_PUBLIC_FLAGS = [...PET_POLICY_FLAGS, ...PET_AMENITY_OPTIONS];
+
+/** Emoji (decorativo) junto a la etiqueta de un chip de la Ficha. */
+const EmojiLabel: React.FC<{ emoji?: string; label: string }> = ({ emoji, label }) => (
+    <>
+        {emoji && <span aria-hidden="true">{emoji} </span>}
+        {label}
+    </>
+);
 
 const nonCommercialServiceLabels = new Set([
     'Opciones vegetarianas',
@@ -159,6 +181,8 @@ export const PlacePage: React.FC = () => {
     const focusedReviewId = searchParams.get('reviewId');
 
     const [heroReady, setHeroReady] = useState(false);
+    // Portada Business Pro que no cargó: se usa la foto del local en su lugar.
+    const [failedProHero, setFailedProHero] = useState<string | null>(null);
     const [syncing, setSyncing] = useState(false);
     const [syncError, setSyncError] = useState<string | null>(null);
 
@@ -466,8 +490,15 @@ export const PlacePage: React.FC = () => {
             photo: photoByItemId.get(item.id) || item.keys.map((key) => photoByKey.get(key)).find(Boolean),
         }));
 
-        const byName = (a: { rating: number | null; name: string }, b: { rating: number | null; name: string }) =>
-            (b.rating ?? -1) - (a.rating ?? -1) || a.name.localeCompare(b.name, 'es');
+        // Primero el orden que eligió el negocio (menuOrder); el resto, por nota y nombre.
+        type MenuRow = { rating: number | null; name: string; menuOrder?: number | null };
+        const byName = (a: MenuRow, b: MenuRow) => {
+            const aOrdered = typeof a.menuOrder === 'number';
+            const bOrdered = typeof b.menuOrder === 'number';
+            if (aOrdered !== bOrdered) return aOrdered ? -1 : 1;
+            if (aOrdered && bOrdered && a.menuOrder !== b.menuOrder) return (a.menuOrder as number) - (b.menuOrder as number);
+            return (b.rating ?? -1) - (a.rating ?? -1) || a.name.localeCompare(b.name, 'es');
+        };
 
         const groups = sections.map((sectionName) => ({
             name: sectionName,
@@ -727,35 +758,10 @@ export const PlacePage: React.FC = () => {
         dietary.eggFreeOptions ||
         dietary.allergenMenuAvailable ||
         dietary.staffCanAdviseAllergens ||
+        dietary.allergens?.length ||
         dietary.notes
     ));
 
-    const accessibilityMobilityKeys: Array<[keyof NonNullable<typeof accessibilityInfo>, string]> = [
-        ['stepFreeEntrance', 'Entrada sin escalones'],
-        ['accessibleBathroom', 'Baño adaptado'],
-        ['rampAvailable', 'Rampa permanente'],
-        ['wheelchairFriendlyTables', 'Mesas para silla de ruedas'],
-        ['elevator', 'Ascensor'],
-        ['accessibleParking', 'Aparcamiento PMR'],
-        ['bathroomGrabBars', 'Barras de apoyo en baño'],
-    ];
-    const accessibilityVisualKeys: Array<[keyof NonNullable<typeof accessibilityInfo>, string]> = [
-        ['guideDogsWelcome', 'Perros guía bienvenidos'],
-        ['brailleMenu', 'Carta en braille'],
-        ['largePrintMenu', 'Carta letra grande'],
-        ['digitalMenuScreenReader', 'Carta digital con lector de pantalla'],
-    ];
-    const accessibilityHearingKeys: Array<[keyof NonNullable<typeof accessibilityInfo>, string]> = [
-        ['hearingLoop', 'Bucle magnético'],
-        ['visualMenu', 'Carta visual completa'],
-        ['quietEnvironment', 'Entorno tranquilo'],
-        ['signLanguageStaff', 'Personal con LSE'],
-    ];
-    const accessibilityCognitiveKeys: Array<[keyof NonNullable<typeof accessibilityInfo>, string]> = [
-        ['pictogramMenu', 'Carta con pictogramas'],
-        ['easyReadMenu', 'Carta en lectura fácil'],
-        ['sensoryFriendlyArea', 'Zona poco estimulante'],
-    ];
     const hasOwnAccessibility = Boolean(
         accessibilityInfo && (
             Object.entries(accessibilityInfo).some(([key, value]) => key !== 'notes' && value === true) ||
@@ -769,41 +775,29 @@ export const PlacePage: React.FC = () => {
         accessibleParking: place.accessibility?.wheelchairAccessibleParking === true,
         hearingLoop: place.accessibility?.hearingLoop === true,
     };
-    const accessibilityBlocks = [
-        { id: 'mobility', title: 'Movilidad', items: accessibilityMobilityKeys },
-        { id: 'visual', title: 'Personas ciegas o con baja visión', items: accessibilityVisualKeys },
-        { id: 'hearing', title: 'Personas sordas o con baja audición', items: accessibilityHearingKeys },
-        { id: 'cognitive', title: 'Cognitiva, sensorial y TEA', items: accessibilityCognitiveKeys },
-    ].map((block) => ({
-        ...block,
-        active: block.items
-            .filter(([key]) => {
-                if (hasOwnAccessibility) return Boolean(accessibilityInfo?.[key]);
-                return Boolean(googleA11yEquivalents[key]);
-            })
-            .map(([, label]) => label),
+    const accessibilityBlocks = ACCESSIBILITY_GROUPS.map((group) => ({
+        id: group.id,
+        emoji: group.emoji,
+        title: group.title,
+        active: group.options.filter((flag) => {
+            if (hasOwnAccessibility) return Boolean(accessibilityInfo?.[flag.key]);
+            return Boolean(googleA11yEquivalents[flag.key]);
+        }),
     }));
     const hasAccessibilityRichInfo = accessibilityBlocks.some((block) => block.active.length > 0) || Boolean(accessibilityInfo?.notes);
     const accessibilityFromGoogleOnly = !hasOwnAccessibility && hasAccessibilityRichInfo;
 
-    const familyEntries: Array<[keyof NonNullable<typeof familyInfo>, string]> = [
-        ['babyChanging', 'Cambiador para bebés'],
-        ['familyRestroom', 'Baño familiar'],
-        ['highChairs', 'Tronas para niños'],
-        ['kidsMenu', 'Menú o platos infantiles'],
-        ['playArea', 'Zona de juegos / parque infantil'],
-        ['strollerFriendly', 'Apto para entrar con carrito'],
-        ['bottleWarming', 'Calientan biberones'],
-        ['breastfeedingFriendly', 'Espacio para amamantar'],
-    ];
     const activeFamilyEntries = familyInfo
-        ? familyEntries.filter(([key]) => Boolean(familyInfo[key])).map(([, label]) => label)
+        ? FAMILY_OPTIONS.filter((flag) => Boolean(familyInfo[flag.key]))
         : [];
     const hasFamilyInfo = activeFamilyEntries.length > 0 || Boolean(familyInfo?.notes);
 
     // Contenido Business Pro (usePlaceDetails ya lo capa por plan activo).
     const proVisual = place.hasBusinessPro ? place.businessProVisual : undefined;
-    const heroImageUrl = proVisual?.heroImageUrl || place.photoUrl;
+    const proHeroImageUrl = proVisual?.heroImageUrl && proVisual.heroImageUrl !== failedProHero ? proVisual.heroImageUrl : undefined;
+    const heroImageUrl = proHeroImageUrl || place.photoUrl;
+    // Estilo de portada elegido en 🎨 Imagen ('editorial' = el de siempre).
+    const heroStyle = heroStyleOf(proVisual?.visualStyle);
     const activeOffers = place.hasBusinessPro ? (place.businessOffers || []) : [];
     const proAccent = proVisual?.accentColor && /^#[0-9a-fA-F]{6}$/.test(proVisual.accentColor)
         ? proVisual.accentColor
@@ -859,12 +853,15 @@ export const PlacePage: React.FC = () => {
                 alt={place.name}
                 ready={heroReady}
                 onImageLoad={() => setHeroReady(true)}
+                onImageError={proHeroImageUrl ? () => setFailedProHero(proHeroImageUrl) : undefined}
                 fallback={<PlacePhotoPlaceholder compact />}
+                className={heroStyle.hero || undefined}
+                imageClassName={heroStyle.image || undefined}
             >
 
                         {/* Title & Info */}
                         <div className="lt-entity-hero-title flex-1">
-                            <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-[var(--lt-hero-title)] mb-2 leading-tight line-clamp-2">
+                            <h1 className={cn('text-3xl sm:text-4xl md:text-6xl font-display font-bold text-[var(--lt-hero-title)] mb-2 leading-tight line-clamp-2', heroStyle.title)}>
                                 {place.name}
                             </h1>
                             {place.closedStatus && (
@@ -884,7 +881,7 @@ export const PlacePage: React.FC = () => {
                             )}
                             {proVisual?.heroText && (
                                 <p
-                                    className="mt-3 max-w-2xl border-l-2 pl-3 text-sm italic leading-relaxed text-gray-100 sm:text-base line-clamp-2"
+                                    className={cn('mt-3 max-w-2xl border-l-2 pl-3 text-sm italic leading-relaxed text-gray-100 sm:text-base line-clamp-2', heroStyle.phrase)}
                                     style={{ borderColor: proAccent || 'var(--lt-accent)' }}
                                 >
                                     {proVisual.heroText}
@@ -1006,36 +1003,7 @@ export const PlacePage: React.FC = () => {
                             </div>
                             <div className="space-y-3">
                                 {activeOffers.map((offer) => (
-                                    <div key={offer.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
-                                        <p className="text-sm font-bold text-white">{offer.title}</p>
-                                        {offer.description && (
-                                            <p className="mt-1 text-xs leading-relaxed text-gray-300">{offer.description}</p>
-                                        )}
-                                        {(offer.startsAt || offer.endsAt) && (
-                                            <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-400">
-                                                <Clock className="w-3 h-3" />
-                                                {offer.startsAt && offer.endsAt
-                                                    ? `Del ${offer.startsAt} al ${offer.endsAt}`
-                                                    : offer.endsAt
-                                                        ? `Hasta el ${offer.endsAt}`
-                                                        : `Desde el ${offer.startsAt}`}
-                                            </p>
-                                        )}
-                                        {offer.conditions && (
-                                            <p className="mt-1 text-[11px] text-gray-500">{offer.conditions}</p>
-                                        )}
-                                        {offer.ctaUrl && (
-                                            <a
-                                                href={offer.ctaUrl}
-                                                target="_blank"
-                                                rel="noopener noreferrer sponsored"
-                                                className="mt-2 inline-flex items-center gap-1.5 text-xs font-bold text-[var(--lt-accent)] hover:underline"
-                                            >
-                                                <ExternalLink className="w-3 h-3" />
-                                                Más información
-                                            </a>
-                                        )}
-                                    </div>
+                                    <PlaceOfferCard key={offer.id} offer={offer} />
                                 ))}
                             </div>
                         </div>
@@ -1167,7 +1135,7 @@ export const PlacePage: React.FC = () => {
                                 <div className="mt-3 flex flex-wrap gap-2">
                                     {languages.map((language) => (
                                         <span key={language} className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
-                                            {languageLabel(language)}
+                                            <EmojiLabel {...languageChip(language)} />
                                         </span>
                                     ))}
                                 </div>
@@ -1261,17 +1229,17 @@ export const PlacePage: React.FC = () => {
                             <div className="flex flex-wrap gap-2">
                             {place.resolvedBusinessInfo?.commercial?.priceRange && (
                                 <span className="px-3 py-1 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] rounded-full text-xs font-bold flex items-center gap-1">
-                                    <Star className="w-3 h-3" /> {PRICE_RANGE_LABELS[place.resolvedBusinessInfo.commercial.priceRange] || place.resolvedBusinessInfo.commercial.priceRange}
+                                    <EmojiLabel {...storedTextChip(findOptionByValue(PRICE_RANGE_OPTIONS, place.resolvedBusinessInfo.commercial.priceRange), place.resolvedBusinessInfo.commercial.priceRange)} />
                                 </span>
                             )}
                             {place.resolvedBusinessInfo?.commercial?.cuisineTypes?.slice(0, 6).map((type) => (
                                 <span key={type} className="px-3 py-1 bg-white/5 text-[var(--lt-text)] border border-white/10 rounded-full text-xs font-bold flex items-center gap-1">
-                                    <Utensils className="w-3 h-3" /> {type}
+                                    <EmojiLabel {...storedTextChip(findOptionByText(CUISINE_OPTIONS, type), type, '🍽️')} />
                                 </span>
                             ))}
                             {visibleCommercialServices.slice(0, 6).map((service) => (
                                 <span key={service} className="px-3 py-1 bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 rounded-full text-xs font-bold flex items-center gap-1">
-                                    <Check className="w-3 h-3" /> {service}
+                                    <EmojiLabel {...storedTextChip(findOptionByText(SERVICE_OPTIONS, service), service, '✔️')} />
                                 </span>
                             ))}
                             {place.options?.delivery && (
@@ -1327,7 +1295,7 @@ export const PlacePage: React.FC = () => {
                                 <div className="flex flex-wrap gap-2">
                                     {place.resolvedBusinessInfo.commercial.paymentMethods.map((method) => (
                                         <span key={method} className="px-3 py-1 bg-white/5 text-[var(--lt-text)] border border-white/10 rounded-full text-xs font-bold flex items-center gap-1">
-                                            <CreditCard className="w-3 h-3" /> {method}
+                                            <EmojiLabel {...storedTextChip(findOptionByText(PAYMENT_OPTIONS, method), method, '💳')} />
                                         </span>
                                     ))}
                                 </div>
@@ -1430,40 +1398,29 @@ export const PlacePage: React.FC = () => {
                                 {isDietaryExpanded && (
                                     <div className="mt-3 space-y-3">
                                         <div className="flex flex-wrap gap-2">
-                                            {dietary?.glutenFreeOptions && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Opciones sin gluten</span>
-                                            )}
-                                            {dietary?.manyGlutenFreeOptions && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Muchos platos sin gluten</span>
-                                            )}
-                                            {dietary?.glutenFreeMenu && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Carta sin gluten</span>
-                                            )}
-                                            {dietary?.vegetarianOptions && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Vegetariano</span>
-                                            )}
-                                            {dietary?.veganOptions && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Vegano</span>
-                                            )}
-                                            {dietary?.dairyFreeOptions && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Sin lácteos</span>
-                                            )}
-                                            {dietary?.nutFreeOptions && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Sin frutos secos</span>
-                                            )}
-                                            {dietary?.eggFreeOptions && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Sin huevo</span>
-                                            )}
-                                            {dietary?.allergenMenuAvailable && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Carta de alérgenos</span>
-                                            )}
-                                            {dietary?.staffCanAdviseAllergens && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Personal informado</span>
-                                            )}
+                                            {DIETARY_PUBLIC_FLAGS.filter((flag) => dietary?.[flag.key]).map((flag) => (
+                                                <span key={flag.key} className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
+                                                    <EmojiLabel emoji={flag.emoji} label={flag.label} />
+                                                </span>
+                                            ))}
                                         </div>
+                                        {(dietary?.allergens?.length ?? 0) > 0 && (
+                                            <div className="space-y-2">
+                                                <p className="text-xs font-semibold text-[var(--lt-text-muted)]">
+                                                    <span aria-hidden="true">⚠️ </span>En cocina se manejan estos alérgenos:
+                                                </p>
+                                                <ul className="flex flex-wrap gap-2">
+                                                    {dietary?.allergens?.map((allergen) => (
+                                                        <li key={allergen} className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
+                                                            <EmojiLabel {...storedTextChip(findOptionByValue(ALLERGEN_OPTIONS, allergen), allergen, '⚠️')} />
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
                                         {dietary?.crossContaminationRisk && dietary.crossContaminationRisk !== 'unknown' && (
                                             <p className="rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-3 text-xs font-semibold text-[var(--lt-text)]">
-                                                Gluten: {CROSS_CONTAMINATION_LABELS[dietary.crossContaminationRisk] || dietary.crossContaminationRisk}
+                                                Gluten: <EmojiLabel {...storedTextChip(findOptionByValue(CROSS_CONTAMINATION_OPTIONS, dietary.crossContaminationRisk), dietary.crossContaminationRisk)} />
                                                 {dietary.crossContaminationNotes ? ` · ${dietary.crossContaminationNotes}` : ''}
                                             </p>
                                         )}
@@ -1504,11 +1461,13 @@ export const PlacePage: React.FC = () => {
                                         )}
                                         {accessibilityBlocks.filter((block) => block.active.length > 0).map((block) => (
                                             <div key={block.id} className="rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-3">
-                                                <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--lt-text-muted)]">{block.title}</p>
+                                                <p className="text-xs font-black uppercase tracking-[0.14em] text-[var(--lt-text-muted)]">
+                                                    <EmojiLabel emoji={block.emoji} label={block.title} />
+                                                </p>
                                                 <div className="mt-2 flex flex-wrap gap-2">
-                                                    {block.active.map((label) => (
-                                                        <span key={label} className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
-                                                            {label}
+                                                    {block.active.map((flag) => (
+                                                        <span key={flag.key} className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
+                                                            <EmojiLabel emoji={flag.emoji} label={flag.label} />
                                                         </span>
                                                     ))}
                                                 </div>
@@ -1539,9 +1498,9 @@ export const PlacePage: React.FC = () => {
                                     <div className="mt-3 space-y-3">
                                         {activeFamilyEntries.length > 0 && (
                                             <div className="flex flex-wrap gap-2">
-                                                {activeFamilyEntries.map((label) => (
-                                                    <span key={label} className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
-                                                        {label}
+                                                {activeFamilyEntries.map((flag) => (
+                                                    <span key={flag.key} className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
+                                                        <EmojiLabel emoji={flag.emoji} label={flag.label} />
                                                     </span>
                                                 ))}
                                             </div>
@@ -1570,37 +1529,15 @@ export const PlacePage: React.FC = () => {
                                 {isPetsExpanded && (
                                     <div className="mt-3 space-y-3">
                                         <div className="flex flex-wrap gap-2">
-                                            {(pets?.petFriendly || petOptions?.petFriendly) && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Admite mascotas</span>
-                                            )}
-                                            {(pets?.allowsDogs || petOptions?.allowsDogs) && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Admite perros</span>
-                                            )}
-                                            {(pets?.allowsCats || petOptions?.allowsCats) && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Admite gatos</span>
-                                            )}
-                                            {(pets?.indoorAllowed || petOptions?.indoorAllowed) && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Interior permitido</span>
-                                            )}
-                                            {(pets?.terraceOnly || petOptions?.terraceOnly) && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Solo terraza</span>
-                                            )}
-                                            {(pets?.assistanceDogsOnly || petOptions?.assistanceDogsOnly) && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Perros de asistencia</span>
-                                            )}
-                                            {(pets?.waterBowls || petOptions?.waterBowls) && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Cuencos de agua</span>
-                                            )}
-                                            {pets?.petMenu && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Menú para mascotas</span>
-                                            )}
-                                            {(pets?.requiresLeash || petOptions?.requiresLeash) && (
-                                                <span className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">Correa obligatoria</span>
-                                            )}
+                                            {PET_PUBLIC_FLAGS.filter((flag) => pets?.[flag.key] || petOptions?.[flag.key]).map((flag) => (
+                                                <span key={flag.key} className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
+                                                    <EmojiLabel emoji={flag.emoji} label={flag.label} />
+                                                </span>
+                                            ))}
                                         </div>
                                         {pets?.petPolicy && pets.petPolicy !== 'unknown' && (
                                             <p className="rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-3 text-xs font-semibold text-[var(--lt-text)]">
-                                                {PET_POLICY_LABELS[pets.petPolicy] || pets.petPolicy}
+                                                <EmojiLabel {...storedTextChip(findOptionByValue(PET_POLICY_OPTIONS, pets.petPolicy), pets.petPolicy)} />
                                                 {pets.notes ? ` · ${pets.notes}` : ''}
                                             </p>
                                         )}
@@ -1613,7 +1550,7 @@ export const PlacePage: React.FC = () => {
                                             <div className="flex flex-wrap gap-2">
                                                 {pets.restrictions.map((restriction) => (
                                                     <span key={restriction} className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1 text-xs font-bold text-[var(--lt-text)]">
-                                                        {restriction}
+                                                        <EmojiLabel {...storedTextChip(findOptionByText(PET_CONDITION_OPTIONS, restriction), restriction)} />
                                                     </span>
                                                 ))}
                                             </div>
@@ -1889,6 +1826,13 @@ export const PlacePage: React.FC = () => {
                                                             {item.description && (
                                                                 <p className="mt-0.5 text-xs leading-snug text-gray-400 line-clamp-2">{item.description}</p>
                                                             )}
+                                                            {item.ingredients && (
+                                                                <p className="mt-0.5 text-[11px] leading-snug text-gray-500 line-clamp-1">
+                                                                    <span aria-hidden="true">🥕 </span>
+                                                                    <span className="sr-only">Ingredientes: </span>
+                                                                    {item.ingredients}
+                                                                </p>
+                                                            )}
                                                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                                                 {item.reviewCount > 0 && item.rating !== null && (
                                                                     <span className={`text-xs font-black font-mono ${scoreColor}`}>
@@ -1898,7 +1842,7 @@ export const PlacePage: React.FC = () => {
                                                                 )}
                                                                 {item.allergens.map((allergen) => (
                                                                     <span key={allergen} className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400" title={allergenLabel(allergen)}>
-                                                                        {allergenLabel(allergen)}
+                                                                        <EmojiLabel {...storedTextChip(findOptionByValue(ALLERGEN_OPTIONS, allergen), allergenLabel(allergen))} />
                                                                     </span>
                                                                 ))}
                                                             </div>

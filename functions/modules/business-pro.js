@@ -5,6 +5,9 @@
 // - updateCanonicalItemBusinessData: ficha oficial de un elemento canónico
 //   (campo businessData en places/{placeId}/items/{itemId}; el nombre canónico
 //   y las stats siguen siendo de la comunidad y solo cambian vía admin).
+// - updateBusinessMenuItems: la ficha de varios platos a la vez (≤ 50, un
+//   solo cargo al cupo de la carta): mover platos al renombrar o quitar una
+//   sección, soltar varios al arrastrar y ordenar dentro de una sección.
 // - saveBusinessOffer / deleteBusinessOffer: ofertas en places/{placeId}/offers.
 //
 // Todas exigen gestor/propietario del negocio + plan Business Pro activo
@@ -20,7 +23,7 @@ const logger = require("firebase-functions/logger");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { assertJefeAccess, rateLimit, writeAuditLog } = require("./lib/auth");
 const { hasActiveBusinessPro } = require("./lib/business-plan");
-const { parseMenuPrice } = require("./lib/menu-price");
+const { sanitizeItemBusinessData, planMenuItemsBatch } = require("./lib/menu-items");
 
 const db = getFirestore();
 
@@ -33,32 +36,9 @@ const MAX_MENU_SECTIONS = 20;
 const DEFAULT_RATE_LIMIT = { bucket: "businessProUpdate", limit: 100 };
 const MENU_RATE_LIMIT = { bucket: "businessProMenu", limit: 600 };
 
-// Los 14 alérgenos de declaración obligatoria en la UE.
-const VALID_ALLERGENS = new Set([
-  "gluten", "crustaceos", "huevo", "pescado", "cacahuetes", "soja", "lacteos",
-  "frutos_secos", "apio", "mostaza", "sesamo", "sulfitos", "altramuces", "moluscos",
-]);
-
-// Sanitización compartida de la ficha oficial de un item (también la usa
-// business-items.js al crear elementos nuevos). El precio se normaliza
-// ("1,2" → "1,20 €") y se guardan también los céntimos (null si no es un
-// número, p. ej. "Según mercado").
-function sanitizeItemBusinessData(raw) {
-  raw = raw && typeof raw === "object" ? raw : {};
-  const { price, priceCents } = parseMenuPrice(typeof raw.price === "number" ? raw.price : asString(raw.price, 40));
-  return {
-    group: asString(raw.group, 60),
-    price,
-    priceCents,
-    discount: asString(raw.discount, 80),
-    ingredients: asString(raw.ingredients, 300).replace(/[<>]/g, ""),
-    description: asString(raw.description, 500).replace(/[<>]/g, ""),
-    allergens: Array.isArray(raw.allergens)
-      ? Array.from(new Set(raw.allergens.map((entry) => asString(entry, 20)).filter((entry) => VALID_ALLERGENS.has(entry)))).slice(0, 14)
-      : [],
-    available: raw.available !== false,
-  };
-}
+// Sanitización de la ficha oficial de un item en lib/menu-items.js (también la
+// usa business-items.js al crear elementos nuevos): reconstruye todos los
+// campos, así que quien escribe manda siempre el objeto completo.
 
 const sanitizeHexColor = (value) => {
   const raw = asString(value, 9);
@@ -167,7 +147,8 @@ const updateCanonicalItemBusinessData = onCall({ invoker: "public" }, async (req
   const itemSnap = await itemRef.get();
   if (!itemSnap.exists) throw new HttpsError("not-found", "El elemento no existe.");
 
-  const businessData = sanitizeItemBusinessData(request.data?.data);
+  // Apps anteriores no mandan menuOrder: no se borra el que ya había.
+  const businessData = sanitizeItemBusinessData(request.data?.data, { keepMissingMenuOrder: true });
 
   await itemRef.set({
     businessData: {
@@ -189,6 +170,51 @@ const updateCanonicalItemBusinessData = onCall({ invoker: "public" }, async (req
   });
 
   return { ok: true, itemId, data: businessData };
+});
+
+// Ficha de varios platos en una sola escritura y un solo cargo al cupo de la
+// carta. Cada `data` es la ficha COMPLETA del plato (se reconstruye entera).
+const updateBusinessMenuItems = onCall({ invoker: "public" }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Debes iniciar sesión.");
+  const placeId = asString(request.data?.placeId, 300);
+  // Se valida antes de gastar cupo: un lote mal formado no cuenta.
+  const plan = planMenuItemsBatch(request.data?.items);
+  if (plan.error) throw new HttpsError(plan.error.code, plan.error.message);
+
+  const { placeRef, place } = await assertBusinessMenuAccess(placeId, uid);
+
+  const itemsRef = placeRef.collection("items");
+  const snaps = await db.getAll(...plan.items.map((entry) => itemsRef.doc(entry.itemId)));
+  const missing = snaps.filter((snap) => !snap.exists).map((snap) => snap.id);
+  if (missing.length > 0) {
+    throw new HttpsError(
+      "not-found",
+      missing.length === 1 ? "Uno de los platos ya no existe. Recarga la carta." : "Algunos platos ya no existen. Recarga la carta.",
+      { itemIds: missing },
+    );
+  }
+
+  const batch = db.batch();
+  plan.items.forEach(({ itemId, data }) => {
+    batch.set(itemsRef.doc(itemId), {
+      businessData: {
+        ...data,
+        updatedBy: uid,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+    }, { merge: true });
+  });
+  batch.set(placeRef, { businessMenuUpdatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  await batch.commit();
+
+  await writeAuditLog(uid, "businessPro.menuItemsUpdated", {
+    placeId,
+    placeName: place.name || null,
+    itemIds: plan.items.map((entry) => entry.itemId),
+  });
+
+  return { ok: true, items: plan.items };
 });
 
 // Secciones personalizadas de la carta (Entrantes, Primeros...). Se guardan en
@@ -321,6 +347,7 @@ const deleteBusinessOffer = onCall({ invoker: "public" }, async (request) => {
 module.exports = {
   updateBusinessVisual,
   updateCanonicalItemBusinessData,
+  updateBusinessMenuItems,
   updateBusinessMenuSections,
   saveBusinessOffer,
   deleteBusinessOffer,

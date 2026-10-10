@@ -646,6 +646,8 @@ function planPlaceRebuild({ reviews = [], itemsById } = {}) {
     curatedAliasesOf(existing).forEach((alias) => aliases.add(alias));
     const canonicalNormalized = normalizeItemName(canonicalName);
     if (canonicalNormalized) aliases.add(canonicalNormalized);
+    // Listas de las reseñas + la que eligió el negocio al dar de alta el plato
+    // (businessListIds, createBusinessItem): esa nunca se pierde en un rebuild.
     const linkedListIds = new Set(aggregate.linkedListIds);
     if (Array.isArray(existing?.businessListIds)) existing.businessListIds.forEach((listId) => linkedListIds.add(listId));
 
@@ -699,7 +701,8 @@ function planPlaceRebuild({ reviews = [], itemsById } = {}) {
     let mergedInto = null;
 
     if (isBusinessCurated(existing)) {
-      // Carta oficial: sigue visible sin reseñas, con stats a cero.
+      // Carta oficial: sigue visible sin reseñas, con stats a cero y solo la
+      // lista que eligió el negocio (si eligió alguna).
       const linked = sortedStrings(Array.isArray(existing.businessListIds) ? existing.businessListIds : []);
       if (!statsAreZero(existing.stats)) data.stats = zeroStats();
       if (!sameStringSet(existing.linkedListIds, linked) || !Array.isArray(existing.linkedListIds)) data.linkedListIds = linked;

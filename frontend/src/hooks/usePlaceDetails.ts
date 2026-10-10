@@ -8,6 +8,9 @@ import { getCachedDocs } from '../lib/queryCache';
 import { getBusinessPlanFromPlace } from '../utils/businessPlan';
 import type { BusinessHoursInfo, BusinessWeeklyHours, ResolvedBusinessInfo } from '../types/businessInfo';
 import { placeRating, type PlaceRating } from '../lib/placeRating';
+import type { BusinessVisualStyle } from '../services/BusinessProService';
+
+const VISUAL_STYLES: BusinessVisualStyle[] = ['editorial', 'clean', 'warm', 'night'];
 
 export interface PlacePhoto {
     id: string;
@@ -47,6 +50,10 @@ export interface PlaceOfficialMenuItem {
     description?: string;
     allergens: string[];
     available: boolean;
+    /** Ingredientes tal y como los escribe el negocio (separados por comas). */
+    ingredients?: string;
+    /** Posición que eligió el negocio dentro de su sección (antes que la nota). */
+    menuOrder?: number | null;
     rating: number | null;
     reviewCount: number;
     /** Nombres normalizados (canónico, aliases y variantes escritas) para emparejar fotos/reseñas. */
@@ -131,6 +138,8 @@ export interface PlaceDetails {
         accentColor?: string;
         heroText?: string;
         heroImageUrl?: string;
+        /** Estilo de portada (PlacePage aplica sus clases; 'editorial' = el de siempre). */
+        visualStyle?: BusinessVisualStyle;
     };
     businessOffers?: PlaceBusinessOffer[];
     officialItemData?: Record<string, PlaceOfficialItemData>;
@@ -301,6 +310,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
         accentColor: typeof visualData.accentColor === 'string' ? visualData.accentColor : undefined,
         heroText: typeof visualData.heroText === 'string' ? visualData.heroText : undefined,
         heroImageUrl: typeof visualData.heroImageUrl === 'string' ? visualData.heroImageUrl : undefined,
+        visualStyle: VISUAL_STYLES.includes(visualData.visualStyle as BusinessVisualStyle) ? visualData.visualStyle as BusinessVisualStyle : undefined,
     } : undefined;
 
     const today = new Date().toISOString().slice(0, 10);
@@ -358,6 +368,8 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
                 ? businessData.allergens.filter((entry): entry is string => typeof entry === 'string')
                 : [],
             available: businessData.available !== false,
+            ingredients: typeof businessData.ingredients === 'string' && businessData.ingredients.trim() ? businessData.ingredients.trim() : undefined,
+            menuOrder: typeof businessData.menuOrder === 'number' && Number.isFinite(businessData.menuOrder) ? businessData.menuOrder : null,
             rating: typeof stats.averageRating === 'number' ? stats.averageRating : null,
             reviewCount: typeof stats.reviewCount === 'number' ? stats.reviewCount : 0,
             keys: Array.from(keys).filter(Boolean),

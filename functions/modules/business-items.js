@@ -14,6 +14,8 @@
 // Callables:
 // - createBusinessItem: el negocio añade un elemento oficial (con sección y
 //   precio). En transacción, rechaza nombres que ya son de otro elemento.
+//   Opcionalmente con la lista pública de Listopic en la que encaja (listId):
+//   queda en businessListIds y en linkedListIds, y el rebuild la conserva.
 // - submitItemProposal: propuestas sensibles (fusionar duplicados por
 //   erratas, renombrar, mover una reseña a otro elemento). Quedan pendientes
 //   de aprobación admin.
@@ -52,6 +54,7 @@ const {
   planPlaceRebuild,
   seedRepairPlan,
 } = require("./lib/canonical-resolve");
+const { businessListProblem } = require("./lib/menu-items");
 const { syncSpotlightsForPlace } = require("./sponsored");
 const { sendNotification } = require("./notifications");
 const { safeNotifyJefes, itemProposalAlert } = require("./lib/notify-jefes");
@@ -173,14 +176,33 @@ function pickNewItemId(itemsById, name) {
   return { itemId: `${slug}-${Date.now().toString(36)}`, revived: false };
 }
 
+// La lista que el negocio elige para un plato nuevo: tiene que existir y ser
+// pública (una Minilista cuenta como privada si su madre lo es).
+async function assertBusinessListUsable(listId) {
+  const listSnap = await db.collection("lists").doc(listId).get();
+  const list = listSnap.exists ? listSnap.data() || {} : null;
+  let parent = null;
+  const parentId = list && typeof list.parentListId === "string" ? list.parentListId.trim() : "";
+  if (parentId && !parentId.includes("/")) {
+    const parentSnap = await db.collection("lists").doc(parentId).get();
+    parent = parentSnap.exists ? parentSnap.data() || {} : null;
+  }
+  const problem = businessListProblem(list, parent);
+  if (problem) throw new HttpsError(problem.code, problem.message, { listId });
+  return listId;
+}
+
 const createBusinessItem = onCall({ invoker: "public" }, async (request) => {
   const uid = request.auth?.uid;
   const placeId = asString(request.data?.placeId, 300);
   const name = asString(request.data?.name, 120).replace(/[<>]/g, "");
   if (!name) throw new HttpsError("invalid-argument", "El elemento necesita un nombre.");
+  const listId = asString(request.data?.listId, 300);
+  if (listId.includes("/")) throw new HttpsError("invalid-argument", "Lista no válida.");
 
   const { placeRef, place } = await assertBusinessMenuAccess(placeId, uid);
 
+  const listIds = listId ? [await assertBusinessListUsable(listId)] : [];
   const sanitized = sanitizeItemBusinessData(request.data?.businessData);
   const itemsRef = placeRef.collection("items");
 
@@ -210,7 +232,8 @@ const createBusinessItem = onCall({ invoker: "public" }, async (request) => {
       curatedAliasesNormalized: aliases,
       curatedRawAliases: curated.raw,
       sourceNames: [],
-      linkedListIds: [],
+      linkedListIds: listIds,
+      ...(listIds.length > 0 ? { businessListIds: listIds } : {}),
       source: "business",
       businessCreated: true,
       status: "active",
@@ -235,6 +258,7 @@ const createBusinessItem = onCall({ invoker: "public" }, async (request) => {
     itemId,
     itemName: name,
     revived,
+    listId: listIds[0] || null,
   });
 
   return {
@@ -246,6 +270,7 @@ const createBusinessItem = onCall({ invoker: "public" }, async (request) => {
       canonicalName: name,
       status: "active",
       source: "business",
+      linkedListIds: listIds,
       businessData: { ...sanitized, updatedBy: uid },
       stats: { ...ZERO_STATS, criteriaStats: {} },
     },

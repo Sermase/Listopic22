@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Building2, MapPin } from 'lucide-react';
 import { getActiveHomePlacements, recordSponsoredEvent, type SponsoredPlacement } from '../../services/BusinessProService';
 import { useAuth } from '../../context/AuthContext';
+import { SponsoredHomeCard } from './sponsored/SponsoredHomeCard';
 
 // Destacados patrocinados de la home (Business Pro). Se autoalimenta de los
 // emplazamientos activos aprobados por admin; si no hay ninguno no pinta nada.
@@ -56,9 +55,9 @@ export const SponsoredHomeSpotlight: React.FC = () => {
         <div className="mx-auto mt-8 w-full max-w-4xl">
             <div ref={containerRef} className={`grid gap-3 ${placements.length > 1 ? 'sm:grid-cols-2' : ''} ${placements.length > 2 ? 'lg:grid-cols-3' : ''}`}>
                 {placements.map((placement) => (
-                    <Link
+                    <SponsoredHomeCard
                         key={placement.id}
-                        data-sponsored-id={placement.id}
+                        sponsoredId={placement.id}
                         to={`/place/${placement.placeId}`}
                         onClick={() => {
                             if (!isJefe) void Promise.all([
@@ -66,40 +65,11 @@ export const SponsoredHomeSpotlight: React.FC = () => {
                                 recordSponsoredEvent('placement', placement.id, 'click'),
                             ]).catch(() => undefined);
                         }}
-                        className="group relative flex items-center gap-3 overflow-hidden rounded-2xl border border-amber-500/20 bg-[var(--lt-card-strong)] p-3 shadow-lg transition-transform hover:scale-[1.01]"
-                    >
-                        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white/5">
-                            {placement.placePhotoUrl ? (
-                                <img
-                                    src={placement.placePhotoUrl}
-                                    alt=""
-                                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
-                                    loading="lazy"
-                                />
-                            ) : (
-                                <div className="grid h-full w-full place-items-center text-amber-300">
-                                    <Building2 className="h-6 w-6" />
-                                </div>
-                            )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-black text-[var(--lt-text)] group-hover:text-[var(--lt-accent)]">
-                                {placement.placeName || 'Negocio'}
-                            </p>
-                            {placement.headline && (
-                                <p className="mt-0.5 truncate text-xs text-[var(--lt-text-muted)]">{placement.headline}</p>
-                            )}
-                            {placement.placeAddress && (
-                                <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-[var(--lt-text-muted)]">
-                                    <MapPin className="h-3 w-3 shrink-0" />
-                                    {placement.placeAddress}
-                                </p>
-                            )}
-                        </div>
-                        <span className="absolute right-2 top-2 rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-300">
-                            Patrocinado
-                        </span>
-                    </Link>
+                        placeName={placement.placeName}
+                        headline={placement.headline}
+                        address={placement.placeAddress}
+                        photoUrl={placement.placePhotoUrl}
+                    />
                 ))}
             </div>
         </div>
