@@ -81,7 +81,7 @@ test('carta: alta de platos, mover una valoración y renombrar con aprobación a
   await page.getByRole('tab', { name: /Vista pública/ }).click();
   const preview = page.getByRole('region', { name: /Así te ven/ });
   const previewEntrantes = preview.locator('div')
-    .filter({ has: preview.getByRole('heading', { name: 'Entrantes', exact: true }) })
+    .filter({ has: page.getByRole('heading', { name: 'Entrantes', exact: true }) })
     .last();
   await expect(previewEntrantes).toContainText('Croqueta casera');
   await expect(previewEntrantes).toContainText('Pimientos de Padrón');
