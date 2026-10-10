@@ -1,12 +1,17 @@
 // Developer como jefe SIN claim `admin` (lo normal en una cuenta nueva): el claim se
-// pide solo, Reseñas carga por el servidor y una valoración se ve y se edita (también
-// el autor) en su modal; Usuarios abre la ficha completa.
+// pide solo, Developer abre en «📥 Pendientes», Reseñas carga por el servidor y una
+// valoración se ve y se edita (también el autor) en su modal; Usuarios abre la ficha
+// completa; ninguna pestaña ni sub-pestaña de Patrocinios y Pro da errores.
+import type { Page } from '@playwright/test';
 import { test, expect, login } from './support';
 
 test.use({ viewport: { width: 1280, height: 900 } });
 
-const openTab = async (page, label: string) => {
-  await page.locator('nav button').filter({ hasText: label }).first().click();
+/** Barra lateral de Developer, agrupada en secciones (Bandeja, Moderación, Negocios y planes…). */
+const devNav = (page: Page) => page.getByRole('navigation', { name: 'Herramientas de Developer' });
+
+const openTab = async (page: Page, label: string) => {
+  await devNav(page).locator('button').filter({ hasText: label }).first().click();
 };
 
 test('Reseñas: carga todo por el servidor y se edita una valoración en su modal', async ({ page, errors }) => {
@@ -56,14 +61,21 @@ test('Usuarios: ficha completa y, desde ella, el detalle de una valoración', as
 });
 
 test('ninguna pestaña de Developer da errores de permisos (jefe sin claim)', async ({ page, errors }) => {
-  test.setTimeout(150_000);
+  test.setTimeout(180_000);
   await login(page, 'jefe');
   await page.goto('/developer');
-  const nav = page.locator('nav').filter({ hasText: 'Consola de Datos' });
+  const nav = devNav(page);
   await expect(nav).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('Comprobando permisos…')).toBeHidden({ timeout: 20_000 });
-  const labels = (await nav.locator('button').evaluateAll((els) => els.map((e) => (e.textContent || '').trim()))).filter(Boolean);
+  await expect(page.getByText(/Activando tus permisos/)).toBeHidden({ timeout: 20_000 });
+  // Sin ?tab= abre en «📥 Pendientes».
+  await expect(nav.locator('button[aria-current="page"]')).toContainText('Pendientes');
+  await expect(page.locator('main').getByRole('heading', { level: 2, name: /Pendientes/ })).toBeVisible({ timeout: 20_000 });
+  // Solo el nombre de cada pestaña (su primer <span>): los contadores de la barra
+  // («Pendientes 3 por revisar») aparecen y cambian mientras carga.
+  const labels = (await nav.locator('button').evaluateAll((els) => els.map((e) => (e.querySelector('span')?.textContent || '').trim()))).filter(Boolean);
   expect(labels.length).toBeGreaterThan(15);
+  expect(labels[0]).toBe('Pendientes');
   for (const label of labels) {
     await nav.locator('button').filter({ hasText: label }).first().click();
     await page.waitForTimeout(1200);
@@ -76,6 +88,16 @@ test('ninguna pestaña de Developer da errores de permisos (jefe sin claim)', as
       }
     }
   }
+  // Patrocinios y Pro: cada sub-pestaña lee lo suyo al abrirla. «🧹 Reparar cartas»
+  // (🛠️ Herramientas) no lanza nada hasta pulsar «Simular» o «Aplicar».
+  await openTab(page, 'Patrocinios y Pro');
+  for (const name of [/Bandeja/, /En curso/, /Historial/, /Precios/, /Duelo/, /Herramientas/]) {
+    const subTab = page.locator('main').getByRole('tab', { name });
+    await subTab.click();
+    await expect(subTab).toHaveAttribute('aria-selected', 'true');
+    await page.waitForTimeout(1200);
+  }
+  await expect(page.getByRole('heading', { name: '🧹 Reparar cartas' })).toBeVisible();
   // El fixture `errors` falla la prueba con cualquier error de JS o de consola (permisos incluidos).
   expect(errors).toEqual([]);
 });

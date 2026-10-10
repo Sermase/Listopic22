@@ -20,15 +20,19 @@ const FitAnalyticsBounds: React.FC<{ points: AnalyticsHeatPoint[] }> = ({ points
     const map = useMap();
     const signature = points.map((point) => `${point.lat},${point.lng}`).join('|');
 
+    // Sin animación: Leaflet 1.9 no cancela el temporizador del zoom animado al
+    // desmontar el mapa y, si se cambia de pestaña en esos 250 ms, lanza
+    // «Cannot read properties of undefined (reading '_leaflet_pos')».
     useEffect(() => {
         if (points.length === 0) return;
         if (points.length === 1) {
-            map.setView([points[0].lat, points[0].lng], 9);
+            map.setView([points[0].lat, points[0].lng], 9, { animate: false });
             return;
         }
         return whenMapSized(map, () => map.fitBounds(latLngBounds(points.map((point) => [point.lat, point.lng])), {
             padding: [28, 28],
             maxZoom: 11,
+            animate: false,
         }));
         // signature representa exclusivamente las coordenadas visibles.
         // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,11 +1,18 @@
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
+const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
 const fetch = require("node-fetch");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { assertJefeAccess, rateLimit, writeAuditLog } = require("./lib/auth");
 const { sendNotification } = require("./notifications");
+const { notifyJefes, businessClaimAlert } = require("./lib/notify-jefes");
+const {
+  isClaimResubmission,
+  buildPreviousReview,
+  appendPreviousReview,
+  ownerTransferCheck,
+} = require("./lib/business-claims-review");
 
 const resendApiKey = defineSecret("RESEND_API_KEY");
 const db = getFirestore();
@@ -23,7 +30,9 @@ const escapeHtml = (value) => String(value || "")
   .replace(/>/g, "&gt;")
   .replace(/"/g, "&quot;");
 
-const buildEmailHtml = (claimId, claim) => {
+// `resubmission`: { count, previousNotes } cuando la solicitud se reenvía tras
+// un rechazo (onBusinessClaimUpdated).
+const buildEmailHtml = (claimId, claim, { resubmission = null } = {}) => {
   const developerUrl = `${PUBLIC_ORIGIN}/developer?tab=businessClaims&claimId=${encodeURIComponent(claimId)}`;
   const placeUrl = `${PUBLIC_ORIGIN}/place/${encodeURIComponent(claim.placeId || "")}`;
   const proofs = Array.isArray(claim.proofs) ? claim.proofs : [];
@@ -31,10 +40,14 @@ const buildEmailHtml = (claimId, claim) => {
   const proofList = proofs.length
     ? `<ul>${proofs.map((proof) => `<li><a href="${escapeHtml(proof.downloadUrl)}">${escapeHtml(proof.name || proof.storagePath || "Prueba")}</a></li>`).join("")}</ul>`
     : "<p>No se adjuntaron archivos.</p>";
+  const resubmissionNote = resubmission
+    ? `<p style="background:#fef3c7;padding:10px 12px;border-radius:8px"><strong>🔁 Reenvío nº ${escapeHtml(resubmission.count)}</strong> tras un rechazo.${resubmission.previousNotes ? `<br/><strong>Motivo del rechazo anterior:</strong> ${escapeHtml(resubmission.previousNotes)}` : ""}</p>`
+    : "";
 
   return `
     <div style="font-family:Arial,sans-serif;line-height:1.5;color:#111827">
-      <h2>Nueva reclamación de negocio</h2>
+      <h2>${resubmission ? "Reclamación de negocio reenviada" : "Nueva reclamación de negocio"}</h2>
+      ${resubmissionNote}
       <p><strong>Lugar:</strong> ${escapeHtml(claim.placeName)}<br/>
       <strong>Place ID:</strong> ${escapeHtml(claim.placeId)}<br/>
       <strong>Solicitante:</strong> ${escapeHtml(claim.userName || claim.userEmail || claim.userId)}<br/>
@@ -113,6 +126,83 @@ const onBusinessClaimCreated = onDocumentCreated({
   } catch (error) {
     logger.error("businessClaims: error enviando email de aviso", { claimId, error: error.message || String(error) });
   }
+
+  await notifyJefesOfClaim(claimId, claim);
+});
+
+// B8: aviso in-app a los jefes (además del email), con enlace a la bandeja.
+async function notifyJefesOfClaim(claimId, claim, { resubmission = false } = {}) {
+  try {
+    const { type, payload, notificationId, excludeUids } = businessClaimAlert(claimId, claim, { resubmission });
+    await notifyJefes({ db, send: sendNotification, type, payload, notificationId, excludeUids });
+  } catch (error) {
+    logger.error("businessClaims: error avisando a los jefes", { claimId, error: error.message || String(error) });
+  }
+}
+
+// B3: reenviar una solicitud rechazada es un update (setDoc completo sobre el
+// mismo id), así que onBusinessClaimCreated no salta. Aquí se guarda la
+// decisión anterior en `previousReviews` (el reenvío la borra) y se avisa
+// igual que con una solicitud nueva.
+const onBusinessClaimUpdated = onDocumentUpdated({
+  document: "businessClaims/{claimId}",
+  secrets: [resendApiKey],
+}, async (event) => {
+  const claimId = event.params.claimId;
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!isClaimResubmission(before, after)) return;
+
+  const claimRef = event.data.after.ref;
+  const entry = buildPreviousReview(before, Timestamp.now());
+  let isDuplicate = false;
+  let stillPending = true;
+  let count = (Array.isArray(before.previousReviews) ? before.previousReviews.length : 0) + 1;
+
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(claimRef);
+      if (!snap.exists) return;
+      const current = snap.data() || {};
+      // Si un jefe ya la revisó antes de que llegara este evento, se guarda el
+      // historial igualmente, pero no se avisa de una solicitud que ya no espera.
+      stillPending = current.status === "pending";
+      // El setDoc del reenvío no trae previousReviews: el historial está en `before`.
+      // Si ya está en el documento, este evento llega repetido.
+      const base = Array.isArray(current.previousReviews) ? current.previousReviews : before.previousReviews;
+      const { list, appended } = appendPreviousReview(base, entry);
+      if (!appended) {
+        isDuplicate = true;
+        return;
+      }
+      count = list.length;
+      tx.update(claimRef, { previousReviews: list });
+    });
+  } catch (error) {
+    logger.error("businessClaims: no se pudo guardar la decisión anterior", { claimId, error: error.message || String(error) });
+  }
+
+  if (isDuplicate) {
+    logger.info("businessClaims: reenvío ya procesado", { claimId });
+    return;
+  }
+  if (!stillPending) {
+    logger.info("businessClaims: reenvío ya revisado, sin avisos", { claimId });
+    return;
+  }
+
+  try {
+    await sendResendEmail({
+      to: CLAIM_REVIEW_EMAILS,
+      subject: `Nueva reclamación de negocio (reenvío): ${after.placeName || after.placeId || claimId}`,
+      html: buildEmailHtml(claimId, after, { resubmission: { count, previousNotes: entry.adminNotes } }),
+    });
+    logger.info("businessClaims: email de reenvío enviado", { claimId, count, to: CLAIM_REVIEW_EMAILS });
+  } catch (error) {
+    logger.error("businessClaims: error enviando email de reenvío", { claimId, error: error.message || String(error) });
+  }
+
+  await notifyJefesOfClaim(claimId, after, { resubmission: true });
 });
 
 const asString = (value, maxLength = 1000) => (typeof value === "string" ? value.trim().slice(0, maxLength) : "");
@@ -460,6 +550,7 @@ const reviewBusinessClaim = onCall(async (request) => {
   const claimId = asString(request.data?.claimId, 300);
   const status = asString(request.data?.status, 20);
   const adminNotes = asString(request.data?.adminNotes, 1600);
+  const allowOwnerTransfer = request.data?.allowOwnerTransfer === true;
 
   if (!claimId) throw new HttpsError("invalid-argument", "Falta claimId.");
   if (status !== "approved" && status !== "rejected") {
@@ -471,6 +562,7 @@ const reviewBusinessClaim = onCall(async (request) => {
 
   const claimRef = db.collection("businessClaims").doc(claimId);
   let claimData = null;
+  let previousOwnerUserId = null;
 
   await db.runTransaction(async (tx) => {
     const claimSnap = await tx.get(claimRef);
@@ -482,6 +574,22 @@ const reviewBusinessClaim = onCall(async (request) => {
     }
     if (!claimData.userId || !claimData.placeId) {
       throw new HttpsError("failed-precondition", "La solicitud no tiene usuario o lugar asociado.");
+    }
+
+    // B4: aprobar sobre un lugar ya verificado por otra persona le quita la
+    // propiedad. Solo con confirmación explícita del jefe (el panel la pide).
+    previousOwnerUserId = null;
+    if (status === "approved") {
+      const placeSnap = await tx.get(db.collection("places").doc(claimData.placeId));
+      const transfer = ownerTransferCheck(placeSnap.exists ? placeSnap.data() : null, claimData.userId, allowOwnerTransfer);
+      if (transfer.blocked) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Este lugar ya tiene otro propietario verificado. Confirma la transferencia de propiedad para aprobar la solicitud.",
+          { reason: "owner-transfer-required", currentOwnerUserId: transfer.previousOwnerUserId },
+        );
+      }
+      previousOwnerUserId = transfer.previousOwnerUserId;
     }
 
     tx.update(claimRef, {
@@ -518,9 +626,12 @@ const reviewBusinessClaim = onCall(async (request) => {
     status,
     placeId: claimData?.placeId || null,
     targetUserId: claimData?.userId || null,
+    adminNotes: adminNotes || null,
+    previousOwnerUserId,
+    ownerTransferred: Boolean(previousOwnerUserId),
   });
 
-  return { ok: true, status };
+  return { ok: true, status, previousOwnerUserId };
 });
 
 async function getUserDocBySearch(searchTerm) {
@@ -837,6 +948,7 @@ const updateBusinessInfoSection = onCall(async (request) => {
 
 module.exports = {
   onBusinessClaimCreated,
+  onBusinessClaimUpdated,
   reviewBusinessClaim,
   getBusinessTeam,
   updateBusinessTeamMember,

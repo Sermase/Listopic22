@@ -1,5 +1,6 @@
 # --- Entorno y dependencias ---
-node_modules/
+# Sin barra final: ignora también node_modules como enlace simbólico (worktrees).
+node_modules
 .env
 .env.*
 !.env.example

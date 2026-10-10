@@ -2,6 +2,8 @@ import { collection, collectionGroup, doc, getDoc, getDocs, limit, query, where 
 import { httpsCallable } from 'firebase/functions';
 import { auth, db, functions } from '../firebase';
 import { getAnalyticsSessionId } from './AnalyticsService';
+import { fetchPending, fetchQueue, type QueuePage } from './adminQueues';
+import { toMillis } from '../utils/adminTime';
 import type { CanonicalPlaceItem } from './CanonicalItemService';
 
 // Datos Business Pro: lectura directa de Firestore (colecciones públicas de solo
@@ -245,7 +247,28 @@ export const getPlaceReviewsForManager = async (placeId: string): Promise<Manage
 };
 
 export type ItemProposalType = 'merge' | 'rename' | 'reassign_review';
-export type ItemProposalStatus = 'pending' | 'approved' | 'rejected';
+// 'applying': un jefe la está aplicando ahora (reserva de reviewItemProposal).
+// Si aplicar falla vuelve a 'pending' con applyError; si lleva más de 10
+// minutos así, se quedó atascada y se puede reintentar (ver adminQueues).
+export type ItemProposalStatus = 'pending' | 'applying' | 'approved' | 'rejected';
+
+const ITEM_PROPOSAL_STATUSES: readonly ItemProposalStatus[] = ['pending', 'applying', 'approved', 'rejected'];
+
+// Resultado que guarda reviewItemProposal al aprobar: fusión y mover reseña
+// devuelven reassignedReviews; el renombre, renamed.
+export interface ItemProposalApplyResult {
+    reassignedReviews?: number;
+    renamed?: boolean;
+    [key: string]: unknown;
+}
+
+// Último intento de aplicarla que falló (la propuesta volvió a 'pending').
+export interface ItemProposalApplyError {
+    message: string;
+    code?: string;
+    by?: string;
+    atMs?: number;
+}
 
 export interface ItemProposal {
     id: string;
@@ -258,9 +281,70 @@ export interface ItemProposal {
     adminNotes?: string;
     createdBy?: string;
     createdAtMs: number;
+    reviewedBy?: string;
+    reviewedAtMs?: number;
+    applyResult?: ItemProposalApplyResult | null;
+    // Desde cuándo está en 'applying' (con reviewedBy = quién la aplica).
+    applyingAtMs?: number;
+    applyError?: ItemProposalApplyError;
 }
 
-const mapProposal = (id: string, data: Record<string, unknown>): ItemProposal => {
+// Listas de Developer: el array de siempre más el aviso de truncado
+// (hasMore: había más de las que se han traído) y degraded (índice en
+// construcción, orden aproximado). Los métodos de array devuelven arrays normales.
+export type QueueRows<T> = T[] & { hasMore: boolean; degraded: boolean };
+
+const withQueueMeta = <T>(rows: T[], page: Pick<QueuePage, 'hasMore' | 'degraded'>): QueueRows<T> =>
+    Object.assign(rows, { hasMore: page.hasMore, degraded: page.degraded });
+
+const optionalString = (value: unknown): string | undefined =>
+    typeof value === 'string' && value ? value : undefined;
+
+const optionalMillis = (value: unknown): number | undefined => {
+    const ms = toMillis(value);
+    return ms > 0 ? ms : undefined;
+};
+
+const optionalCount = (value: unknown): number | undefined =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+
+// Quién y cuándo decidió (y, tras el cambio B5 del backend, quién activó y cerró).
+interface ResolutionFields {
+    reviewedBy?: string;
+    reviewedAtMs?: number;
+    activatedBy?: string;
+    activatedAtMs?: number;
+    endedBy?: string;
+    endedAtMs?: number;
+    closedBy?: string;
+    closedAtMs?: number;
+}
+
+const mapResolutionFields = (data: Record<string, unknown>): ResolutionFields => ({
+    reviewedBy: optionalString(data.reviewedBy),
+    reviewedAtMs: optionalMillis(data.reviewedAt),
+    activatedBy: optionalString(data.activatedBy),
+    activatedAtMs: optionalMillis(data.activatedAt),
+    endedBy: optionalString(data.endedBy),
+    endedAtMs: optionalMillis(data.endedAt),
+    closedBy: optionalString(data.closedBy),
+    closedAtMs: optionalMillis(data.closedAt),
+});
+
+const mapApplyError = (value: unknown): ItemProposalApplyError | undefined => {
+    if (!value || typeof value !== 'object') return undefined;
+    const raw = value as Record<string, unknown>;
+    const message = optionalString(raw.message);
+    if (!message) return undefined;
+    return {
+        message,
+        code: optionalString(raw.code),
+        by: optionalString(raw.by),
+        atMs: optionalMillis(raw.at),
+    };
+};
+
+export const mapProposal = (id: string, data: Record<string, unknown>): ItemProposal => {
     const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
     return {
         id,
@@ -269,10 +353,17 @@ const mapProposal = (id: string, data: Record<string, unknown>): ItemProposal =>
         type: (['merge', 'rename', 'reassign_review'].includes(String(data.type)) ? data.type : 'merge') as ItemProposalType,
         payload: (data.payload && typeof data.payload === 'object' ? data.payload : {}) as Record<string, string>,
         note: typeof data.note === 'string' ? data.note : undefined,
-        status: (['pending', 'approved', 'rejected'].includes(String(data.status)) ? data.status : 'pending') as ItemProposalStatus,
+        status: (ITEM_PROPOSAL_STATUSES as readonly string[]).includes(String(data.status)) ? data.status as ItemProposalStatus : 'pending',
         adminNotes: typeof data.adminNotes === 'string' ? data.adminNotes : undefined,
         createdBy: typeof data.createdBy === 'string' ? data.createdBy : undefined,
         createdAtMs: typeof createdAt?.toMillis === 'function' ? createdAt.toMillis() : 0,
+        reviewedBy: optionalString(data.reviewedBy),
+        reviewedAtMs: optionalMillis(data.reviewedAt),
+        applyResult: data.applyResult && typeof data.applyResult === 'object'
+            ? data.applyResult as ItemProposalApplyResult
+            : data.applyResult === null ? null : undefined,
+        applyingAtMs: optionalMillis(data.applyingAt),
+        applyError: mapApplyError(data.applyError),
     };
 };
 
@@ -298,15 +389,10 @@ export const getMyItemProposals = async (placeId: string, uid: string): Promise<
         .sort((a, b) => b.createdAtMs - a.createdAtMs);
 };
 
-export const getPendingItemProposals = async (): Promise<ItemProposal[]> => {
-    const snap = await getDocs(query(
-        collection(db, 'itemProposals'),
-        where('status', '==', 'pending'),
-        limit(100),
-    ));
-    return snap.docs
-        .map((proposalDoc) => mapProposal(proposalDoc.id, proposalDoc.data() as Record<string, unknown>))
-        .sort((a, b) => a.createdAtMs - b.createdAtMs);
+// Developer: propuestas pendientes, de la más antigua a la más reciente (máx. 100).
+export const getPendingItemProposals = async (): Promise<QueueRows<ItemProposal>> => {
+    const page = await fetchPending('itemProposals', { pageSize: 100 });
+    return withQueueMeta(page.items.map((item) => mapProposal(item.id, item.data)), page);
 };
 
 // Reconstruye los items canónicos del lugar desde sus reseñas (cura lugares
@@ -383,12 +469,15 @@ export const submitItemProposal = async (
     return result.data;
 };
 
+// Aplicar una propuesta reconstruye la carta y el servidor tiene hasta 300 s.
+// El navegador espera algo más (por defecto serían 70 s y cortaría antes con
+// un deadline-exceeded en inglés).
 export const reviewItemProposal = async (
     proposalId: string,
     decision: 'approve' | 'reject',
     adminNotes?: string,
 ): Promise<void> => {
-    const callable = httpsCallable(functions, 'reviewItemProposal');
+    const callable = httpsCallable(functions, 'reviewItemProposal', { timeout: 310_000 });
     await callable({ proposalId, decision, adminNotes });
 };
 
@@ -423,9 +512,20 @@ export interface SponsoredPlacement {
     adminNotes?: string;
     metrics: SponsoredMetrics;
     createdAtMs: number;
+    createdBy?: string;
+    reviewedBy?: string;
+    reviewedAtMs?: number;
+    // Hoy solo los escribe el cierre automático (endedAt) o nadie (el resto);
+    // quedan listos para cuando el backend los guarde (B5).
+    activatedBy?: string;
+    activatedAtMs?: number;
+    endedBy?: string;
+    endedAtMs?: number;
+    closedBy?: string;
+    closedAtMs?: number;
 }
 
-const mapPlacement = (id: string, data: Record<string, unknown>): SponsoredPlacement => {
+export const mapPlacement = (id: string, data: Record<string, unknown>): SponsoredPlacement => {
     const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
     return {
         id,
@@ -441,6 +541,8 @@ const mapPlacement = (id: string, data: Record<string, unknown>): SponsoredPlace
         adminNotes: typeof data.adminNotes === 'string' ? data.adminNotes : undefined,
         metrics: mapSponsoredMetrics(data),
         createdAtMs: typeof createdAt?.toMillis === 'function' ? createdAt.toMillis() : 0,
+        createdBy: optionalString(data.createdBy),
+        ...mapResolutionFields(data),
     };
 };
 
@@ -458,15 +560,10 @@ export const getPlaceSponsoredPlacements = async (placeId: string): Promise<Spon
         .sort((a, b) => b.createdAtMs - a.createdAtMs);
 };
 
-export const getOpenSponsoredPlacements = async (): Promise<SponsoredPlacement[]> => {
-    const snap = await getDocs(query(
-        collection(db, 'sponsoredPlacements'),
-        where('status', 'in', ['requested', 'active']),
-        limit(100),
-    ));
-    return snap.docs
-        .map((placementDoc) => mapPlacement(placementDoc.id, placementDoc.data() as Record<string, unknown>))
-        .sort((a, b) => a.createdAtMs - b.createdAtMs);
+// Developer: campañas solicitadas y activas, de la más antigua a la más reciente (máx. 100).
+export const getOpenSponsoredPlacements = async (): Promise<QueueRows<SponsoredPlacement>> => {
+    const page = await fetchQueue('sponsoredPlacements', { statuses: ['requested', 'active'], direction: 'asc', pageSize: 100 });
+    return withQueueMeta(page.items.map((item) => mapPlacement(item.id, item.data)), page);
 };
 
 export const getActiveHomePlacements = async (): Promise<SponsoredPlacement[]> => {
@@ -631,9 +728,28 @@ export interface ItemSpotlight {
     itemInactive: boolean;
     metrics: SponsoredMetrics;
     createdAtMs: number;
+    createdBy?: string;
+    // Impulsos pagados con saldo de regalo y los que quedan por facturar
+    // (impulses = creditsUsed + billedImpulses; totalPriceEur es solo lo facturado).
+    creditsUsed?: number;
+    billedImpulses?: number;
+    pricePerImpulseEur?: number;
+    // Al rechazar, el backend devuelve creditsUsed al saldo del local
+    // (mapSpotlight siempre lo rellena; opcional para los objetos hechos a mano).
+    creditsRefunded?: boolean;
+    creditsRefundedAtMs?: number;
+    reviewedBy?: string;
+    reviewedAtMs?: number;
+    // startsAt es la fecha de activación; activatedBy/endedBy/closed* llegarán con B5.
+    activatedBy?: string;
+    activatedAtMs?: number;
+    endedBy?: string;
+    endedAtMs?: number;
+    closedBy?: string;
+    closedAtMs?: number;
 }
 
-const mapSpotlight = (id: string, data: Record<string, unknown>): ItemSpotlight => {
+export const mapSpotlight = (id: string, data: Record<string, unknown>): ItemSpotlight => {
     const createdAt = data.createdAt as { toMillis?: () => number } | undefined;
     const center = data.center as { lat?: unknown; lng?: unknown } | undefined;
     return {
@@ -664,6 +780,13 @@ const mapSpotlight = (id: string, data: Record<string, unknown>): ItemSpotlight 
         itemInactive: data.itemInactive === true,
         metrics: mapSponsoredMetrics(data),
         createdAtMs: typeof createdAt?.toMillis === 'function' ? createdAt.toMillis() : 0,
+        createdBy: optionalString(data.createdBy),
+        creditsUsed: optionalCount(data.creditsUsed),
+        billedImpulses: optionalCount(data.billedImpulses),
+        pricePerImpulseEur: optionalCount(data.pricePerImpulseEur),
+        creditsRefunded: data.creditsRefunded === true,
+        creditsRefundedAtMs: optionalMillis(data.creditsRefundedAt),
+        ...mapResolutionFields(data),
     };
 };
 
@@ -701,15 +824,10 @@ export const getPlaceItemSpotlights = async (placeId: string): Promise<ItemSpotl
         .sort((a, b) => b.createdAtMs - a.createdAtMs);
 };
 
-export const getOpenItemSpotlights = async (): Promise<ItemSpotlight[]> => {
-    const snap = await getDocs(query(
-        collection(db, 'sponsoredItemSpotlights'),
-        where('status', 'in', ['requested', 'active']),
-        limit(100),
-    ));
-    return snap.docs
-        .map((spotlightDoc) => mapSpotlight(spotlightDoc.id, spotlightDoc.data() as Record<string, unknown>))
-        .sort((a, b) => a.createdAtMs - b.createdAtMs);
+// Developer: platos solicitados y activos, del más antiguo al más reciente (máx. 100).
+export const getOpenItemSpotlights = async (): Promise<QueueRows<ItemSpotlight>> => {
+    const page = await fetchQueue('sponsoredItemSpotlights', { statuses: ['requested', 'active'], direction: 'asc', pageSize: 100 });
+    return withQueueMeta(page.items.map((item) => mapSpotlight(item.id, item.data)), page);
 };
 
 export const getActiveItemSpotlights = async (): Promise<ItemSpotlight[]> => {
@@ -876,7 +994,8 @@ const mapRepairCounters = (data: Record<string, unknown>): RepairPlaceItemsCount
 // valoraciones curadas, recupera alias de renombres/fusiones aprobados, cierra
 // duplicados y refresca los platos destacados. Con dryRun solo cuenta.
 export const adminRepairPlaceItems = async (input: { placeId?: string; dryRun: boolean }): Promise<RepairPlaceItemsResult> => {
-    const callable = httpsCallable<unknown, Record<string, unknown>>(functions, 'adminRepairPlaceItems');
+    // El servidor admite 540 s; con los 70 s por defecto el navegador dejaría de esperar antes.
+    const callable = httpsCallable<unknown, Record<string, unknown>>(functions, 'adminRepairPlaceItems', { timeout: 550_000 });
     const placeId = input.placeId?.trim();
     const result = await callable(placeId ? { placeId, dryRun: input.dryRun } : { dryRun: input.dryRun });
     const data = result.data || {};

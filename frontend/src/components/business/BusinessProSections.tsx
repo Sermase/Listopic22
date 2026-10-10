@@ -196,6 +196,8 @@ const ProSectionShell: React.FC<{
 
 const PROPOSAL_STATUS_META: Record<ItemProposal['status'], { label: string; className: string }> = {
     pending: { label: 'Pendiente', className: 'border-amber-500/25 bg-amber-500/10 text-amber-200' },
+    // Unos segundos, mientras el administrador la aplica.
+    applying: { label: 'Aplicándose', className: 'border-cyan-500/25 bg-cyan-500/10 text-cyan-200' },
     approved: { label: 'Aprobada', className: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200' },
     rejected: { label: 'Rechazada', className: 'border-red-500/25 bg-red-500/10 text-red-200' },
 };

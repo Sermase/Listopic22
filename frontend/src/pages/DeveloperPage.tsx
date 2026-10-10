@@ -1,17 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useJefeClaim } from '../hooks/useJefeClaim';
-import { adminSearchReviews } from '../services/developerAdmin';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { PlaceService } from '../services/PlaceService';
 import { BADGE_PRESET_PACKS } from '../config/badgePresets';
 import { db, functions, storage } from '../firebase';
-import { collection, query, where, getDocs, doc, getDoc, getDocFromServer, limit as firestoreLimit, setDoc, updateDoc, deleteDoc, writeBatch, arrayUnion, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc, getDocFromServer, limit as firestoreLimit, setDoc, deleteDoc, onSnapshot, orderBy } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { useQueryClient } from '@tanstack/react-query';
-import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, MapPinned, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Flag, MessageSquare, Palette, Users, SlidersHorizontal, ExternalLink, RefreshCcw, FileDown, ClipboardList, Activity, BarChart3, Building2, Sparkles } from 'lucide-react';
+import { Terminal, Search, AlertCircle, RefreshCw, List as ListIcon, MapPin, Layers, Database, CloudLightning, Tag, CheckCircle, X, Upload, Palette, Users, SlidersHorizontal, ClipboardList } from 'lucide-react';
 import { invalidateDoc } from '../lib/queryCache';
+import { useDeveloperPendingCounts } from '../hooks/useDeveloperInbox';
+import { DeveloperSidebar } from '../components/developer/DeveloperSidebar';
+import { developerTabLabel } from '../components/developer/developerNav';
+import {
+    buildTabSearchParams,
+    mergeNavigateParams,
+    parseDeveloperTab,
+    readDeveloperUrlState,
+    type DeveloperNavigateParams,
+    type DeveloperTabProps,
+    type GoToTab,
+} from '../components/developer/developerTabs';
 
 const FUNCTIONS_REGION = 'europe-west1';
 
@@ -26,14 +37,14 @@ const UserDataExportTab = React.lazy(() => import('../components/developer/UserD
 const ApiUsageTab = React.lazy(() => import('../components/developer/ApiUsageTab').then(module => ({ default: module.ApiUsageTab })));
 const PageAnalyticsTab = React.lazy(() => import('../components/developer/PageAnalyticsTab').then(module => ({ default: module.PageAnalyticsTab })));
 const GeoAnalyticsTab = React.lazy(() => import('../components/developer/GeoAnalyticsTab').then(module => ({ default: module.GeoAnalyticsTab })));
+const PendingInboxTab = React.lazy(() => import('../components/developer/PendingInboxTab').then(module => ({ default: module.PendingInboxTab })));
+const ReportsTab = React.lazy(() => import('../components/developer/ReportsTab').then(module => ({ default: module.ReportsTab })));
 const BusinessClaimsManagerTab = React.lazy(() => import('../components/developer/BusinessClaimsManagerTab').then(module => ({ default: module.BusinessClaimsManagerTab })));
 const BusinessManagersTab = React.lazy(() => import('../components/developer/BusinessManagersTab').then(module => ({ default: module.BusinessManagersTab })));
 const PlansManagerTab = React.lazy(() => import('../components/developer/PlansManagerTab').then(module => ({ default: module.PlansManagerTab })));
 const ProProposalsTab = React.lazy(() => import('../components/developer/ProProposalsTab').then(module => ({ default: module.ProProposalsTab })));
 const BackupsTab = React.lazy(() => import('../components/developer/BackupsTab').then(module => ({ default: module.BackupsTab })));
 const ReviewsConsolidationCard = React.lazy(() => import('../components/developer/ReviewsConsolidationCard').then(module => ({ default: module.ReviewsConsolidationCard })));
-
-type DeveloperActiveTab = 'console' | 'algolia' | 'maintenance' | 'gamification' | 'reports' | 'businessClaims' | 'businessManagers' | 'plans' | 'proProposals' | 'backups' | 'branding' | 'others' | 'proyectos' | 'lists' | 'places' | 'reviews' | 'tags' | 'usuarios' | 'rgpd' | 'audit' | 'apiusage' | 'analytics' | 'geoAnalytics';
 
 const DeveloperTabFallback: React.FC = () => (
     <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/60 p-8 text-center text-sm text-gray-400">
@@ -59,17 +70,45 @@ interface ConsoleSearchParams {
 export const DeveloperPage: React.FC = () => {
     const queryClient = useQueryClient();
     const { user, isJefe, loading: loadingAuth } = useAuth();
-    const { profile, loading: loadingProfile } = useUserProfile(user?.uid);
-    const [searchParams] = useSearchParams();
-    const requestedTab = searchParams.get('tab');
-    const initialTab: DeveloperActiveTab = requestedTab === 'businessClaims' || requestedTab === 'businessManagers' || requestedTab === 'plans' || requestedTab === 'analytics' || requestedTab === 'geoAnalytics' ? requestedTab : 'console';
-    const highlightClaimId = searchParams.get('claimId');
-    const [activeTab, setActiveTab] = useState<DeveloperActiveTab>(initialTab);
+    useUserProfile(user?.uid);
+    const [searchParams, setSearchParams] = useSearchParams();
+    // La URL decide la pestaña en cada render (enlaces de emails y notificaciones,
+    // también estando ya dentro de /developer). claimId = alias antiguo de focus.
+    const { tab: activeTab, view: tabView, status: tabStatus, focus: tabFocus } = readDeveloperUrlState(searchParams);
     // Reactive: un usuario al que se le acaba de quitar el rol 'jefe' pierde
     // acceso inmediatamente sin recargar la página.
     const isAuthorized: boolean | null = loadingAuth ? null : isJefe;
     // Claim `admin` del token: sin él, las reglas no reconocen al jefe (ver hooks/useJefeClaim).
     const jefeClaim = useJefeClaim(user, Boolean(isJefe));
+    // Contadores de la barra lateral: las reglas piden el claim admin, así que se espera a tenerlo.
+    const pendingCounts = useDeveloperPendingCounts(jefeClaim.status === 'ready');
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const mainRef = useRef<HTMLElement>(null);
+
+    /** Cambia de pestaña (push): descarta view/status/focus/path de la anterior. */
+    const goToTab = useCallback<GoToTab>((tab, params) => {
+        // Volver a pulsar la pestaña actual la reinicia sin añadir otra entrada al historial.
+        const sameTab = parseDeveloperTab(tab) === activeTab;
+        setSearchParams((current) => buildTabSearchParams(current, tab, params), { replace: sameTab });
+        setIsSidebarOpen(false);
+    }, [setSearchParams, activeTab]);
+
+    /** view/status/focus de la pestaña actual (replace: no llena el historial). */
+    const navigateWithinTab = useCallback((params: DeveloperNavigateParams) => {
+        setSearchParams((current) => mergeNavigateParams(current, params), { replace: true });
+    }, [setSearchParams]);
+
+    const tabContract = useMemo<DeveloperTabProps>(() => ({
+        focusId: tabFocus,
+        view: tabView,
+        status: tabStatus,
+        onNavigate: navigateWithinTab,
+    }), [tabFocus, tabView, tabStatus, navigateWithinTab]);
+
+    // Al cambiar de pestaña, el contenido empieza arriba.
+    useEffect(() => {
+        mainRef.current?.scrollTo?.({ top: 0 });
+    }, [activeTab]);
 
     // Other Settings State
     const [otherSettings, setOtherSettings] = useState({
@@ -100,16 +139,6 @@ export const DeveloperPage: React.FC = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState<any | null>(null);
 
-    // Reports State
-    const [reports, setReports] = useState<any[]>([]);
-    const [loadingReports, setLoadingReports] = useState(false);
-    const [reportFilter, setReportFilter] = useState<'all' | 'pending' | 'resolved' | 'rejected'>('pending');
-    const [reportStats, setReportStats] = useState({ pending: 0, resolved: 0, rejected: 0, total: 0 });
-    const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
-    const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
-    const [syncingPlaceId, setSyncingPlaceId] = useState<string | null>(null);
-    const [syncResults, setSyncResults] = useState<Record<string, string>>({});
-    const [markingUnavailable, setMarkingUnavailable] = useState<Record<string, boolean>>({});
 
     // Audit Log State
     const [auditEntries, setAuditEntries] = useState<any[]>([]);
@@ -125,7 +154,7 @@ export const DeveloperPage: React.FC = () => {
     const [maintenanceLog, setMaintenanceLog] = useState<string[]>([]);
     const [processingMaintenance, setProcessingMaintenance] = useState(false);
 
-    // Reports State Removed (Duplicate)
+
 
     // Badge Management State
     const [badges, setBadges] = useState<any[]>([]);
@@ -492,121 +521,6 @@ export const DeveloperPage: React.FC = () => {
         }
     };
 
-    // --- Reports Functions ---
-    const fetchReports = async () => {
-        setLoadingReports(true);
-        try {
-            const constraints: any[] = [firestoreLimit(100)];
-            if (reportFilter !== 'all') {
-                constraints.push(where('status', '==', reportFilter));
-            }
-            const snap = await getDocs(query(collection(db, 'reports'), ...constraints));
-            const docs = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-            setReports(docs);
-
-            // Fetch overall stats
-            const allSnap = await getDocs(query(collection(db, 'reports'), firestoreLimit(500)));
-            const allDocs = allSnap.docs.map(d => d.data());
-            setReportStats({
-                pending: allDocs.filter(d => !d.status || d.status === 'pending').length,
-                resolved: allDocs.filter(d => d.status === 'resolved').length,
-                rejected: allDocs.filter(d => d.status === 'rejected').length,
-                total: allDocs.length,
-            });
-        } catch (error) {
-            console.error("Error fetching reports:", error);
-        } finally {
-            setLoadingReports(false);
-        }
-    };
-
-    const handleUpdateReportStatus = async (reportId: string, newStatus: string, closedStatus?: string) => {
-        try {
-            const notes = adminNotes[reportId] || '';
-            await updateDoc(doc(db, 'reports', reportId), {
-                status: newStatus,
-                resolvedAt: new Date(),
-                resolvedBy: user?.uid || 'admin',
-                ...(notes ? { adminNotes: notes } : {}),
-                ...(closedStatus ? { resolvedClosedStatus: closedStatus } : {}),
-            });
-
-            // If resolving a place closure report, update the place document + batch-update reviews
-            if (newStatus === 'resolved' && closedStatus) {
-                const report = reports.find(r => r.id === reportId);
-                if (report?.targetType === 'place' && report.targetId) {
-                    const placeTargetId = report.targetId;
-                    await updateDoc(doc(db, 'places', placeTargetId), {
-                        closedStatus,
-                        closedStatusUpdatedAt: new Date(),
-                    });
-
-                    // Batch-update de las reseñas del lugar (lists/{listId}/reviews vía
-                    // collection group) para que ReviewCard muestre el estado de cierre.
-                    try {
-                        // Rutas por el servidor: la consulta del navegador la rechazan las reglas.
-                        const { reviews: placeReviews } = await adminSearchReviews({ placeId: placeTargetId, limit: 5000 });
-                        for (let i = 0; i < placeReviews.length; i += 450) {
-                            const batch = writeBatch(db);
-                            placeReviews.slice(i, i + 450).forEach((r) => batch.update(doc(db, r.path), { placeClosedStatus: closedStatus }));
-                            await batch.commit();
-                        }
-                    } catch (batchErr) {
-                        console.warn('Could not batch-update reviews with closedStatus:', batchErr);
-                    }
-                }
-            }
-
-            fetchReports();
-        } catch (error) {
-            console.error("Error updating report:", error);
-        }
-    };
-
-    const handleSyncPlaceStatus = async (placeId: string) => {
-        setSyncingPlaceId(placeId);
-        try {
-            const { getFunctions: getF, httpsCallable: hc } = await import('firebase/functions');
-            const { getApp } = await import('firebase/app');
-            const fns = getF(getApp(), 'europe-west1');
-            const syncFn = hc(fns, 'syncPlaceStatusFromGoogle');
-            const result: any = await syncFn({ placeId });
-            const { businessStatus, closedStatus } = result.data;
-            const label = closedStatus === 'permanently_closed'
-                ? '🔒 Cerrado permanentemente'
-                : closedStatus === 'temporarily_closed'
-                    ? '⏰ Cerrado temporalmente'
-                    : `✅ Operativo (${businessStatus})`;
-            setSyncResults(prev => ({ ...prev, [placeId]: label }));
-        } catch (err: any) {
-            setSyncResults(prev => ({ ...prev, [placeId]: `Error: ${err.message}` }));
-        } finally {
-            setSyncingPlaceId(null);
-        }
-    };
-
-    // Parse placeId from a group report targetId (format: "{placeId}_{elementName}")
-    const groupReportPlaceId = (targetId: string) => {
-        const idx = targetId.indexOf('_');
-        return idx > 0 ? targetId.substring(0, idx) : targetId;
-    };
-
-    const handleMarkItemUnavailable = async (report: any) => {
-        const placeId = groupReportPlaceId(report.targetId);
-        const elementName = report.targetName;
-        if (!placeId || !elementName) return;
-        setMarkingUnavailable(prev => ({ ...prev, [report.id]: true }));
-        try {
-            await updateDoc(doc(db, 'places', placeId), {
-                unavailableItems: arrayUnion(elementName)
-            });
-            await handleUpdateReportStatus(report.id, 'resolved');
-        } catch (err: any) {
-            alert(`Error: ${err.message}`);
-        } finally {
-            setMarkingUnavailable(prev => ({ ...prev, [report.id]: false }));
-        }
-    };
 
     const handleUpdatePlaceFromGoogle = async () => {
         if (!selectedItem || !user) throw new Error('Sin datos de lugar o autenticación');
@@ -676,9 +590,8 @@ export const DeveloperPage: React.FC = () => {
 
     useEffect(() => {
         if (activeTab === 'gamification') fetchBadges();
-        if (activeTab === 'reports') fetchReports();
         if (activeTab === 'others') fetchOtherSettings();
-    }, [activeTab, reportFilter]);
+    }, [activeTab]);
 
     useEffect(() => {
         if (activeTab !== 'audit') return;
@@ -694,8 +607,6 @@ export const DeveloperPage: React.FC = () => {
         }, () => setLoadingAudit(false));
         return () => unsub();
     }, [activeTab]);
-
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     useEffect(() => {
         if (!isAuthorized && !loadingAuth) {
@@ -718,166 +629,37 @@ export const DeveloperPage: React.FC = () => {
                     <p className="text-gray-500 max-w-md">Esta área es exclusiva para administradores del sistema.</p>
                 </div>
             ) : (
-                <div className="flex h-screen overflow-hidden pt-16"> {/* Added pt-16 for header spacing */}
-                    {/* Mobile Sidebar Toggle */}
-                    <button
-                        className="fixed top-20 left-4 z-50 p-2 bg-[var(--lt-card-strong)] border border-white/10 rounded-lg text-white md:hidden shadow-xl"
-                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    >
-                        {isSidebarOpen ? <X className="w-6 h-6" /> : <ListIcon className="w-6 h-6" />}
-                    </button>
-
-                    {/* Sidebar Nav */}
-                    <nav className={`
-                        fixed md:static inset-y-0 left-0 z-40 w-64 bg-[#121624] border-r border-white/5 flex flex-col overflow-y-auto pb-6 pt-20 md:pt-6 shrink-0 transition-transform duration-300 ease-in-out
-                        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-                    `}>
-                        <div className="px-6 mb-6 md:hidden">
-                            <h2 className="text-xl font-bold text-white">Menú Dev</h2>
-                        </div>
-
-                        <button
-                            onClick={() => { setActiveTab('console'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'console' ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <Database className="w-5 h-5" /> Consola de Datos
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('algolia'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'algolia' ? 'border-cyan-500 bg-cyan-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <CloudLightning className="w-5 h-5" /> Algolia Sync
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('maintenance'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'maintenance' ? 'border-emerald-500 bg-emerald-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <RefreshCw className="w-5 h-5" /> Mantenimiento
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('gamification'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'gamification' ? 'border-amber-500 bg-amber-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <Tag className="w-5 h-5" /> Gamificación
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('reports'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'reports' ? 'border-red-500 bg-red-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <Flag className="w-5 h-5" /> Reportes
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('businessClaims'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'businessClaims' ? 'border-emerald-500 bg-emerald-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <ClipboardList className="w-5 h-5" /> Solicitudes negocio
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('businessManagers'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'businessManagers' ? 'border-emerald-500 bg-emerald-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <Building2 className="w-5 h-5" /> Gestor negocios
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('plans'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'plans' ? 'border-amber-500 bg-amber-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <Sparkles className="w-5 h-5" /> Planes
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('proProposals'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'proProposals' ? 'border-indigo-400 bg-indigo-400/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <ClipboardList className="w-5 h-5" /> Patrocinios y Pro
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('backups'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'backups' ? 'border-emerald-500 bg-emerald-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <Database className="w-5 h-5" /> Backups
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('branding'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'branding' ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <Palette className="w-5 h-5" /> Marca & SEO
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('others'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'others' ? 'border-amber-500 bg-amber-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <SlidersHorizontal className="w-5 h-5" /> OTROS
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('proyectos'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'proyectos' ? 'border-indigo-400 bg-indigo-400/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <span className="text-lg">🧪</span> Proyectos
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('lists'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'lists' ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <ListIcon className="w-5 h-5" /> Listas
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('places'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'places' ? 'border-green-500 bg-green-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <MapPin className="w-5 h-5" /> Lugares
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('reviews'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'reviews' ? 'border-amber-500 bg-amber-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <MessageSquare className="w-5 h-5" /> Reseñas
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('tags'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'tags' ? 'border-pink-500 bg-pink-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <Tag className="w-5 h-5" /> Etiquetas
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('usuarios'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'usuarios' ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <Users className="w-5 h-5" /> Usuarios
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('rgpd'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'rgpd' ? 'border-violet-500 bg-violet-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <FileDown className="w-5 h-5" /> RGPD / Datos
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('audit'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'audit' ? 'border-rose-500 bg-rose-500/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <ClipboardList className="w-5 h-5" /> Audit Log
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('apiusage'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'apiusage' ? 'border-[var(--lt-accent)] bg-[var(--lt-accent-soft)] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <Activity className="w-5 h-5" /> API Usage
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('analytics'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'analytics' ? 'border-violet-400 bg-violet-400/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <BarChart3 className="w-5 h-5" /> Analítica páginas
-                        </button>
-                        <button
-                            onClick={() => { setActiveTab('geoAnalytics'); setIsSidebarOpen(false); }}
-                            className={`flex items-center gap-3 px-6 py-3 border-l-2 transition-all ${activeTab === 'geoAnalytics' ? 'border-cyan-400 bg-cyan-400/5 text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
-                        >
-                            <MapPinned className="w-5 h-5" /> Mapas analíticos
-                        </button>
-                    </nav>
+                <div className="flex h-screen overflow-hidden pt-16"> {/* pt-16: bajo la Navbar global */}
+                    <DeveloperSidebar
+                        activeTab={activeTab}
+                        onSelect={(tab) => goToTab(tab)}
+                        open={isSidebarOpen}
+                        onClose={() => setIsSidebarOpen(false)}
+                        badges={pendingCounts.data?.badges}
+                    />
 
                     {/* Main Content */}
-                    <main className="flex-1 overflow-y-auto bg-[#0a0c10] p-8">
+                    <main ref={mainRef} className="flex-1 overflow-y-auto bg-[var(--lt-bg-deep)] p-4 md:p-8">
+                        <div className="mb-4 flex items-center gap-3 md:hidden">
+                            <button
+                                type="button"
+                                onClick={() => setIsSidebarOpen(true)}
+                                aria-label="Abrir menú de Developer"
+                                className="rounded-lg border border-white/10 bg-[var(--lt-card-strong)] p-2 text-white shadow-lg"
+                            >
+                                <ListIcon className="h-5 w-5" />
+                            </button>
+                            <span className="min-w-0 truncate text-sm font-bold text-white">{developerTabLabel(activeTab)}</span>
+                            {(pendingCounts.data?.toReview ?? 0) > 0 && activeTab !== 'pending' && (
+                                <button
+                                    type="button"
+                                    onClick={() => goToTab('pending')}
+                                    className="ml-auto shrink-0 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-2.5 py-1 text-xs font-bold text-white"
+                                >
+                                    📥 {pendingCounts.data?.toReview} pendientes
+                                </button>
+                            )}
+                        </div>
                         {jefeClaim.status === 'checking' || jefeClaim.status === 'provisioning' ? (
                             <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-6 text-sm text-gray-300">
                                 <RefreshCw className="w-4 h-4 animate-spin" />
@@ -1990,330 +1772,39 @@ export const DeveloperPage: React.FC = () => {
                             )
                         }
 
-                        {
-                            activeTab === 'reports' && (
-                                <div className="max-w-6xl mx-auto space-y-6">
-                                    {/* Header */}
-                                    <div className="flex items-center justify-between">
-                                        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                                            <Flag className="w-6 h-6 text-red-500" /> Centro de Moderación
-                                        </h2>
-                                        <button onClick={fetchReports} className="p-2 bg-white/5 rounded-lg hover:bg-white/10 text-white">
-                                            <RefreshCw className={`w-4 h-4 ${loadingReports ? 'animate-spin' : ''}`} />
-                                        </button>
-                                    </div>
+                        {activeTab === 'pending' && (
+                            <DeveloperLazyPanel>
+                                <PendingInboxTab goToTab={goToTab} enabled={jefeClaim.status === 'ready'} />
+                            </DeveloperLazyPanel>
+                        )}
 
-                                    {/* Stats Cards */}
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        {[
-                                            { label: 'Pendientes', value: reportStats.pending, color: 'yellow', filter: 'pending' as const },
-                                            { label: 'Resueltos', value: reportStats.resolved, color: 'emerald', filter: 'resolved' as const },
-                                            { label: 'Rechazados', value: reportStats.rejected, color: 'red', filter: 'rejected' as const },
-                                            { label: 'Total', value: reportStats.total, color: 'indigo', filter: 'all' as const },
-                                        ].map(stat => (
-                                            <button
-                                                key={stat.label}
-                                                onClick={() => setReportFilter(stat.filter)}
-                                                className={`rounded-xl border p-4 text-left transition-all ${reportFilter === stat.filter
-                                                    ? `border-${stat.color}-500/40 bg-${stat.color}-500/10`
-                                                    : 'border-white/10 bg-[var(--lt-card-strong)]/60 hover:border-white/20'
-                                                    }`}
-                                            >
-                                                <div className="text-xs font-bold uppercase tracking-wider text-gray-400">{stat.label}</div>
-                                                <div className={`text-2xl font-black mt-1 text-${stat.color}-400`}>{stat.value}</div>
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {/* Filter Tabs */}
-                                    <div className="flex gap-2 overflow-x-auto">
-                                        {(['pending', 'resolved', 'rejected', 'all'] as const).map(f => (
-                                            <button
-                                                key={f}
-                                                onClick={() => setReportFilter(f)}
-                                                className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all whitespace-nowrap ${reportFilter === f
-                                                    ? 'bg-white/10 text-white border border-white/20'
-                                                    : 'text-gray-500 hover:text-gray-300 border border-transparent'
-                                                    }`}
-                                            >
-                                                {f === 'all' ? 'Todos' : f === 'pending' ? '⏳ Pendientes' : f === 'resolved' ? '✅ Resueltos' : '❌ Rechazados'}
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                    {/* Report Cards */}
-                                    <div className="space-y-3">
-                                        {loadingReports && (
-                                            <div className="flex items-center justify-center py-12">
-                                                <RefreshCw className="w-6 h-6 animate-spin text-gray-500" />
-                                            </div>
-                                        )}
-
-                                        {!loadingReports && reports.map(report => {
-                                            const isExpanded = expandedReportId === report.id;
-                                            const statusColor = report.status === 'resolved' ? 'emerald' : report.status === 'rejected' ? 'red' : 'yellow';
-                                            const typeIcons: Record<string, string> = { review: '📝', user: '👤', place: '📍', group: '👥' };
-
-                                            return (
-                                                <div
-                                                    key={report.id}
-                                                    className={`rounded-xl border overflow-hidden transition-all ${isExpanded ? 'border-white/20 bg-[var(--lt-card-strong)]' : 'border-white/10 bg-[var(--lt-card-strong)]/60 hover:border-white/15'
-                                                        }`}
-                                                >
-                                                    {/* Row summary */}
-                                                    <button
-                                                        onClick={() => setExpandedReportId(isExpanded ? null : report.id)}
-                                                        className="w-full text-left p-4 flex items-center gap-4"
-                                                    >
-                                                        {/* Status badge */}
-                                                        <span className={`shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide bg-${statusColor}-500/15 text-${statusColor}-400 border border-${statusColor}-500/20`}>
-                                                            {report.status || 'pending'}
-                                                        </span>
-
-                                                        {/* Type icon */}
-                                                        <span className="text-lg shrink-0">{typeIcons[report.targetType] || '⚠️'}</span>
-
-                                                        {/* Main info */}
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-sm font-bold text-white truncate">{report.targetName || report.targetId}</span>
-                                                                <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 uppercase font-bold shrink-0">
-                                                                    {report.targetType}
-                                                                </span>
-                                                            </div>
-                                                            <div className="text-xs text-gray-500 mt-0.5 truncate">
-                                                                {report.issueType} · {report.description || 'Sin descripción'}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Date */}
-                                                        <span className="text-[11px] text-gray-500 shrink-0 hidden md:block">
-                                                            {report.createdAt?.seconds ? new Date(report.createdAt.seconds * 1000).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: '2-digit' }) : '-'}
-                                                        </span>
-
-                                                        {/* Expand chevron */}
-                                                        <svg className={`w-4 h-4 text-gray-500 shrink-0 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                                        </svg>
-                                                    </button>
-
-                                                    {/* Expanded detail */}
-                                                    {isExpanded && (
-                                                        <div className="border-t border-white/10 p-5 space-y-4 bg-black/20">
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                                <div>
-                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Target ID</div>
-                                                                    <div className="text-xs font-mono text-[var(--lt-accent)] select-all break-all flex items-center gap-1.5">
-                                                                        <span>{report.targetId}</span>
-                                                                        {(() => {
-                                                                            const linkMap: Record<string, string> = {
-                                                                                place: `/place/${report.targetId}`,
-                                                                                user: `/profile/${report.targetId}`,
-                                                                                list: `/list/${report.targetId}`,
-                                                                            };
-                                                                            const href = linkMap[report.targetType];
-                                                                            return href ? (
-                                                                                <a href={href} target="_blank" rel="noopener noreferrer" className="shrink-0 text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">
-                                                                                    <ExternalLink className="w-3 h-3" />
-                                                                                </a>
-                                                                            ) : null;
-                                                                        })()}
-                                                                    </div>
-                                                                </div>
-                                                                <div>
-                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Tipo de Problema</div>
-                                                                    <div className="text-sm text-white capitalize">{report.issueType}</div>
-                                                                </div>
-                                                                <div>
-                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Reportado por</div>
-                                                                    <div className="text-xs text-gray-300 flex items-center gap-1.5">
-                                                                        <a href={`/profile/${report.userId || report.reportedByUserId}`} target="_blank" rel="noopener noreferrer" className="font-mono text-gray-400 hover:text-[var(--lt-accent)] transition-colors flex items-center gap-1">
-                                                                            <span className="select-all">{report.userId || report.reportedByUserId}</span>
-                                                                            <ExternalLink className="w-3 h-3 shrink-0" />
-                                                                        </a>
-                                                                        {(report.userName || report.reportedByName) && <span className="text-[var(--lt-accent)]">({report.userName || report.reportedByName})</span>}
-                                                                    </div>
-                                                                </div>
-                                                                <div>
-                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Fecha</div>
-                                                                    <div className="text-sm text-gray-300">
-                                                                        {report.createdAt?.seconds
-                                                                            ? new Date(report.createdAt.seconds * 1000).toLocaleString('es-ES')
-                                                                            : '-'}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-
-                                                            {report.description && (
-                                                                <div>
-                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Descripción del Reporter</div>
-                                                                    <div className="text-sm text-gray-200 bg-black/30 rounded-lg p-3 border border-white/5">
-                                                                        {report.description}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Admin notes */}
-                                                            {(!report.status || report.status === 'pending') && (
-                                                                <div>
-                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Notas del Admin (opcional)</div>
-                                                                    <textarea
-                                                                        value={adminNotes[report.id] || ''}
-                                                                        onChange={(e) => setAdminNotes(prev => ({ ...prev, [report.id]: e.target.value }))}
-                                                                        placeholder="Razón de la resolución, acciones tomadas..."
-                                                                        className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[var(--lt-accent-border)] h-16 resize-none"
-                                                                    />
-                                                                </div>
-                                                            )}
-
-                                                            {report.adminNotes && (
-                                                                <div>
-                                                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">Notas del Admin</div>
-                                                                    <div className="text-sm text-amber-200 bg-amber-500/5 rounded-lg p-3 border border-amber-500/10">
-                                                                        {report.adminNotes}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Google Maps Sync (solo para lugares) */}
-                                                            {report.targetType === 'place' && (
-                                                                <div className="flex flex-col gap-2">
-                                                                    <div className="flex items-center gap-3">
-                                                                        <button
-                                                                            onClick={() => handleSyncPlaceStatus(report.targetId)}
-                                                                            disabled={syncingPlaceId === report.targetId}
-                                                                            className="px-4 py-1.5 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 text-xs font-bold rounded-lg flex items-center gap-2 transition-colors border border-blue-500/30 disabled:opacity-50"
-                                                                        >
-                                                                            <RefreshCcw className={`w-3.5 h-3.5 ${syncingPlaceId === report.targetId ? 'animate-spin' : ''}`} />
-                                                                            Sync Google Maps
-                                                                        </button>
-                                                                        {syncResults[report.targetId] && (
-                                                                            <span className="text-xs text-gray-300">{syncResults[report.targetId]}</span>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            )}
-
-                                                            {/* Acciones específicas para grupos (elemento/lugar) */}
-                                                            {report.targetType === 'group' && (() => {
-                                                                const placeId = groupReportPlaceId(report.targetId);
-                                                                return (
-                                                                    <div className="flex flex-col gap-2 p-3 bg-amber-500/5 border border-amber-500/15 rounded-lg">
-                                                                        <p className="text-xs font-bold text-amber-400 uppercase tracking-wider">Acciones sobre el elemento</p>
-                                                                        <div className="flex flex-wrap items-center gap-2">
-                                                                            <a
-                                                                                href={`/place/${placeId}`}
-                                                                                target="_blank"
-                                                                                rel="noreferrer"
-                                                                                className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors border border-white/10"
-                                                                            >
-                                                                                <ExternalLink className="w-3.5 h-3.5" /> Ver lugar
-                                                                            </a>
-                                                                            {(report.issueType === 'item_not_available' || report.issueType === 'incorrect_info') && report.status !== 'resolved' && (
-                                                                                <button
-                                                                                    onClick={() => handleMarkItemUnavailable(report)}
-                                                                                    disabled={markingUnavailable[report.id]}
-                                                                                    className="px-3 py-1.5 bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors border border-orange-500/30 disabled:opacity-50"
-                                                                                >
-                                                                                    {markingUnavailable[report.id] ? 'Marcando...' : `Marcar "${report.targetName}" no disponible`}
-                                                                                </button>
-                                                                            )}
-                                                                            {report.issueType === 'place_closed' && (
-                                                                                <button
-                                                                                    onClick={() => handleSyncPlaceStatus(placeId)}
-                                                                                    disabled={syncingPlaceId === placeId}
-                                                                                    className="px-3 py-1.5 bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors border border-blue-500/30 disabled:opacity-50"
-                                                                                >
-                                                                                    <RefreshCcw className={`w-3.5 h-3.5 ${syncingPlaceId === placeId ? 'animate-spin' : ''}`} />
-                                                                                    Sync lugar desde Google
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                );
-                                                            })()}
-
-                                                            {/* Actions */}
-                                                            <div className="flex flex-wrap gap-3 pt-2">
-                                                                {/* Place closure reports: show specific close buttons */}
-                                                                {report.status !== 'resolved' && report.issueType === 'place_closed' && report.targetType === 'place' ? (
-                                                                    <>
-                                                                        <button
-                                                                            onClick={() => handleUpdateReportStatus(report.id, 'resolved', 'permanently_closed')}
-                                                                            className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
-                                                                        >
-                                                                            <CheckCircle className="w-4 h-4" /> Cerrado permanentemente
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={() => handleUpdateReportStatus(report.id, 'resolved', 'temporarily_closed')}
-                                                                            className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
-                                                                        >
-                                                                            <CheckCircle className="w-4 h-4" /> Cerrado temporalmente
-                                                                        </button>
-                                                                    </>
-                                                                ) : report.status !== 'resolved' ? (
-                                                                    <button
-                                                                        onClick={() => handleUpdateReportStatus(report.id, 'resolved')}
-                                                                        className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors"
-                                                                    >
-                                                                        <CheckCircle className="w-4 h-4" /> Resolver
-                                                                    </button>
-                                                                ) : null}
-                                                                {report.status !== 'rejected' && (
-                                                                    <button
-                                                                        onClick={() => handleUpdateReportStatus(report.id, 'rejected')}
-                                                                        className="px-5 py-2 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white text-sm font-bold rounded-lg flex items-center gap-2 transition-colors border border-red-500/30 hover:border-red-500"
-                                                                    >
-                                                                        <X className="w-4 h-4" /> Rechazar
-                                                                    </button>
-                                                                )}
-                                                                {report.status && report.status !== 'pending' && (
-                                                                    <button
-                                                                        onClick={() => handleUpdateReportStatus(report.id, 'pending')}
-                                                                        className="px-5 py-2 bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-bold rounded-lg flex items-center gap-2 transition-colors border border-white/10"
-                                                                    >
-                                                                        Reabrir
-                                                                    </button>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-
-                                        {!loadingReports && reports.length === 0 && (
-                                            <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/60 p-12 text-center">
-                                                <Flag className="w-8 h-8 text-gray-600 mx-auto mb-3" />
-                                                <p className="text-gray-500 font-bold">No hay reportes {reportFilter !== 'all' ? `con estado "${reportFilter}"` : ''}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            )
-                        }
+                        {activeTab === 'reports' && (
+                            <DeveloperLazyPanel>
+                                <ReportsTab {...tabContract} />
+                            </DeveloperLazyPanel>
+                        )}
 
                         {activeTab === 'businessClaims' && (
                             <DeveloperLazyPanel>
-                                <BusinessClaimsManagerTab highlightClaimId={highlightClaimId} />
+                                <BusinessClaimsManagerTab {...tabContract} />
                             </DeveloperLazyPanel>
                         )}
 
                         {activeTab === 'businessManagers' && (
                             <DeveloperLazyPanel>
-                                <BusinessManagersTab />
+                                <BusinessManagersTab {...tabContract} />
                             </DeveloperLazyPanel>
                         )}
 
                         {activeTab === 'plans' && (
                             <DeveloperLazyPanel>
-                                <PlansManagerTab />
+                                <PlansManagerTab {...tabContract} />
                             </DeveloperLazyPanel>
                         )}
 
                         {activeTab === 'proProposals' && (
                             <DeveloperLazyPanel>
-                                <ProProposalsTab />
+                                <ProProposalsTab {...tabContract} />
                             </DeveloperLazyPanel>
                         )}
 

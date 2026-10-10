@@ -1,8 +1,10 @@
 // Carta de un negocio Business Pro de punta a punta (sembrado en seed.mjs: «Casa Carta»,
 // gestora «gerente» y una valoración de «Croketa de jamon» en «Croquetas E2E»):
 // la gestora añade dos platos con sección y precio sin recargar, un duplicado avisa,
-// propone mover la valoración mal escrita a su plato y renombrarlo; la jefa lo aprueba
-// en Developer y la valoración sale con el nombre nuevo (el enlace antiguo redirige).
+// propone mover la valoración mal escrita a su plato y renombrarlo; la jefa lo ve en
+// Developer → «📥 Pendientes», lo aprueba en Patrocinios y Pro → 📥 Bandeja, simula
+// «🧹 Reparar cartas» (🛠️ Herramientas) y la valoración sale con el nombre nuevo (el
+// enlace antiguo redirige).
 import { test, expect, login, isolate, watchErrors } from './support';
 
 const PLACE = 'p_carta';
@@ -85,7 +87,7 @@ test('carta: alta de platos, mover una valoración y renombrar con aprobación a
   await expect(page.getByText(/^Propuesta enviada/)).toBeVisible();
   await expect(page.getByText('Renombrar "Croqueta casera" a "Croqueta de la casa"')).toBeVisible();
 
-  // ── Jefa: aprueba las dos en Developer → Patrocinios y Pro ────────────────
+  // ── Jefa: Pendientes → Patrocinios y Pro → 📥 Bandeja, aprueba las dos ─────
   const adminContext = await browser.newContext({
     baseURL: 'http://127.0.0.1:4173', locale: 'es-ES', viewport: { width: 1280, height: 900 }, serviceWorkers: 'block',
   });
@@ -97,21 +99,39 @@ test('carta: alta de platos, mover una valoración y renombrar con aprobación a
   await admin.goto('/developer');
   await expect(admin.getByText('Comprobando permisos…')).toBeHidden({ timeout: 20_000 });
   await expect(admin.getByText(/Activando tus permisos/)).toBeHidden({ timeout: 20_000 });
-  await admin.locator('nav button').filter({ hasText: 'Patrocinios y Pro' }).first().click();
-  await expect(admin.getByRole('heading', { name: 'Propuestas de carta (2)' })).toBeVisible({ timeout: 20_000 });
+  // Developer abre en «📥 Pendientes»: las dos propuestas esperan en su grupo, que lleva
+  // a Patrocinios y Pro → 📥 Bandeja.
+  const proposalsGroup = admin.getByRole('region', { name: 'Propuestas de carta' });
+  await expect(proposalsGroup.getByRole('heading')).toContainText('· 2', { timeout: 20_000 });
+  await proposalsGroup.getByRole('button', { name: 'Ver todas →' }).click();
+  await expect(admin.getByRole('tab', { name: /Bandeja/ })).toHaveAttribute('aria-selected', 'true');
 
-  const approve = async (description: string, remaining: number) => {
-    const card = admin.locator('div')
-      .filter({ hasText: description })
-      .filter({ has: admin.getByRole('button', { name: 'Aprobar y aplicar' }) })
-      .last();
-    await card.getByRole('button', { name: 'Aprobar y aplicar' }).click();
-    await expect(admin.getByRole('heading', { name: `Propuestas de carta (${remaining})` })).toBeVisible({ timeout: 30_000 });
-    await expect(admin.getByText('Propuesta aprobada y aplicada.')).toBeVisible();
+  const MOVE = 'Mover la valoración "Croketa de jamon" de ana a "Croqueta casera"';
+  const RENAME = 'Renombrar "Croqueta casera" a "Croqueta de la casa"';
+  const proposalRow = (description: string) => admin.locator('article').filter({ hasText: description });
+  await expect(proposalRow(MOVE)).toBeVisible({ timeout: 20_000 });
+  await expect(proposalRow(RENAME)).toBeVisible();
+
+  const approve = async (description: string) => {
+    const row = proposalRow(description);
+    await row.getByRole('button', { name: /Aprobar y aplicar/ }).click();
+    const dialog = admin.getByRole('alertdialog');
+    await expect(dialog).toContainText('¿Aprobar y aplicar la propuesta?');
+    await dialog.getByRole('button', { name: 'Aprobar y aplicar', exact: true }).click();
+    // El aviso queda en la propia fila, que pasa a «Aprobada» y ya no se puede decidir.
+    await expect(row.getByText('Aprobada y aplicada. Hemos avisado al negocio.')).toBeVisible({ timeout: 30_000 });
+    await expect(row.getByRole('button', { name: /Aprobar y aplicar/ })).toHaveCount(0);
   };
   // Primero se mueve la valoración y después se renombra el plato (el caso de la dueña).
-  await approve('Mover la valoración "Croketa de jamon" de ana a "Croqueta casera"', 1);
-  await approve('Renombrar "Croqueta casera" a "Croqueta de la casa"', 0);
+  await approve(MOVE);
+  await approve(RENAME);
+
+  // «🧹 Reparar cartas» está en Patrocinios y Pro → 🛠️ Herramientas: simular no cambia nada.
+  await admin.getByRole('tab', { name: /Herramientas/ }).click();
+  await expect(admin.getByRole('heading', { name: '🧹 Reparar cartas' })).toBeVisible();
+  await admin.getByLabel('placeId del sitio a reparar').fill(PLACE);
+  await admin.getByRole('button', { name: 'Simular', exact: true }).click();
+  await expect(admin.getByTestId('repair-result')).toContainText('Simulación (no se ha cambiado nada) · 1 sitio', { timeout: 30_000 });
   expect(adminErrors, 'errores de JS o de consola (jefa)').toEqual([]);
   await adminContext.close();
 

@@ -18,6 +18,11 @@ const { isCheckoutEnabled } = require("./lib/billing-flags");
 const { assertBusinessProAccess } = require("./business-pro");
 const { loadImpulsePricing, resolveImpulsePurchase } = require("./lib/impulse-pricing");
 const { verifyStripeSignature } = require("./lib/stripe-signature");
+const {
+  stripeWebhookAction,
+  impulsePurchaseClosingStatus,
+  canCloseImpulsePurchase,
+} = require("./lib/impulse-purchases");
 
 const asString = (value, maxLength = 500) => (typeof value === "string" ? value.trim().slice(0, maxLength) : "");
 
@@ -245,6 +250,48 @@ async function applyImpulsePurchase(event) {
   }
 }
 
+// Checkout de impulsos caducado o pago asíncrono fallido: la compra pasa de
+// `pending` a `expired` / `failed` para que no quede abierta para siempre.
+// Nunca toca una compra ya pagada. Idempotente: Stripe puede repetir el evento.
+async function closeImpulsePurchase(event) {
+  const session = event.data?.object || {};
+  const metadata = session.metadata || {};
+  const sessionId = asString(session.id, 300);
+  const nextStatus = impulsePurchaseClosingStatus(event.type);
+  if (!sessionId || !nextStatus) {
+    logger.warn("stripeBusiness: cierre de compra de impulsos sin sesión", { eventId: event.id, type: event.type });
+    return;
+  }
+
+  const purchaseRef = db.collection("impulsePurchases").doc(sessionId);
+  const closed = await db.runTransaction(async (tx) => {
+    const purchaseSnap = await tx.get(purchaseRef);
+    const currentStatus = purchaseSnap.exists ? purchaseSnap.data()?.status : null;
+    if (!canCloseImpulsePurchase(currentStatus)) return false;
+    const impulses = Number(metadata.impulses);
+    tx.set(purchaseRef, {
+      ...(purchaseSnap.exists ? {} : {
+        placeId: asString(metadata.placeId, 300) || null,
+        userId: asString(metadata.userId, 300) || null,
+        impulses: Number.isInteger(impulses) && impulses > 0 ? impulses : null,
+        stripeSessionId: sessionId,
+        createdAt: FieldValue.serverTimestamp(),
+      }),
+      status: nextStatus,
+      stripeEventId: event.id || null,
+      [nextStatus === "expired" ? "expiredAt" : "failedAt"]: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    return true;
+  });
+
+  logger.info("stripeBusiness: compra de impulsos cerrada sin pago", {
+    sessionId,
+    status: nextStatus,
+    changed: closed,
+    eventId: event.id || null,
+  });
+}
+
 async function applyBusinessProSubscription(event) {
   const object = event.data?.object || {};
   const metadata = object.metadata || {};
@@ -352,17 +399,12 @@ const stripeBusinessWebhook = onRequest({
 
   const event = JSON.parse(rawBody.toString("utf8"));
   try {
-    const object = event.data?.object || {};
-    const isCheckoutEvent = event.type === "checkout.session.completed"
-      || event.type === "checkout.session.async_payment_succeeded";
-    if (isCheckoutEvent && object.metadata?.kind === "impulse_pack") {
+    const action = stripeWebhookAction(event);
+    if (action === "impulse_paid") {
       await applyImpulsePurchase(event);
-    } else if (event.type === "checkout.session.completed" && object.mode === "subscription") {
-      await applyBusinessProSubscription(event);
-    } else if ([
-      "customer.subscription.updated",
-      "customer.subscription.deleted",
-    ].includes(event.type)) {
+    } else if (action === "impulse_closed") {
+      await closeImpulsePurchase(event);
+    } else if (action === "subscription") {
       await applyBusinessProSubscription(event);
     }
     res.status(200).json({ received: true });

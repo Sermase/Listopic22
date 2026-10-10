@@ -6,6 +6,7 @@ const fetch = require("node-fetch");
 const { sendNotification } = require("./notifications");
 const { rateLimit, assertJefeAccess } = require("./lib/auth");
 const { logApiUsage } = require("./lib/apiLogger");
+const { notifyJefes, reportAlert } = require("./lib/notify-jefes");
 const { ACTION_SKUS, refreshStamp } = require("./lib/google-usage");
 const {
   googlePlacesApiKey: GOOGLE_PLACES_API_KEY_SECRET,
@@ -116,7 +117,7 @@ const submitReport = onCall({ region: 'europe-west1' }, async (request) => {
  *
  * On CREATE:
  *   - Auto-set status to 'pending' if missing
- *   - Send notification to admins (optional, via admin users collection)
+ *   - Notify jefes (users whose userType includes "jefe", lib/notify-jefes.js)
  *   - Increment a report counter on the target (user/place/review)
  *
  * On UPDATE (status change to 'resolved' or 'rejected'):
@@ -172,7 +173,7 @@ const onReportWritten = onDocumentWritten("reports/{reportId}", async (event) =>
             logger.warn(`Could not increment report count on target`, err);
         }
 
-        // Notify admin users
+        // Avisar a los jefes
         try {
             await notifyAdmins(reportId, afterData);
         } catch (err) {
@@ -246,39 +247,21 @@ async function incrementReportCount(targetType, targetId, delta) {
 }
 
 /**
- * Notify admin users about a new report.
- * We look for users with the 'admin' or 'developer' role.
+ * Avisa a los jefes de un reporte nuevo (enlace directo al reporte en
+ * Developer). La búsqueda de jefes vive en lib/notify-jefes.js: antes se
+ * filtraba por un campo `role` que nadie escribe y no llegaba a nadie.
  */
 async function notifyAdmins(reportId, reportData) {
-    // Query users with developer/admin role
-    const adminsSnap = await db.collection("users")
-        .where("role", "in", ["admin", "developer"])
-        .limit(10)
-        .get();
-
-    if (adminsSnap.empty) {
-        logger.info("No admin users found to notify about report");
-        return;
-    }
-
-    const targetLabel = reportData.targetName || reportData.targetId || "contenido";
-    const issueLabel = reportData.issueType || "problema";
-
-    const promises = adminsSnap.docs.map(adminDoc => {
-        // Don't notify the reporter if they happen to be an admin
-        if (adminDoc.id === (reportData.userId || reportData.reportedByUserId || reportData.reporterUid)) return Promise.resolve();
-
-        return sendNotification(adminDoc.id, "new_report", {
-            message: `Nuevo reporte: "${issueLabel}" en ${targetLabel}`,
-            link: "/developer?tab=reports",
-            reportId: reportId,
-            targetType: reportData.targetType,
-        }, {
-            notificationId: `report_${reportId}`,
-        });
+    const { type, payload, notificationId, excludeUids } = reportAlert(reportId, reportData);
+    const { notified } = await notifyJefes({
+        db,
+        send: sendNotification,
+        type,
+        payload,
+        notificationId,
+        excludeUids,
     });
-
-    await Promise.all(promises);
+    logger.info("Report: jefes avisados", { reportId, notified });
 }
 
 /**
