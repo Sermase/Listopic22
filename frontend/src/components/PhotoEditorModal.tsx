@@ -3,12 +3,20 @@ import { createPortal } from 'react-dom';
 import Cropper from 'react-easy-crop';
 import type { Area } from 'react-easy-crop';
 import { Plus, X, Loader2, Star } from 'lucide-react';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
-const SortablePhoto = ({ p, i, activeIdx, setActiveIdx, removePhoto }: any) => {
+interface SortablePhotoProps {
+    p: PhotoEntry;
+    i: number;
+    activeIdx: number;
+    setActiveIdx: (index: number) => void;
+    removePhoto: (index: number) => void;
+}
+
+const SortablePhoto = ({ p, i, activeIdx, setActiveIdx, removePhoto }: SortablePhotoProps) => {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: p.id });
     const style = {
         transform: CSS.Transform.toString(transform),
@@ -56,7 +64,7 @@ const ASPECT_OPTIONS = [
     { key: '9:16', label: '9:16', value: 9 / 16 },
 ] as const;
 
-type AspectKey = typeof ASPECT_OPTIONS[number]['key'];
+export type AspectKey = typeof ASPECT_OPTIONS[number]['key'];
 
 function loadImage(src: string): Promise<HTMLImageElement> {
     return new Promise((resolve, reject) => {
@@ -65,6 +73,13 @@ function loadImage(src: string): Promise<HTMLImageElement> {
         img.onerror = reject;
         img.src = src;
     });
+}
+
+// Recorte centrado con la proporción pedida (si no se llegó a mover el recorte).
+function centeredCrop(width: number, height: number, aspect: number): Area {
+    const cropWidth = Math.min(width, height * aspect);
+    const cropHeight = cropWidth / aspect;
+    return { x: (width - cropWidth) / 2, y: (height - cropHeight) / 2, width: cropWidth, height: cropHeight };
 }
 
 async function applyCrop(imageSrc: string, pixelCrop: Area, maxSize = 1600): Promise<{ dataUrl: string; blob: Blob }> {
@@ -85,15 +100,29 @@ interface PhotoEditorModalProps {
     initialFiles: File[];
     onConfirm: (photos: ProcessedPhoto[]) => void;
     onClose: () => void;
+    /** Proporción fija (p. ej. '16:9' para la portada de Business Pro): oculta el selector de formato. */
+    lockedAspect?: AspectKey;
+    /** Fotos como máximo (3 por defecto). */
+    maxPhotos?: number;
+    title?: string;
+    confirmLabel?: string;
 }
 
-export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles, onConfirm, onClose }) => {
+export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
+    initialFiles,
+    onConfirm,
+    onClose,
+    lockedAspect,
+    maxPhotos = 3,
+    title = 'Editar fotos',
+    confirmLabel = 'Guardar fotos',
+}) => {
     useBodyScrollLock(true);
     const [photos, setPhotos] = useState<PhotoEntry[]>(() =>
-        initialFiles.slice(0, 3).map((f, i) => ({ id: `p${i}-${Date.now()}`, src: URL.createObjectURL(f) }))
+        initialFiles.slice(0, maxPhotos).map((f, i) => ({ id: `p${i}-${Date.now()}`, src: URL.createObjectURL(f) }))
     );
     const [activeIdx, setActiveIdx] = useState(0);
-    const [aspectKey, setAspectKey] = useState<AspectKey>('1:1');
+    const [aspectKey, setAspectKey] = useState<AspectKey>(lockedAspect ?? '1:1');
     const [cropStates, setCropStates] = useState<Record<string, CropState>>({});
     const [processing, setProcessing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -109,7 +138,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
     }, []);
 
     const addFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = Array.from(e.target.files || []).slice(0, 3 - photos.length);
+        const files = Array.from(e.target.files || []).slice(0, maxPhotos - photos.length);
         setPhotos(prev => [...prev, ...files.map((f, i) => ({ id: `p${Date.now()}-${i}`, src: URL.createObjectURL(f) }))]);
         e.target.value = '';
     };
@@ -125,7 +154,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
         useSensor(KeyboardSensor)
     );
 
-    const handleDragEnd = (event: any) => {
+    const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         if (over && active.id !== over.id) {
             const oldIndex = photos.findIndex(i => i.id === active.id);
@@ -153,7 +182,8 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
             for (let i = 0; i < photos.length; i++) {
                 const p = photos[i];
                 const img = await loadImage(p.src);
-                const crop: Area = cropStates[p.id]?.croppedAreaPixels ?? { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight };
+                const crop: Area = cropStates[p.id]?.croppedAreaPixels
+                    ?? (lockedAspect ? centeredCrop(img.naturalWidth, img.naturalHeight, aspect) : { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight });
                 results.push({ ...(await applyCrop(p.src, crop)), isMain: i === 0 });
             }
             onConfirm(results);
@@ -176,8 +206,10 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
                             style={{ background: 'var(--lt-accent-grad)' }}>📸</div>
                         <div>
-                            <h2 className="text-base font-bold text-white leading-tight">Editar fotos</h2>
-                            <p className="text-xs mt-0.5" style={{ color: 'rgba(165,180,252,0.6)' }}>{photos.length} / 3 · toca para cambiar</p>
+                            <h2 className="text-base font-bold text-white leading-tight">{title}</h2>
+                            <p className="text-xs mt-0.5" style={{ color: 'rgba(165,180,252,0.6)' }}>
+                                {lockedAspect ? `Formato ${lockedAspect} · arrastra y haz zoom para encuadrar` : `${photos.length} / ${maxPhotos} · toca para cambiar`}
+                            </p>
                         </div>
                     </div>
                     <button onClick={onClose} className="p-2 rounded-xl border transition-all active:scale-95"
@@ -212,7 +244,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
                 {/* Fila 3: Controles + botones */}
                 <div style={{ background: 'var(--lt-bg-deep)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                     {/* Formato */}
-                    <div className="flex items-center gap-3 px-4 pt-3 pb-2">
+                    {!lockedAspect && <div className="flex items-center gap-3 px-4 pt-3 pb-2">
                         <span className="text-gray-500 uppercase tracking-widest w-14 shrink-0" style={{ fontSize: 10 }}>Formato</span>
                         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
                             {ASPECT_OPTIONS.map(opt => (
@@ -227,7 +259,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
                                 </button>
                             ))}
                         </div>
-                    </div>
+                    </div>}
 
                     {/* Miniaturas */}
                     <div className="flex items-center gap-2 px-4 pb-3 overflow-x-auto touch-pan-x">
@@ -238,14 +270,14 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
                                 ))}
                             </SortableContext>
                         </DndContext>
-                        {photos.length < 3 && (
+                        {photos.length < maxPhotos && (
                             <button onClick={() => fileInputRef.current?.click()}
                                 className="shrink-0 w-14 h-14 rounded-xl flex items-center justify-center transition-all"
                                 style={{ border: '2px dashed rgba(255,255,255,0.2)' }}>
                                 <Plus className="w-5 h-5 text-gray-500" />
                             </button>
                         )}
-                        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={addFiles} />
+                        <input ref={fileInputRef} type="file" accept="image/*" multiple={maxPhotos > 1} className="hidden" onChange={addFiles} />
                     </div>
 
                     {/* Botones */}
@@ -259,7 +291,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({ initialFiles
                             className="flex-1 py-3 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
                             style={{ background: 'var(--lt-accent)', color: '#fff' }}>
                             {processing && <Loader2 className="w-4 h-4 animate-spin" />}
-                            Guardar fotos
+                            {confirmLabel}
                         </button>
                     </div>
                 </div>

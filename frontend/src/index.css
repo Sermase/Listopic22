@@ -550,6 +550,11 @@
     --lt-success-soft: rgba(61, 213, 152, 0.15);
     --lt-warning: #ff715b;
     --lt-warning-soft: rgba(255, 113, 91, 0.15);
+    /* Errores y borrar; Business Pro, Patrocinado e impulsos. */
+    --lt-danger: #f87171;
+    --lt-danger-soft: rgba(248, 113, 113, 0.15);
+    --lt-promo: #fbbf24;
+    --lt-promo-soft: rgba(251, 191, 36, 0.15);
     --lt-hero-grad: linear-gradient(90deg, #22d3ee, #6366f1, #a855f7);
     --lt-brand-mark: linear-gradient(135deg, #22d3ee, #3b82f6, #6366f1);
     --lt-body-mesh:
@@ -584,8 +589,12 @@
     --lt-accent-soft: rgba(91, 76, 245, 0.10);
     --lt-success: #16a34a;
     --lt-success-soft: rgba(22, 163, 74, 0.10);
-    --lt-warning: #ea580c;
+    --lt-warning: #b8410c; /* 4,6:1 o más sobre blanco, crema y su tinte suave (#ea580c no llegaba a 4,5:1) */
     --lt-warning-soft: rgba(234, 88, 12, 0.10);
+    --lt-danger: #dc2626;
+    --lt-danger-soft: rgba(220, 38, 38, 0.10);
+    --lt-promo: #b45309;
+    --lt-promo-soft: rgba(217, 119, 6, 0.10);
     --lt-hero-grad: linear-gradient(90deg, #06b6d4, #5b4cf5, #a855f7);
     --lt-brand-mark: linear-gradient(135deg, #06b6d4, #3b82f6, #5b4cf5);
     --lt-body-mesh:
@@ -619,6 +628,10 @@
     --lt-success-soft: rgba(61, 213, 152, 0.15);
     --lt-warning: #eab308;
     --lt-warning-soft: rgba(234, 179, 8, 0.15);
+    --lt-danger: #fca5a5;
+    --lt-danger-soft: rgba(252, 165, 165, 0.15);
+    --lt-promo: #fbbf24;
+    --lt-promo-soft: rgba(251, 191, 36, 0.15);
     --lt-hero-grad: linear-gradient(90deg, #facc15, #f97316, #dc2626);
     --lt-brand-mark: linear-gradient(135deg, #facc15, #f97316, #dc2626);
     --lt-body-mesh:
@@ -652,6 +665,10 @@
     --lt-success-soft: rgba(163, 230, 53, 0.15);
     --lt-warning: #ff715b;
     --lt-warning-soft: rgba(255, 113, 91, 0.15);
+    --lt-danger: #fb7185;
+    --lt-danger-soft: rgba(251, 113, 133, 0.15);
+    --lt-promo: #fbbf24;
+    --lt-promo-soft: rgba(251, 191, 36, 0.15);
     --lt-hero-grad: linear-gradient(90deg, #a7f3d0, #14b8a6, #06b6d4);
     --lt-brand-mark: linear-gradient(135deg, #a7f3d0, #14b8a6, #06b6d4);
     --lt-body-mesh:

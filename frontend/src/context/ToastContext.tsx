@@ -23,17 +23,23 @@ const DEFAULT_DURATION_MS = 2800;
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
+// Tokens del tema: el texto se lee igual en oscuro, claro, cálido y frío; el
+// color del aviso va en el borde (con la franja izquierda) y en el icono.
 const VARIANT_STYLES: Record<ToastVariant, string> = {
-    success: 'border-emerald-400/35 bg-emerald-500/12 text-emerald-100',
-    info: 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-indigo-100',
-    error: 'border-rose-400/35 bg-rose-500/12 text-rose-100',
+    success: 'border-[var(--lt-success)]/45',
+    info: 'border-[var(--lt-accent-border)]',
+    error: 'border-[var(--lt-danger)]/45',
 };
 
 const VARIANT_ICON_CLASS: Record<ToastVariant, string> = {
-    success: 'text-emerald-300',
+    success: 'text-[var(--lt-success)]',
     info: 'text-[var(--lt-accent)]',
-    error: 'text-rose-300',
+    error: 'text-[var(--lt-danger)]',
 };
+
+// «✅ Guardado», «😕 No se pudo…»: si el texto ya empieza con un emoji, no se
+// repite el icono al lado.
+const LEADING_EMOJI = /^\s*\p{Extended_Pictographic}/u;
 
 const ToastIcon: React.FC<{ variant: ToastVariant }> = ({ variant }) => {
     if (variant === 'success') {
@@ -86,11 +92,11 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 {toasts.map((toast) => (
                     <div
                         key={toast.id}
-                        className={`pointer-events-auto border rounded-xl backdrop-blur-md shadow-lg p-3 pr-2 flex gap-2 animate-fade-in ${VARIANT_STYLES[toast.variant]}`}
+                        className={`pointer-events-auto border border-l-4 rounded-xl bg-[var(--lt-card-strong)] text-[var(--lt-text)] shadow-lg p-3 pr-2 flex gap-2 animate-fade-in ${VARIANT_STYLES[toast.variant]}`}
                         role="status"
                         aria-live="polite"
                     >
-                        <ToastIcon variant={toast.variant} />
+                        {!LEADING_EMOJI.test(toast.title || toast.message) && <ToastIcon variant={toast.variant} />}
                         <div className="min-w-0 flex-1">
                             {toast.title && <p className="text-sm font-bold leading-tight truncate">{toast.title}</p>}
                             <p className="text-xs leading-snug opacity-95">{toast.message}</p>
@@ -98,7 +104,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                         <button
                             type="button"
                             onClick={() => removeToast(toast.id)}
-                            className="p-1 rounded-md hover:bg-white/10 transition-colors"
+                            className="p-1 rounded-md text-[var(--lt-text-muted)] hover:bg-[var(--lt-glass)] hover:text-[var(--lt-text)] transition-colors"
                             aria-label="Cerrar aviso"
                         >
                             <X className="w-3.5 h-3.5" />
@@ -110,6 +116,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useToast = (): ToastContextValue => {
     const context = useContext(ToastContext);
     if (!context) {

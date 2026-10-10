@@ -17,75 +17,109 @@ test('carta: alta de platos, mover una valoración y renombrar con aprobación a
   // ── Gestora: secciones y platos ───────────────────────────────────────────
   await login(page, 'gerente');
   await page.goto(`/businesses/${PLACE}/manage?tab=items`);
-  await expect(page.getByRole('heading', { name: 'Elementos del lugar' })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole('button', { name: /^Croketa de jamon/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Tu carta', exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('button', { name: 'Croketa de jamon', exact: true })).toBeVisible({ timeout: 20_000 });
   // Si la página se recargara, esta marca desaparecería.
   await page.evaluate(() => { (window as unknown as { e2eSinRecargar?: boolean }).e2eSinRecargar = true; });
 
-  const newSection = page.getByLabel('Nueva sección');
+  const newSection = page.getByLabel('Nombre de la sección nueva');
   for (const name of ['Entrantes', 'Postres']) {
     await newSection.fill(name);
     await newSection.press('Enter');
-    await expect(page.getByRole('button', { name: `Quitar ${name}` })).toBeVisible();
+    await expect(page.getByRole('region', { name: `Sección ${name}` })).toBeVisible();
   }
-  await expect(page.getByText('Guardado', { exact: true })).toBeVisible();
+  await expect(page.getByText('✅ Secciones guardadas').first()).toBeVisible();
 
-  const dishName = page.getByLabel('Nombre del plato o producto');
-  const dishSection = page.getByLabel('Sección del plato');
-  const dishPrice = page.getByLabel('Precio del plato');
+  // «＋ Añadir plato» abre «🍽️ Nuevo plato»: nombre, sección y precio (sin lista de Listopic).
+  const addDish = page.getByRole('button', { name: '＋ Añadir plato', exact: true });
+  const newDish = page.getByRole('dialog', { name: /Nuevo plato/ });
+  const dishName = newDish.getByLabel('Nombre del plato');
+  const dishPrice = newDish.getByLabel('Precio (opcional)');
+  const dishSection = (name: string) => newDish.getByRole('radio', { name, exact: true });
+  const submitDish = newDish.getByRole('button', { name: '＋ Añadir plato', exact: true });
+  const entrantes = page.getByRole('region', { name: 'Sección Entrantes' });
 
+  await addDish.click();
+  await expect(newDish).toBeVisible();
+  await newDish.getByRole('button', { name: 'Ahora no' }).click();
   await dishName.fill('Croqueta casera');
-  await dishSection.selectOption('Entrantes');
+  await dishSection('Entrantes').click();
+  await expect(dishSection('Entrantes')).toHaveAttribute('aria-checked', 'true');
   await dishPrice.fill('6,5');
-  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
-  await expect(page.getByText('«Croqueta casera» añadido a Entrantes.')).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Croqueta casera/ })).toBeVisible();
-  await expect(page.getByText('Editando: Croqueta casera')).toBeVisible();
+  await submitDish.click();
+  await expect(page.getByText('«Croqueta casera» ya está en Entrantes.')).toBeVisible();
+  await expect(newDish).toBeHidden();
+  await expect(entrantes.getByRole('button', { name: 'Croqueta casera', exact: true })).toBeVisible();
 
-  // El segundo, con Enter: conserva la sección elegida.
-  await expect(dishSection).toHaveValue('Entrantes');
+  // El segundo, con Enter: el formulario recuerda la última sección.
+  await addDish.click();
   await expect(dishName).toHaveValue('');
+  await expect(dishSection('Entrantes')).toHaveAttribute('aria-checked', 'true');
+  await newDish.getByRole('button', { name: 'Ahora no' }).click();
   await dishName.fill('Pimientos de Padrón');
   await dishPrice.fill('5');
   await dishName.press('Enter');
-  await expect(page.getByText('«Pimientos de Padrón» añadido a Entrantes.')).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Pimientos de Padrón/ })).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Croqueta casera/ })).toBeVisible();
-  await expect(dishSection).toHaveValue('Entrantes');
+  await expect(page.getByText('«Pimientos de Padrón» ya está en Entrantes.')).toBeVisible();
+  await expect(newDish).toBeHidden();
+  await expect(entrantes.getByRole('button', { name: 'Pimientos de Padrón', exact: true })).toBeVisible();
+  await expect(entrantes.getByRole('button', { name: 'Croqueta casera', exact: true })).toBeVisible();
 
-  // Duplicado (otro formato del mismo nombre): aviso visible y se abre el que había.
+  // Duplicado (otro formato del mismo nombre): aviso en el formulario, no deja añadirlo y abre el que había.
+  await addDish.click();
   await dishName.fill('croqueta CASERA');
-  await dishName.press('Enter');
-  await expect(page.getByText('Ya estaba en tu carta: te lo abro.')).toBeVisible();
-  await expect(page.getByText('Editando: Croqueta casera')).toBeVisible();
+  await expect(newDish.getByText('👀 Ya tienes «Croqueta casera» en la carta.')).toBeVisible();
+  await expect(newDish.getByText('Ese plato ya está en tu carta.')).toBeVisible();
+  await expect(submitDish).toBeDisabled();
+  await newDish.getByRole('button', { name: 'Abrir ficha' }).click();
+  await expect(newDish).toBeHidden();
+  const croquetaSheet = page.getByRole('dialog', { name: /Croqueta casera/ });
+  await expect(croquetaSheet.getByRole('tab', { name: /Ficha/ })).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Escape');
+  await expect(croquetaSheet).toBeHidden();
 
-  // Vista previa: los dos en «Entrantes», con el precio normalizado por el servidor.
-  await page.getByRole('button', { name: 'Vista previa de la carta' }).click();
-  const entrantes = page.locator('div')
-    .filter({ has: page.getByRole('heading', { name: 'Entrantes', exact: true }) })
-    .filter({ hasText: 'Croqueta casera' })
+  // Vista pública: los dos en «Entrantes», con el precio normalizado por el servidor.
+  await page.getByRole('tab', { name: /Vista pública/ }).click();
+  const preview = page.getByRole('region', { name: /Así te ven/ });
+  const previewEntrantes = preview.locator('div')
+    .filter({ has: preview.getByRole('heading', { name: 'Entrantes', exact: true }) })
     .last();
-  await expect(entrantes).toContainText('Pimientos de Padrón');
-  await expect(entrantes).toContainText('6,50 €');
-  await expect(entrantes).toContainText('5,00 €');
-  await page.getByRole('button', { name: 'Cerrar vista previa' }).click();
+  await expect(previewEntrantes).toContainText('Croqueta casera');
+  await expect(previewEntrantes).toContainText('Pimientos de Padrón');
+  await expect(previewEntrantes).toContainText('6,50 €');
+  await expect(previewEntrantes).toContainText('5,00 €');
+  await page.getByRole('tab', { name: /Editar/ }).click();
+  await expect(entrantes).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { e2eSinRecargar?: boolean }).e2eSinRecargar)).toBe(true);
 
   // ── Gestora: propuestas (mover la valoración y renombrar el plato) ────────
-  await page.getByRole('button', { name: /^Croketa de jamon/ }).click();
-  await expect(page.getByRole('heading', { name: 'Valoraciones de este elemento (1)' })).toBeVisible();
-  await page.getByRole('button', { name: 'Mover', exact: true }).click();
-  await page.locator('select')
-    .filter({ has: page.locator('option', { hasText: 'Elemento correcto...' }) })
-    .selectOption({ label: 'Croqueta casera' });
-  await page.getByRole('button', { name: 'Proponer', exact: true }).click();
-  await expect(page.getByText(/^Propuesta enviada/)).toBeVisible();
+  await page.getByRole('button', { name: 'Croketa de jamon', exact: true }).click();
+  const croketaSheet = page.getByRole('dialog', { name: /Croketa de jamon/ });
+  await croketaSheet.getByRole('tab', { name: /Valoraciones/ }).click();
+  await expect(croketaSheet.getByText(COMMENT)).toBeVisible();
+  await croketaSheet.getByRole('button', { name: /Mover a otro plato/ }).click();
+  await croketaSheet.getByRole('group', { name: '¿De qué plato es esta valoración?' })
+    .getByRole('button', { name: 'Croqueta casera', exact: true })
+    .click();
+  await croketaSheet.getByRole('button', { name: 'Proponer', exact: true }).click();
+  await expect(croketaSheet.getByText(/¡Enviada!/)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(croketaSheet).toBeHidden();
 
-  await page.getByRole('button', { name: /^Croqueta casera/ }).click();
-  await page.getByPlaceholder('Nuevo nombre para "Croqueta casera"').fill('Croqueta de la casa');
-  await page.getByRole('button', { name: 'Proponer renombre' }).click();
-  await expect(page.getByText(/^Propuesta enviada/)).toBeVisible();
-  await expect(page.getByText('Renombrar "Croqueta casera" a "Croqueta de la casa"')).toBeVisible();
+  await entrantes.getByRole('button', { name: 'Croqueta casera', exact: true }).click();
+  await croquetaSheet.getByRole('tab', { name: /Correcciones/ }).click();
+  await croquetaSheet.getByLabel('Nombre nuevo').fill('Croqueta de la casa');
+  await croquetaSheet.getByRole('button', { name: 'Proponer nombre nuevo' }).click();
+  await expect(croquetaSheet.getByText(/¡Enviada!/)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(croquetaSheet).toBeHidden();
+
+  // «🕓 Historial»: las dos pendientes.
+  await page.getByRole('button', { name: 'Historial de propuestas, 2 pendientes' }).click();
+  const history = page.getByRole('dialog', { name: /Tus propuestas/ });
+  await expect(history.getByText('«Croqueta de la casa»')).toBeVisible();
+  await expect(history.getByText(/valoración de ana/)).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(history).toBeHidden();
 
   // ── Jefa: Pendientes → Patrocinios y Pro → 📥 Bandeja, aprueba las dos ─────
   const adminContext = await browser.newContext({
@@ -154,7 +188,9 @@ test('carta: alta de platos, mover una valoración y renombrar con aprobación a
 
   // Y en la gestión el plato renombrado tiene la valoración; el mal escrito ya no sale.
   await page.goto(`/businesses/${PLACE}/manage?tab=items`);
-  await expect(page.getByRole('button', { name: /^Croqueta de la casa\s*1 valoraciones/ })).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByRole('button', { name: /^Croketa de jamon/ })).toHaveCount(0);
+  const renamed = page.getByRole('button', { name: 'Croqueta de la casa', exact: true });
+  await expect(renamed).toBeVisible({ timeout: 20_000 });
+  await expect(page.locator('li[data-item-id]').filter({ has: renamed })).toContainText('(1)');
+  await expect(page.getByRole('button', { name: 'Croketa de jamon', exact: true })).toHaveCount(0);
   expect(errors).toEqual([]);
 });

@@ -1,6 +1,8 @@
-import { collection, collectionGroup, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
+import { collection, collectionGroup, doc, getDoc, getDocs, limit, orderBy, query, where, type QueryDocumentSnapshot } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { auth, db, functions } from '../firebase';
+import { getDownloadURL, ref as storageRef, uploadBytes } from 'firebase/storage';
+import { auth, db, functions, storage } from '../firebase';
+import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from '../lib/storageCache';
 import { getAnalyticsSessionId } from './AnalyticsService';
 import { fetchPending, fetchQueue, type QueuePage } from './adminQueues';
 import { toMillis } from '../utils/adminTime';
@@ -33,6 +35,14 @@ export interface ItemBusinessData {
     description: string;
     allergens: string[];
     available: boolean;
+    /** Posición dentro de su sección (0 = primero); null o ausente = por nota. */
+    menuOrder?: number | null;
+}
+
+/** Ficha tal y como la guarda el servidor (precio normalizado y céntimos). */
+export interface SavedItemBusinessData extends ItemBusinessData {
+    priceCents: number | null;
+    menuOrder: number | null;
 }
 
 export const EMPTY_ITEM_BUSINESS_DATA: ItemBusinessData = {
@@ -43,6 +53,7 @@ export const EMPTY_ITEM_BUSINESS_DATA: ItemBusinessData = {
     description: '',
     allergens: [],
     available: true,
+    menuOrder: null,
 };
 
 // Los 14 alérgenos de declaración obligatoria en la UE (mismos ids que valida el backend).
@@ -119,10 +130,7 @@ export const EMPTY_OFFER_DATA: BusinessOfferData = {
 
 const asString = (value: unknown): string => typeof value === 'string' ? value : '';
 
-export const getBusinessVisual = async (placeId: string): Promise<BusinessVisualData> => {
-    const snap = await getDoc(doc(db, 'places', placeId, 'businessPro', 'visual'));
-    if (!snap.exists()) return EMPTY_VISUAL_DATA;
-    const data = snap.data() as Record<string, unknown>;
+const mapVisualData = (data: Record<string, unknown>): BusinessVisualData => {
     const style = asString(data.visualStyle);
     return {
         accentColor: asString(data.accentColor),
@@ -130,6 +138,12 @@ export const getBusinessVisual = async (placeId: string): Promise<BusinessVisual
         heroText: asString(data.heroText),
         heroImageUrl: asString(data.heroImageUrl),
     };
+};
+
+export const getBusinessVisual = async (placeId: string): Promise<BusinessVisualData> => {
+    const snap = await getDoc(doc(db, 'places', placeId, 'businessPro', 'visual'));
+    if (!snap.exists()) return EMPTY_VISUAL_DATA;
+    return mapVisualData(snap.data() as Record<string, unknown>);
 };
 
 export const getBusinessOffers = async (placeId: string): Promise<BusinessOffer[]> => {
@@ -151,31 +165,124 @@ export const getBusinessOffers = async (placeId: string): Promise<BusinessOffer[
         .sort((a, b) => a.title.localeCompare(b.title, 'es'));
 };
 
-export const updateBusinessVisual = async (placeId: string, data: BusinessVisualData): Promise<void> => {
-    const callable = httpsCallable(functions, 'updateBusinessVisual');
-    await callable({ placeId, data });
+// Devuelve lo que quedó guardado (el servidor lo sanea); null si no lo trae.
+export const updateBusinessVisual = async (placeId: string, data: BusinessVisualData): Promise<BusinessVisualData | null> => {
+    const callable = httpsCallable<unknown, { data?: unknown }>(functions, 'updateBusinessVisual');
+    const result = await callable({ placeId, data });
+    const saved = result?.data?.data;
+    return saved && typeof saved === 'object' ? mapVisualData(saved as Record<string, unknown>) : null;
 };
 
+// Portada de Business Pro: sube la foto ya recortada a la carpeta del usuario
+// dentro del lugar (storage.rules ya lo permite) y devuelve su URL. No crea
+// documento en places/{id}/photos: solo es la portada.
+export const uploadBusinessHeroImage = async (placeId: string, blob: Blob): Promise<string> => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw Object.assign(new Error('Inicia sesión para subir tu portada.'), { code: 'unauthenticated' });
+    const target = storageRef(storage, `places/${placeId}/${uid}/business-hero-${Date.now()}.jpg`);
+    const snapshot = await uploadBytes(target, blob, { contentType: 'image/jpeg', cacheControl: IMMUTABLE_UPLOAD_CACHE_CONTROL });
+    return getDownloadURL(snapshot.ref);
+};
+
+// La ficha que devuelve el servidor, ya saneada; null si no la trae.
+const mapSavedItemData = (raw: unknown): SavedItemBusinessData | null => {
+    if (!raw || typeof raw !== 'object') return null;
+    const data = raw as Record<string, unknown>;
+    return {
+        group: asString(data.group),
+        price: asString(data.price),
+        priceCents: typeof data.priceCents === 'number' ? data.priceCents : null,
+        discount: asString(data.discount),
+        ingredients: asString(data.ingredients),
+        description: asString(data.description),
+        allergens: Array.isArray(data.allergens) ? data.allergens.filter((entry): entry is string => typeof entry === 'string') : [],
+        available: data.available !== false,
+        menuOrder: typeof data.menuOrder === 'number' ? data.menuOrder : null,
+    };
+};
+
+// Manda SIEMPRE la ficha completa: el servidor reconstruye todos los campos y
+// un campo que falte se quedaría en blanco. Devuelve lo que quedó guardado.
 export const updateCanonicalItemBusinessData = async (
     placeId: string,
     itemId: string,
     data: ItemBusinessData,
-): Promise<void> => {
-    const callable = httpsCallable(functions, 'updateCanonicalItemBusinessData');
-    await callable({ placeId, itemId, data });
+): Promise<SavedItemBusinessData | null> => {
+    const callable = httpsCallable<unknown, { data?: unknown }>(functions, 'updateCanonicalItemBusinessData');
+    const result = await callable({ placeId, itemId, data });
+    return mapSavedItemData(result?.data?.data);
 };
+
+export const MAX_MENU_ITEMS_BATCH = 50;
+
+/**
+ * ¿Falla porque el servidor aún no tiene esa callable? Hosting se publica al
+ * fusionar y Functions se despliegan después a mano: mientras tanto, una
+ * callable nueva sin desplegar responde 404 sin cabeceras CORS y el SDK lo da
+ * como 'internal' (o 'not-found' / 'unimplemented'). Un 'not-found' con
+ * details.itemIds sí viene del servidor nuevo (platos que ya no existen).
+ */
+export const isCallableUnavailableError = (error: unknown): boolean => {
+    if (!error || typeof error !== 'object') return false;
+    const { code, details } = error as { code?: unknown; details?: unknown };
+    const plain = typeof code === 'string' ? code.replace(/^functions\//, '') : '';
+    if (plain === 'unimplemented' || plain === 'internal') return true;
+    if (plain !== 'not-found') return false;
+    const itemIds = details && typeof details === 'object' ? (details as { itemIds?: unknown }).itemIds : undefined;
+    return !Array.isArray(itemIds);
+};
+
+// Varias fichas completas en una sola llamada (≤ 50; un solo cargo al cupo de
+// la carta): mover platos de sección, ordenar una sección, renombrar o quitar
+// una sección con platos. Devuelve lo guardado por plato.
+export const updateBusinessMenuItems = async (
+    placeId: string,
+    items: Array<{ itemId: string; data: ItemBusinessData }>,
+): Promise<Array<{ itemId: string; data: SavedItemBusinessData }>> => {
+    const callable = httpsCallable<unknown, { items?: Array<{ itemId?: unknown; data?: unknown }> }>(functions, 'updateBusinessMenuItems');
+    const result = await callable({ placeId, items });
+    const rows = Array.isArray(result?.data?.items) ? result.data.items : [];
+    return rows.flatMap((row) => {
+        const data = mapSavedItemData(row?.data);
+        return typeof row?.itemId === 'string' && data ? [{ itemId: row.itemId, data }] : [];
+    });
+};
+
+export interface SavedBusinessOffer {
+    offerId: string;
+    /** Lo que guardó el servidor (saneado); si no lo trae, lo enviado. */
+    data: BusinessOfferData;
+}
 
 export const saveBusinessOffer = async (
     placeId: string,
     data: BusinessOfferData,
     offerId?: string,
-): Promise<string> => {
-    const callable = httpsCallable<{ placeId: string; offerId?: string; data: BusinessOfferData }, { offerId: string }>(
+): Promise<SavedBusinessOffer> => {
+    const callable = httpsCallable<{ placeId: string; offerId?: string; data: BusinessOfferData }, { offerId: string; data?: unknown }>(
         functions,
         'saveBusinessOffer',
     );
     const result = await callable({ placeId, offerId, data });
-    return result.data.offerId;
+    // Servidor nuevo y anterior devuelven { offerId, data }; si llegara solo el
+    // id (o sin `data`) se usa lo enviado, y si faltara el id, el de la oferta editada.
+    const raw: unknown = result?.data;
+    const response = (typeof raw === 'string' ? { offerId: raw } : (raw && typeof raw === 'object' ? raw : {})) as { offerId?: unknown; data?: unknown };
+    const saved = response.data && typeof response.data === 'object' ? response.data as Record<string, unknown> : null;
+    return {
+        offerId: typeof response.offerId === 'string' && response.offerId ? response.offerId : (offerId || ''),
+        data: saved
+            ? {
+                title: asString(saved.title),
+                description: asString(saved.description),
+                conditions: asString(saved.conditions),
+                ctaUrl: asString(saved.ctaUrl),
+                startsAt: asString(saved.startsAt),
+                endsAt: asString(saved.endsAt),
+                status: saved.status === 'active' ? 'active' : 'draft',
+            }
+            : data,
+    };
 };
 
 export const deleteBusinessOffer = async (placeId: string, offerId: string): Promise<void> => {
@@ -207,21 +314,55 @@ export interface ManagerPlaceReview {
     refPath: string;
     itemId: string;
     itemName: string;
+    /** Lo que escribió el autor si el servidor renombró la reseña al nombre del plato. */
+    originalItemName?: string;
     authorName: string;
     overallRating: number | null;
     comment: string;
     createdAtMs: number;
 }
 
+/** Máximo de valoraciones públicas que lee la gestión (Carta y Estadísticas). */
+export const MANAGER_REVIEWS_LIMIT = 100;
+
 export const getPlaceReviewsForManager = async (placeId: string): Promise<ManagerPlaceReview[]> => {
     const snap = await getDocs(query(
         collectionGroup(db, 'reviews'),
         where('placeId', '==', placeId),
         where('visibility', '==', 'public'),
-        limit(100),
+        limit(MANAGER_REVIEWS_LIMIT),
     ));
+    return managerReviewsFrom(snap.docs);
+};
+
+/**
+ * Las valoraciones públicas MÁS RECIENTES (📊 Estadísticas, T3). Usa el índice
+ * reviews (placeId, visibility, createdAt desc); mientras no exista o se esté
+ * construyendo, lee como getPlaceReviewsForManager y lo dice con
+ * `newestFirst: false` para no presentar unas cualquiera como «las últimas».
+ * `capped`: la lectura llegó al máximo (cuenta copias raíz + anidadas, así que
+ * puede haber menos de 100 reseñas distintas y aun así quedar más por leer).
+ */
+export const getLatestPlaceReviewsForManager = async (placeId: string): Promise<{ reviews: ManagerPlaceReview[]; newestFirst: boolean; capped: boolean }> => {
+    const publicReviews = query(
+        collectionGroup(db, 'reviews'),
+        where('placeId', '==', placeId),
+        where('visibility', '==', 'public'),
+    );
+    try {
+        const snap = await getDocs(query(publicReviews, orderBy('createdAt', 'desc'), limit(MANAGER_REVIEWS_LIMIT)));
+        return { reviews: managerReviewsFrom(snap.docs), newestFirst: true, capped: snap.size >= MANAGER_REVIEWS_LIMIT };
+    } catch (error) {
+        if ((error as { code?: unknown } | null)?.code !== 'failed-precondition') throw error;
+        console.warn('getLatestPlaceReviewsForManager: falta el índice de createdAt; se leen sin orden', error);
+        const snap = await getDocs(query(publicReviews, limit(MANAGER_REVIEWS_LIMIT)));
+        return { reviews: managerReviewsFrom(snap.docs), newestFirst: false, capped: snap.size >= MANAGER_REVIEWS_LIMIT };
+    }
+};
+
+function managerReviewsFrom(docs: QueryDocumentSnapshot[]): ManagerPlaceReview[] {
     const byId = new Map<string, ManagerPlaceReview>();
-    snap.docs.forEach((reviewDoc) => {
+    docs.forEach((reviewDoc) => {
         const data = reviewDoc.data() as Record<string, unknown>;
         const isNested = reviewDoc.ref.path.startsWith('lists/');
         if (byId.has(reviewDoc.id) && !isNested) return;
@@ -237,6 +378,7 @@ export const getPlaceReviewsForManager = async (placeId: string): Promise<Manage
             refPath: reviewDoc.ref.path,
             itemId: canonicalItemId || itemDocIdFromName(itemName),
             itemName,
+            ...(typeof data.originalItemName === 'string' && data.originalItemName ? { originalItemName: data.originalItemName } : {}),
             authorName: typeof data.authorName === 'string' ? data.authorName : 'Anónimo',
             overallRating: typeof data.overallRating === 'number' ? data.overallRating : null,
             comment: typeof data.comment === 'string' ? data.comment : '',
@@ -244,7 +386,7 @@ export const getPlaceReviewsForManager = async (placeId: string): Promise<Manage
         });
     });
     return Array.from(byId.values()).sort((a, b) => b.createdAtMs - a.createdAtMs);
-};
+}
 
 export type ItemProposalType = 'merge' | 'rename' | 'reassign_review';
 // 'applying': un jefe la está aplicando ahora (reserva de reviewItemProposal).
@@ -417,13 +559,15 @@ interface CreateBusinessItemResponse {
     item?: Partial<CanonicalPlaceItem> | null;
 }
 
+// listId: la lista pública de Listopic en la que encaja el plato (opcional).
 export const createBusinessItem = async (
     placeId: string,
     name: string,
     businessData?: Partial<ItemBusinessData>,
+    listId?: string | null,
 ): Promise<CreatedBusinessItem> => {
     const callable = httpsCallable<unknown, CreateBusinessItemResponse>(functions, 'createBusinessItem');
-    const result = await callable({ placeId, name, businessData });
+    const result = await callable(listId ? { placeId, name, businessData, listId } : { placeId, name, businessData });
     const data = result.data || {};
     const raw = data.item || {};
     const itemId = data.itemId || (typeof raw.id === 'string' && raw.id) || itemDocIdFromName(name);
@@ -435,6 +579,8 @@ export const createBusinessItem = async (
         canonicalName,
         status: raw.status || 'active',
         source: raw.source || 'business',
+        // Un servidor anterior no guarda la lista (ni devuelve linkedListIds): vacío, no la enviada.
+        linkedListIds: Array.isArray(raw.linkedListIds) ? raw.linkedListIds : [],
         businessData: raw.businessData || { ...EMPTY_ITEM_BUSINESS_DATA, ...(businessData || {}) },
         stats: raw.stats || { reviewCount: 0, ratingCount: 0, ratingTotal: 0, averageRating: null, photoCount: 0 },
     };

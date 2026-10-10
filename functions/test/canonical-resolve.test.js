@@ -631,3 +631,65 @@ test('normalizeItemName e itemDocIdFromName siguen igual (reexportados por canon
   assert.equal(itemDocIdFromName('Croqueta, la original'), 'croqueta-la-original');
   assert.equal(itemDocIdFromName('寿司'), 'sin-nombre');
 });
+
+test('lista elegida por el negocio (businessListIds): se conserva con y sin reseñas', () => {
+  const state = makeState({
+    'tarta-de-queso': {
+      canonicalName: 'Tarta de queso',
+      source: 'business',
+      businessCreated: true,
+      status: 'active',
+      curatedAliasesNormalized: ['tarta de queso'],
+      businessListIds: ['tartas'],
+      linkedListIds: ['tartas'],
+      businessData: { group: 'Postres', price: '6,50 €', priceCents: 650, available: true, menuOrder: null },
+      stats: { reviewCount: 0, ratingCount: 0, ratingTotal: 0, averageRating: null, photoCount: 0, criteriaStats: {} },
+    },
+  }, []);
+
+  // Sin reseñas: sigue activo con su lista y sin escrituras.
+  let plan = rebuild(state);
+  assert.equal(plan.emptyItemWrites.length, 0);
+  assert.equal(state.items.get('tarta-de-queso').status, 'active');
+  assert.deepEqual(state.items.get('tarta-de-queso').linkedListIds, ['tartas']);
+
+  // Llega una reseña desde otra lista: se suman las dos.
+  state.reviews.set('lists/postres/reviews/r1', review('r1', { itemName: 'Tarta de queso', overallRating: 9 }, 'postres'));
+  plan = rebuild(state);
+  assert.deepEqual(state.items.get('tarta-de-queso').linkedListIds, ['postres', 'tartas']);
+  assert.equal(state.items.get('tarta-de-queso').stats.reviewCount, 1);
+  assert.equal(plan.itemWrites[0].isNew, false);
+  assert.equal('businessListIds' in plan.itemWrites[0].data, false);
+
+  // Se borra la reseña: vuelve a solo la lista del negocio, sigue activo.
+  state.reviews.delete('lists/postres/reviews/r1');
+  plan = rebuild(state);
+  const item = state.items.get('tarta-de-queso');
+  assert.deepEqual(item.linkedListIds, ['tartas']);
+  assert.deepEqual(item.businessListIds, ['tartas']);
+  assert.equal(item.status, 'active');
+  assert.equal(item.stats.reviewCount, 0);
+  assert.equal(rebuild(state).emptyItemWrites.length, 0);
+});
+
+test('lista del negocio en un elemento con linkedListIds viejos: el rebuild los corrige', () => {
+  const state = makeState({
+    pulpo: {
+      canonicalName: 'Pulpo',
+      source: 'business',
+      status: 'active',
+      businessListIds: ['pulpos'],
+      businessData: {},
+      stats: { reviewCount: 0, ratingCount: 0, ratingTotal: 0, averageRating: null, photoCount: 0, criteriaStats: {} },
+    },
+  }, []);
+  const plan = rebuild(state);
+  assert.equal(plan.emptyItemWrites.length, 1);
+  assert.deepEqual(state.items.get('pulpo').linkedListIds, ['pulpos']);
+});
+
+test('la ficha por defecto con menuOrder null no cuenta como curada; un orden sí', () => {
+  const defaults = { group: '', price: '', priceCents: null, discount: '', ingredients: '', description: '', allergens: [], available: true, menuOrder: null };
+  assert.equal(isBusinessCurated({ source: 'community', businessData: defaults }), false);
+  assert.equal(isBusinessCurated({ source: 'community', businessData: { ...defaults, menuOrder: 0 } }), true);
+});
