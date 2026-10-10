@@ -19,13 +19,16 @@
 //   de aprobación admin.
 // - reviewItemProposal: el admin aprueba/rechaza. Al aprobar se registran los
 //   alias curados y se reconstruye el lugar, que renombra las reseñas y pone al
-//   día los platos destacados.
+//   día los platos destacados. La propuesta se reserva antes en una
+//   transacción (pending → applying) para que dos admins no apliquen lo mismo
+//   a la vez; si aplicar falla vuelve a pending con applyError (B7,
+//   lib/item-proposals.js).
 // - adminRepairPlaceItems: reparación (jefe) de los datos anteriores a este
 //   modelo: siembra alias curados, arregla fusiones reactivadas y reconstruye.
 
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { assertJefeAccess, writeAuditLog } = require("./lib/auth");
 const { assertBusinessProAccess, assertBusinessMenuAccess, sanitizeItemBusinessData } = require("./business-pro");
 const {
@@ -39,26 +42,35 @@ const {
   REVIEW_PATH,
   normalizeItemName,
   itemDocIdFromName,
-  safeDocId,
   buildAliasIndex,
   createResolveContext,
   rawNameKey,
   rawAliasesOf,
   splitCuratedNames,
   sameItemName,
-  followMerged,
   planReassignStamp,
   planPlaceRebuild,
   seedRepairPlan,
 } = require("./lib/canonical-resolve");
 const { syncSpotlightsForPlace } = require("./sponsored");
 const { sendNotification } = require("./notifications");
+const { safeNotifyJefes, itemProposalAlert } = require("./lib/notify-jefes");
+const {
+  proposalReviewCheck,
+  holdsApplyReservation,
+  applyErrorInfo,
+  checkMergeItems,
+  checkRenameItem,
+  checkReassignTarget,
+} = require("./lib/item-proposals");
 
 const db = getFirestore();
 
 const asString = (value, maxLength = 500) => (typeof value === "string" ? value.trim().slice(0, maxLength) : "");
 
 const PROPOSAL_TYPES = new Set(["merge", "rename", "reassign_review"]);
+// Las que esperan revisión: también las que se están aplicando ahora.
+const OPEN_PROPOSAL_STATUSES = ["pending", "applying"];
 const MAX_PENDING_PROPOSALS_PER_PLACE = 20;
 const MAX_SUFFIX_ATTEMPTS = 50;
 const REPAIR_MAX_PLACES = 300;
@@ -249,7 +261,7 @@ const submitItemProposal = onCall({ invoker: "public" }, async (request) => {
 
   const pendingSnap = await db.collection("itemProposals")
     .where("placeId", "==", placeId)
-    .where("status", "==", "pending")
+    .where("status", "in", OPEN_PROPOSAL_STATUSES)
     .get();
   if (pendingSnap.size >= MAX_PENDING_PROPOSALS_PER_PLACE) {
     throw new HttpsError("resource-exhausted", "Hay demasiadas propuestas pendientes para este negocio. Espera a que se revisen.");
@@ -335,27 +347,26 @@ const submitItemProposal = onCall({ invoker: "public" }, async (request) => {
     payload,
   });
 
+  // B8: aviso a los jefes (nunca hace fallar la propuesta).
+  await safeNotifyJefes({
+    db,
+    send: sendNotification,
+    alert: itemProposalAlert(proposalRef.id, { placeId, placeName: place.name || null, type, payload, createdBy: uid }),
+  });
+
   return { ok: true, proposalId: proposalRef.id, type, payload };
 });
 
 // Fusión aprobada: los nombres del origen pasan a ser alias curados del
 // destino y el origen queda inactivo apuntando a él. Las reseñas no se tocan
 // aquí: el rebuild las lleva al destino (alias / mergedInto) y las renombra.
+// Si el origen ya estaba fusionado en ese destino (reintento), solo se
+// completan alias y rebuild.
 async function applyMerge(placeId, payload) {
   const itemsRef = db.collection("places").doc(placeId).collection("items");
   const itemsById = await fetchExistingItems(placeId);
-  const sourceId = safeDocId(payload.sourceItemId);
+  const { sourceId, targetId, alreadyMerged } = checkMergeItems(itemsById, payload);
   const source = itemsById.get(sourceId);
-  if (!source) throw new HttpsError("not-found", `El elemento ${sourceId} no existe.`);
-  if (!itemsById.has(safeDocId(payload.targetItemId))) {
-    throw new HttpsError("not-found", `El elemento ${payload.targetItemId} no existe.`);
-  }
-  const targetId = followMerged(safeDocId(payload.targetItemId), itemsById);
-  if (targetId === sourceId) throw new HttpsError("failed-precondition", "Los dos elementos ya son el mismo.");
-  const target = itemsById.get(targetId);
-  if (!target || target.status === "inactive") {
-    throw new HttpsError("failed-precondition", "El elemento destino ya no está activo.");
-  }
 
   const aliases = splitCuratedNames([
     source.canonicalName,
@@ -364,25 +375,34 @@ async function applyMerge(placeId, payload) {
     ...(Array.isArray(source.aliasesNormalized) ? source.aliasesNormalized : []),
   ]);
   const batch = db.batch();
+  let writes = 0;
   if (aliases.normalized.length > 0 || aliases.raw.length > 0) {
     batch.set(itemsRef.doc(targetId), {
       ...(aliases.normalized.length > 0 ? { curatedAliasesNormalized: FieldValue.arrayUnion(...aliases.normalized) } : {}),
       ...(aliases.raw.length > 0 ? { curatedRawAliases: FieldValue.arrayUnion(...aliases.raw) } : {}),
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
+    writes += 1;
   }
   // El item origen queda inactivo; su businessData no se pierde por si el
   // admin quiere recuperar algo, pero deja de mostrarse.
-  batch.set(itemsRef.doc(sourceId), {
-    status: "inactive",
-    mergedInto: targetId,
-    updatedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
-  await batch.commit();
+  if (!alreadyMerged) {
+    batch.set(itemsRef.doc(sourceId), {
+      status: "inactive",
+      mergedInto: targetId,
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    writes += 1;
+  }
+  if (writes > 0) await batch.commit();
   await bumpBusinessMenu(placeId);
 
   const rebuild = await rebuildCanonicalItemsForPlace(placeId);
-  return { reassignedReviews: rebuild.renamedReviews || 0, targetItemId: targetId };
+  return {
+    reassignedReviews: rebuild.renamedReviews || 0,
+    targetItemId: targetId,
+    ...(alreadyMerged ? { alreadyMerged: true } : {}),
+  };
 }
 
 // Renombrado aprobado: el nombre anterior, el que vio el negocio al proponerlo
@@ -390,18 +410,7 @@ async function applyMerge(placeId, payload) {
 // platos destacados.
 async function applyRename(placeId, payload) {
   const itemsById = await fetchExistingItems(placeId);
-  const itemId = safeDocId(payload.itemId);
-  const item = itemsById.get(itemId);
-  if (!item) throw new HttpsError("not-found", `El elemento ${itemId} no existe.`);
-  if (item.status === "inactive" && item.mergedInto) {
-    const targetId = followMerged(itemId, itemsById);
-    const targetName = itemsById.get(targetId)?.canonicalName || targetId;
-    throw new HttpsError(
-      "failed-precondition",
-      `Este elemento se fusionó con «${targetName}». Propón el cambio de nombre sobre ese elemento.`,
-      { itemId: targetId, canonicalName: targetName },
-    );
-  }
+  const { itemId, item } = checkRenameItem(itemsById, payload);
   const newName = asString(payload.newName, 120).replace(/[<>]/g, "");
   if (!newName) throw new HttpsError("invalid-argument", "Falta el nombre nuevo.");
   assertRenameIsFree(itemsById, itemId, newName);
@@ -429,13 +438,7 @@ async function applyRename(placeId, payload) {
 // en alias (un "1" no debe arrastrar futuras reseñas).
 async function applyReassignReview(placeId, payload) {
   const itemsById = await fetchExistingItems(placeId);
-  const requestedId = safeDocId(payload.targetItemId);
-  if (!itemsById.has(requestedId)) throw new HttpsError("not-found", `El elemento ${requestedId} no existe.`);
-  const targetId = followMerged(requestedId, itemsById);
-  const target = itemsById.get(targetId);
-  if (!target || target.status === "inactive") {
-    throw new HttpsError("failed-precondition", "El elemento destino ya no está activo.");
-  }
+  const { targetId, target } = checkReassignTarget(itemsById, payload);
 
   const reviewId = String(payload.reviewId || String(payload.reviewPath || "").split("/").pop() || "");
   const { copies } = await fetchReviewCopiesForPlace(placeId);
@@ -454,6 +457,13 @@ async function applyReassignReview(placeId, payload) {
   return { reassignedReviews: 1, targetItemId: targetId };
 }
 
+async function applyProposal(proposal) {
+  if (proposal.type === "merge") return applyMerge(proposal.placeId, proposal.payload || {});
+  if (proposal.type === "rename") return applyRename(proposal.placeId, proposal.payload || {});
+  if (proposal.type === "reassign_review") return applyReassignReview(proposal.placeId, proposal.payload || {});
+  return null;
+}
+
 const reviewItemProposal = onCall({ invoker: "public", timeoutSeconds: 300 }, async (request) => {
   const uid = request.auth?.uid;
   await assertJefeAccess(uid, "Solo un administrador puede revisar propuestas.");
@@ -465,25 +475,97 @@ const reviewItemProposal = onCall({ invoker: "public", timeoutSeconds: 300 }, as
   if (decision !== "approve" && decision !== "reject") throw new HttpsError("invalid-argument", "Decisión no válida.");
 
   const proposalRef = db.collection("itemProposals").doc(proposalId);
-  const proposalSnap = await proposalRef.get();
-  if (!proposalSnap.exists) throw new HttpsError("not-found", "La propuesta no existe.");
-  const proposal = proposalSnap.data() || {};
-  if (proposal.status !== "pending") throw new HttpsError("failed-precondition", "Esta propuesta ya fue revisada.");
+  // Hora de la reserva: identifica a esta llamada (holdsApplyReservation).
+  const reservedAt = Timestamp.now();
 
+  // 1) Reserva (aprobar) o rechazo directo, en transacción. Solo desde
+  //    'pending'; un 'applying' atascado solo se reintenta (lib/item-proposals.js).
+  const { proposal, retry } = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(proposalRef);
+    const data = snap.exists ? (snap.data() || {}) : null;
+    const check = proposalReviewCheck(data, Date.now(), decision);
+    if (!check.ok) throw new HttpsError(check.code, check.message);
+    if (decision === "approve") {
+      tx.set(proposalRef, {
+        status: "applying",
+        reviewedBy: uid,
+        applyingAt: reservedAt,
+      }, { merge: true });
+    } else {
+      tx.set(proposalRef, {
+        status: "rejected",
+        adminNotes: adminNotes || null,
+        reviewedBy: uid,
+        reviewedAt: FieldValue.serverTimestamp(),
+        applyResult: null,
+        applyingAt: FieldValue.delete(),
+      }, { merge: true });
+    }
+    return { proposal: data, retry: check.retry };
+  });
+  if (retry) logger.warn("businessItems: propuesta atascada en applying; se retoma", { proposalId, decision, actorUid: uid });
+
+  // Escribe el final (approved o la vuelta a pending) solo si la reserva sigue
+  // siendo de esta llamada. Si esta se pasó del tiempo y otro jefe la retomó,
+  // no se pisa lo suyo. Devuelve si se escribió.
+  const writeIfStillReserved = (patch) => db.runTransaction(async (tx) => {
+    const snap = await tx.get(proposalRef);
+    if (!holdsApplyReservation(snap.exists ? snap.data() : null, uid, reservedAt.toMillis())) return false;
+    tx.set(proposalRef, patch, { merge: true });
+    return true;
+  });
+
+  // 2) Aplicar. Si falla, vuelve a 'pending' con el motivo y el error llega al panel.
   let applyResult = null;
   if (decision === "approve") {
-    if (proposal.type === "merge") applyResult = await applyMerge(proposal.placeId, proposal.payload);
-    else if (proposal.type === "rename") applyResult = await applyRename(proposal.placeId, proposal.payload);
-    else if (proposal.type === "reassign_review") applyResult = await applyReassignReview(proposal.placeId, proposal.payload);
-  }
+    try {
+      applyResult = await applyProposal(proposal);
+    } catch (error) {
+      const applyError = applyErrorInfo(error, uid);
+      try {
+        const released = await writeIfStillReserved({
+          status: "pending",
+          reviewedBy: FieldValue.delete(),
+          applyingAt: FieldValue.delete(),
+          applyError: { ...applyError, at: FieldValue.serverTimestamp() },
+        });
+        if (!released) {
+          logger.warn("businessItems: la reserva ya no es de esta llamada; no se libera la propuesta", { proposalId, actorUid: uid });
+        }
+      } catch (releaseError) {
+        // Se queda en 'applying': a los 10 minutos la bandeja la marca atascada.
+        logger.error("businessItems: no se pudo liberar la propuesta tras el fallo", {
+          proposalId,
+          error: releaseError.message || String(releaseError),
+        });
+      }
+      await writeAuditLog(uid, "businessPro.itemProposalApplyFailed", {
+        proposalId,
+        placeId: proposal.placeId || null,
+        type: proposal.type || null,
+        payload: proposal.payload || null,
+        applyError,
+      });
+      logger.warn("businessItems: no se pudo aplicar la propuesta", { proposalId, actorUid: uid, error: applyError.message });
+      throw error;
+    }
 
-  await proposalRef.set({
-    status: decision === "approve" ? "approved" : "rejected",
-    adminNotes: adminNotes || null,
-    reviewedBy: uid,
-    reviewedAt: FieldValue.serverTimestamp(),
-    applyResult: applyResult || null,
-  }, { merge: true });
+    const approved = await writeIfStillReserved({
+      status: "approved",
+      adminNotes: adminNotes || null,
+      reviewedBy: uid,
+      reviewedAt: FieldValue.serverTimestamp(),
+      applyResult: applyResult || null,
+      applyingAt: FieldValue.delete(),
+      applyError: FieldValue.delete(),
+    });
+    if (!approved) {
+      // Otro jefe la retomó mientras esta llamada seguía: su llamada deja el
+      // estado, la auditoría y el aviso al negocio (aplicar es idempotente).
+      logger.warn("businessItems: la reserva ya no es de esta llamada; no se marca aprobada", { proposalId, actorUid: uid });
+      throw new HttpsError("aborted", "Otro administrador ha retomado esta propuesta. Actualiza para ver cómo ha quedado.");
+    }
+  }
 
   await writeAuditLog(uid, `businessPro.itemProposal${decision === "approve" ? "Approved" : "Rejected"}`, {
     proposalId,

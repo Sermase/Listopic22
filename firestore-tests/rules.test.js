@@ -17,11 +17,14 @@ import {
   collection,
   collectionGroup,
   deleteDoc,
+  deleteField,
   doc,
+  getCountFromServer,
   getDoc,
   getDocs,
   increment,
   limit,
+  orderBy,
   query,
   serverTimestamp,
   setDoc,
@@ -620,5 +623,59 @@ describe('Impulsos: las compras y el saldo solo los escribe el servidor', () => 
 
   it('✅ un jefe lee las compras de impulsos', async () => {
     await assertSucceeds(getDocs(collection(jefe(), 'impulsePurchases')));
+  });
+});
+
+describe('Developer: las colas «Pendientes / Resueltos» las lee el jefe y nadie más', () => {
+  const seedQueues = () => env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    const at = (d) => new Date(`2026-10-0${d}T10:00:00Z`);
+    await setDoc(doc(db, 'businessClaims/c1'), { userId: 'alice', placeId: 'p1', status: 'pending', createdAt: at(1) });
+    await setDoc(doc(db, 'businessClaims/c2'), { userId: 'carol', placeId: 'p1', status: 'rejected', createdAt: at(2) });
+    await setDoc(doc(db, 'itemProposals/ip1'), { createdBy: 'alice', placeId: 'p1', status: 'pending', createdAt: at(1) });
+    await setDoc(doc(db, 'sponsoredPlacements/sp1'), { createdBy: 'alice', placeId: 'p1', status: 'requested', createdAt: at(1), endsAt: '2026-10-01' });
+    await setDoc(doc(db, 'sponsoredPlacements/sp2'), { createdBy: 'alice', placeId: 'p1', status: 'active', createdAt: at(2), endsAt: '2026-10-30' });
+    await setDoc(doc(db, 'sponsoredItemSpotlights/ss1'), { createdBy: 'alice', placeId: 'p1', status: 'requested', createdAt: at(1) });
+    await setDoc(doc(db, 'reports/r1'), { reportedBy: 'bob', status: 'resolved', createdAt: at(1), resolvedAt: at(2), resolvedBy: 'jefe', resolvedClosedStatus: 'resolved' });
+    await setDoc(doc(db, 'adminAuditLog/a1'), { action: 'businessClaim.review', actorUid: 'jefe', details: { claimId: 'c2' }, createdAt: at(2) });
+  });
+
+  const queues = (db) => [
+    query(collection(db, 'businessClaims'), where('status', '==', 'pending'), orderBy('createdAt', 'asc'), limit(50)),
+    query(collection(db, 'businessClaims'), where('status', 'in', ['approved', 'rejected']), orderBy('createdAt', 'desc'), limit(25)),
+    query(collection(db, 'itemProposals'), where('status', '==', 'pending'), orderBy('createdAt', 'asc'), limit(50)),
+    query(collection(db, 'sponsoredPlacements'), where('status', '==', 'requested'), orderBy('createdAt', 'asc'), limit(50)),
+    query(collection(db, 'sponsoredItemSpotlights'), where('status', '==', 'requested'), orderBy('createdAt', 'asc'), limit(50)),
+    query(collection(db, 'reports'), where('status', 'in', ['resolved', 'rejected']), orderBy('createdAt', 'desc'), limit(25)),
+  ];
+
+  it('✅ un jefe lista y cuenta cada cola por estado, y lee el historial de una solicitud', async () => {
+    await seedQueues();
+    const db = jefe();
+    for (const q of queues(db)) {
+      await assertSucceeds(getDocs(q));
+      await assertSucceeds(getCountFromServer(q));
+    }
+    await assertSucceeds(getCountFromServer(query(collection(db, 'sponsoredPlacements'), where('status', 'in', ['active', 'requested']), where('endsAt', '<', '2026-10-07'))));
+    await assertSucceeds(getDocs(query(collection(db, 'adminAuditLog'), where('details.claimId', '==', 'c2'))));
+    await assertSucceeds(getDocs(query(collection(db, 'adminAuditLog'), where('action', 'in', ['businessPlan.manualGrant', 'businessPlan.expired']), orderBy('createdAt', 'desc'), limit(50))));
+    await assertSucceeds(getDoc(doc(db, 'users/alice')));
+  });
+
+  it('❌ bob no puede listar ni contar las colas de otros', async () => {
+    await seedQueues();
+    const db = as('bob');
+    for (const q of queues(db)) {
+      await assertFails(getDocs(q));
+      await assertFails(getCountFromServer(q));
+    }
+    await assertFails(getDocs(query(collection(db, 'adminAuditLog'), where('details.claimId', '==', 'c2'))));
+  });
+
+  it('✅ un jefe reabre un reporte borrando quién y cuándo lo resolvió; ❌ bob no', async () => {
+    await seedQueues();
+    const reopen = { status: 'pending', resolvedAt: deleteField(), resolvedBy: deleteField(), resolvedClosedStatus: deleteField() };
+    await assertFails(updateDoc(doc(as('bob'), 'reports/r1'), reopen));
+    await assertSucceeds(updateDoc(doc(jefe(), 'reports/r1'), reopen));
   });
 });

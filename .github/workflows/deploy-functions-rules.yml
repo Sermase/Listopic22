@@ -5,7 +5,11 @@
 # Credenciales: la cuenta de servicio del secreto FIREBASE_SERVICE_ACCOUNT_LISTOPIC (la del
 # despliegue de Hosting). Si falla por permisos, esa cuenta necesita además:
 #   Cloud Functions Admin, Service Account User, Cloud Build Editor, Artifact Registry
-#   Administrator, Secret Manager Admin (las Functions declaran secretos) y Firebase Rules Admin.
+#   Administrator, Secret Manager Admin (las Functions declaran secretos) y Firebase Rules Admin;
+#   para la opción de índices, también Cloud Datastore Index Admin.
+# Índices (firestore.indexes.json): despliégalos ANTES que el frontend que los usa. Firestore
+# tarda un rato en construirlos (Firebase Console → Firestore → Índices); mientras, Developer
+# avisa «Índice en construcción». No borra los índices que haya en la consola y no estén aquí.
 # La clave nunca se imprime: va a un fichero temporal del runner y se borra al acabar.
 # Sin --force: si hubiera que BORRAR alguna Function de producción, el despliegue se para.
 
@@ -26,6 +30,7 @@ on:
           - 'functions,firestore:rules,storage'
           - 'functions'
           - 'firestore:rules,storage'
+          - 'firestore:indexes'
 
 permissions:
   contents: read

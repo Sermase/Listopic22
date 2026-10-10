@@ -1,8 +1,20 @@
-import React, { useEffect, useMemo, useState } from 'react';
+/**
+ * BusinessManagersTab: «Gestor negocios». No es una cola: lista los lugares
+ * verificados con su equipo (propietario y gestores) y da contexto en cada
+ * tarjeta: solicitud de origen (enlace a «Solicitudes negocio»), cuándo se
+ * verificó y quién lo hizo, plan Business (Free / Pro) y el total de negocios.
+ *
+ * Props (contrato de pestañas de DeveloperPage, opcional): focusId = placeId a
+ * resaltar; si no está entre los cargados se lee aparte y se fija arriba. Un
+ * placeId exacto en el filtro también se busca en el servidor.
+ */
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
     collection,
     doc,
     documentId,
+    getCountFromServer,
     getDoc,
     getDocs,
     limit,
@@ -12,6 +24,15 @@ import {
 import { httpsCallable, type HttpsCallable } from 'firebase/functions';
 import { Building2, Crown, ExternalLink, Loader2, RefreshCw, Search, ShieldCheck, UserMinus, UserPlus, X } from 'lucide-react';
 import { db, functions } from '../../firebase';
+import { cn } from '../../lib/utils';
+import { useConfirm } from '../../context/ConfirmContext';
+import { looksLikeId } from '../../services/adminQueues';
+import { formatDate, toMillis } from '../../utils/adminTime';
+import { getBusinessPlanFromPlace, PLAN_SOURCE_LABELS, type BusinessPlan } from '../../utils/businessPlan';
+import { ResolvedMeta } from './queue';
+import type { DeveloperTabProps } from './developerTabs';
+
+const PLACES_LIMIT = 150;
 
 interface BusinessPlace {
     id: string;
@@ -23,6 +44,10 @@ interface BusinessPlace {
     businessOwnerUserId?: string;
     businessManagerIds?: string[];
     businessClaimId?: string;
+    businessClaimedAtMs: number;
+    businessVerifiedBy?: string;
+    businessPlanGrantedBy?: string;
+    plan: BusinessPlan;
 }
 
 interface ManagedUser {
@@ -57,6 +82,28 @@ const chunk = <T,>(items: T[], size: number): T[][] => {
     return chunks;
 };
 
+const toBusinessPlace = (id: string, data: Record<string, unknown>): BusinessPlace => ({
+    id,
+    name: asString(data.name),
+    address: asString(data.address),
+    mainImageUrl: asString(data.mainImageUrl),
+    userPhotoUrl: asString(data.userPhotoUrl),
+    businessVerified: data.businessVerified === true,
+    businessOwnerUserId: asString(data.businessOwnerUserId),
+    businessManagerIds: Array.isArray(data.businessManagerIds)
+        ? data.businessManagerIds.filter((managerId): managerId is string => typeof managerId === 'string' && managerId.trim().length > 0)
+        : [],
+    businessClaimId: asString(data.businessClaimId),
+    businessClaimedAtMs: toMillis(data.businessClaimedAt),
+    businessVerifiedBy: asString(data.businessVerifiedBy),
+    businessPlanGrantedBy: asString(data.businessPlanGrantedBy),
+    plan: getBusinessPlanFromPlace(data),
+});
+
+/** Los verificados más recientes primero; sin fecha, al final y por nombre. */
+const comparePlaces = (a: BusinessPlace, b: BusinessPlace) =>
+    (b.businessClaimedAtMs - a.businessClaimedAtMs) || (a.name || a.id).localeCompare(b.name || b.id, 'es');
+
 const userLabel = (user?: ManagedUser): string => {
     if (!user) return 'Usuario';
     return user.username ? `@${user.username}` : user.displayName || user.email || user.id;
@@ -76,11 +123,48 @@ const getErrorMessage = (error: unknown, fallback: string) => {
     return fallback;
 };
 
+const BILLING_PROBLEMS: Record<string, string> = {
+    past_due: '💳 Pago atrasado',
+    unpaid: '💳 Impagado',
+};
+
+const PlanChip: React.FC<{ place: BusinessPlace }> = ({ place }) => {
+    const { plan } = place;
+    const billing = plan.billingStatus ? BILLING_PROBLEMS[plan.billingStatus] : undefined;
+    const source = place.businessPlanGrantedBy === 'beta'
+        ? 'Prueba (beta)'
+        : plan.source ? PLAN_SOURCE_LABELS[plan.source] : '';
+    const expiry = plan.expiresAt ? formatDate(plan.expiresAt) : '';
+    return (
+        <>
+            {plan.isPro ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[11px] font-bold text-amber-300">
+                    <span aria-hidden="true">✨</span>
+                    Pro{source ? ` · ${source}` : ''}{expiry ? ` · hasta ${expiry}` : ''}
+                </span>
+            ) : (
+                <span className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] font-bold text-gray-400">
+                    Free
+                </span>
+            )}
+            {billing && (
+                <span className="inline-flex items-center rounded-full border border-red-500/30 bg-red-500/10 px-2 py-0.5 text-[11px] font-bold text-red-300">
+                    {billing}
+                </span>
+            )}
+        </>
+    );
+};
+
 const updateBusinessTeamMember: HttpsCallable<UpdateBusinessTeamMemberInput, UpdateBusinessTeamMemberResult> =
     httpsCallable(functions, 'updateBusinessTeamMember');
 
-export const BusinessManagersTab: React.FC = () => {
+export const BusinessManagersTab: React.FC<Partial<DeveloperTabProps>> = ({ focusId }) => {
+    const confirm = useConfirm();
     const [places, setPlaces] = useState<BusinessPlace[]>([]);
+    const [totalVerified, setTotalVerified] = useState<number | null>(null);
+    /** Lugares leídos aparte (foco o placeId exacto) que no estaban en la lista. */
+    const [extraPlaces, setExtraPlaces] = useState<Record<string, BusinessPlace | null>>({});
     const [usersById, setUsersById] = useState<Record<string, ManagedUser>>({});
     const [loading, setLoading] = useState(false);
     const [updatingPlaceId, setUpdatingPlaceId] = useState<string | null>(null);
@@ -89,6 +173,7 @@ export const BusinessManagersTab: React.FC = () => {
     const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
     const [searchingUser, setSearchingUser] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+    const focus = focusId?.trim() || null;
 
     const loadUsers = async (ids: string[]) => {
         const missingIds = unique(ids).filter((id) => !usersById[id]);
@@ -116,37 +201,33 @@ export const BusinessManagersTab: React.FC = () => {
         setUsersById((prev) => ({ ...prev, ...loaded }));
     };
 
+    const teamIds = (rows: BusinessPlace[]) => rows.flatMap((place) => [
+        ...(place.businessManagerIds || []),
+        place.businessOwnerUserId || '',
+    ]);
+
     const loadPlaces = async () => {
         setLoading(true);
         setMessage(null);
         try {
-            const snap = await getDocs(query(
-                collection(db, 'places'),
-                where('businessVerified', '==', true),
-                limit(150),
-            ));
-            const rows = snap.docs.map((placeDoc) => {
-                const data = placeDoc.data() as Record<string, unknown>;
-                return {
-                    id: placeDoc.id,
-                    name: asString(data.name),
-                    address: asString(data.address),
-                    mainImageUrl: asString(data.mainImageUrl),
-                    userPhotoUrl: asString(data.userPhotoUrl),
-                    businessVerified: data.businessVerified === true,
-                    businessOwnerUserId: asString(data.businessOwnerUserId),
-                    businessManagerIds: Array.isArray(data.businessManagerIds)
-                        ? data.businessManagerIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
-                        : [],
-                    businessClaimId: asString(data.businessClaimId),
-                } satisfies BusinessPlace;
-            });
+            const verifiedQuery = query(collection(db, 'places'), where('businessVerified', '==', true));
+            const [snap, total] = await Promise.all([
+                getDocs(query(verifiedQuery, limit(PLACES_LIMIT))),
+                getCountFromServer(verifiedQuery)
+                    .then((countSnap) => countSnap.data().count)
+                    .catch((error) => {
+                        console.warn('BusinessManagersTab: no se pudo contar los negocios', error);
+                        return null;
+                    }),
+            ]);
+            const rows = snap.docs
+                .map((placeDoc) => toBusinessPlace(placeDoc.id, placeDoc.data() as Record<string, unknown>))
+                .sort(comparePlaces);
 
             setPlaces(rows);
-            await loadUsers(rows.flatMap((place) => [
-                ...(place.businessManagerIds || []),
-                place.businessOwnerUserId || '',
-            ]));
+            setTotalVerified(total);
+            setExtraPlaces({});
+            await loadUsers(teamIds(rows));
         } catch (error) {
             console.error('BusinessManagersTab: failed loading businesses', error);
             setMessage({ type: 'error', text: 'No se pudieron cargar los negocios.' });
@@ -160,17 +241,60 @@ export const BusinessManagersTab: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const visiblePlaces = useMemo(() => {
-        const term = placeSearch.trim().toLowerCase();
+    const searchTerm = placeSearch.trim();
+    const filteredPlaces = useMemo(() => {
+        const term = searchTerm.toLowerCase();
         if (!term) return places;
         return places.filter((place) => [
             place.id,
             place.name || '',
             place.address || '',
-            place.businessOwnerUserId || '',
-            ...(place.businessManagerIds || []),
+            place.businessClaimId || '',
+            ...[place.businessOwnerUserId, ...(place.businessManagerIds || [])]
+                .flatMap((userId) => (userId ? [userId, userLabel(usersById[userId])] : [])),
         ].some((value) => value.toLowerCase().includes(term)));
-    }, [placeSearch, places]);
+    }, [searchTerm, places, usersById]);
+
+    // Foco, o placeId exacto sin coincidencias entre los cargados: se lee aparte.
+    const lookupId = focus && !places.some((place) => place.id === focus)
+        ? focus
+        : looksLikeId(searchTerm) && filteredPlaces.length === 0 ? searchTerm : null;
+    useEffect(() => {
+        if (!lookupId || loading || lookupId in extraPlaces || lookupId.includes('/')) return;
+        let cancelled = false;
+        getDoc(doc(db, 'places', lookupId))
+            .then(async (snap) => {
+                if (cancelled) return;
+                const place = snap.exists() ? toBusinessPlace(snap.id, snap.data() as Record<string, unknown>) : null;
+                setExtraPlaces((prev) => ({ ...prev, [lookupId]: place }));
+                if (place) await loadUsers(teamIds([place]));
+            })
+            .catch((error) => {
+                console.warn('BusinessManagersTab: no se pudo leer el lugar', lookupId, error);
+                if (!cancelled) setExtraPlaces((prev) => ({ ...prev, [lookupId]: null }));
+            });
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lookupId, loading, extraPlaces]);
+
+    const visiblePlaces = useMemo(() => {
+        const pinned = Object.values(extraPlaces).filter((place): place is BusinessPlace => place !== null
+            && !places.some((loaded) => loaded.id === place.id)
+            && (place.id === focus || place.id === searchTerm));
+        return [...pinned, ...filteredPlaces];
+    }, [extraPlaces, places, focus, searchTerm, filteredPlaces]);
+
+    // Scroll a la tarjeta enfocada en cuanto aparece.
+    const scrolledFocus = useRef<string | null>(null);
+    useEffect(() => {
+        if (!focus || scrolledFocus.current === focus) return;
+        const element = document.getElementById(`business-place-${focus}`);
+        if (!element) return;
+        scrolledFocus.current = focus;
+        element.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    }, [focus, visiblePlaces]);
 
     const searchUser = async () => {
         const term = userSearch.trim();
@@ -232,6 +356,21 @@ export const BusinessManagersTab: React.FC = () => {
 
     const patchPlaceLocally = (placeId: string, patch: Partial<BusinessPlace>) => {
         setPlaces((prev) => prev.map((place) => place.id === placeId ? { ...place, ...patch } : place));
+        setExtraPlaces((prev) => (prev[placeId] ? { ...prev, [placeId]: { ...prev[placeId], ...patch } } : prev));
+    };
+
+    /** Pide confirmación si el cambio quita la propiedad a otro usuario. */
+    const confirmOwnerChange = async (place: BusinessPlace, nextOwnerId: string): Promise<boolean> => {
+        const currentOwnerId = place.businessOwnerUserId;
+        if (!currentOwnerId || currentOwnerId === nextOwnerId) return true;
+        const currentName = userLabel(usersById[currentOwnerId] ?? { id: currentOwnerId });
+        const nextName = userLabel(usersById[nextOwnerId] ?? { id: nextOwnerId });
+        return confirm({
+            title: '👑 ¿Cambiar el propietario?',
+            message: `Esto transfiere la propiedad de ${place.name || 'este negocio'} de ${currentName} a ${nextName}.`,
+            confirmLabel: 'Sí, transferir',
+            destructive: true,
+        });
     };
 
     const addManager = async (place: BusinessPlace, makeOwner = false) => {
@@ -239,6 +378,7 @@ export const BusinessManagersTab: React.FC = () => {
             setMessage({ type: 'error', text: 'Busca y selecciona primero un usuario.' });
             return;
         }
+        if (makeOwner && !(await confirmOwnerChange(place, selectedUser.id))) return;
 
         setUpdatingPlaceId(place.id);
         setMessage(null);
@@ -250,7 +390,7 @@ export const BusinessManagersTab: React.FC = () => {
                 makeOwner,
             });
             patchPlaceLocally(place.id, {
-                businessVerified: true,
+                businessVerified: makeOwner ? true : place.businessVerified,
                 businessOwnerUserId: makeOwner ? selectedUser.id : place.businessOwnerUserId,
                 businessManagerIds: unique([...(place.businessManagerIds || []), selectedUser.id]),
             });
@@ -263,22 +403,26 @@ export const BusinessManagersTab: React.FC = () => {
         }
     };
 
+    // El propietario no se puede quitar (el botón no se ofrece y el servidor lo rechaza).
     const removeManager = async (place: BusinessPlace, userId: string) => {
-        if (!window.confirm('¿Quitar este usuario de la gestión del negocio?')) return;
+        const confirmed = await confirm({
+            title: '¿Quitar de la gestión?',
+            message: `${userLabel(usersById[userId] ?? { id: userId })} dejará de poder gestionar ${place.name || 'este negocio'}.`,
+            confirmLabel: 'Quitar',
+            destructive: true,
+        });
+        if (!confirmed) return;
 
         setUpdatingPlaceId(place.id);
         setMessage(null);
         try {
-            const nextManagers = (place.businessManagerIds || []).filter((id) => id !== userId);
-            const wasOwner = place.businessOwnerUserId === userId;
             await updateBusinessTeamMember({
                 placeId: place.id,
                 action: 'remove',
                 targetUserId: userId,
             });
             patchPlaceLocally(place.id, {
-                businessManagerIds: nextManagers,
-                businessOwnerUserId: wasOwner ? '' : place.businessOwnerUserId,
+                businessManagerIds: (place.businessManagerIds || []).filter((id) => id !== userId),
             });
             setMessage({ type: 'success', text: 'Usuario eliminado del negocio.' });
         } catch (error) {
@@ -290,6 +434,7 @@ export const BusinessManagersTab: React.FC = () => {
     };
 
     const setOwner = async (place: BusinessPlace, userId: string) => {
+        if (!(await confirmOwnerChange(place, userId))) return;
         setUpdatingPlaceId(place.id);
         setMessage(null);
         try {
@@ -313,6 +458,9 @@ export const BusinessManagersTab: React.FC = () => {
         }
     };
 
+    const truncated = totalVerified !== null && totalVerified > places.length;
+    const lookupMissing = lookupId !== null && extraPlaces[lookupId] === null;
+
     return (
         <div className="max-w-6xl mx-auto space-y-5">
             <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-6">
@@ -325,6 +473,16 @@ export const BusinessManagersTab: React.FC = () => {
                         <p className="mt-1 max-w-2xl text-sm text-gray-400">
                             Administra los lugares reclamados y los usuarios que pueden gestionarlos desde el apartado Mis negocios.
                         </p>
+                        <p className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 font-bold text-emerald-300">
+                                🏪 {(totalVerified ?? places.length).toLocaleString('es-ES')} {(totalVerified ?? places.length) === 1 ? 'negocio verificado' : 'negocios verificados'}
+                            </span>
+                            {searchTerm && !loading && (
+                                <span className="text-xs text-gray-500">
+                                    {visiblePlaces.length.toLocaleString('es-ES')} {visiblePlaces.length === 1 ? 'coincide' : 'coinciden'}
+                                </span>
+                            )}
+                        </p>
                     </div>
                     <button
                         onClick={loadPlaces}
@@ -335,6 +493,12 @@ export const BusinessManagersTab: React.FC = () => {
                         Actualizar
                     </button>
                 </div>
+
+                {truncated && (
+                    <p className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-xs font-semibold text-amber-300">
+                        ⚠️ Mostrando {places.length.toLocaleString('es-ES')} de {totalVerified?.toLocaleString('es-ES')}. Para encontrar otro, pega su placeId en el filtro.
+                    </p>
+                )}
 
                 <div className="mt-6 grid gap-3 lg:grid-cols-[1fr_1.2fr]">
                     <label className="block">
@@ -370,11 +534,11 @@ export const BusinessManagersTab: React.FC = () => {
                             </button>
                         </div>
                         {selectedUser && (
-                            <div className="mt-2 flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-100">
+                            <div className="mt-2 flex items-center gap-2 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
                                 <ShieldCheck className="h-4 w-4" />
                                 <span className="font-bold">{userLabel(selectedUser)}</span>
-                                <span className="min-w-0 truncate text-emerald-200/70">{userSubtitle(selectedUser)}</span>
-                                <button type="button" onClick={() => setSelectedUser(null)} className="ml-auto text-emerald-200/70 hover:text-white">
+                                <span className="min-w-0 truncate opacity-75">{userSubtitle(selectedUser)}</span>
+                                <button type="button" onClick={() => setSelectedUser(null)} className="ml-auto opacity-75 hover:opacity-100" aria-label="Quitar usuario seleccionado">
                                     <X className="h-4 w-4" />
                                 </button>
                             </div>
@@ -385,13 +549,19 @@ export const BusinessManagersTab: React.FC = () => {
                 {message && (
                     <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
                         message.type === 'success'
-                            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
-                            : 'border-red-500/25 bg-red-500/10 text-red-200'
+                            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
+                            : 'border-red-500/25 bg-red-500/10 text-red-300'
                     }`}>
                         {message.text}
                     </div>
                 )}
             </div>
+
+            {lookupMissing && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                    🔎 No hay ningún lugar con el id {lookupId}.
+                </div>
+            )}
 
             {loading ? (
                 <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-8 text-center text-sm text-gray-400">
@@ -407,8 +577,16 @@ export const BusinessManagersTab: React.FC = () => {
                     {visiblePlaces.map((place) => {
                         const managers = unique([...(place.businessManagerIds || []), place.businessOwnerUserId || '']);
                         const photoUrl = place.userPhotoUrl || place.mainImageUrl || '';
+                        const hasVerification = Boolean(place.businessVerifiedBy || place.businessClaimedAtMs);
                         return (
-                            <div key={place.id} className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-5">
+                            <div
+                                key={place.id}
+                                id={`business-place-${place.id}`}
+                                className={cn(
+                                    'scroll-mt-24 rounded-xl border bg-[var(--lt-card-strong)] p-5',
+                                    place.id === focus ? 'border-[var(--lt-accent-border)] ring-1 ring-[var(--lt-accent-border)]' : 'border-white/10',
+                                )}
+                            >
                                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
                                     <div className="h-24 w-full shrink-0 overflow-hidden rounded-xl bg-white/5 lg:w-36">
                                         {photoUrl ? (
@@ -438,12 +616,39 @@ export const BusinessManagersTab: React.FC = () => {
                                             </a>
                                         </div>
 
+                                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                                            {!place.businessVerified && (
+                                                <span className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[11px] font-bold text-gray-400">
+                                                    ⚪ Sin verificar
+                                                </span>
+                                            )}
+                                            <PlanChip place={place} />
+                                            {place.businessClaimId && (
+                                                <Link
+                                                    to={`/developer?tab=businessClaims&view=resolved&focus=${encodeURIComponent(place.businessClaimId)}`}
+                                                    className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--lt-text)] hover:brightness-110"
+                                                >
+                                                    📨 Solicitud de origen →
+                                                </Link>
+                                            )}
+                                        </div>
+                                        {hasVerification && (
+                                            <ResolvedMeta
+                                                className="mt-2"
+                                                status="approved"
+                                                label="Verificado"
+                                                gender="m"
+                                                by={place.businessVerifiedBy || null}
+                                                at={place.businessClaimedAtMs || null}
+                                            />
+                                        )}
+
                                         <div className="mt-4 flex flex-wrap gap-2">
                                             <button
                                                 type="button"
                                                 onClick={() => addManager(place)}
                                                 disabled={!selectedUser || updatingPlaceId === place.id}
-                                                className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-200 hover:bg-emerald-500/15 disabled:opacity-50"
+                                                className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500/15 disabled:opacity-50"
                                             >
                                                 <UserPlus className="h-3.5 w-3.5" />
                                                 Añadir gestor
@@ -452,7 +657,7 @@ export const BusinessManagersTab: React.FC = () => {
                                                 type="button"
                                                 onClick={() => addManager(place, true)}
                                                 disabled={!selectedUser || updatingPlaceId === place.id}
-                                                className="inline-flex items-center gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 hover:bg-amber-500/15 disabled:opacity-50"
+                                                className="inline-flex items-center gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/15 disabled:opacity-50"
                                             >
                                                 <Crown className="h-3.5 w-3.5" />
                                                 Añadir como propietario
@@ -460,7 +665,9 @@ export const BusinessManagersTab: React.FC = () => {
                                         </div>
 
                                         <div className="mt-4 space-y-2">
-                                            <p className="text-xs font-bold uppercase tracking-wider text-gray-500">Usuarios asignados</p>
+                                            <p className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                                                Usuarios asignados ({managers.length})
+                                            </p>
                                             {managers.length === 0 ? (
                                                 <p className="rounded-lg border border-dashed border-white/10 bg-black/15 px-3 py-2 text-xs text-gray-500">
                                                     No hay gestores asignados.
@@ -475,7 +682,7 @@ export const BusinessManagersTab: React.FC = () => {
                                                                 <div className="flex flex-wrap items-center gap-2">
                                                                     <span className="font-bold text-white">{userLabel(manager)}</span>
                                                                     {isOwner && (
-                                                                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
+                                                                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">
                                                                             <Crown className="h-3 w-3" />
                                                                             Propietario
                                                                         </span>
@@ -483,29 +690,27 @@ export const BusinessManagersTab: React.FC = () => {
                                                                 </div>
                                                                 <p className="truncate text-xs text-gray-500">{userSubtitle(manager) || managerId}</p>
                                                             </div>
-                                                            <div className="flex shrink-0 gap-2">
-                                                                {!isOwner && (
+                                                            {!isOwner && (
+                                                                <div className="flex shrink-0 gap-2">
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => setOwner(place, managerId)}
                                                                         disabled={updatingPlaceId === place.id}
-                                                                        className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-200 disabled:opacity-50"
+                                                                        className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-1.5 text-xs font-bold text-amber-300 disabled:opacity-50"
                                                                     >
                                                                         Hacer propietario
                                                                     </button>
-                                                                )}
-                                                                {!isOwner && (
                                                                     <button
                                                                         type="button"
                                                                         onClick={() => removeManager(place, managerId)}
                                                                         disabled={updatingPlaceId === place.id}
-                                                                        className="inline-flex items-center gap-1 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-200 disabled:opacity-50"
+                                                                        className="inline-flex items-center gap-1 rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-1.5 text-xs font-bold text-red-300 disabled:opacity-50"
                                                                     >
                                                                         <UserMinus className="h-3.5 w-3.5" />
                                                                         Quitar
                                                                     </button>
-                                                                )}
-                                                            </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     );
                                                 })

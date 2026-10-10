@@ -8,6 +8,11 @@
 //
 // Colección global `sponsoredPlacements/{id}` (lectura pública, escritura solo
 // por estas funciones).
+//
+// Cada decisión del jefe (activar, rechazar, finalizar) va en una transacción
+// que vuelve a comprobar el estado y guarda quién y cuándo activó o cerró la
+// campaña (B5, lib/sponsored-review.js). Cada solicitud nueva avisa a los jefes
+// con un enlace a su fila en Developer (B8, lib/notify-jefes.js).
 
 const crypto = require("crypto");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
@@ -30,6 +35,8 @@ const {
   resolveSpotlightItem,
   buildSpotlightSyncPatch,
 } = require("./lib/spotlight-sync");
+const { madridToday, campaignDecisionError, campaignReviewPatch } = require("./lib/sponsored-review");
+const { safeNotifyJefes, sponsoredPlacementAlert, itemSpotlightAlert } = require("./lib/notify-jefes");
 
 const db = getFirestore();
 
@@ -89,6 +96,21 @@ const requestSponsoredPlacement = onCall({ invoker: "public" }, async (request) 
     headline: headline || null,
   });
 
+  // B8: aviso a los jefes (nunca hace fallar la solicitud).
+  await safeNotifyJefes({
+    db,
+    send: sendNotification,
+    alert: sponsoredPlacementAlert(placementRef.id, {
+      placeId,
+      placeName: place.name || null,
+      type,
+      headline,
+      startsAt,
+      endsAt,
+      createdBy: uid,
+    }),
+  });
+
   return { ok: true, placementId: placementRef.id };
 });
 
@@ -105,24 +127,19 @@ const reviewSponsoredPlacement = onCall({ invoker: "public" }, async (request) =
   }
 
   const placementRef = db.collection("sponsoredPlacements").doc(placementId);
-  const placementSnap = await placementRef.get();
-  if (!placementSnap.exists) throw new HttpsError("not-found", "El emplazamiento no existe.");
-  const placement = placementSnap.data() || {};
-
-  const allowedPlacementTransition = (decision === "activate" || decision === "reject")
-    ? placement.status === "requested"
-    : placement.status === "active";
-  if (!allowedPlacementTransition) {
-    throw new HttpsError("failed-precondition", "La campaña ya no está en un estado compatible con esa acción.");
-  }
-
-  const nextStatus = decision === "activate" ? "active" : decision === "reject" ? "rejected" : "ended";
-  await placementRef.set({
-    status: nextStatus,
-    adminNotes: adminNotes || null,
-    reviewedBy: uid,
-    reviewedAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
+  const today = madridToday();
+  // En transacción: dos jefes a la vez no pueden activar y rechazar la misma
+  // campaña, y el patch se arma con los datos frescos (activación previa).
+  const { placement, nextStatus } = await db.runTransaction(async (tx) => {
+    const placementSnap = await tx.get(placementRef);
+    if (!placementSnap.exists) throw new HttpsError("not-found", "El emplazamiento no existe.");
+    const data = placementSnap.data() || {};
+    const refusal = campaignDecisionError(decision, data, today);
+    if (refusal) throw new HttpsError(refusal.code, refusal.message);
+    const patch = campaignReviewPatch(decision, data, { uid, adminNotes, serverTimestamp: FieldValue.serverTimestamp() });
+    tx.set(placementRef, patch, { merge: true });
+    return { placement: data, nextStatus: patch.status };
+  });
 
   await writeAuditLog(uid, "sponsored.placementReviewed", {
     placementId,
@@ -376,6 +393,22 @@ const requestItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     totalPriceEur,
   });
 
+  // B8: aviso a los jefes (nunca hace fallar la solicitud).
+  await safeNotifyJefes({
+    db,
+    send: sendNotification,
+    alert: itemSpotlightAlert(spotlightRef.id, {
+      placeId,
+      placeName: place.name || null,
+      itemId,
+      itemName: item.canonicalName || itemId,
+      radiusKm,
+      days,
+      impulses,
+      createdBy: uid,
+    }),
+  });
+
   return { ok: true, spotlightId: spotlightRef.id, impulses, creditsUsed, billedImpulses, totalPriceEur };
 });
 
@@ -439,20 +472,16 @@ const reviewItemSpotlight = onCall({ invoker: "public" }, async (request) => {
   if (!spotlightSnap.exists) throw new HttpsError("not-found", "La campaña no existe.");
   const spotlight = spotlightSnap.data() || {};
 
-  const allowedSpotlightTransition = (decision === "activate" || decision === "reject")
-    ? spotlight.status === "requested"
-    : spotlight.status === "active";
-  if (!allowedSpotlightTransition) {
-    throw new HttpsError("failed-precondition", "La campaña ya no está en un estado compatible con esa acción.");
-  }
+  // Primera comprobación sin transacción, para no leer la carta en balde; la
+  // transacción de abajo la repite con los datos frescos. Sin mirar endsAt:
+  // activar un plato le pone fechas nuevas (activationPatch).
+  const today = madridToday();
+  const decisionOptions = { checkEndsAt: false };
+  const earlyRefusal = campaignDecisionError(decision, spotlight, today, decisionOptions);
+  if (earlyRefusal) throw new HttpsError(earlyRefusal.code, earlyRefusal.message);
 
-  const nextStatus = decision === "activate" ? "active" : decision === "reject" ? "rejected" : "ended";
-  const patch = {
-    status: nextStatus,
-    adminNotes: adminNotes || null,
-    reviewedBy: uid,
-    reviewedAt: FieldValue.serverTimestamp(),
-  };
+  // Lo que añade la activación (centro, plato al día y fechas).
+  const activationPatch = {};
   let itemName = spotlight.itemName;
   if (decision === "activate") {
     // Al activar se refrescan el centro (desde el lugar) y el plato (nombre
@@ -467,39 +496,43 @@ const reviewItemSpotlight = onCall({ invoker: "public" }, async (request) => {
     if (!resolveSpotlightItem(spotlight, itemsById)) {
       throw new HttpsError("failed-precondition", "El plato de esta campaña ya no está activo en la carta.");
     }
-    Object.assign(patch, buildSpotlightSyncPatch(spotlight, itemsById) || {}, { center });
-    itemName = patch.itemName || spotlight.itemName;
+    Object.assign(activationPatch, buildSpotlightSyncPatch(spotlight, itemsById) || {}, { center });
+    itemName = activationPatch.itemName || spotlight.itemName;
 
     // El periodo contratado empieza a contar al activar. Las campañas
     // anteriores al cambio guardaban semanas en vez de días.
     const days = Number.isInteger(spotlight.days) && spotlight.days >= 1
       ? spotlight.days
       : (Number(spotlight.weeks) >= 1 ? Number(spotlight.weeks) * 7 : 1);
-    patch.startsAt = isoDatePlusDays(0);
-    patch.endsAt = isoDatePlusDays(days);
+    activationPatch.startsAt = isoDatePlusDays(0);
+    activationPatch.endsAt = isoDatePlusDays(days);
   }
-  if (decision === "reject" && Number(spotlight.creditsUsed) > 0 && spotlight.creditsRefunded !== true) {
-    const creditsToRefund = Math.floor(Number(spotlight.creditsUsed));
-    const placeRef = db.collection("places").doc(spotlight.placeId);
-    await db.runTransaction(async (tx) => {
-      const freshSpotlightSnap = await tx.get(spotlightRef);
-      const freshSpotlight = freshSpotlightSnap.data() || {};
-      if (!freshSpotlightSnap.exists || freshSpotlight.status !== "requested") {
-        throw new HttpsError("failed-precondition", "La campaña ya ha sido procesada.");
-      }
-      tx.set(placeRef, {
+
+  // Decisión, devolución de impulsos (al rechazar) y quién/cuándo, todo en
+  // una transacción que vuelve a comprobar el estado.
+  const { nextStatus } = await db.runTransaction(async (tx) => {
+    const freshSnap = await tx.get(spotlightRef);
+    if (!freshSnap.exists) throw new HttpsError("not-found", "La campaña no existe.");
+    const fresh = freshSnap.data() || {};
+    const refusal = campaignDecisionError(decision, fresh, today, decisionOptions);
+    if (refusal) throw new HttpsError(refusal.code, refusal.message);
+
+    const patch = {
+      ...campaignReviewPatch(decision, fresh, { uid, adminNotes, serverTimestamp: FieldValue.serverTimestamp() }),
+      ...activationPatch,
+    };
+    const creditsToRefund = Math.floor(Number(fresh.creditsUsed));
+    if (decision === "reject" && creditsToRefund > 0 && fresh.creditsRefunded !== true) {
+      tx.set(db.collection("places").doc(fresh.placeId || spotlight.placeId), {
         spotlightCredits: FieldValue.increment(creditsToRefund),
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
-      tx.set(spotlightRef, {
-        ...patch,
-        creditsRefunded: true,
-        creditsRefundedAt: FieldValue.serverTimestamp(),
-      }, { merge: true });
-    });
-  } else {
-    await spotlightRef.set(patch, { merge: true });
-  }
+      patch.creditsRefunded = true;
+      patch.creditsRefundedAt = FieldValue.serverTimestamp();
+    }
+    tx.set(spotlightRef, patch, { merge: true });
+    return { nextStatus: patch.status };
+  });
 
   await writeAuditLog(uid, "sponsored.itemSpotlightReviewed", {
     spotlightId,

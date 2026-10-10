@@ -1,577 +1,604 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
-import { Building2, CalendarClock, Crown, ExternalLink, Loader2, RefreshCw, Search, Sparkles, User, X, Zap } from 'lucide-react';
-import { db } from '../../firebase';
-import { adminSetBusinessPlan, adminSetUserPlan } from '../../services/PlanAdminService';
-import { adminGrantSpotlightCredits } from '../../services/BusinessProService';
+/**
+ * PlansManagerTab: «Planes» en Developer, por segmentos sincronizados con ?view=
+ * (en lugar de una sola página con controles globales):
+ *
+ *   ⚠️ Atención (N)        ⏳ Pro manual o de prueba que caduca en ≤14 días (con «⏩ Extender» y
+ *                           «♾️ Pasar a indefinido»), 💳 pagos con problema y 🛒 checkouts sin terminar.
+ *                           N = caducan + pagos (como el punto ámbar de la barra lateral).
+ *   ✨ Pro activos (N)      businessProActive == true; chips de fuente (?status=manual|trial|beta|stripe),
+ *                           quién lo concedió, último cambio, nota e impulsos. N = count real; si se
+ *                           llega al límite, «mostrando X de Y».
+ *   🏪 Verificados sin Pro  businessVerified == true y en cliente sin Pro.
+ *   👑 Premium usuarios     users where premium.active == true (lista completa) y buscador uid/@username/email.
+ *   🧪 Beta «Lo quiero»     PlanInterestStats, que solo se carga al abrir el segmento (?status=noPlace).
+ *   🗂️ Historial            adminAuditLog legible y compras de impulsos (?status=business|premium|impulses|stripe).
+ *
+ * Buscar un local fuera de lo cargado: getDoc(places/<id>) exacto y prefijo de nombre.
+ * Las acciones de cada fila van en PlanActionDrawer (duración, nota rellenada con la
+ * actual, impulsos con confirmación exacta). Tras cada cambio se invalida ['developer'].
+ *
+ * Props (contrato de pestañas de DeveloperPage): DeveloperTabProps
+ *   { focusId?, view?, status?, onNavigate({ view?, status?, focus? }) }
+ *   focusId = placeId (o uid en «Premium usuarios»): se resalta, se fija arriba si no
+ *   estaba cargado y se hace scroll hasta él.
+ */
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query';
+import { formatAge, formatDate, formatUntil } from '../../utils/adminTime';
+import { PLAN_EXPIRY_WINDOW_DAYS } from '../../hooks/useDeveloperInbox';
+import { Button, Card } from '../ui';
+import { QueueToolbar, type QueueFilterOption, type QueueViewOption } from './queue';
+import type { DeveloperTabProps } from './developerTabs';
+import { PlanActionDrawer, type PlanDrawerPreset, type PlanDrawerTarget } from './PlanActionDrawer';
 import { PlanInterestStats } from './PlanInterestStats';
-import { formatPlanExpiry, getBusinessPlanFromPlace, PLAN_SOURCE_LABELS, type BusinessPlan } from '../../utils/businessPlan';
+import { PlanHistorySection } from './plans/PlanHistorySection';
+import { PlanPlaceRow, PlanUserRow } from './plans/PlanRows';
+import {
+    PLANS_QUERY_KEY,
+    fetchAttention,
+    fetchPlace,
+    fetchPlaceList,
+    fetchPremiumUsers,
+    fetchProCount,
+    fetchUser,
+    planPlaceKey,
+    planUserKey,
+    searchPlaces,
+    searchUsers,
+    type AttentionSectionData,
+} from './plans/planQueries';
+import {
+    PRO_FILTERS,
+    SOURCE_META,
+    billingLabel,
+    isPlaceView,
+    matchesTerm,
+    normalizeBetaFilter,
+    normalizeHistoryFilter,
+    normalizePlansView,
+    normalizeProFilter,
+    planSourceKey,
+    type PlanPlace,
+    type PlanUser,
+    type PlansView,
+    type RowMessage,
+} from './plans/planUtils';
 
-interface PlanPlace {
-    id: string;
-    name?: string;
-    address?: string;
-    mainImageUrl?: string;
-    userPhotoUrl?: string;
-    businessVerified?: boolean;
-    plan: BusinessPlan;
-    spotlightCredits: number;
+const STALE_MS = 60 * 1000;
+const SEARCH_DEBOUNCE_MS = 350;
+const MIN_SERVER_SEARCH = 3;
+
+interface DrawerState {
+    target: PlanDrawerTarget;
+    preset?: PlanDrawerPreset;
 }
 
-interface PlanUser {
-    id: string;
-    username?: string;
-    displayName?: string;
-    email?: string;
-    photoUrl?: string;
-    premiumActive: boolean;
-    premiumSource: string | null;
-    premiumExpiresAt: Date | null;
-    premiumNotes: string | null;
-}
-
-type Duration = 'indefinite' | '1m' | '3m' | 'custom';
-
-const asString = (value: unknown): string => typeof value === 'string' ? value.trim() : '';
-
-const toDate = (value: unknown): Date | null => {
-    if (!value) return null;
-    if (value instanceof Date) return value;
-    if (typeof value === 'object' && 'toDate' in value && typeof (value as { toDate: unknown }).toDate === 'function') {
-        return (value as { toDate: () => Date }).toDate();
-    }
-    return null;
-};
-
-const getErrorMessage = (error: unknown, fallback: string) => {
-    if (error && typeof error === 'object' && 'message' in error && typeof (error as { message?: unknown }).message === 'string') {
-        return (error as { message: string }).message;
-    }
-    return fallback;
-};
-
-const mapPlace = (id: string, data: Record<string, unknown>): PlanPlace => ({
-    id,
-    name: asString(data.name),
-    address: asString(data.address) || asString(data.formattedAddress),
-    mainImageUrl: asString(data.mainImageUrl),
-    userPhotoUrl: asString(data.userPhotoUrl),
-    businessVerified: data.businessVerified === true,
-    plan: getBusinessPlanFromPlace(data),
-    spotlightCredits: typeof data.spotlightCredits === 'number' && data.spotlightCredits > 0
-        ? Math.floor(data.spotlightCredits)
-        : 0,
-});
-
-const mapUser = (id: string, data: Record<string, unknown>): PlanUser => {
-    const premium = (data.premium && typeof data.premium === 'object' ? data.premium : {}) as Record<string, unknown>;
-    const expiresAt = toDate(premium.expiresAt);
-    const expired = expiresAt !== null && expiresAt.getTime() <= Date.now();
-    return {
-        id,
-        username: asString(data.username),
-        displayName: asString(data.displayName) || asString(data.name),
-        email: asString(data.email),
-        photoUrl: asString(data.photoUrl),
-        premiumActive: premium.active === true && !expired,
-        premiumSource: asString(premium.source) || null,
-        premiumExpiresAt: expiresAt,
-        premiumNotes: asString(premium.notes) || null,
-    };
-};
-
-const userLabel = (user: PlanUser): string =>
-    user.username ? `@${user.username}` : user.displayName || user.email || user.id;
-
-const PlanChip: React.FC<{ plan: BusinessPlan }> = ({ plan }) => {
-    if (!plan.isPro) {
-        return (
-            <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase text-gray-400">
-                Free
-            </span>
-        );
-    }
-    const expiry = formatPlanExpiry(plan.expiresAt);
-    return (
-        <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase text-amber-200">
-            <Sparkles className="h-3 w-3" />
-            Pro
-            {plan.source ? ` · ${PLAN_SOURCE_LABELS[plan.source]}` : ''}
-            {expiry ? ` · hasta ${expiry}` : ''}
-        </span>
-    );
-};
-
-export const PlansManagerTab: React.FC = () => {
-    const [places, setPlaces] = useState<PlanPlace[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [updatingId, setUpdatingId] = useState<string | null>(null);
-    const [placeSearch, setPlaceSearch] = useState('');
-    const [duration, setDuration] = useState<Duration>('indefinite');
-    const [customDate, setCustomDate] = useState('');
-    const [notes, setNotes] = useState('');
-    const [creditsToGrant, setCreditsToGrant] = useState(100);
-    const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-    const [userSearch, setUserSearch] = useState('');
-    const [searchingUser, setSearchingUser] = useState(false);
-    const [selectedUser, setSelectedUser] = useState<PlanUser | null>(null);
-
-    const loadPlaces = async () => {
-        setLoading(true);
-        setMessage(null);
-        try {
-            const [verifiedSnap, proSnap] = await Promise.all([
-                getDocs(query(collection(db, 'places'), where('businessVerified', '==', true), limit(150))),
-                getDocs(query(collection(db, 'places'), where('businessProActive', '==', true), limit(150))),
-            ]);
-            const byId = new Map<string, PlanPlace>();
-            for (const snap of [verifiedSnap, proSnap]) {
-                snap.docs.forEach((placeDoc) => {
-                    byId.set(placeDoc.id, mapPlace(placeDoc.id, placeDoc.data() as Record<string, unknown>));
-                });
-            }
-            const rows = Array.from(byId.values());
-            rows.sort((a, b) => Number(b.plan.isPro) - Number(a.plan.isPro) || (a.name || '').localeCompare(b.name || ''));
-            setPlaces(rows);
-        } catch (error) {
-            console.error('PlansManagerTab: failed loading places', error);
-            setMessage({ type: 'error', text: 'No se pudieron cargar los negocios.' });
-        } finally {
-            setLoading(false);
-        }
-    };
-
+const useDebounced = (value: string, delayMs: number): string => {
+    const [debounced, setDebounced] = useState(value);
     useEffect(() => {
-        void loadPlaces();
-    }, []);
+        const timer = window.setTimeout(() => setDebounced(value), delayMs);
+        return () => window.clearTimeout(timer);
+    }, [value, delayMs]);
+    return debounced;
+};
 
-    const visiblePlaces = useMemo(() => {
-        const term = placeSearch.trim().toLowerCase();
-        if (!term) return places;
-        return places.filter((place) => [place.id, place.name || '', place.address || '']
-            .some((value) => value.toLowerCase().includes(term)));
-    }, [placeSearch, places]);
+// ── Bloques de presentación ─────────────────────────────────────────────────
 
-    const computeExpiresAt = (): string | undefined => {
-        const now = new Date();
-        if (duration === '1m') {
-            now.setMonth(now.getMonth() + 1);
-            return now.toISOString();
-        }
-        if (duration === '3m') {
-            now.setMonth(now.getMonth() + 3);
-            return now.toISOString();
-        }
-        if (duration === 'custom') {
-            if (!customDate) throw new Error('Elige la fecha de caducidad.');
-            const date = new Date(`${customDate}T23:59:59`);
-            if (Number.isNaN(date.getTime()) || date.getTime() <= Date.now()) {
-                throw new Error('La fecha de caducidad debe ser futura.');
-            }
-            return date.toISOString();
-        }
-        return undefined;
-    };
+const ErrorBox: React.FC<{ text: string; onRetry?: () => void }> = ({ text, onRetry }) => (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+        <span>⚠️ {text}</span>
+        {onRetry && <Button variant="secondary" size="sm" onClick={onRetry}>Reintentar</Button>}
+    </div>
+);
 
-    const setBusinessPlan = async (place: PlanPlace, active: boolean) => {
-        if (!active && !window.confirm(`¿Quitar Business Pro a ${place.name || place.id}?`)) return;
+const EmptyBox: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <p className="rounded-lg border border-dashed border-white/10 bg-black/15 px-4 py-6 text-center text-sm text-gray-500">{children}</p>
+);
 
-        setUpdatingId(place.id);
-        setMessage(null);
+const LoadingBox: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-8 text-center text-sm text-gray-400">{children}</div>
+);
+
+const SectionCard: React.FC<{ title: string; count?: number; hint?: string; children: React.ReactNode }> = ({ title, count, hint, children }) => (
+    <Card className="space-y-3 p-4 sm:p-6">
+        <div>
+            <h3 className="text-lg font-bold text-white">
+                {title}
+                {typeof count === 'number' && <span className="ml-1.5 text-base font-semibold text-gray-400">· {count}</span>}
+            </h3>
+            {hint && <p className="mt-0.5 text-sm text-gray-400">{hint}</p>}
+        </div>
+        {children}
+    </Card>
+);
+
+const TruncatedNote: React.FC<{ loaded: number; total: number | null; what: string }> = ({ loaded, total, what }) => (
+    <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300">
+        ⚠️ Mostrando {loaded.toLocaleString('es-ES')}{typeof total === 'number' ? ` de ${total.toLocaleString('es-ES')}` : ''} {what}.
+        {' '}Busca por nombre o id para encontrar el resto.
+    </p>
+);
+
+const attentionContext = {
+    expiring: (place: PlanPlace) => (
+        <>⏳ Caduca el <span className="tabular-nums">{formatDate(place.expiresAtMs)}</span> ({formatUntil(place.expiresAtMs)})</>
+    ),
+    billing: (place: PlanPlace) => (
+        <>💳 Stripe: {billingLabel(place.plan.billingStatus)}{place.billingUpdatedAtMs ? <> desde el <span className="tabular-nums">{formatDate(place.billingUpdatedAtMs)}</span></> : null}</>
+    ),
+    checkouts: (place: PlanPlace) => (
+        <>🛒 Empezó a pagar Business Pro{place.billingUpdatedAtMs ? <> el <span className="tabular-nums">{formatDate(place.billingUpdatedAtMs)}</span> ({formatAge(place.billingUpdatedAtMs)})</> : null} y no terminó</>
+    ),
+};
+
+// ── Pestaña ─────────────────────────────────────────────────────────────────
+
+export const PlansManagerTab: React.FC<DeveloperTabProps> = ({
+    focusId,
+    view: viewParam,
+    status: statusParam,
+    onNavigate: navigate,
+}) => {
+    const queryClient = useQueryClient();
+    const view: PlansView = normalizePlansView(viewParam);
+    const focus = focusId?.trim() || null;
+    const placeView = isPlaceView(view);
+
+    const proFilter = normalizeProFilter(statusParam);
+    const betaFilter = normalizeBetaFilter(statusParam);
+    const historyFilter = normalizeHistoryFilter(statusParam);
+
+    const [search, setSearch] = useState('');
+    const term = search.trim();
+    const debounced = useDebounced(term, SEARCH_DEBOUNCE_MS);
+    const [drawer, setDrawer] = useState<DrawerState | null>(null);
+    const [messages, setMessages] = useState<Record<string, RowMessage>>({});
+    const [notice, setNotice] = useState<string | null>(null);
+
+    // ── Datos (react-query, todo bajo ['developer','plans']) ────────────────
+    const attention = useQuery({
+        queryKey: [...PLANS_QUERY_KEY, 'attention'],
+        queryFn: () => fetchAttention(),
+        staleTime: STALE_MS,
+    });
+    const proCount = useQuery({
+        queryKey: [...PLANS_QUERY_KEY, 'proCount'],
+        queryFn: () => fetchProCount(),
+        staleTime: STALE_MS,
+    });
+    const proList = useQuery({
+        queryKey: [...PLANS_QUERY_KEY, 'list', 'pro'],
+        queryFn: () => fetchPlaceList('pro'),
+        enabled: view === 'pro',
+        staleTime: STALE_MS,
+    });
+    const verifiedList = useQuery({
+        queryKey: [...PLANS_QUERY_KEY, 'list', 'verified'],
+        queryFn: () => fetchPlaceList('verified'),
+        enabled: view === 'verified',
+        staleTime: STALE_MS,
+    });
+    const premiumList = useQuery({
+        queryKey: [...PLANS_QUERY_KEY, 'premium'],
+        queryFn: () => fetchPremiumUsers(),
+        enabled: view === 'premium',
+        staleTime: STALE_MS,
+    });
+    const serverSearchTerm = debounced.length >= MIN_SERVER_SEARCH ? debounced : '';
+    const placeSearch = useQuery({
+        queryKey: [...PLANS_QUERY_KEY, 'placeSearch', serverSearchTerm],
+        queryFn: () => searchPlaces(serverSearchTerm),
+        enabled: placeView && Boolean(serverSearchTerm),
+        staleTime: STALE_MS,
+    });
+    const userSearch = useQuery({
+        queryKey: [...PLANS_QUERY_KEY, 'userSearch', serverSearchTerm],
+        queryFn: () => searchUsers(serverSearchTerm),
+        enabled: view === 'premium' && Boolean(serverSearchTerm),
+        staleTime: STALE_MS,
+    });
+    const focusPlace = useQuery({
+        queryKey: planPlaceKey(focus ?? ''),
+        queryFn: () => fetchPlace(focus as string),
+        enabled: Boolean(focus) && placeView,
+        staleTime: STALE_MS,
+    });
+    const focusUser = useQuery({
+        queryKey: planUserKey(focus ?? ''),
+        queryFn: () => fetchUser(focus as string),
+        enabled: Boolean(focus) && view === 'premium',
+        staleTime: STALE_MS,
+    });
+    const fetchingCount = useIsFetching({ queryKey: PLANS_QUERY_KEY });
+
+    // ── Navegación ──────────────────────────────────────────────────────────
+    const changeView = useCallback((next: string) => {
+        setSearch('');
+        setNotice(null);
+        navigate({ view: next, status: '', focus: null });
+    }, [navigate, setSearch, setNotice]);
+
+    const changeFilter = useCallback((next: string) => {
+        navigate({ status: next === 'all' ? '' : next, focus: null });
+    }, [navigate]);
+
+    const refresh = useCallback(() => {
+        setMessages({});
+        setNotice(null);
+        void queryClient.invalidateQueries({ queryKey: PLANS_QUERY_KEY });
+    }, [queryClient, setMessages, setNotice]);
+
+    const openPlace = useCallback((place: PlanPlace, preset?: PlanDrawerPreset) => {
+        setDrawer({ target: { kind: 'place', place }, preset });
+    }, [setDrawer]);
+
+    const openUser = useCallback((user: PlanUser) => {
+        setDrawer({ target: { kind: 'user', user } });
+    }, [setDrawer]);
+
+    /** Desde Beta e Historial: se lee el local y se abre su panel. */
+    const openPlaceById = useCallback(async (placeId: string) => {
+        setNotice(null);
         try {
-            const expiresAt = active ? computeExpiresAt() : undefined;
-            const result = await adminSetBusinessPlan({
-                placeId: place.id,
-                active,
-                expiresAt,
-                notes: notes.trim() || undefined,
+            const place = await queryClient.fetchQuery({
+                queryKey: planPlaceKey(placeId),
+                queryFn: () => fetchPlace(placeId),
+                staleTime: STALE_MS,
             });
-            setPlaces((prev) => prev.map((row) => row.id === place.id
-                ? {
-                    ...row,
-                    plan: {
-                        isPro: result.active,
-                        source: result.source,
-                        expiresAt: result.expiresAt ? new Date(result.expiresAt) : null,
-                        billingStatus: row.plan.billingStatus,
-                    },
-                }
-                : row));
-            setMessage({
-                type: 'success',
-                text: active
-                    ? `Business Pro activado en ${place.name || place.id}.`
-                    : `Business Pro desactivado en ${place.name || place.id}.`,
-            });
+            if (place) setDrawer({ target: { kind: 'place', place } });
+            else setNotice(`🔎 El local ${placeId} ya no existe.`);
         } catch (error) {
-            console.error('PlansManagerTab: setBusinessPlan failed', error);
-            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo actualizar el plan.') });
-        } finally {
-            setUpdatingId(null);
+            console.error('PlansManagerTab: no se pudo abrir el local', placeId, error);
+            setNotice('⚠️ No se pudo abrir el local. Inténtalo de nuevo.');
         }
-    };
+    }, [queryClient, setDrawer, setNotice]);
 
-    const searchUser = async () => {
-        const term = userSearch.trim();
-        if (!term) return;
+    const closeDrawer = useCallback(() => setDrawer(null), [setDrawer]);
 
-        setSearchingUser(true);
-        setSelectedUser(null);
-        setMessage(null);
+    const rememberMessage = useCallback((id: string, message: RowMessage) => {
+        setMessages((prev) => ({ ...prev, [id]: message }));
+    }, [setMessages]);
 
-        try {
-            const candidates: PlanUser[] = [];
+    // ── Filas de los segmentos de locales ───────────────────────────────────
+    const filterPlaces = useCallback((rows: PlanPlace[]) => (term ? rows.filter((place) => matchesTerm(place.searchText, term)) : rows), [term]);
 
-            const directSnap = await getDoc(doc(db, 'users', term)).catch(() => null);
-            if (directSnap?.exists()) {
-                candidates.push(mapUser(directSnap.id, directSnap.data() as Record<string, unknown>));
-            }
-
-            const normalized = term.toLowerCase().replace(/^@/, '');
-            const queries = [
-                query(collection(db, 'users'), where('usernameLower', '==', normalized), limit(1)),
-                query(collection(db, 'users'), where('emailLowerCase', '==', normalized), limit(1)),
-                query(collection(db, 'users'), where('email', '==', term), limit(1)),
-            ];
-
-            for (const userQuery of queries) {
-                const snap = await getDocs(userQuery).catch(() => null);
-                snap?.docs.forEach((userDoc) => {
-                    if (candidates.some((candidate) => candidate.id === userDoc.id)) return;
-                    candidates.push(mapUser(userDoc.id, userDoc.data() as Record<string, unknown>));
-                });
-            }
-
-            if (candidates.length === 0) {
-                setMessage({ type: 'error', text: 'No se encontró ningún usuario con ese uid, username o email.' });
-                return;
-            }
-
-            setSelectedUser(candidates[0]);
-        } finally {
-            setSearchingUser(false);
+    const attentionData = attention.data;
+    const attentionSections = useMemo(() => (attentionData
+        ? {
+            expiring: filterPlaces(attentionData.expiring.rows),
+            billing: filterPlaces(attentionData.billing.rows),
+            checkouts: filterPlaces(attentionData.checkouts.rows),
         }
-    };
+        : null), [attentionData, filterPlaces]);
 
-    const setUserPlan = async (user: PlanUser, active: boolean) => {
-        if (!active && !window.confirm(`¿Quitar premium a ${userLabel(user)}?`)) return;
+    const proRows = useMemo(() => filterPlaces((proList.data?.rows ?? [])
+        .filter((place) => proFilter === 'all' || planSourceKey(place) === proFilter)), [proList.data, proFilter, filterPlaces]);
+    const verifiedRows = useMemo(() => filterPlaces(verifiedList.data?.rows ?? []), [verifiedList.data, filterPlaces]);
 
-        setUpdatingId(user.id);
-        setMessage(null);
-        try {
-            const expiresAt = active ? computeExpiresAt() : undefined;
-            const result = await adminSetUserPlan({
-                userId: user.id,
-                active,
-                expiresAt,
-                notes: notes.trim() || undefined,
-            });
-            setSelectedUser({
-                ...user,
-                premiumActive: result.active,
-                premiumSource: result.source,
-                premiumExpiresAt: result.expiresAt ? new Date(result.expiresAt) : null,
-                premiumNotes: notes.trim() || user.premiumNotes,
-            });
-            setMessage({
-                type: 'success',
-                text: active
-                    ? `Premium activado para ${userLabel(user)}.`
-                    : `Premium desactivado para ${userLabel(user)}.`,
-            });
-        } catch (error) {
-            console.error('PlansManagerTab: setUserPlan failed', error);
-            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudo actualizar el plan del usuario.') });
-        } finally {
-            setUpdatingId(null);
+    const visiblePlaceIds = useMemo(() => {
+        const ids = new Set<string>();
+        if (view === 'attention' && attentionSections) {
+            [...attentionSections.expiring, ...attentionSections.billing, ...attentionSections.checkouts].forEach((place) => ids.add(place.id));
         }
-    };
+        if (view === 'pro') proRows.forEach((place) => ids.add(place.id));
+        if (view === 'verified') verifiedRows.forEach((place) => ids.add(place.id));
+        return ids;
+    }, [view, attentionSections, proRows, verifiedRows]);
 
-    const grantCredits = async (place: PlanPlace) => {
-        if (!Number.isInteger(creditsToGrant) || creditsToGrant === 0) {
-            setMessage({ type: 'error', text: 'Indica cuántos impulsos regalar (negativo para retirar).' });
+    // Se fija arriba solo cuando la lista de la vista ya está cargada (si no, parpadearía).
+    const listReady = view === 'attention' ? attention.isSuccess
+        : view === 'pro' ? proList.isSuccess
+            : view === 'verified' ? verifiedList.isSuccess
+                : false;
+    const pinnedPlace = listReady && focus && focusPlace.data && !visiblePlaceIds.has(focus) ? focusPlace.data : null;
+    const focusPlaceMissing = placeView && Boolean(focus) && focusPlace.isSuccess && focusPlace.data === null;
+
+    const serverPlaces = useMemo(() => (placeView && serverSearchTerm === term
+        ? (placeSearch.data ?? []).filter((place) => !visiblePlaceIds.has(place.id) && place.id !== pinnedPlace?.id)
+        : []), [placeView, serverSearchTerm, term, placeSearch.data, visiblePlaceIds, pinnedPlace]);
+
+    // ── Premium ─────────────────────────────────────────────────────────────
+    const premiumRows = useMemo(() => {
+        const rows = premiumList.data?.rows ?? [];
+        return term ? rows.filter((user) => matchesTerm(user.searchText, term)) : rows;
+    }, [premiumList.data, term]);
+    const premiumIds = useMemo(() => new Set(premiumRows.map((user) => user.id)), [premiumRows]);
+    const pinnedUser = view === 'premium' && premiumList.isSuccess && focus && focusUser.data && !premiumIds.has(focus) ? focusUser.data : null;
+    const serverUsers = useMemo(() => (view === 'premium' && serverSearchTerm === term
+        ? (userSearch.data ?? []).filter((user) => !premiumIds.has(user.id) && user.id !== pinnedUser?.id)
+        : []), [view, serverSearchTerm, term, userSearch.data, premiumIds, pinnedUser]);
+
+    const searchingServer = term.length >= MIN_SERVER_SEARCH
+        && (debounced !== term || (placeView ? placeSearch.isFetching : view === 'premium' && userSearch.isFetching));
+
+    // ── Scroll al enfocado ──────────────────────────────────────────────────
+    const scrolledFocus = useRef<string | null>(null);
+    useEffect(() => {
+        if (!focus) {
+            scrolledFocus.current = null;
             return;
         }
-        setUpdatingId(place.id);
-        setMessage(null);
-        try {
-            const result = await adminGrantSpotlightCredits(place.id, creditsToGrant, notes.trim() || undefined);
-            setPlaces((prev) => prev.map((row) => row.id === place.id
-                ? { ...row, spotlightCredits: result.balance }
-                : row));
-            setMessage({ type: 'success', text: `${place.name || place.id} tiene ahora ${result.balance} impulso${result.balance === 1 ? '' : 's'} de regalo.` });
-        } catch (error) {
-            console.error('PlansManagerTab: grant credits failed', error);
-            setMessage({ type: 'error', text: getErrorMessage(error, 'No se pudieron regalar los impulsos.') });
-        } finally {
-            setUpdatingId(null);
-        }
+        const key = `${view}:${focus}`;
+        if (scrolledFocus.current === key) return;
+        const element = document.getElementById(view === 'premium' ? `plan-user-${focus}` : `plan-place-${focus}`);
+        if (!element) return;
+        scrolledFocus.current = key;
+        element.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    });
+
+    // ── Barra de herramientas ───────────────────────────────────────────────
+    const attentionCount = attentionData ? attentionData.expiring.rows.length + attentionData.billing.rows.length : null;
+    const views: QueueViewOption[] = [
+        { value: 'attention', label: 'Atención', emoji: '⚠️', count: attentionCount },
+        { value: 'pro', label: 'Pro activos', emoji: '✨', count: proCount.data ?? null },
+        { value: 'verified', label: 'Verificados sin Pro', emoji: '🏪' },
+        { value: 'premium', label: 'Premium usuarios', emoji: '👑' },
+        { value: 'beta', label: 'Beta «Lo quiero»', emoji: '🧪' },
+        { value: 'history', label: 'Historial', emoji: '🗂️' },
+    ];
+
+    const sourceCounts = useMemo(() => {
+        const counts: Record<string, number> = {};
+        (proList.data?.rows ?? []).forEach((place) => {
+            const key = planSourceKey(place) ?? 'unknown';
+            counts[key] = (counts[key] ?? 0) + 1;
+        });
+        return counts;
+    }, [proList.data]);
+
+    let filters: QueueFilterOption[] | undefined;
+    let filter: string | undefined;
+    if (view === 'pro') {
+        filter = proFilter;
+        filters = PRO_FILTERS.map((value) => (value === 'all'
+            ? { value, label: 'Todos', count: proList.data ? proList.data.rows.length : null }
+            : { value, label: SOURCE_META[value].label, emoji: SOURCE_META[value].emoji, count: proList.data ? sourceCounts[value] ?? 0 : null }));
+    } else if (view === 'beta') {
+        filter = betaFilter;
+        filters = [
+            { value: 'all', label: 'Todos' },
+            { value: 'noPlace', label: 'Sin local verificado', emoji: '👋' },
+        ];
+    } else if (view === 'history') {
+        filter = historyFilter;
+        filters = [
+            { value: 'all', label: 'Todo' },
+            { value: 'business', label: 'Business Pro', emoji: '✨' },
+            { value: 'premium', label: 'Premium', emoji: '👑' },
+            { value: 'impulses', label: 'Impulsos', emoji: '⚡' },
+            { value: 'stripe', label: 'Stripe', emoji: '💳' },
+        ];
+    }
+
+    const updatedAt = view === 'attention' ? attention.dataUpdatedAt
+        : view === 'pro' ? proList.dataUpdatedAt
+            : view === 'verified' ? verifiedList.dataUpdatedAt
+                : view === 'premium' ? premiumList.dataUpdatedAt
+                    : undefined;
+
+    const searchable = placeView || view === 'premium';
+
+    // ── Render de filas ─────────────────────────────────────────────────────
+    const renderPlace = (place: PlanPlace, extra?: { context?: React.ReactNode; actions?: React.ReactNode }) => (
+        <PlanPlaceRow
+            key={place.id}
+            place={place}
+            focused={place.id === focus}
+            context={extra?.context}
+            actions={extra?.actions}
+            message={messages[place.id]}
+            onManage={(row) => openPlace(row)}
+        />
+    );
+
+    const expiringActions = (place: PlanPlace) => (
+        <>
+            <Button variant="secondary" size="sm" onClick={() => openPlace(place, { duration: '1m', section: 'plan' })}>
+                ⏩ Extender
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => openPlace(place, { duration: 'indefinite', section: 'plan' })}>
+                ♾️ Pasar a indefinido
+            </Button>
+        </>
+    );
+
+    const attentionBlock = (
+        key: 'expiring' | 'billing' | 'checkouts',
+        title: string,
+        empty: string,
+        hint?: string,
+    ) => {
+        const section: AttentionSectionData | undefined = attentionData?.[key];
+        const rows = attentionSections?.[key] ?? [];
+        return (
+            <SectionCard key={key} title={title} count={section && !section.error ? section.rows.length : undefined} hint={hint}>
+                {section?.error ? (
+                    <ErrorBox text={`${section.error}.`} onRetry={() => void attention.refetch()} />
+                ) : rows.length === 0 ? (
+                    <EmptyBox>{term && section && section.rows.length > 0 ? `🔎 Nada coincide con «${term}».` : empty}</EmptyBox>
+                ) : (
+                    <div className="space-y-3">
+                        {rows.map((place) => renderPlace(place, {
+                            context: attentionContext[key](place),
+                            actions: key === 'expiring' ? expiringActions(place) : undefined,
+                        }))}
+                    </div>
+                )}
+            </SectionCard>
+        );
     };
 
-    const isStripeManaged = (plan: BusinessPlan) =>
-        plan.source === 'stripe' && ['active', 'trialing', 'past_due'].includes(plan.billingStatus || '');
+    const searchFailed = Boolean(serverSearchTerm) && serverSearchTerm === term
+        && (placeView ? placeSearch.isError : view === 'premium' && userSearch.isError);
+    const serverResultsBlock = (view === 'premium' ? serverUsers.length > 0 : serverPlaces.length > 0) || searchingServer || searchFailed ? (
+        <SectionCard
+            title="🔎 En el servidor"
+            hint={view === 'premium' ? 'Usuarios que coinciden por uid, @username o email.' : 'Locales que coinciden por id o empiezan por ese nombre (cualquier local, verificado o no).'}
+        >
+            {searchingServer && <p className="text-sm text-gray-400">⏳ Buscando…</p>}
+            {searchFailed && !searchingServer && <p className="text-sm text-red-300">⚠️ No se pudo buscar en el servidor.</p>}
+            <div className="space-y-3">
+                {view === 'premium'
+                    ? serverUsers.map((user) => (
+                        <PlanUserRow key={user.id} user={user} focused={user.id === focus} message={messages[user.id]} onManage={openUser} />
+                    ))
+                    : serverPlaces.map((place) => renderPlace(place))}
+            </div>
+        </SectionCard>
+    ) : null;
+
+    const placeListBody = (
+        list: typeof proList,
+        rows: PlanPlace[],
+        what: string,
+        empty: string,
+    ) => {
+        if (list.isError) return <ErrorBox text="No se pudieron cargar los locales." onRetry={() => void list.refetch()} />;
+        if (list.isPending) return <LoadingBox>⏳ Cargando locales…</LoadingBox>;
+        return (
+            <div className="space-y-3">
+                {list.data.truncated && <TruncatedNote loaded={list.data.loaded} total={list.data.total} what={what} />}
+                {rows.length === 0
+                    ? <EmptyBox>{term ? `🔎 Nada coincide con «${term}» entre lo cargado.` : empty}</EmptyBox>
+                    : rows.map((place) => renderPlace(place))}
+            </div>
+        );
+    };
 
     return (
-        <div className="max-w-6xl mx-auto space-y-5">
-            <PlanInterestStats />
-            <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-6">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div>
-                        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                            <Sparkles className="w-6 h-6 text-amber-300" />
-                            Planes
-                        </h2>
-                        <p className="mt-1 max-w-2xl text-sm text-gray-400">
-                            Concede o retira Business Pro por local y premium personal por usuario. Las concesiones
-                            manuales conviven con Stripe: si el negocio paga, el plan pasa a ser de Stripe.
-                        </p>
-                    </div>
-                    <button
-                        onClick={loadPlaces}
-                        disabled={loading}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 px-4 py-2 text-sm font-bold text-white hover:bg-white/15 disabled:opacity-50"
-                    >
-                        <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                        Actualizar
-                    </button>
-                </div>
-
-                <div className="mt-6 grid gap-3 lg:grid-cols-3">
-                    <label className="block">
-                        <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-500">Duración de la concesión</span>
-                        <select
-                            value={duration}
-                            onChange={(event) => setDuration(event.target.value as Duration)}
-                            className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
-                        >
-                            <option value="indefinite">Indefinida</option>
-                            <option value="1m">1 mes (prueba)</option>
-                            <option value="3m">3 meses (prueba)</option>
-                            <option value="custom">Hasta fecha concreta</option>
-                        </select>
-                    </label>
-                    {duration === 'custom' && (
-                        <label className="block">
-                            <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-500">Caduca el</span>
-                            <input
-                                type="date"
-                                value={customDate}
-                                onChange={(event) => setCustomDate(event.target.value)}
-                                className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
-                            />
-                        </label>
-                    )}
-                    <label className="block">
-                        <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-500">Notas (motivo)</span>
-                        <input
-                            value={notes}
-                            onChange={(event) => setNotes(event.target.value)}
-                            className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
-                            placeholder="Prueba interna, cortesía, prensa..."
-                        />
-                    </label>
-                    <label className="block">
-                        <span className="mb-1 block text-xs font-bold uppercase tracking-wider text-gray-500">Impulsos a regalar</span>
-                        <input
-                            type="number"
-                            min={-100000}
-                            max={100000}
-                            value={creditsToGrant}
-                            onChange={(event) => setCreditsToGrant(Number(event.target.value) || 0)}
-                            className="w-full rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
-                        />
-                    </label>
-                </div>
-
-                {message && (
-                    <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
-                        message.type === 'success'
-                            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200'
-                            : 'border-red-500/25 bg-red-500/10 text-red-200'
-                    }`}>
-                        {message.text}
-                    </div>
-                )}
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-6">
-                <h3 className="flex items-center gap-2 text-lg font-bold text-white">
-                    <User className="h-5 w-5 text-indigo-300" />
-                    Premium de usuario
-                </h3>
-                <div className="mt-4 flex gap-2">
-                    <input
-                        value={userSearch}
-                        onChange={(event) => setUserSearch(event.target.value)}
-                        onKeyDown={(event) => { if (event.key === 'Enter') void searchUser(); }}
-                        className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
-                        placeholder="uid, @username o email"
-                    />
-                    <button
-                        type="button"
-                        onClick={searchUser}
-                        disabled={searchingUser || !userSearch.trim()}
-                        className="rounded-xl bg-[var(--lt-accent)] px-4 py-3 text-sm font-bold text-white disabled:opacity-50"
-                    >
-                        {searchingUser ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Buscar'}
-                    </button>
-                </div>
-
-                {selectedUser && (
-                    <div className="mt-4 flex flex-col gap-3 rounded-xl border border-white/10 bg-black/15 p-4 sm:flex-row sm:items-center">
-                        <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="font-bold text-white">{userLabel(selectedUser)}</span>
-                                {selectedUser.premiumActive ? (
-                                    <span className="inline-flex items-center gap-1 rounded-full border border-indigo-500/25 bg-indigo-500/10 px-2.5 py-1 text-[10px] font-bold uppercase text-indigo-200">
-                                        <Crown className="h-3 w-3" />
-                                        Premium
-                                        {selectedUser.premiumSource ? ` · ${selectedUser.premiumSource}` : ''}
-                                        {selectedUser.premiumExpiresAt ? ` · hasta ${formatPlanExpiry(selectedUser.premiumExpiresAt)}` : ''}
-                                    </span>
-                                ) : (
-                                    <span className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[10px] font-bold uppercase text-gray-400">
-                                        Free
-                                    </span>
-                                )}
-                            </div>
-                            <p className="mt-1 truncate text-xs text-gray-500">
-                                {[selectedUser.email, selectedUser.id].filter(Boolean).join(' / ')}
-                            </p>
-                            {selectedUser.premiumNotes && (
-                                <p className="mt-1 text-xs text-gray-400">Notas: {selectedUser.premiumNotes}</p>
-                            )}
-                        </div>
-                        <div className="flex shrink-0 gap-2">
-                            {selectedUser.premiumActive ? (
-                                <button
-                                    type="button"
-                                    onClick={() => setUserPlan(selectedUser, false)}
-                                    disabled={updatingId === selectedUser.id}
-                                    className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200 disabled:opacity-50"
-                                >
-                                    Quitar premium
-                                </button>
-                            ) : (
-                                <button
-                                    type="button"
-                                    onClick={() => setUserPlan(selectedUser, true)}
-                                    disabled={updatingId === selectedUser.id}
-                                    className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/25 bg-indigo-500/10 px-3 py-2 text-xs font-bold text-indigo-200 disabled:opacity-50"
-                                >
-                                    <Crown className="h-3.5 w-3.5" />
-                                    Activar premium
-                                </button>
-                            )}
-                            <button type="button" onClick={() => setSelectedUser(null)} className="text-gray-500 hover:text-white">
-                                <X className="h-4 w-4" />
-                            </button>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)] p-6">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="flex items-center gap-2 text-lg font-bold text-white">
-                        <Building2 className="h-5 w-5 text-emerald-300" />
-                        Business Pro por local
-                    </h3>
-                    <div className="relative sm:w-80">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                        <input
-                            value={placeSearch}
-                            onChange={(event) => setPlaceSearch(event.target.value)}
-                            className="w-full rounded-xl border border-white/10 bg-black/20 py-2.5 pl-10 pr-3 text-sm text-white outline-none focus:border-[var(--lt-accent-border)]"
-                            placeholder="Nombre, placeId, dirección..."
-                        />
-                    </div>
-                </div>
-
-                {loading ? (
-                    <div className="py-10 text-center text-sm text-gray-400">
-                        <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-[var(--lt-accent)]" />
-                        Cargando negocios...
-                    </div>
-                ) : visiblePlaces.length === 0 ? (
-                    <p className="mt-4 rounded-lg border border-dashed border-white/10 bg-black/15 px-4 py-6 text-center text-sm text-gray-500">
-                        No hay negocios verificados que coincidan.
+        <div className="mx-auto max-w-6xl space-y-4">
+            <Card className="space-y-4 p-4 sm:p-6">
+                <div>
+                    <h2 className="text-2xl font-bold text-white">✨ Planes</h2>
+                    <p className="mt-1 text-sm text-gray-400">
+                        Business Pro por local, premium por usuario e impulsos. Lo que pide atención va primero y cada cambio queda en «Historial».
                     </p>
-                ) : (
-                    <div className="mt-4 space-y-3">
-                        {visiblePlaces.map((place) => {
-                            const stripeManaged = isStripeManaged(place.plan);
-                            return (
-                                <div key={place.id} className="flex flex-col gap-3 rounded-xl border border-white/10 bg-black/15 p-4 lg:flex-row lg:items-center">
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="truncate font-bold text-white">{place.name || 'Negocio'}</span>
-                                            <PlanChip plan={place.plan} />
-                                            {place.spotlightCredits > 0 && (
-                                                <span className="inline-flex items-center gap-1 rounded-full border border-yellow-500/25 bg-yellow-500/10 px-2.5 py-1 text-[10px] font-bold uppercase text-yellow-200">
-                                                    <Zap className="h-3 w-3" />
-                                                    {place.spotlightCredits} impulso{place.spotlightCredits === 1 ? '' : 's'}
-                                                </span>
-                                            )}
-                                            {stripeManaged && (
-                                                <span className="inline-flex items-center gap-1 rounded-full border border-cyan-500/25 bg-cyan-500/10 px-2.5 py-1 text-[10px] font-bold uppercase text-cyan-200">
-                                                    <CalendarClock className="h-3 w-3" />
-                                                    {place.plan.billingStatus}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="mt-1 break-all font-mono text-xs text-gray-500">{place.id}</p>
-                                        {place.address && <p className="mt-0.5 truncate text-xs text-gray-400">{place.address}</p>}
-                                    </div>
-                                    <div className="flex shrink-0 flex-wrap gap-2">
-                                        <a
-                                            href={`/place/${place.id}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-2 text-xs font-bold text-white hover:bg-white/15"
-                                        >
-                                            <ExternalLink className="h-3.5 w-3.5" />
-                                            Lugar
-                                        </a>
-                                        <button
-                                            type="button"
-                                            onClick={() => grantCredits(place)}
-                                            disabled={updatingId === place.id}
-                                            title="Regala los impulsos indicados arriba (negativo para retirar)"
-                                            className="inline-flex items-center gap-1.5 rounded-lg border border-yellow-500/25 bg-yellow-500/10 px-3 py-2 text-xs font-bold text-yellow-200 disabled:opacity-50"
-                                        >
-                                            <Zap className="h-3.5 w-3.5" />
-                                            Regalar impulsos
-                                        </button>
-                                        {place.plan.isPro ? (
-                                            <button
-                                                type="button"
-                                                onClick={() => setBusinessPlan(place, false)}
-                                                disabled={updatingId === place.id || stripeManaged}
-                                                title={stripeManaged ? 'Suscripción de Stripe activa: cancélala desde Stripe.' : undefined}
-                                                className="rounded-lg border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-200 disabled:opacity-50"
-                                            >
-                                                Quitar Pro
-                                            </button>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => setBusinessPlan(place, true)}
-                                                disabled={updatingId === place.id}
-                                                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-200 disabled:opacity-50"
-                                            >
-                                                <Sparkles className="h-3.5 w-3.5" />
-                                                Activar Pro
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                )}
-            </div>
+                </div>
+                <QueueToolbar
+                    view={view}
+                    onViewChange={changeView}
+                    views={views}
+                    filters={filters}
+                    filter={filter}
+                    onFilterChange={changeFilter}
+                    search={searchable ? search : undefined}
+                    onSearchChange={searchable ? setSearch : undefined}
+                    searchPlaceholder={view === 'premium' ? 'uid, @username o email' : 'Nombre, dirección o id del local'}
+                    onRefresh={refresh}
+                    refreshing={fetchingCount > 0}
+                    updatedAt={updatedAt || null}
+                />
+            </Card>
+
+            {notice && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                    <span>{notice}</span>
+                    <Button variant="ghost" size="sm" onClick={() => setNotice(null)}>Cerrar</Button>
+                </div>
+            )}
+
+            {focusPlaceMissing && focus && (
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                    <span>🔎 No encuentro el local {focus}. Puede que el enlace esté mal.</span>
+                    <Button variant="ghost" size="sm" onClick={() => navigate({ focus: null })}>Quitar</Button>
+                </div>
+            )}
+
+            {pinnedPlace && (
+                <SectionCard title="📌 Local enlazado" hint="No está en esta lista; lo traemos aparte.">
+                    {renderPlace(pinnedPlace)}
+                </SectionCard>
+            )}
+
+            {view === 'attention' && (
+                attention.isPending ? <LoadingBox>⏳ Cargando lo que pide atención…</LoadingBox>
+                    : attention.isError ? <ErrorBox text="No se pudo cargar «Atención»." onRetry={() => void attention.refetch()} />
+                        : (
+                            <>
+                                {attentionCount === 0 && !term && (
+                                    <p className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">
+                                        ✨ Todo al día: nada caduca pronto y no hay pagos con problemas.
+                                    </p>
+                                )}
+                                {attentionBlock(
+                                    'expiring',
+                                    `⏳ Business Pro que caduca en ${PLAN_EXPIRY_WINDOW_DAYS} días o menos`,
+                                    `✨ Nada caduca en los próximos ${PLAN_EXPIRY_WINDOW_DAYS} días.`,
+                                    'Concedidos a mano o pruebas (también las de la beta). Extiéndelos o pásalos a indefinido.',
+                                )}
+                                {attentionBlock('billing', '💳 Pagos con problema', '✨ Ningún pago con problemas.', 'Suscripciones de Stripe con el pago atrasado o impagado.')}
+                                {attentionBlock(
+                                    'checkouts',
+                                    '🛒 Checkouts de Business Pro sin terminar',
+                                    '✨ No hay checkouts a medias.',
+                                    'Seguimiento: no cuenta en «Atención». Empezaron a pagar y no acabaron.',
+                                )}
+                            </>
+                        )
+            )}
+
+            {view === 'pro' && (
+                <SectionCard
+                    title="✨ Business Pro activo"
+                    count={proList.data ? proRows.length : undefined}
+                    hint="Ordenados por caducidad: primero los que antes terminan."
+                >
+                    {placeListBody(proList, proRows, 'locales Pro', proFilter === 'all' ? '✨ Ningún local tiene Business Pro.' : '✨ Ninguno con esta fuente.')}
+                </SectionCard>
+            )}
+
+            {view === 'verified' && (
+                <SectionCard
+                    title="🏪 Verificados sin Pro"
+                    count={verifiedList.data ? verifiedRows.length : undefined}
+                    hint="Negocios verificados en Free. Desde «⚙️ Gestionar» puedes darles Pro o regalarles impulsos."
+                >
+                    {placeListBody(verifiedList, verifiedRows, 'locales verificados (aquí solo salen los que no tienen Pro)', '✨ Todos los verificados tienen Pro.')}
+                </SectionCard>
+            )}
+
+            {view === 'premium' && (
+                <>
+                    {pinnedUser && (
+                        <SectionCard title="📌 Usuario enlazado">
+                            <PlanUserRow user={pinnedUser} focused message={messages[pinnedUser.id]} onManage={openUser} />
+                        </SectionCard>
+                    )}
+                    <SectionCard
+                        title="👑 Premium activo"
+                        count={premiumList.data ? premiumRows.length : undefined}
+                        hint="Para dar premium a alguien, búscalo arriba por uid, @username o email."
+                    >
+                        {premiumList.isError ? (
+                            <ErrorBox text="No se pudieron cargar los usuarios premium." onRetry={() => void premiumList.refetch()} />
+                        ) : premiumList.isPending ? (
+                            <LoadingBox>⏳ Cargando usuarios…</LoadingBox>
+                        ) : (
+                            <div className="space-y-3">
+                                {premiumList.data.truncated && <TruncatedNote loaded={premiumList.data.loaded} total={premiumList.data.total} what="usuarios premium" />}
+                                {premiumRows.length === 0
+                                    ? <EmptyBox>{term ? `🔎 Nada coincide con «${term}» entre los premium.` : '👑 Nadie tiene premium ahora mismo.'}</EmptyBox>
+                                    : premiumRows.map((user) => (
+                                        <PlanUserRow key={user.id} user={user} focused={user.id === focus} message={messages[user.id]} onManage={openUser} />
+                                    ))}
+                            </div>
+                        )}
+                    </SectionCard>
+                </>
+            )}
+
+            {searchable && serverResultsBlock}
+
+            {view === 'beta' && <PlanInterestStats filter={betaFilter} onManagePlace={(placeId) => void openPlaceById(placeId)} />}
+
+            {view === 'history' && <PlanHistorySection filter={historyFilter} onManagePlace={(placeId) => void openPlaceById(placeId)} />}
+
+            <PlanActionDrawer
+                target={drawer?.target ?? null}
+                preset={drawer?.preset}
+                onClose={closeDrawer}
+                onDone={rememberMessage}
+            />
         </div>
     );
 };

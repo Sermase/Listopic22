@@ -15,6 +15,8 @@ const logger = require('firebase-functions/logger');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { assertJefeAccess, writeAuditLog } = require('../lib/auth');
 const { MANUAL_PLAN_SOURCES } = require('../lib/business-plan');
+const { expireSponsoredCampaigns } = require('../lib/sponsored-expiry');
+const { sendNotification } = require('../notifications');
 
 const db = getFirestore();
 
@@ -196,6 +198,8 @@ const expireManualPlans = onSchedule(
         businessProActive: false,
         businessPlanSource: FieldValue.delete(),
         businessPlanExpiresAt: FieldValue.delete(),
+        // Igual que al quitarlo a mano: sin plan no queda quién lo concedió (bug 19).
+        businessPlanGrantedBy: FieldValue.delete(),
         businessPlanUpdatedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
@@ -203,6 +207,7 @@ const expireManualPlans = onSchedule(
         placeId: placeDoc.id,
         placeName: place.name || null,
         previousSource: place.businessPlanSource,
+        previousGrantedBy: place.businessPlanGrantedBy || null,
       });
     }
 
@@ -233,26 +238,30 @@ const expireManualPlans = onSchedule(
       });
     }
 
-    // Campañas patrocinadas (impulsos de platos y emplazamientos) cuyo último
-    // día (endsAt, incluido) ya pasó: se marcan como finalizadas.
+    // Campañas patrocinadas cuyo último día (endsAt, incluido) ya pasó: las
+    // activas se finalizan y las solicitudes sin revisar se rechazan, con
+    // auditoría y aviso al negocio (lib/sponsored-expiry.js).
     const today = new Date().toISOString().slice(0, 10);
-    for (const collectionName of ['sponsoredItemSpotlights', 'sponsoredPlacements']) {
-      const expiredCampaigns = await db.collection(collectionName)
-        .where('endsAt', '<', today)
-        .limit(200)
-        .get();
-      for (const campaignDoc of expiredCampaigns.docs) {
-        if (campaignDoc.data()?.status !== 'active') continue;
-        await campaignDoc.ref.set({
-          status: 'ended',
-          endedAt: FieldValue.serverTimestamp(),
-        }, { merge: true });
-      }
-    }
+    const campaigns = await expireSponsoredCampaigns({
+      db,
+      today,
+      send: sendNotification,
+      audit: writeAuditLog,
+    });
 
     logger.info('expireManualPlans: completado', {
       placesChecked: expiredPlaces.size,
       usersChecked: expiredUsers.size,
+      campaignsClosed: campaigns.closed,
+      campaignSteps: campaigns.steps.map((step) => ({
+        collection: step.collection,
+        status: step.fromStatus,
+        found: step.found,
+        closed: step.closed,
+        degraded: step.degraded,
+        truncated: step.truncated,
+        error: step.error,
+      })),
     });
   },
 );
