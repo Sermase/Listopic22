@@ -220,6 +220,26 @@ describe('Tu carta: tablero', () => {
         }
     });
 
+    it('una recarga que ya estaba en marcha no pisa el cambio de disponibilidad', async () => {
+        service.getPlaceReviewsForManager.mockRejectedValueOnce(new Error('offline'));
+        const user = await renderSection();
+        await user.click(screen.getByRole('button', { name: 'Más acciones de Bravas' }));
+        await user.click(screen.getByRole('menuitem', { name: /Valoraciones/ }));
+        const reload = deferred<CanonicalPlaceItem[]>();
+        getCanonicalPlaceItems.mockReturnValueOnce(reload.promise);
+        await user.click(await within(dialog()).findByRole('button', { name: /Reintentar/ }));
+        await user.keyboard('{Escape}');
+        await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+        const toggle = () => screen.getByRole('button', { name: /^Croqueta, la original: (en carta|agotado)/ });
+        await user.click(toggle());
+        await act(async () => {
+            reload.resolve([croqueta, bravas, pulpo]);
+            await new Promise((resolve) => setTimeout(resolve, 50));
+        });
+        expect(toggle()).toHaveAccessibleName(/^Croqueta, la original: agotado/);
+    });
+
     it('«Mover a…» lleva el plato a otra sección sin arrastrar', async () => {
         const user = await renderSection();
         await user.click(screen.getByRole('button', { name: 'Más acciones de Pulpo' }));
@@ -355,11 +375,55 @@ describe('Tu carta: secciones', () => {
         await user.click(within(dialog()).getByRole('button', { name: 'Guardar' }));
 
         await waitFor(() => expect(service.updateCanonicalItemBusinessData).toHaveBeenCalledTimes(2));
-        expect(service.updateBusinessMenuItems).toHaveBeenCalledTimes(1);
+        // 'internal' se reintenta una vez antes de ir plato a plato.
+        expect(service.updateBusinessMenuItems).toHaveBeenCalledTimes(2);
         expect(service.updateCanonicalItemBusinessData).toHaveBeenCalledWith(PLACE_ID, 'croqueta-prueba-1', { ...FULL_CROQUETA, group: 'Para picar' });
         expect(service.updateCanonicalItemBusinessData).toHaveBeenCalledWith(PLACE_ID, 'bravas', expect.objectContaining({ group: 'Para picar' }));
         expect(await within(sectionCard('Para picar')).findByRole('button', { name: 'Bravas' })).toBeInTheDocument();
         expect(showToast.mock.calls.some(([payload]) => payload.variant === 'error')).toBe(false);
+    });
+
+    it("un 'internal' no deja el plato a plato fijo: el siguiente lote vuelve a probar", async () => {
+        service.updateBusinessMenuItems
+            .mockRejectedValueOnce(callableError('internal', 'internal'))
+            .mockRejectedValueOnce(callableError('internal', 'internal'));
+        const user = await renderSection();
+        const rename = async (from: string, to: string) => {
+            await user.click(screen.getByRole('button', { name: `Opciones de la sección ${from}` }));
+            await user.click(screen.getByRole('menuitem', { name: /Renombrar/ }));
+            const field = within(dialog()).getByLabelText(/Nombre de la sección/);
+            await user.clear(field);
+            await user.type(field, to);
+            await user.click(within(dialog()).getByRole('button', { name: 'Guardar' }));
+        };
+        await rename('Entrantes', 'Para picar');
+        await waitFor(() => expect(service.updateCanonicalItemBusinessData).toHaveBeenCalledTimes(2));
+        await within(sectionCard('Para picar')).findByRole('button', { name: 'Bravas' });
+
+        await rename('Para picar', 'Tapas');
+        await waitFor(() => expect(service.updateBusinessMenuItems).toHaveBeenCalledTimes(3));
+        expect(service.updateCanonicalItemBusinessData).toHaveBeenCalledTimes(2);
+        expect(await within(sectionCard('Tapas')).findByRole('button', { name: 'Bravas' })).toBeInTheDocument();
+    });
+
+    it('si los platos se guardan a medias, la sección vuelve a su nombre y los guardados también', async () => {
+        service.updateBusinessMenuItems.mockRejectedValue(callableError('unimplemented', 'unimplemented'));
+        service.updateCanonicalItemBusinessData.mockImplementation(async (_placeId: string, itemId: string, data: unknown) => {
+            if (itemId === 'bravas') throw callableError('unavailable', 'unavailable');
+            return data;
+        });
+        const user = await renderSection();
+        await user.click(screen.getByRole('button', { name: 'Opciones de la sección Entrantes' }));
+        await user.click(screen.getByRole('menuitem', { name: /Renombrar/ }));
+        const field = within(dialog()).getByLabelText(/Nombre de la sección/);
+        await user.clear(field);
+        await user.type(field, 'Para picar');
+        await user.click(within(dialog()).getByRole('button', { name: 'Guardar' }));
+
+        await waitFor(() => expect(service.updateCanonicalItemBusinessData).toHaveBeenLastCalledWith(PLACE_ID, 'croqueta-prueba-1', FULL_CROQUETA));
+        expect(service.updateCanonicalItemBusinessData).toHaveBeenCalledWith(PLACE_ID, 'croqueta-prueba-1', { ...FULL_CROQUETA, group: 'Para picar' });
+        expect(service.updateBusinessMenuSections).toHaveBeenLastCalledWith(PLACE_ID, ['Entrantes', 'Postres']);
+        expect(await within(sectionCard('Entrantes')).findByRole('button', { name: 'Croqueta, la original' })).toBeInTheDocument();
     });
 
     it('un error real del lote (platos que ya no existen) no se reintenta plato a plato', async () => {

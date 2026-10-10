@@ -33,10 +33,13 @@ function sanitizeMenuOrder(value) {
 
 // El precio se normaliza ("1,2" → "1,20 €") y se guardan también los céntimos
 // (null si no es un número, p. ej. "Según mercado").
-function sanitizeItemBusinessData(raw) {
+// Con `keepMissingMenuOrder`, si la petición no trae la clave menuOrder (apps
+// anteriores) no se devuelve: una escritura con merge conserva el orden guardado.
+function sanitizeItemBusinessData(raw, { keepMissingMenuOrder = false } = {}) {
   raw = raw && typeof raw === 'object' ? raw : {};
+  const omitMenuOrder = keepMissingMenuOrder && !Object.prototype.hasOwnProperty.call(raw, 'menuOrder');
   const { price, priceCents } = parseMenuPrice(typeof raw.price === 'number' ? raw.price : asString(raw.price, 40));
-  return {
+  const data = {
     group: asString(raw.group, 60),
     price,
     priceCents,
@@ -49,6 +52,8 @@ function sanitizeItemBusinessData(raw) {
     available: raw.available !== false,
     menuOrder: sanitizeMenuOrder(raw.menuOrder),
   };
+  if (omitMenuOrder) delete data.menuOrder;
+  return data;
 }
 
 /**

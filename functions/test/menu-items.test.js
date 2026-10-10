@@ -48,6 +48,14 @@ test('ficha completa: limpia textos, alérgenos válidos sin repetir y menuOrder
   });
 });
 
+test('keepMissingMenuOrder: sin la clave menuOrder no se escribe (apps anteriores)', () => {
+  const keep = { keepMissingMenuOrder: true };
+  assert.equal('menuOrder' in sanitizeItemBusinessData({ price: '6' }, keep), false);
+  assert.equal(sanitizeItemBusinessData({ menuOrder: 3 }, keep).menuOrder, 3);
+  assert.equal(sanitizeItemBusinessData({ menuOrder: null }, keep).menuOrder, null);
+  assert.equal(sanitizeItemBusinessData({ price: '6' }).menuOrder, null);
+});
+
 test('menuOrder: entero de 0 a 9999 o null', () => {
   assert.equal(sanitizeMenuOrder(0), 0);
   assert.equal(sanitizeMenuOrder(5), 5);

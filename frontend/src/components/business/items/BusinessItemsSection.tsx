@@ -27,6 +27,7 @@ import {
     getBusinessItemExistsDetails,
     getMyItemProposals,
     getPlaceReviewsForManager,
+    isCallableInternalError,
     isCallableUnavailableError,
     MAX_MENU_ITEMS_BATCH,
     normalizeItemName,
@@ -285,12 +286,26 @@ export const BusinessItemsSection: React.FC<BusinessItemsSectionProps> = ({ plac
                 for (const part of chunk(changes, MAX_MENU_ITEMS_BATCH)) {
                     let rows: Awaited<ReturnType<typeof updateBusinessMenuItems>> | null = null;
                     if (!batchUnavailable.current) {
+                        const payload = part.map((change) => ({ itemId: change.itemId, data: change.data }));
                         try {
-                            rows = await updateBusinessMenuItems(placeId, part.map((change) => ({ itemId: change.itemId, data: change.data })));
+                            try {
+                                rows = await updateBusinessMenuItems(placeId, payload);
+                            } catch (error) {
+                                // 'internal' puede ser un fallo puntual: se reintenta una vez.
+                                if (!isCallableInternalError(error)) throw error;
+                                rows = await updateBusinessMenuItems(placeId, payload);
+                            }
                         } catch (error) {
-                            if (!isCallableUnavailableError(error)) throw error;
-                            console.warn('BusinessItemsSection: updateBusinessMenuItems unavailable, saving one by one', error);
-                            batchUnavailable.current = true;
+                            if (isCallableUnavailableError(error)) {
+                                console.warn('BusinessItemsSection: updateBusinessMenuItems unavailable, saving one by one', error);
+                                batchUnavailable.current = true;
+                            } else if (isCallableInternalError(error)) {
+                                // Otra vez 'internal' (o la callable sin desplegar, que el SDK da así):
+                                // este lote va plato a plato, sin dejarlo fijo para los siguientes.
+                                console.warn('BusinessItemsSection: updateBusinessMenuItems internal twice, saving this batch one by one', error);
+                            } else {
+                                throw error;
+                            }
                         }
                     }
                     if (rows) {
@@ -398,6 +413,8 @@ export const BusinessItemsSection: React.FC<BusinessItemsSectionProps> = ({ plac
         if (!availabilityBase.current.has(item.id)) {
             availabilityBase.current.set(item.id, { available: current, previous: item.businessData });
         }
+        // Una lectura de la carta que ya estaba en marcha no pisa el toque.
+        itemsVersion.current += 1;
         setItems((prev) => prev.map((entry) => (entry.id === item.id ? withData(entry, { available: !current }) : entry)));
         window.clearTimeout(availabilityTimers.current.get(item.id));
         availabilityTimers.current.set(item.id, window.setTimeout(() => flushAvailability(item.id), AVAILABILITY_DEBOUNCE_MS));
@@ -528,15 +545,18 @@ export const BusinessItemsSection: React.FC<BusinessItemsSectionProps> = ({ plac
             menu.commit(before.map((name) => (name === oldName ? nextName : name))),
             persist(affected.map((item) => changeFor(item, { group: nextName })), { failTitle: '😕 No se pudieron mover los platos de la sección' }),
         ]);
+        // Si algo falla, la sección se queda (o vuelve) con el nombre de antes y
+        // los platos que sí se guardaron con el nuevo vuelven a él (lo posible).
+        const backToOld = (ids: string[]) => persist(ids.flatMap((itemId) => {
+            const current = findItem(itemId);
+            return current ? [changeFor(current, { group: oldName })] : [];
+        }), { toast: false });
+        const savedIds = Array.from(itemsResult.saved.keys());
         if (sectionsOk && itemsResult.error) {
-            // Los platos siguen con el nombre de antes: la sección vuelve a llamarse así.
-            await menu.commit(before);
-        } else if (!sectionsOk && !itemsResult.error && affected.length > 0) {
-            const back = affected.flatMap((item) => {
-                const current = findItem(item.id);
-                return current ? [changeFor(current, { group: oldName })] : [];
-            });
-            await persist(back, { toast: false });
+            await Promise.all([menu.commit(before), savedIds.length > 0 ? backToOld(savedIds) : null]);
+        } else if (!sectionsOk) {
+            const ids = itemsResult.error ? savedIds : affected.map((item) => item.id);
+            if (ids.length > 0) await backToOld(ids);
         }
     };
 
@@ -548,9 +568,9 @@ export const BusinessItemsSection: React.FC<BusinessItemsSectionProps> = ({ plac
             menu.commit(sections.filter((entry) => entry !== name)),
             persist(affected.map((item) => changeFor(item, { group, menuOrder: null })), { failTitle: '😕 No se pudieron mover los platos' }),
         ]);
-        if (!sectionsOk && !itemsResult.error && affected.length > 0) {
-            // La sección sigue: sus platos vuelven a ella.
-            const back = affected.flatMap((item) => {
+        if (!sectionsOk && affected.length > 0) {
+            // La sección sigue: sus platos (los que se llegaron a guardar) vuelven a ella.
+            const back = affected.filter((item) => !itemsResult.error || itemsResult.saved.has(item.id)).flatMap((item) => {
                 const current = findItem(item.id);
                 return current ? [{ itemId: item.id, data: itemBusinessDataFrom(item), previous: current.businessData }] : [];
             });

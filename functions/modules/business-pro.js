@@ -147,7 +147,8 @@ const updateCanonicalItemBusinessData = onCall({ invoker: "public" }, async (req
   const itemSnap = await itemRef.get();
   if (!itemSnap.exists) throw new HttpsError("not-found", "El elemento no existe.");
 
-  const businessData = sanitizeItemBusinessData(request.data?.data);
+  // Apps anteriores no mandan menuOrder: no se borra el que ya había.
+  const businessData = sanitizeItemBusinessData(request.data?.data, { keepMissingMenuOrder: true });
 
   await itemRef.set({
     businessData: {

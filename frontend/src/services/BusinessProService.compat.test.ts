@@ -10,6 +10,7 @@ vi.mock('../firebase', () => ({ auth: {}, db: {}, functions: {}, storage: {} }))
 import {
     createBusinessItem,
     EMPTY_OFFER_DATA,
+    isCallableInternalError,
     isCallableUnavailableError,
     saveBusinessOffer,
     updateBusinessVisual,
@@ -21,8 +22,7 @@ const callableError = (code: string, details?: unknown) => Object.assign(new Err
 beforeEach(() => callable.mockReset());
 
 describe('isCallableUnavailableError', () => {
-    it('una callable sin desplegar (internal, unimplemented, not-found sin platos) cuenta como no disponible', () => {
-        expect(isCallableUnavailableError(callableError('internal'))).toBe(true);
+    it('una callable sin desplegar (unimplemented, not-found sin platos) cuenta como no disponible', () => {
         expect(isCallableUnavailableError(callableError('unimplemented'))).toBe(true);
         expect(isCallableUnavailableError(callableError('not-found'))).toBe(true);
     });
@@ -32,6 +32,12 @@ describe('isCallableUnavailableError', () => {
         expect(isCallableUnavailableError(callableError('permission-denied'))).toBe(false);
         expect(isCallableUnavailableError(callableError('resource-exhausted'))).toBe(false);
         expect(isCallableUnavailableError(null)).toBe(false);
+    });
+
+    it("'internal' no la da por no disponible (puede ser un fallo real): se trata aparte", () => {
+        expect(isCallableUnavailableError(callableError('internal'))).toBe(false);
+        expect(isCallableInternalError(callableError('internal'))).toBe(true);
+        expect(isCallableInternalError(callableError('unimplemented'))).toBe(false);
     });
 });
 

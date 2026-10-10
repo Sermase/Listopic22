@@ -221,12 +221,21 @@ export const MAX_MENU_ITEMS_BATCH = 50;
  * callable nueva sin desplegar responde 404 sin cabeceras CORS y el SDK lo da
  * como 'internal' (o 'not-found' / 'unimplemented'). Un 'not-found' con
  * details.itemIds sí viene del servidor nuevo (platos que ya no existen).
+ * 'internal' no cuenta aquí: también es un fallo real del servidor nuevo (ver
+ * isCallableInternalError; quien llama reintenta antes de decidir).
  */
+const plainCallableCode = (error: unknown): string => {
+    const code = error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined;
+    return typeof code === 'string' ? code.replace(/^functions\//, '') : '';
+};
+
+export const isCallableInternalError = (error: unknown): boolean => plainCallableCode(error) === 'internal';
+
 export const isCallableUnavailableError = (error: unknown): boolean => {
     if (!error || typeof error !== 'object') return false;
-    const { code, details } = error as { code?: unknown; details?: unknown };
-    const plain = typeof code === 'string' ? code.replace(/^functions\//, '') : '';
-    if (plain === 'unimplemented' || plain === 'internal') return true;
+    const { details } = error as { details?: unknown };
+    const plain = plainCallableCode(error);
+    if (plain === 'unimplemented') return true;
     if (plain !== 'not-found') return false;
     const itemIds = details && typeof details === 'object' ? (details as { itemIds?: unknown }).itemIds : undefined;
     return !Array.isArray(itemIds);
