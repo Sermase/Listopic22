@@ -48,7 +48,16 @@ export interface ProDecisionsApi {
     decide: (row: ProRow, decision: ProDecision) => Promise<void>;
 }
 
+const errorCode = (error: unknown): string => {
+    const code = error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined;
+    return typeof code === 'string' ? code : '';
+};
+
+/** El navegador dejó de esperar (el SDK lo cuenta en inglés: «deadline-exceeded»). */
+const DEADLINE_EXCEEDED_MESSAGE = 'El servidor está tardando más de lo normal y hemos dejado de esperar, pero puede que siga trabajando. En un momento pulsa «Actualizar» para ver cómo ha quedado.';
+
 const getErrorMessage = (error: unknown): string => {
+    if (errorCode(error).endsWith('deadline-exceeded')) return DEADLINE_EXCEEDED_MESSAGE;
     if (error && typeof error === 'object' && typeof (error as { message?: unknown }).message === 'string') {
         const text = (error as { message: string }).message.trim();
         if (text) return text;
@@ -62,9 +71,8 @@ const getErrorMessage = (error: unknown): string => {
  * aplicando: se relee para enseñar el estado real (p. ej. «⚙️ Aplicándose»).
  */
 const isStaleError = (error: unknown): boolean => {
-    const code = error && typeof error === 'object' ? (error as { code?: unknown }).code : undefined;
-    return typeof code === 'string'
-        && (code.endsWith('failed-precondition') || code.endsWith('not-found') || code.endsWith('deadline-exceeded') || code.endsWith('aborted'));
+    const code = errorCode(error);
+    return code.endsWith('failed-precondition') || code.endsWith('not-found') || code.endsWith('deadline-exceeded') || code.endsWith('aborted');
 };
 
 const sendDecision = async (row: ProRow, decision: ProDecision, note: string): Promise<void> => {

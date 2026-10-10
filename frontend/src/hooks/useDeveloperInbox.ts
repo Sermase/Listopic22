@@ -391,7 +391,7 @@ const campaignTitle = (item: InboxItem): string => {
     return item.placeName ? `${item.title} · ${item.placeName}` : item.title;
 };
 
-/** Campañas vencidas sin cerrar (y solicitudes ya vencidas) y las que terminan en ≤ 3 días. */
+/** Campañas vencidas sin cerrar (y solicitudes de home o búsqueda ya vencidas) y las que terminan en ≤ 3 días. */
 function classifyCampaigns(
     active: InboxItem[],
     requested: InboxItem[],
@@ -425,6 +425,9 @@ function classifyCampaigns(
         }
     });
     requested.forEach((item) => {
+        // Solo campañas de home o búsqueda: un plato pedido recibe fechas nuevas al
+        // activarlo (aunque una solicitud antigua traiga endsAt) y el cierre nocturno no lo toca.
+        if (item.queue !== 'sponsoredPlacements') return;
         const endsAt = str(item.data.endsAt);
         if (endsAt && endsAt < today) {
             overdue.push(toAttention(item, 'campaignOverdue', '🧹', `solicitada, terminaba el ${formatDate(endsAt, now)} y sigue sin revisar`, endsAt));

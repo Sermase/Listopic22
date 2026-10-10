@@ -169,6 +169,12 @@ export const ProProposalsTab: React.FC<DeveloperTabProps> = ({
         onDecided: () => handleDecided(target),
     }])) as Record<ProQueueView, Pick<ProSectionProps, 'onMeta' | 'onDecided'>>, [handleMeta, handleDecided]);
 
+    // «🧹 Reparar cartas» puede renombrar platos o marcarlos retirados: las tres
+    // colas se recargan al volver a ellas (los contadores los invalida la tarjeta).
+    const handleToolsChanged = useCallback(() => {
+        setVersions((prev) => ({ inbox: prev.inbox + 1, active: prev.active + 1, history: prev.history + 1 }));
+    }, []);
+
     const refresh = useCallback(() => {
         if (!queueView) return;
         setVersions((prev) => ({ ...prev, [queueView]: prev[queueView] + 1 }));
@@ -397,7 +403,7 @@ export const ProProposalsTab: React.FC<DeveloperTabProps> = ({
             )}
             {visited.includes('tools') && (
                 <div hidden={view !== 'tools'}>
-                    <ProToolsSection />
+                    <ProToolsSection onDataChanged={handleToolsChanged} />
                 </div>
             )}
         </div>

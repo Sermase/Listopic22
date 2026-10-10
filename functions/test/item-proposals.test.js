@@ -19,6 +19,8 @@ const {
   checkMergeItems,
   checkRenameItem,
   checkReassignTarget,
+  needsAppliedChangeCheck,
+  rejectAfterApplyErrorCheck,
 } = require('../modules/lib/item-proposals');
 
 const NOW = Date.UTC(2026, 9, 7, 10, 0, 0);
@@ -136,6 +138,61 @@ test('checkRenameItem y checkReassignTarget: el elemento sigue activo', () => {
 
   assert.equal(checkReassignTarget(map, { targetItemId: 'tortilla' }).targetId, 'bravas');
   assert.throws(() => checkReassignTarget(map, { targetItemId: 'viejo' }), /destino ya no está activo/);
+});
+
+test('rejectAfterApplyErrorCheck: no deja rechazar un cambio que ya está en la carta', () => {
+  const failed = { message: 'Firestore no responde', code: null, by: 'jefe1' };
+  const merge = {
+    placeId: 'p1', type: 'merge', status: 'pending', applyError: failed,
+    payload: { sourceItemId: 'bravas', targetItemId: 'patatas-bravas' },
+  };
+  const rename = {
+    placeId: 'p1', type: 'rename', status: 'pending', applyError: failed,
+    payload: { itemId: 'bravas', currentName: 'Bravas', newName: 'Bravas picantes' },
+  };
+
+  // Solo se mira la carta si falló al aplicarse y es una fusión o un renombre.
+  assert.equal(needsAppliedChangeCheck(merge), true);
+  assert.equal(needsAppliedChangeCheck(rename), true);
+  assert.equal(needsAppliedChangeCheck({ ...merge, applyError: undefined }), false, 'nunca se intentó aplicar');
+  assert.equal(needsAppliedChangeCheck({ ...merge, status: 'applying' }), false);
+  assert.equal(needsAppliedChangeCheck({ ...merge, type: 'reassign_review' }), false);
+  assert.equal(needsAppliedChangeCheck({ ...merge, placeId: 'a/b' }), false);
+  assert.equal(needsAppliedChangeCheck(null), false);
+
+  // Fusión guardada (el rebuild falló después): se pide reintentar.
+  const merged = rejectAfterApplyErrorCheck(merge, items({
+    bravas: { canonicalName: 'Bravas', status: 'inactive', mergedInto: 'patatas-bravas' },
+    'patatas-bravas': { canonicalName: 'Patatas bravas', status: 'active' },
+  }));
+  assert.equal(merged.ok, false);
+  assert.equal(merged.code, 'failed-precondition');
+  assert.match(merged.message, /fusión ya está hecha: «Bravas» ya forma parte de «Patatas bravas».*«🔁 Reintentar»/);
+  // Siguiendo fusiones: el destino propuesto se fusionó después con otro.
+  assert.equal(rejectAfterApplyErrorCheck(merge, items({
+    bravas: { canonicalName: 'Bravas', status: 'inactive', mergedInto: 'bravas-caseras' },
+    'patatas-bravas': { canonicalName: 'Patatas bravas', status: 'inactive', mergedInto: 'bravas-caseras' },
+    'bravas-caseras': { canonicalName: 'Bravas caseras', status: 'active' },
+  })).ok, false);
+  // Nada escrito todavía, o el origen se fusionó con otro elemento: se puede rechazar.
+  assert.deepEqual(rejectAfterApplyErrorCheck(merge, items({
+    bravas: { canonicalName: 'Bravas', status: 'active' },
+    'patatas-bravas': { canonicalName: 'Patatas bravas', status: 'active' },
+  })), { ok: true });
+  assert.deepEqual(rejectAfterApplyErrorCheck(merge, items({
+    bravas: { canonicalName: 'Bravas', status: 'inactive', mergedInto: 'croquetas' },
+    'patatas-bravas': { canonicalName: 'Patatas bravas', status: 'active' },
+    croquetas: { canonicalName: 'Croquetas', status: 'active' },
+  })), { ok: true });
+  assert.deepEqual(rejectAfterApplyErrorCheck(merge, items({})), { ok: true }, 'sin elementos no hay nada que deshacer');
+
+  // Renombre: el elemento ya se llama como el nombre nuevo.
+  const renamed = rejectAfterApplyErrorCheck(rename, items({ bravas: { canonicalName: 'Bravas picantes', status: 'active' } }));
+  assert.equal(renamed.ok, false);
+  assert.match(renamed.message, /nombre ya se cambió a «Bravas picantes».*«🔁 Reintentar»/);
+  assert.deepEqual(rejectAfterApplyErrorCheck(rename, items({ bravas: { canonicalName: 'Bravas', status: 'active' } })), { ok: true });
+  // Sin applyError no se mira nada.
+  assert.deepEqual(rejectAfterApplyErrorCheck({ ...rename, applyError: undefined }, items({ bravas: { canonicalName: 'Bravas picantes' } })), { ok: true });
 });
 
 // ── reviewItemProposal y submitItemProposal con Firestore en memoria ───────
@@ -309,6 +366,58 @@ test('B7: un fallo inesperado (rebuild caído) también libera la propuesta', as
   const retry = await review({ decision: 'approve' });
   assert.deepEqual(retry.applyResult, { reassignedReviews: 2, targetItemId: 'patatas-bravas', alreadyMerged: true });
   assert.equal(db.data(PROPOSAL).status, 'approved');
+});
+
+test('B7: tras un fallo, no se rechaza una fusión que ya quedó guardada; se reintenta', async () => {
+  reset();
+  db.seed(PROPOSAL, mergeProposal());
+  rebuildImpl = async () => { throw new Error('Firestore no responde'); };
+  await assert.rejects(review({ decision: 'approve' }), /Firestore no responde/);
+  assert.equal(db.data(PROPOSAL).status, 'pending');
+  assert.equal(db.data('places/p1/items/bravas').mergedInto, 'patatas-bravas', 'la fusión se guardó antes del rebuild');
+
+  await assert.rejects(review({ decision: 'reject', adminNotes: 'Mejor no' }), (error) => {
+    assert.equal(error.code, 'failed-precondition');
+    assert.match(error.message, /fusión ya está hecha.*«🔁 Reintentar»/);
+    return true;
+  });
+  const doc = db.data(PROPOSAL);
+  assert.equal(doc.status, 'pending', 'no se marca rechazada con la fusión dentro');
+  assert.ok(doc.applyError);
+  assert.equal(ownerNotification(), undefined, 'el negocio no recibe un «rechazada» de algo ya fusionado');
+  assert.equal(auditActions().includes('businessPro.itemProposalRejected'), false);
+
+  rebuildImpl = async () => ({ renamedReviews: 2 });
+  const retry = await review({ decision: 'approve' });
+  assert.equal(retry.applyResult.alreadyMerged, true);
+  assert.equal(db.data(PROPOSAL).status, 'approved');
+});
+
+test('B7: tras un fallo, no se rechaza un renombre ya escrito, pero sí uno que no llegó a aplicarse', async () => {
+  reset();
+  db.seed(PROPOSAL, mergeProposal({
+    type: 'rename',
+    payload: { itemId: 'bravas', currentName: 'Bravas', newName: 'Bravas picantes' },
+  }));
+  rebuildImpl = async () => { throw new Error('Tiempo agotado'); };
+  await assert.rejects(review({ decision: 'approve' }), /Tiempo agotado/);
+  assert.equal(db.data('places/p1/items/bravas').canonicalName, 'Bravas picantes');
+  await assert.rejects(review({ decision: 'reject' }), (error) => error.code === 'failed-precondition'
+    && /nombre ya se cambió a «Bravas picantes».*«🔁 Reintentar»/.test(error.message));
+  assert.equal(db.data(PROPOSAL).status, 'pending');
+
+  // Falló antes de escribir nada (el nombre ya era de otro): se rechaza como siempre.
+  reset();
+  db.seed(PROPOSAL, mergeProposal({
+    type: 'rename',
+    payload: { itemId: 'bravas', currentName: 'Bravas', newName: 'Croquetas' },
+  }));
+  await assert.rejects(review({ decision: 'approve' }), (error) => error.code === 'already-exists');
+  assert.ok(db.data(PROPOSAL).applyError);
+  const rejected = await review({ decision: 'reject', adminNotes: 'Ese nombre ya existe' });
+  assert.equal(rejected.decision, 'reject');
+  assert.equal(db.data(PROPOSAL).status, 'rejected');
+  assert.match(ownerNotification().message, /rechazada: Ese nombre ya existe/);
 });
 
 test('B7: no aplica una fusión cuyo origen o destino ya no están activos', async () => {

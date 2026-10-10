@@ -197,6 +197,17 @@ describe('toInboxItem', () => {
         expect(item.badges).toEqual([]);
     });
 
+    it('un plato pedido con un endsAt viejo no sale como «Ya vencida sin revisar» (al activarlo recibe fechas nuevas)', () => {
+        const old = toInboxItem('sponsoredItemSpotlights', 'd4', { status: 'requested', itemName: 'Bravas', endsAt: '2026-07-17' }, NOW);
+        expect(old.badges).toEqual([]);
+        // Una campaña de home o búsqueda pedida y vencida, sí.
+        const placement = toInboxItem('sponsoredPlacements', 's5', { status: 'requested', endsAt: '2026-07-17' }, NOW);
+        expect(placement.badges.map((badge) => badge.text)).toEqual(['Ya vencida sin revisar']);
+        // Un plato activo y vencido sigue avisando.
+        const active = toInboxItem('sponsoredItemSpotlights', 'd5', { status: 'active', endsAt: '2026-10-01' }, NOW);
+        expect(active.badges.map((badge) => badge.text)).toEqual(['Vencida sin cerrar']);
+    });
+
     it('marca «🚫 Plato retirado · no se muestra» en las campañas cuyo plato salió de la carta', () => {
         const item = toInboxItem('sponsoredItemSpotlights', 'd2', {
             status: 'active',

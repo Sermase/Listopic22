@@ -469,12 +469,15 @@ export const submitItemProposal = async (
     return result.data;
 };
 
+// Aplicar una propuesta reconstruye la carta y el servidor tiene hasta 300 s.
+// El navegador espera algo más (por defecto serían 70 s y cortaría antes con
+// un deadline-exceeded en inglés).
 export const reviewItemProposal = async (
     proposalId: string,
     decision: 'approve' | 'reject',
     adminNotes?: string,
 ): Promise<void> => {
-    const callable = httpsCallable(functions, 'reviewItemProposal');
+    const callable = httpsCallable(functions, 'reviewItemProposal', { timeout: 310_000 });
     await callable({ proposalId, decision, adminNotes });
 };
 
@@ -991,7 +994,8 @@ const mapRepairCounters = (data: Record<string, unknown>): RepairPlaceItemsCount
 // valoraciones curadas, recupera alias de renombres/fusiones aprobados, cierra
 // duplicados y refresca los platos destacados. Con dryRun solo cuenta.
 export const adminRepairPlaceItems = async (input: { placeId?: string; dryRun: boolean }): Promise<RepairPlaceItemsResult> => {
-    const callable = httpsCallable<unknown, Record<string, unknown>>(functions, 'adminRepairPlaceItems');
+    // El servidor admite 540 s; con los 70 s por defecto el navegador dejaría de esperar antes.
+    const callable = httpsCallable<unknown, Record<string, unknown>>(functions, 'adminRepairPlaceItems', { timeout: 550_000 });
     const placeId = input.placeId?.trim();
     const result = await callable(placeId ? { placeId, dryRun: input.dryRun } : { dryRun: input.dryRun });
     const data = result.data || {};

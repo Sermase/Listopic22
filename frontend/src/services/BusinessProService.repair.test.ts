@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const callable = vi.hoisted(() => vi.fn());
-vi.mock('firebase/functions', () => ({ httpsCallable: () => callable }));
+const httpsCallableMock = vi.hoisted(() => vi.fn());
+vi.mock('firebase/functions', () => ({ httpsCallable: (...args: unknown[]) => { httpsCallableMock(...args); return callable; } }));
 vi.mock('../firebase', () => ({ auth: {}, db: {}, functions: {} }));
 
 import { adminRepairPlaceItems } from './BusinessProService';
@@ -49,6 +50,7 @@ describe('adminRepairPlaceItems', () => {
         const result = await adminRepairPlaceItems({ placeId: ' p1 ', dryRun: false });
 
         expect(callable).toHaveBeenCalledWith({ placeId: 'p1', dryRun: false });
+        expect(httpsCallableMock).toHaveBeenCalledWith({}, 'adminRepairPlaceItems', { timeout: 550_000 });
         expect(result).toMatchObject({ dryRun: false, truncated: true, places: [] });
         expect(result.totals.places).toBe(0);
     });

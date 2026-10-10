@@ -318,6 +318,19 @@ describe('ProProposalsTab · Bandeja', () => {
         expect(await within(placement).findByRole('alert')).toHaveTextContent('La campaña ya no está en un estado compatible');
     });
 
+    it('si el navegador deja de esperar, lo dice en castellano y relee la fila', async () => {
+        callableMock.mockRejectedValueOnce(Object.assign(new Error('deadline-exceeded'), { code: 'functions/deadline-exceeded' }));
+        renderTab();
+        const row = await findRow('itemProposals', 'prop-old');
+        update('itemProposals', 'prop-old', { status: 'applying', reviewedBy: 'u-admin', applyingAt: ts(NOW) });
+        fireEvent.click(within(row).getByRole('button', { name: /Aprobar/ }));
+        const alert = await within(row).findByRole('alert');
+        expect(alert).toHaveTextContent('El servidor está tardando más de lo normal');
+        expect(alert).not.toHaveTextContent('deadline-exceeded');
+        // Se relee: el servidor sigue aplicándola.
+        await waitFor(() => expect(rowOf('itemProposals', 'prop-old')).toHaveTextContent('Aplicándose ahora'));
+    });
+
     it('filtra por tipo y busca en lo cargado', async () => {
         renderTab();
         await findRow('itemProposals', 'prop-old');
@@ -481,6 +494,27 @@ describe('ProProposalsTab · propuesta que se está aplicando', () => {
         expect(confirmMock).toHaveBeenLastCalledWith(expect.objectContaining({ title: '🔁 ¿Reintentar la propuesta?', confirmLabel: 'Reintentar' }));
         expect(await within(stuck).findByText(/Aprobada y aplicada/)).toBeInTheDocument();
     });
+
+    it('si falló al aplicarse, «🔁 Reintentar» va primero y rechazar avisa de que puede estar ya hecha', async () => {
+        update('itemProposals', 'prop-old', { applyError: { message: 'Firestore no responde', by: 'u-ana', at: ts(NOW - HOUR) } });
+        renderTab();
+
+        const row = await findRow('itemProposals', 'prop-old');
+        expect(row).toHaveTextContent('No se pudo aplicar: Firestore no responde');
+        const buttons = within(row).getAllByRole('button', { name: /Reintentar|Aprobar|Rechazar/ });
+        expect(buttons.map((button) => button.textContent)).toEqual(['🔁 Reintentar', '❌ Rechazar']);
+
+        fireEvent.click(within(row).getByRole('button', { name: '❌ Rechazar' }));
+        await waitFor(() => expect(callableMock).toHaveBeenCalledWith('reviewItemProposal', {
+            proposalId: 'prop-old',
+            decision: 'reject',
+            adminNotes: undefined,
+        }));
+        expect(confirmMock).toHaveBeenLastCalledWith(expect.objectContaining({
+            title: '❌ ¿Rechazar la propuesta?',
+            message: expect.stringContaining('puede que parte del cambio ya esté hecho'),
+        }));
+    });
 });
 
 describe('ProProposalsTab · foco', () => {
@@ -555,6 +589,21 @@ describe('ProProposalsTab · sub-pestañas', () => {
         fireEvent.click(screen.getByRole('button', { name: 'Simular' }));
         await waitFor(() => expect(callableMock).toHaveBeenCalledWith('adminRepairPlaceItems', { placeId: 'p1', dryRun: true }));
         expect(await screen.findByTestId('repair-result')).toHaveTextContent('Simulación (no se ha cambiado nada) · 0 sitios');
+    });
+
+    it('tras «🧹 Aplicar» en Reparar cartas, la Bandeja se recarga al volver a ella', async () => {
+        const { rerenderWith, invalidate } = renderTab({ view: 'inbox' });
+        expect(await findRow('sponsoredItemSpotlights', 'spot-req')).not.toHaveTextContent('Plato retirado');
+
+        rerenderWith({ view: 'tools' });
+        // La reparación marca el plato como retirado.
+        update('sponsoredItemSpotlights', 'spot-req', { itemInactive: true });
+        fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
+        await waitFor(() => expect(callableMock).toHaveBeenCalledWith('adminRepairPlaceItems', { dryRun: false }));
+        await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['developer'] }));
+
+        rerenderWith({ view: 'inbox' });
+        await waitFor(() => expect(rowOf('sponsoredItemSpotlights', 'spot-req')).toHaveTextContent('Plato retirado'));
     });
 
     it('al pulsar «🛠️ Herramientas» pide esa vista en la URL', () => {

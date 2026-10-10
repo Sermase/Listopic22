@@ -18,9 +18,14 @@
 //   callable, así que nadie la está aplicando ya) se puede reintentar; la
 //   bandeja la marca «⏳ Atascada». Rechazarla no: parte del cambio puede estar
 //   ya escrito (la fusión se guarda antes de reconstruir la carta). Si el
-//   reintento falla, vuelve a 'pending' y entonces sí se puede rechazar.
-//   Aplicar es idempotente: los alias van con arrayUnion y una fusión ya hecha
-//   se reconoce (alreadyMerged).
+//   reintento falla, vuelve a 'pending' y entonces se puede rechazar (salvo
+//   que el cambio ya esté en la carta, ver abajo). Aplicar es idempotente:
+//   los alias van con arrayUnion y una fusión ya hecha se reconoce
+//   (alreadyMerged).
+// - Una 'pending' con applyError también puede estar aplicada en parte (la
+//   fusión o el nombre nuevo se guardaron y falló el rebuild). Rechazarla la
+//   marcaría rechazada con el cambio dentro, así que si el cambio ya se ve en
+//   la carta (rejectAfterApplyErrorCheck) se pide reintentarla.
 // - Lo que escribe la llamada al acabar (approved, o la vuelta a pending) solo
 //   se guarda si la reserva sigue siendo suya (holdsApplyReservation): una
 //   llamada que se pasó de tiempo y sigue viva no pisa a quien la retomó.
@@ -167,6 +172,57 @@ function checkRenameItem(itemsById, payload = {}) {
   return { itemId, item };
 }
 
+/**
+ * ¿Hay que mirar la carta antes de rechazar esta propuesta? Solo si falló al
+ * aplicarse (pending con applyError) y es una fusión o un renombre, los dos
+ * cambios que se pueden quedar escritos a medias y se ven en los elementos.
+ */
+function needsAppliedChangeCheck(data) {
+  return Boolean(data)
+    && data.status === "pending"
+    && Boolean(data.applyError)
+    && (data.type === "merge" || data.type === "rename")
+    && typeof data.placeId === "string"
+    && data.placeId.trim() !== ""
+    && !data.placeId.includes("/");
+}
+
+/**
+ * Rechazar una propuesta que falló al aplicarse: si su cambio ya está en la
+ * carta, rechazarla no lo desharía. Fusión: el origen (siguiendo fusiones) ya
+ * llega al destino. Renombre: el elemento ya se llama como el nombre nuevo.
+ * Devuelve { ok: true } o { ok: false, code, message } (pide «🔁 Reintentar»).
+ */
+function rejectAfterApplyErrorCheck(data, itemsById) {
+  if (!needsAppliedChangeCheck(data)) return { ok: true };
+  const payload = data.payload || {};
+  if (data.type === "merge") {
+    const sourceId = safeDocId(payload.sourceItemId);
+    const requestedTargetId = safeDocId(payload.targetItemId);
+    if (!itemsById.has(sourceId) || !itemsById.has(requestedTargetId)) return { ok: true };
+    const targetId = followMerged(requestedTargetId, itemsById);
+    const sourceResolvedId = followMerged(sourceId, itemsById);
+    if (sourceResolvedId === sourceId || sourceResolvedId !== targetId) return { ok: true };
+    const sourceName = nameOf(itemsById.get(sourceId), sourceId);
+    const targetName = nameOf(itemsById.get(targetId), targetId);
+    return {
+      ok: false,
+      code: "failed-precondition",
+      message: `Esta fusión ya está hecha: «${sourceName}» ya forma parte de «${targetName}». Lo que falló fue terminar de aplicarla, así que rechazarla no la desharía. Pulsa «🔁 Reintentar» para completarla.`,
+    };
+  }
+  const itemId = safeDocId(payload.itemId);
+  const item = itemsById.get(itemId);
+  const newName = typeof payload.newName === "string" ? payload.newName.trim() : "";
+  const currentName = item && typeof item.canonicalName === "string" ? item.canonicalName.trim() : "";
+  if (!newName || currentName !== newName) return { ok: true };
+  return {
+    ok: false,
+    code: "failed-precondition",
+    message: `El nombre ya se cambió a «${newName}». Lo que falló fue terminar de aplicarlo, así que rechazarlo no lo desharía. Pulsa «🔁 Reintentar» para completarlo.`,
+  };
+}
+
 /** Mover reseña: el destino (siguiendo fusiones) sigue activo. Devuelve { targetId, target }. */
 function checkReassignTarget(itemsById, payload = {}) {
   const requestedId = safeDocId(payload.targetItemId);
@@ -190,4 +246,6 @@ module.exports = {
   checkMergeItems,
   checkRenameItem,
   checkReassignTarget,
+  needsAppliedChangeCheck,
+  rejectAfterApplyErrorCheck,
 };

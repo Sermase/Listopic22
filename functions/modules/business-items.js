@@ -21,8 +21,8 @@
 //   alias curados y se reconstruye el lugar, que renombra las reseñas y pone al
 //   día los platos destacados. La propuesta se reserva antes en una
 //   transacción (pending → applying) para que dos admins no apliquen lo mismo
-//   a la vez; si aplicar falla vuelve a pending con applyError (B7,
-//   lib/item-proposals.js).
+//   a la vez; si aplicar falla vuelve a pending con applyError, y no se deja
+//   rechazar si su cambio ya está en la carta (B7, lib/item-proposals.js).
 // - adminRepairPlaceItems: reparación (jefe) de los datos anteriores a este
 //   modelo: siembra alias curados, arregla fusiones reactivadas y reconstruye.
 
@@ -62,6 +62,8 @@ const {
   checkMergeItems,
   checkRenameItem,
   checkReassignTarget,
+  needsAppliedChangeCheck,
+  rejectAfterApplyErrorCheck,
 } = require("./lib/item-proposals");
 
 const db = getFirestore();
@@ -485,6 +487,13 @@ const reviewItemProposal = onCall({ invoker: "public", timeoutSeconds: 300 }, as
     const data = snap.exists ? (snap.data() || {}) : null;
     const check = proposalReviewCheck(data, Date.now(), decision);
     if (!check.ok) throw new HttpsError(check.code, check.message);
+    // Rechazar una que falló al aplicarse: si su cambio ya está en la carta
+    // (fusión guardada, nombre nuevo puesto), se pide reintentarla.
+    if (decision === "reject" && needsAppliedChangeCheck(data)) {
+      const itemsSnap = await tx.get(db.collection("places").doc(data.placeId).collection("items"));
+      const applied = rejectAfterApplyErrorCheck(data, itemsMapFromSnap(itemsSnap));
+      if (!applied.ok) throw new HttpsError(applied.code, applied.message);
+    }
     if (decision === "approve") {
       tx.set(proposalRef, {
         status: "applying",

@@ -14,8 +14,11 @@
  * propuestas aprobadas (el servidor corta en 300 sitios o por tiempo, y lo avisa).
  * El resultado enseña los totales y solo los sitios con algo que contar
  * (cambios, conflictos, duplicados o errores); el resto se resume en una línea.
+ * Tras «Aplicar» (no al simular) invalida ['developer'] (Pendientes, contadores)
+ * y avisa con onDataChanged para que Bandeja y En curso se recarguen.
  */
 import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import { useConfirm } from '../../../context/ConfirmContext';
 import { useToast } from '../../../context/ToastContext';
@@ -112,8 +115,14 @@ const RepairPlaceRow: React.FC<{ row: RepairPlaceItemsPlace }> = ({ row }) => (
     </div>
 );
 
-export const RepairPlaceItemsCard: React.FC = () => {
+interface RepairPlaceItemsCardProps {
+    /** Tras «Aplicar»: las colas de «Patrocinios y Pro» se recargan. */
+    onDataChanged?: () => void;
+}
+
+export const RepairPlaceItemsCard: React.FC<RepairPlaceItemsCardProps> = ({ onDataChanged }) => {
     const confirm = useConfirm();
+    const queryClient = useQueryClient();
     const { showToast } = useToast();
     const [placeId, setPlaceId] = useState('');
     const [running, setRunning] = useState<'dry' | 'apply' | null>(null);
@@ -146,6 +155,12 @@ export const RepairPlaceItemsCard: React.FC = () => {
             showToast({ variant: 'error', message: getErrorMessage(error, 'No se pudieron reparar las cartas.') });
         } finally {
             setRunning(null);
+            if (!dryRun) {
+                // Puede haber renombrado platos o marcado destacados como retirados
+                // (también si falló a medias): se recargan las colas y los contadores.
+                void queryClient.invalidateQueries({ queryKey: ['developer'] });
+                onDataChanged?.();
+            }
         }
     };
 

@@ -119,6 +119,10 @@ describe('BusinessManagersTab', () => {
         expect(within(cafe).getByText('💳 Pago atrasado')).toBeInTheDocument();
         expect(within(cafe).queryByRole('link', { name: /Solicitud de origen/ })).toBeNull();
 
+        // «✨ Plan →» lleva a su fila en Planes: Pro activos si tiene Pro, Verificados sin Pro si no.
+        expect(within(card).getByRole('link', { name: '✨ Plan →' })).toHaveAttribute('href', '/developer?tab=plans&view=pro&focus=p1');
+        expect(within(cafe).getByRole('link', { name: '✨ Plan →' })).toHaveAttribute('href', '/developer?tab=plans&view=verified&focus=p2');
+
         expect(screen.getByText(/180 negocios verificados/)).toBeInTheDocument();
         expect(screen.getByText(/Mostrando 2 de 180/)).toBeInTheDocument();
     });

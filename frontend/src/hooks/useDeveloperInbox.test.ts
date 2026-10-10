@@ -185,6 +185,24 @@ describe('fetchDeveloperInbox', () => {
         expect(inbox.degraded).toBe(false);
     });
 
+    it('un plato pedido con un endsAt viejo no es una «campaña vencida» (al activarlo recibe fechas nuevas)', async () => {
+        const base = firestoreMock.getDocs.getMockImplementation();
+        firestoreMock.getDocs.mockImplementation(async (q: MockQuery) => {
+            if (q.path === 'sponsoredItemSpotlights' && statusOf(q) === 'requested') {
+                return mockSnap([mockDoc('spot-old', { status: 'requested', itemName: 'Bravas', placeName: 'Bar Pepe', endsAt: '2026-07-17', createdAt: ts(NOW - 2 * DAY_MS) })]);
+            }
+            return base?.(q);
+        });
+        const inbox = await fetchDeveloperInbox(NOW);
+        const overdue = inbox.attention.find((section) => section.key === 'campaignOverdue')?.items ?? [];
+        expect(overdue.map((item) => item.id)).toEqual(['sp-overdue', 'sp-req']);
+        expect(inbox.summary.attention).toBe(4);
+        // Sigue en su grupo para decidirlo, sin el aviso de vencida.
+        const spotlights = inbox.groups.find((group) => group.key === 'sponsoredItemSpotlights');
+        expect(spotlights?.items.map((item) => item.id)).toEqual(['spot-old']);
+        expect(spotlights?.items[0].badges).toEqual([]);
+    });
+
     it('si una sección falla, sigue con el resto y lo anota', async () => {
         const base = firestoreMock.getDocs.getMockImplementation();
         firestoreMock.getDocs.mockImplementation(async (q: MockQuery) => {

@@ -244,12 +244,17 @@ const formatCampaignDates = (startsAt: string, endsAt: string, now: number): str
     return '';
 };
 
-/** Avisos de fechas de campañas (home/búsqueda y platos). */
-const campaignBadges = (status: string, endsAt: string, now: number): InboxBadge[] => {
+/**
+ * Avisos de fechas de campañas (home/búsqueda y platos). «Ya vencida sin
+ * revisar» solo en campañas de home o búsqueda: un plato pedido recibe fechas
+ * nuevas al activarlo (aunque una solicitud antigua traiga endsAt) y el cierre
+ * nocturno no lo toca.
+ */
+const campaignBadges = (queue: 'sponsoredPlacements' | 'sponsoredItemSpotlights', status: string, endsAt: string, now: number): InboxBadge[] => {
     const today = todayIso(now);
     const badges: InboxBadge[] = [];
     if (endsAt && endsAt < today) {
-        if (status === 'requested') badges.push({ emoji: '🧹', text: 'Ya vencida sin revisar', tone: 'danger' });
+        if (status === 'requested' && queue === 'sponsoredPlacements') badges.push({ emoji: '🧹', text: 'Ya vencida sin revisar', tone: 'danger' });
         if (status === 'active') badges.push({ emoji: '🧹', text: 'Vencida sin cerrar', tone: 'danger' });
     } else if (status === 'active' && endsAt && endsAt <= addDaysIso(today, 3)) {
         badges.push({ emoji: '📅', text: `Termina el ${formatDate(endsAt, now)}`, tone: 'info' });
@@ -445,7 +450,7 @@ const placementToItem = (id: string, data: Record<string, unknown>, now: number 
         placeId: str(data.placeId),
         placeName,
         userId: str(data.createdBy),
-        badges: campaignBadges(status, endsAt, now),
+        badges: campaignBadges('sponsoredPlacements', status, endsAt, now),
         searchExtra: [headline, str(data.placeAddress)],
     });
 };
@@ -474,7 +479,7 @@ const spotlightToItem = (id: string, data: Record<string, unknown>, now: number 
     const badges: InboxBadge[] = data.itemInactive === true
         ? [{ emoji: '🚫', text: 'Plato retirado · no se muestra', tone: 'danger' }]
         : [];
-    badges.push(...campaignBadges(status, endsAt, now));
+    badges.push(...campaignBadges('sponsoredItemSpotlights', status, endsAt, now));
     if (data.creditsRefunded === true && creditsUsed) {
         badges.push({ emoji: '↩️', text: `${formatNumber(creditsUsed)} impulsos devueltos`, tone: 'neutral' });
     }

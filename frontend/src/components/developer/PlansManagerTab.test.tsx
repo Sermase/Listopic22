@@ -1,6 +1,7 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
     countSnap,
@@ -46,9 +47,11 @@ const placeDocs = (ids: string[]) => mockSnap(ids.filter((id) => places[id]).map
 const renderTab = (props: Partial<DeveloperTabProps> = {}) => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     return render(
-        <QueryClientProvider client={client}>
-            <PlansManagerTab onNavigate={navigateMock} {...props} />
-        </QueryClientProvider>,
+        <MemoryRouter>
+            <QueryClientProvider client={client}>
+                <PlansManagerTab onNavigate={navigateMock} {...props} />
+            </QueryClientProvider>
+        </MemoryRouter>,
     );
 };
 
@@ -177,6 +180,9 @@ describe('PlansManagerTab', () => {
         const panel = drawer();
         expect(within(panel).getByRole('heading', { name: /Bar Pepe/ })).toBeInTheDocument();
         expect(within(panel).getByRole('combobox')).toHaveValue('1m');
+        // De vuelta a su tarjeta en Gestor negocios (equipo y solicitud de origen).
+        expect(within(panel).getByRole('link', { name: '🏢 Gestor negocios →' }))
+            .toHaveAttribute('href', '/developer?tab=businessManagers&focus=p-trial');
         const note = within(panel).getByPlaceholderText('Prueba interna, cortesía, prensa...');
         expect(note).toHaveValue('Beta gratuita');
 

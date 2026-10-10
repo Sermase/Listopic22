@@ -1,6 +1,7 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { RepairPlaceItemsResult } from '../../../services/BusinessProService';
 
 const service = vi.hoisted(() => ({
@@ -36,13 +37,21 @@ const repairResult = (dryRun: boolean): RepairPlaceItemsResult => ({
     ],
 });
 
-const setup = () => render(
-    <ToastProvider>
-        <ConfirmProvider>
-            <RepairPlaceItemsCard />
-        </ConfirmProvider>
-    </ToastProvider>,
-);
+const setup = () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    const onDataChanged = vi.fn();
+    const result = render(
+        <QueryClientProvider client={client}>
+            <ToastProvider>
+                <ConfirmProvider>
+                    <RepairPlaceItemsCard onDataChanged={onDataChanged} />
+                </ConfirmProvider>
+            </ToastProvider>
+        </QueryClientProvider>,
+    );
+    return { ...result, invalidate, onDataChanged };
+};
 
 beforeEach(() => {
     service.adminRepairPlaceItems.mockReset();
@@ -89,7 +98,7 @@ describe('RepairPlaceItemsCard · Reparar cartas', () => {
 
     it('aplica solo tras confirmar', async () => {
         service.adminRepairPlaceItems.mockResolvedValue(repairResult(false));
-        setup();
+        const { invalidate, onDataChanged } = setup();
 
         fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
         const dialog = await screen.findByRole('alertdialog');
@@ -103,6 +112,20 @@ describe('RepairPlaceItemsCard · Reparar cartas', () => {
 
         expect(service.adminRepairPlaceItems).toHaveBeenCalledWith({ placeId: undefined, dryRun: false });
         expect(await screen.findByText(/Aplicado · 2 sitios/)).toBeInTheDocument();
+        // Bandeja, En curso, Pendientes y contadores se recargan.
+        await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['developer'] }));
+        expect(onDataChanged).toHaveBeenCalledTimes(1);
+    });
+
+    it('simular no recarga nada (no cambia datos)', async () => {
+        service.adminRepairPlaceItems.mockResolvedValue(repairResult(true));
+        const { invalidate, onDataChanged } = setup();
+
+        await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Simular' })); });
+
+        expect(await screen.findByTestId('repair-result')).toBeInTheDocument();
+        expect(invalidate).not.toHaveBeenCalled();
+        expect(onDataChanged).not.toHaveBeenCalled();
     });
 
     it('con placeId, la confirmación nombra ese sitio', async () => {

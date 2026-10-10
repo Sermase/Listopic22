@@ -633,6 +633,7 @@ describe('Developer: las colas «Pendientes / Resueltos» las lee el jefe y nadi
     await setDoc(doc(db, 'businessClaims/c1'), { userId: 'alice', placeId: 'p1', status: 'pending', createdAt: at(1) });
     await setDoc(doc(db, 'businessClaims/c2'), { userId: 'carol', placeId: 'p1', status: 'rejected', createdAt: at(2) });
     await setDoc(doc(db, 'itemProposals/ip1'), { createdBy: 'alice', placeId: 'p1', status: 'pending', createdAt: at(1) });
+    await setDoc(doc(db, 'itemProposals/ip2'), { createdBy: 'alice', placeId: 'p1', status: 'applying', reviewedBy: 'jefe', createdAt: at(2) });
     await setDoc(doc(db, 'sponsoredPlacements/sp1'), { createdBy: 'alice', placeId: 'p1', status: 'requested', createdAt: at(1), endsAt: '2026-10-01' });
     await setDoc(doc(db, 'sponsoredPlacements/sp2'), { createdBy: 'alice', placeId: 'p1', status: 'active', createdAt: at(2), endsAt: '2026-10-30' });
     await setDoc(doc(db, 'sponsoredItemSpotlights/ss1'), { createdBy: 'alice', placeId: 'p1', status: 'requested', createdAt: at(1) });
@@ -643,7 +644,8 @@ describe('Developer: las colas «Pendientes / Resueltos» las lee el jefe y nadi
   const queues = (db) => [
     query(collection(db, 'businessClaims'), where('status', '==', 'pending'), orderBy('createdAt', 'asc'), limit(50)),
     query(collection(db, 'businessClaims'), where('status', 'in', ['approved', 'rejected']), orderBy('createdAt', 'desc'), limit(25)),
-    query(collection(db, 'itemProposals'), where('status', '==', 'pending'), orderBy('createdAt', 'asc'), limit(50)),
+    // La bandeja de propuestas incluye las que se están aplicando (adminQueues: pendingStatuses).
+    query(collection(db, 'itemProposals'), where('status', 'in', ['pending', 'applying']), orderBy('createdAt', 'asc'), limit(50)),
     query(collection(db, 'sponsoredPlacements'), where('status', '==', 'requested'), orderBy('createdAt', 'asc'), limit(50)),
     query(collection(db, 'sponsoredItemSpotlights'), where('status', '==', 'requested'), orderBy('createdAt', 'asc'), limit(50)),
     query(collection(db, 'reports'), where('status', 'in', ['resolved', 'rejected']), orderBy('createdAt', 'desc'), limit(25)),

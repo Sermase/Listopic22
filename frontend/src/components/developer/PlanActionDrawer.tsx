@@ -2,7 +2,8 @@
  * PlanActionDrawer: panel lateral con las acciones de UNA fila de «Planes»
  * (sustituye a los controles globales de duración, notas e impulsos).
  *
- *   Local:   estado actual (plan, quién lo concedió, último cambio, nota, saldo, Stripe)
+ *   Local:   estado actual (plan, quién lo concedió, último cambio, nota, saldo, Stripe) y
+ *            «🏢 Gestor negocios →» a su tarjeta (equipo y solicitud de origen)
  *            ✨ Business Pro: duración (contada desde la caducidad actual si aún no ha
  *               pasado), nota rellenada con la nota actual (al quitar Pro no se pierde),
  *               Activar / Guardar / Quitar Pro. Si lo gestiona Stripe (source 'stripe' +
@@ -23,6 +24,7 @@
  */
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -344,6 +346,14 @@ const PlacePanel: React.FC<PanelProps & { initial: PlanPlace }> = ({ initial, pr
                     <a href={`/place/${encodeURIComponent(place.id)}`} target="_blank" rel="noopener noreferrer" className="break-all font-mono text-xs text-[var(--lt-accent)] hover:underline">
                         {place.id} ↗
                     </a>
+                </Field>
+                <Field label="👥 Equipo">
+                    <Link
+                        to={`/developer?tab=businessManagers&focus=${encodeURIComponent(place.id)}`}
+                        className="text-sm font-semibold text-[var(--lt-accent)] hover:underline"
+                    >
+                        🏢 Gestor negocios →
+                    </Link>
                 </Field>
             </dl>
 

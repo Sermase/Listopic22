@@ -7,7 +7,8 @@
  * y lo necesario para decidir: la propuesta y la nota del negocio; titular y
  * fechas de la campaña; impulsos del plato con lo que es de regalo y lo que se
  * factura. En «En curso», métricas, CTR y quién la activó. Una propuesta que se
- * está aplicando enseña quién y desde cuándo; si se atascó, «🔁 Reintentar».
+ * está aplicando enseña quién y desde cuándo; si se atascó o falló al aplicarse,
+ * «🔁 Reintentar» (en la que falló va antes que «❌ Rechazar»).
  * En el Historial (solo lectura), ResolvedMeta con applyResult, y el aviso
  * «↩️ N impulsos devueltos» de los platos rechazados. Al desplegar: fechas, autor, ids y datos de detalle.
  *
@@ -40,7 +41,7 @@ import {
     closingInfo,
     ctrText,
     decisionsFor,
-    isStuckProposal,
+    isRetryProposal,
     proRowDomId,
     spotlightCost,
     spotlightDays,
@@ -333,8 +334,8 @@ const DecisionBar: React.FC<{
     onDecide?: (row: ProRow, decision: ProDecision) => void;
 }> = ({ row, decisions, note, onNoteChange, busy, locked, onDecide }) => {
     const noteId = `${proRowDomId(row.item)}-note`;
-    // Propuesta atascada: aprobar es terminar de aplicarla.
-    const retry = isStuckProposal(row);
+    // Propuesta atascada o con un intento fallido: aprobar es reintentarla.
+    const retry = isRetryProposal(row);
     return (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <label htmlFor={noteId} className="sr-only">Nota para el negocio</label>

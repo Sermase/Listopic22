@@ -1,4 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+const { httpsCallableMock, callMock } = vi.hoisted(() => ({
+    httpsCallableMock: vi.fn(),
+    callMock: vi.fn(),
+}));
+
+vi.mock('../firebase', () => ({ db: {}, functions: { region: 'europe-west1' }, auth: {} }));
+vi.mock('firebase/functions', () => ({ httpsCallable: httpsCallableMock }));
+
 import {
     computeSpotlightImpulses,
     DEFAULT_SPOTLIGHT_PRICING,
@@ -8,6 +17,7 @@ import {
     mapSpotlight,
     normalizeSpotlightPricing,
     packDiscountPercent,
+    reviewItemProposal,
 } from './BusinessProService';
 
 describe('impulsos (0,2 km × 1 día × 1 papeleta)', () => {
@@ -88,5 +98,15 @@ describe('mapeadores para el historial de Developer', () => {
         });
         expect(spotlight).toMatchObject({ creditsUsed: 120, billedImpulses: 20, creditsRefunded: true, creditsRefundedAtMs: 11000 });
         expect(mapSpotlight('d2', { creditsUsed: 0 })).toMatchObject({ creditsUsed: 0, creditsRefunded: false });
+    });
+});
+
+describe('reviewItemProposal', () => {
+    it('espera lo mismo que el servidor (300 s) y algo más, no los 70 s por defecto', async () => {
+        httpsCallableMock.mockReset().mockReturnValue(callMock);
+        callMock.mockReset().mockResolvedValue({ data: { ok: true } });
+        await reviewItemProposal('prop1', 'approve', 'Mismo plato');
+        expect(httpsCallableMock).toHaveBeenCalledWith({ region: 'europe-west1' }, 'reviewItemProposal', { timeout: 310_000 });
+        expect(callMock).toHaveBeenCalledWith({ proposalId: 'prop1', decision: 'approve', adminNotes: 'Mismo plato' });
     });
 });

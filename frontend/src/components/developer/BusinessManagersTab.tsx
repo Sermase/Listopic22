@@ -2,7 +2,8 @@
  * BusinessManagersTab: «Gestor negocios». No es una cola: lista los lugares
  * verificados con su equipo (propietario y gestores) y da contexto en cada
  * tarjeta: solicitud de origen (enlace a «Solicitudes negocio»), cuándo se
- * verificó y quién lo hizo, plan Business (Free / Pro) y el total de negocios.
+ * verificó y quién lo hizo, plan Business (Free / Pro) con «✨ Plan →» a su
+ * fila en «Planes», y el total de negocios.
  *
  * Props (contrato de pestañas de DeveloperPage, opcional): focusId = placeId a
  * resaltar; si no está entre los cargados se lee aparte y se fija arriba. Un
@@ -155,6 +156,14 @@ const PlanChip: React.FC<{ place: BusinessPlace }> = ({ place }) => {
         </>
     );
 };
+
+/**
+ * Su fila en «Planes», enfocada: en «✨ Pro activos» si tiene Pro y en
+ * «🏪 Verificados sin Pro» si no (si no sale en esa lista, Planes la fija
+ * arriba como «📌 Local enlazado»).
+ */
+const planLink = (place: BusinessPlace): string =>
+    `/developer?tab=plans&view=${place.plan.isPro ? 'pro' : 'verified'}&focus=${encodeURIComponent(place.id)}`;
 
 const updateBusinessTeamMember: HttpsCallable<UpdateBusinessTeamMemberInput, UpdateBusinessTeamMemberResult> =
     httpsCallable(functions, 'updateBusinessTeamMember');
@@ -631,6 +640,12 @@ export const BusinessManagersTab: React.FC<Partial<DeveloperTabProps>> = ({ focu
                                                     📨 Solicitud de origen →
                                                 </Link>
                                             )}
+                                            <Link
+                                                to={planLink(place)}
+                                                className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--lt-text)] hover:brightness-110"
+                                            >
+                                                ✨ Plan →
+                                            </Link>
                                         </div>
                                         {hasVerification && (
                                             <ResolvedMeta

@@ -14,7 +14,8 @@
  *   type HistoryStatus; historyStatusOptions(kind); normalizeHistoryFilter(status, kind);
  *   historySources(kind, filter): [{ queue, statuses }]
  *   type ProRow; toProRow(item); isProQueue(queue); viewOfItem(item); proRowDomId(item)
- *   type ProDecision; decisionsFor(row, now?); isStuckProposal(row, now?); isExpiredRequest(placement, now?)
+ *   type ProDecision; decisionsFor(row, now?); isStuckProposal(row, now?); hasFailedApply(row);
+ *   isRetryProposal(row, now?); isExpiredRequest(placement, now?)
  *   decisionPatch(row, decision, ctx); applyDecisionLocally(row, decision, ctx)
  *   decisionConfirm(row, decision, note); decisionSuccessText(row, decision)
  *   ctrText(metrics); applyResultText(proposal); spotlightCost(spotlight); spotlightDays(spotlight)
@@ -314,6 +315,19 @@ export const isStuckProposal = (row: ProRow, now: number = Date.now()): boolean 
     row.kind === 'proposal' && row.proposal.status === 'applying' && isStuckApplying(row.item.data, now);
 
 /**
+ * Propuesta que volvió a 'pending' porque aplicarla falló (applyError). Puede
+ * que parte del cambio ya esté hecho (la fusión o el nombre nuevo se guardan
+ * antes de reconstruir la carta): se ofrece primero «🔁 Reintentar» y el
+ * servidor no deja rechazarla si el cambio ya se ve en la carta.
+ */
+export const hasFailedApply = (row: ProRow): boolean =>
+    row.kind === 'proposal' && row.proposal.status === 'pending' && Boolean(row.proposal.applyError);
+
+/** Aprobar es reintentar: atascada en 'applying' o con un intento fallido. */
+export const isRetryProposal = (row: ProRow, now: number = Date.now()): boolean =>
+    isStuckProposal(row, now) || hasFailedApply(row);
+
+/**
  * Campaña de home o búsqueda pedida cuyo último día ya pasó: el servidor no la
  * activa (B5), solo se puede rechazar. Los platos no cuentan: al activarlos
  * reciben fechas nuevas.
@@ -323,6 +337,7 @@ export const isExpiredRequest = (placement: SponsoredPlacement, now: number = Da
 
 export const decisionsFor = (row: ProRow, now: number = Date.now()): ProDecision[] => {
     if (row.kind === 'proposal') {
+        if (hasFailedApply(row)) return ['approve', 'reject'];
         if (row.proposal.status === 'pending') return ['reject', 'approve'];
         return isStuckProposal(row, now) ? ['approve'] : [];
     }
@@ -397,6 +412,23 @@ export const decisionConfirm = (row: ProRow, decision: ProDecision, note: string
                 message: `${summary} Se quedó a medias al aplicarla. Se termina de aplicar y avisamos al negocio. ${noteText}`,
                 confirmLabel: 'Reintentar',
             };
+        }
+        if (hasFailedApply(row)) {
+            const failure = `El último intento de aplicarla falló («${row.proposal.applyError?.message ?? ''}»)`;
+            // El servidor solo lo comprueba en fusiones y renombres (se ven en los elementos de la carta).
+            const serverGuard = row.proposal.type === 'reassign_review' ? '' : ' Si ya se ve en la carta, te pediremos «🔁 Reintentar».';
+            return decision === 'approve'
+                ? {
+                    title: '🔁 ¿Reintentar la propuesta?',
+                    message: `${summary} ${failure}. Se vuelve a aplicar y, si sale bien, avisamos al negocio. ${noteText}`,
+                    confirmLabel: 'Reintentar',
+                }
+                : {
+                    title: '❌ ¿Rechazar la propuesta?',
+                    message: `${summary} ⚠️ ${failure} y puede que parte del cambio ya esté hecho: rechazarla no lo deshace.${serverGuard} Avisamos al negocio. ${noteText}`,
+                    confirmLabel: 'Rechazar',
+                    destructive: true,
+                };
         }
         return decision === 'approve'
             ? { title: '✅ ¿Aprobar y aplicar la propuesta?', message: `${summary} Se aplica al momento y avisamos al negocio. ${noteText}`, confirmLabel: 'Aprobar y aplicar' }

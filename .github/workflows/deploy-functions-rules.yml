@@ -7,7 +7,8 @@
 #   Cloud Functions Admin, Service Account User, Cloud Build Editor, Artifact Registry
 #   Administrator, Secret Manager Admin (las Functions declaran secretos) y Firebase Rules Admin;
 #   para la opción de índices, también Cloud Datastore Index Admin.
-# Índices (firestore.indexes.json): despliégalos ANTES que el frontend que los usa. Firestore
+# Índices (firestore.indexes.json): solo se añaden, así que puedes desplegarlos antes de fusionar
+# (el panel nuevo ya los encuentra hechos) o justo después, junto con las Functions. Firestore
 # tarda un rato en construirlos (Firebase Console → Firestore → Índices); mientras, Developer
 # avisa «Índice en construcción». No borra los índices que haya en la consola y no estén aquí.
 # La clave nunca se imprime: va a un fichero temporal del runner y se borra al acabar.

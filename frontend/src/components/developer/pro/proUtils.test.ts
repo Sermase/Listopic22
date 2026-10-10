@@ -9,9 +9,11 @@ import {
     decisionConfirm,
     decisionSuccessText,
     decisionsFor,
+    hasFailedApply,
     historySources,
     historyStatusCount,
     historyStatusOptions,
+    isRetryProposal,
     kindCount,
     loadSources,
     mergedHasMore,
@@ -182,6 +184,38 @@ describe('decisiones', () => {
         expect(retry.message).toContain('Se quedó a medias al aplicarla');
         // Quién la está aplicando y desde cuándo.
         expect(closingInfo(stuck)).toEqual({ status: 'applying', by: 'u-ana', at: NOW - 30 * 60 * 1000 });
+    });
+
+    it('una propuesta que falló al aplicarse ofrece primero «🔁 Reintentar» y avisa al rechazarla', () => {
+        const failed = toProRow(proposal('a', {
+            applyError: { message: 'Firestore no responde', code: null, by: 'u-ana', at: ts(NOW - 60 * 1000) },
+        }));
+        expect(hasFailedApply(failed)).toBe(true);
+        expect(isRetryProposal(failed, NOW)).toBe(true);
+        expect(decisionsFor(failed, NOW)).toEqual(['approve', 'reject']);
+
+        const retry = decisionConfirm(failed, 'approve', '', NOW);
+        expect(retry).toMatchObject({ title: '🔁 ¿Reintentar la propuesta?', confirmLabel: 'Reintentar' });
+        expect(retry.message).toContain('El último intento de aplicarla falló («Firestore no responde»)');
+
+        const reject = decisionConfirm(failed, 'reject', 'Mejor no', NOW);
+        expect(reject).toMatchObject({ title: '❌ ¿Rechazar la propuesta?', confirmLabel: 'Rechazar', destructive: true });
+        expect(reject.message).toContain('puede que parte del cambio ya esté hecho: rechazarla no lo deshace');
+        expect(reject.message).toContain('Si ya se ve en la carta, te pediremos «🔁 Reintentar»');
+        expect(reject.message).toContain('“Mejor no”');
+        // Mover una reseña no lo comprueba el servidor: solo el aviso.
+        const moved = toProRow(proposal('m', { type: 'reassign_review', applyError: { message: 'Tiempo agotado' } }));
+        const movedReject = decisionConfirm(moved, 'reject', '', NOW).message;
+        expect(movedReject).toContain('puede que parte del cambio ya esté hecho');
+        expect(movedReject).not.toContain('te pediremos');
+
+        // Sin intento fallido, todo como siempre.
+        const clean = toProRow(proposal('b'));
+        expect(hasFailedApply(clean)).toBe(false);
+        expect(isRetryProposal(clean, NOW)).toBe(false);
+        expect(decisionConfirm(clean, 'reject', '', NOW).message).not.toContain('parte del cambio');
+        // Un fallo viejo en una ya resuelta no cuenta.
+        expect(hasFailedApply(toProRow(proposal('c', { status: 'rejected', applyError: { message: 'x' } })))).toBe(false);
     });
 
     it('una campaña pedida cuyo último día ya pasó solo se rechaza (el servidor no la activa)', () => {
