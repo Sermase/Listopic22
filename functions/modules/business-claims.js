@@ -156,6 +156,7 @@ const onBusinessClaimUpdated = onDocumentUpdated({
   const claimRef = event.data.after.ref;
   const entry = buildPreviousReview(before, Timestamp.now());
   let isDuplicate = false;
+  let stillPending = true;
   let count = (Array.isArray(before.previousReviews) ? before.previousReviews.length : 0) + 1;
 
   try {
@@ -163,6 +164,9 @@ const onBusinessClaimUpdated = onDocumentUpdated({
       const snap = await tx.get(claimRef);
       if (!snap.exists) return;
       const current = snap.data() || {};
+      // Si un jefe ya la revisó antes de que llegara este evento, se guarda el
+      // historial igualmente, pero no se avisa de una solicitud que ya no espera.
+      stillPending = current.status === "pending";
       // El setDoc del reenvío no trae previousReviews: el historial está en `before`.
       // Si ya está en el documento, este evento llega repetido.
       const base = Array.isArray(current.previousReviews) ? current.previousReviews : before.previousReviews;
@@ -180,6 +184,10 @@ const onBusinessClaimUpdated = onDocumentUpdated({
 
   if (isDuplicate) {
     logger.info("businessClaims: reenvío ya procesado", { claimId });
+    return;
+  }
+  if (!stillPending) {
+    logger.info("businessClaims: reenvío ya revisado, sin avisos", { claimId });
     return;
   }
 

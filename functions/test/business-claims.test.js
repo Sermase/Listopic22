@@ -224,6 +224,23 @@ test('B3: el segundo reenvío conserva el historial del primero', async () => {
   assert.match(emails[0].html, /Reenvío nº 2/);
 });
 
+test('B3: si un jefe ya revisó el reenvío cuando llega el evento, guarda el historial pero no avisa', async () => {
+  reset();
+  const before = rejectedBefore();
+  const after = submitted();
+  db.seed(CLAIM_PATH, submitted({ status: 'approved', reviewedBy: 'jefe2', adminNotes: 'Ahora sí' }));
+
+  await claims.onBusinessClaimUpdated.run(updateEvent(before, after));
+
+  const doc = db.data(CLAIM_PATH);
+  assert.equal(doc.status, 'approved', 'no toca la decisión nueva');
+  assert.equal(doc.previousReviews.length, 1);
+  assert.equal(doc.previousReviews[0].adminNotes, 'Faltan pruebas del local');
+  assert.equal(emails.length, 0);
+  assert.equal(jefeNotification('jefe1'), undefined);
+  assert.equal(jefeNotification('jefe2'), undefined);
+});
+
 test('B3: otros cambios de la solicitud no hacen nada', async () => {
   reset();
   db.seed(CLAIM_PATH, submitted({ status: 'approved' }));
