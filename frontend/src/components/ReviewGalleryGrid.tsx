@@ -113,6 +113,7 @@ export const ReviewGalleryGrid: React.FC<ReviewGalleryGridProps> = ({
             return (
                 <div
                     key={review.id}
+                    data-review-id={review.id}
                     onClick={() => setExpandedReviewIds(prev => prev.includes(review.id) ? [] : [review.id])}
                     className="lt-media-card group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-[var(--lt-accent-border)] transition-colors"
                 >

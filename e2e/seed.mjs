@@ -39,6 +39,7 @@ const users = [
   { uid: 'jefe', name: 'Jefa', types: ['basico', 'jefe'] },
   // Gestora del negocio Business Pro de carta.spec.ts.
   { uid: 'gerente', name: 'Gerente', types: ['basico'] },
+  { uid: 'prolifica', name: 'Prolífica', types: ['basico'] },
   ...authors.map((uid) => ({ uid, name: uid === 'bot' ? 'ListopIA' : uid, types: vectors.botAuthorIds.includes(uid) ? ['basico', 'bot'] : ['basico'] })),
 ];
 
@@ -89,6 +90,24 @@ async function seed() {
     userId: 'ana', authorName: 'ana', placeId: 'p_carta', itemName: 'Croketa de jamon', visibility: 'public', overallRating: 8, listId: 'croquetas',
     comment: 'Cremosa por dentro y crujiente por fuera.', establishmentName: 'Casa Carta', authorUserType: ['basico'],
     createdAt: Timestamp.fromMillis(1_790_000_000_000),
+  });
+
+  // Perfil con más valoraciones que una página (galería: 10): la mejor es la más
+  // antigua, así que ordenar «mejor → peor» solo funciona si se cargan todas. La
+  // privada (nota 10) no debe verse en el perfil desde otra cuenta.
+  await db.doc('places/p_prol').set({ name: 'Casa Prolífica', city: 'Cádiz', province: 'Cádiz', region: 'Andalucía', country: 'España', location: new GeoPoint(36.5271, -6.2886), address: 'Casa Prolífica, Cádiz' });
+  await db.doc('lists/muchas').set({ ...base, userId: 'prolifica', name: 'Muchas E2E', isPublic: true, visibility: 'public', criteriaDefinition: list.criteriaDefinition, scoringWeights: list.scoringWeights });
+  for (let i = 0; i < 25; i++) {
+    const id = `m${String(i).padStart(2, '0')}`;
+    const overallRating = i === 0 ? 9.5 : i === 1 ? 9 : 5 + (i % 7) * 0.5;
+    await db.doc(`lists/muchas/reviews/${id}`).set({
+      userId: 'prolifica', placeId: 'p_prol', itemName: `Plato ${id}`, visibility: 'public', overallRating, listId: 'muchas',
+      establishmentName: 'Casa Prolífica', authorUserType: ['basico'], createdAt: Timestamp.fromMillis(1_790_000_000_000 + i * 60_000),
+    });
+  }
+  await db.doc('lists/muchas/reviews/mpriv').set({
+    userId: 'prolifica', placeId: 'p_prol', itemName: 'Plato privado', visibility: 'private', overallRating: 10, listId: 'muchas',
+    establishmentName: 'Casa Prolífica', authorUserType: ['basico'], createdAt: Timestamp.fromMillis(1_790_000_000_000 + 30 * 60_000),
   });
 
   for (const r of vectors.reviews) {
