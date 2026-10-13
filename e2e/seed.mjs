@@ -113,6 +113,16 @@ async function seed() {
     establishmentName: 'Casa Prolífica', authorUserType: ['basico'], createdAt: Timestamp.fromMillis(1_790_000_000_000 + 40 * 60_000),
   });
 
+  // Lista privada con valoraciones de dos personas (lista-visibilidad.spec.ts): al hacerla
+  // pública, sus valoraciones deben pasar a públicas.
+  await db.doc('lists/cerrada').set({ ...base, name: 'Cerrada E2E', isPublic: false, visibility: 'private', publicAccess: 'reader', criteriaDefinition: list.criteriaDefinition, scoringWeights: list.scoringWeights });
+  for (const [id, userId] of [['rc_duena', 'duena'], ['rc_luis', 'luis']]) {
+    await db.doc(`lists/cerrada/reviews/${id}`).set({
+      userId, placeId: 'p_prol', itemName: 'Plato cerrado', visibility: 'private', overallRating: 7, listId: 'cerrada',
+      establishmentName: 'Casa Prolífica', authorUserType: ['basico'], createdAt: Timestamp.fromMillis(1_790_000_000_000),
+    });
+  }
+
   for (const r of vectors.reviews) {
     const { id, createdAtMs, ...data } = r;
     const place = vectors.places[r.placeId];

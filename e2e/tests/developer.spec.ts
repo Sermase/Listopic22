@@ -23,8 +23,8 @@ test('Reseñas: carga todo por el servidor y se edita una valoración en su moda
   await openTab(page, 'Reseñas');
   await page.getByRole('button', { name: /^\s*Cargar\s*$/ }).click();
   // 25 del caso compartido + 2 de «Bar Robot» + 1 de «Casa Carta» (carta.spec.ts)
-  // + 36 de «prolifica» (perfil.spec.ts).
-  await expect(page.getByText(/\d+ \/ 64 reseñas/)).toBeVisible();
+  // + 36 de «prolifica» (perfil.spec.ts) + 2 de «Cerrada E2E» (lista-visibilidad.spec.ts).
+  await expect(page.getByText(/\d+ \/ 66 reseñas/)).toBeVisible();
 
   // La de «Bar Robot» (Lista «Robots E2E»): ninguna prueba posterior depende de ella.
   await page.getByPlaceholder('itemName...').fill('Bravas robot');

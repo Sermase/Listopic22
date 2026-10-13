@@ -313,7 +313,10 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 };
 
                 const reviewSnapshots = await Promise.all([
-                    safeQuery(() => getDocs(collection(db, 'lists', listId, 'reviews'))),
+                    // En una lista pública, las reglas solo dejan listar las públicas.
+                    safeQuery(() => getDocs(isPublic
+                        ? query(collection(db, 'lists', listId, 'reviews'), where('visibility', '==', 'public'))
+                        : collection(db, 'lists', listId, 'reviews'))),
                     ...(parentListId ? [
                         safeQuery(() => getDocs(query(collection(db, 'lists', parentListId, 'reviews'), where('sublistId', '==', listId))))
                     ] : [])

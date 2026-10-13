@@ -52,7 +52,7 @@ export const useFollowingFeed = () => {
                 const reviewsPerList = await Promise.all(candidateListIds.map(async (listId) => {
                     try {
                         const listReviewsSnap = await getDocs(
-                            query(collection(db, 'lists', listId, 'reviews'), orderBy('createdAt', 'desc'), limit(10))
+                            query(collection(db, 'lists', listId, 'reviews'), where('visibility', '==', 'public'), orderBy('createdAt', 'desc'), limit(10))
                         );
                         return listReviewsSnap.docs
                             .map((reviewDoc) => ({
