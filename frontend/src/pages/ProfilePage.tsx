@@ -410,6 +410,9 @@ export const ProfilePage: React.FC = () => {
     setProfileStoragePhotoUrl(null);
   }, [targetUserId]);
 
+  // Ordenar por nota solo es correcto con todas las valoraciones cargadas: se
+  // piden en páginas de 100 (máximo de las reglas) hasta agotarlas.
+  const loadAllReviews = reviewSortMode === "top_rated";
   const {
     reviews: fetchedReviews,
     loading: baseLoadingReviews,
@@ -417,13 +420,13 @@ export const ProfilePage: React.FC = () => {
     fetchMore: fetchMoreBaseReviews,
     hasMore: hasMoreBaseReviews,
     loadingMore: loadingMoreBaseReviews,
-  } = useReviews({ type: "recent", userId: targetUserId, limit: reviewViewMode === "gallery" ? 10 : 3 });
+  } = useReviews({ type: "recent", userId: targetUserId, limit: loadAllReviews ? 100 : reviewViewMode === "gallery" ? 10 : 3 });
   const selectedReviewListId = getSelectedProfileReviewListId(reviewListFilter);
   const filteredReviewQuery = useReviews({
     type: "recent",
     userId: targetUserId,
     listId: selectedReviewListId,
-    limit: reviewViewMode === "gallery" ? 20 : 10,
+    limit: loadAllReviews ? 100 : reviewViewMode === "gallery" ? 20 : 10,
     enabled: Boolean(selectedReviewListId),
   });
   const isReviewListFilterActive = Boolean(selectedReviewListId);
@@ -465,9 +468,16 @@ export const ProfilePage: React.FC = () => {
     observer.observe(target);
     return () => observer.disconnect();
     // fetchMore intentionally omitted — we access it via fetchMoreRef
-    // localReviews.length > 0 ensures the observer re-runs once reviews populate the DOM
+    // localReviews.length > 0 ensures the observer re-runs once reviews populate the DOM.
+    // hasMore/loadingMore: the trigger remounts when hasMore toggles, and a new
+    // observer re-checks it if it is still visible after a page loads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, loadingReviews, localReviews.length > 0]);
+  }, [activeTab, loadingReviews, localReviews.length > 0, hasMore, loadingMore, isReviewListFilterActive]);
+
+  useEffect(() => {
+    if (!loadAllReviews || loadingReviews || loadingMore || !hasMore) return;
+    fetchMore();
+  }, [loadAllReviews, loadingReviews, loadingMore, hasMore, fetchMore]);
 
   // Additional List States
   const [followedLists, setFollowedLists] = useState<any[]>([]);

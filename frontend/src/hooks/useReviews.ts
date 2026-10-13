@@ -297,6 +297,8 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
             listId: listId ?? null,
             followingIds: (followingIds ?? []).join(','),
             sinceDate: sinceDate?.getTime() ?? null,
+            // Distinto tamaño de página = distinta paginación (cursor y hasMore).
+            limit: customLimit ?? null,
         }],
         enabled: enabled && !(type === 'following' && (!followingIds || followingIds.length === 0)),
         staleTime: type === 'following' ? 0 : 5 * 60 * 1000,
