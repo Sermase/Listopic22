@@ -94,10 +94,12 @@ async function seed() {
 
   // Perfil con más valoraciones que una página (galería: 10): la mejor es la más
   // antigua, así que ordenar «mejor → peor» solo funciona si se cargan todas. La
-  // privada (nota 10) no debe verse en el perfil desde otra cuenta.
+  // privada (nota 10, de una Minilista privada guardada en la Lista madre) no debe
+  // verse desde otra cuenta ni romper el filtro por Lista. Son más de 30 para que el
+  // plan B por permisos (30 por Lista) no las alcance todas.
   await db.doc('places/p_prol').set({ name: 'Casa Prolífica', city: 'Cádiz', province: 'Cádiz', region: 'Andalucía', country: 'España', location: new GeoPoint(36.5271, -6.2886), address: 'Casa Prolífica, Cádiz' });
   await db.doc('lists/muchas').set({ ...base, userId: 'prolifica', name: 'Muchas E2E', isPublic: true, visibility: 'public', criteriaDefinition: list.criteriaDefinition, scoringWeights: list.scoringWeights });
-  for (let i = 0; i < 25; i++) {
+  for (let i = 0; i < 35; i++) {
     const id = `m${String(i).padStart(2, '0')}`;
     const overallRating = i === 0 ? 9.5 : i === 1 ? 9 : 5 + (i % 7) * 0.5;
     await db.doc(`lists/muchas/reviews/${id}`).set({
@@ -105,9 +107,10 @@ async function seed() {
       establishmentName: 'Casa Prolífica', authorUserType: ['basico'], createdAt: Timestamp.fromMillis(1_790_000_000_000 + i * 60_000),
     });
   }
+  await db.doc('lists/muchas-secreta').set({ ...base, userId: 'prolifica', name: 'Muchas secretas', isPublic: false, visibility: 'private', parentListId: 'muchas', criteriaDefinition: list.criteriaDefinition, scoringWeights: list.scoringWeights });
   await db.doc('lists/muchas/reviews/mpriv').set({
-    userId: 'prolifica', placeId: 'p_prol', itemName: 'Plato privado', visibility: 'private', overallRating: 10, listId: 'muchas',
-    establishmentName: 'Casa Prolífica', authorUserType: ['basico'], createdAt: Timestamp.fromMillis(1_790_000_000_000 + 30 * 60_000),
+    userId: 'prolifica', placeId: 'p_prol', itemName: 'Plato privado', visibility: 'private', sublistId: 'muchas-secreta', overallRating: 10, listId: 'muchas',
+    establishmentName: 'Casa Prolífica', authorUserType: ['basico'], createdAt: Timestamp.fromMillis(1_790_000_000_000 + 40 * 60_000),
   });
 
   for (const r of vectors.reviews) {
