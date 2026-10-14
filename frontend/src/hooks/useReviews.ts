@@ -217,8 +217,11 @@ async function fetchReviewsPage(
             // usamos las reseñas ya paginadas del perfil porque eso obligaría a
             // recorrer primero todo el feed. Al consultar la subcolección de la
             // lista evitamos además un índice compuesto userId+listId+createdAt.
+            // Solo públicas, como el feed del perfil: las privadas de una Minilista
+            // se guardan en la Lista madre y, sin este filtro, las reglas rechazan
+            // la consulta entera desde otra cuenta.
             const pageSize = customLimit || 20;
-            const constraints: any[] = [where('userId', '==', userId)];
+            const constraints: any[] = [where('userId', '==', userId), where('visibility', '==', 'public')];
             if (lastDoc) constraints.push(startAfter(lastDoc));
             constraints.push(limit(pageSize));
 

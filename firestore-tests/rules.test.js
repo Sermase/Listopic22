@@ -500,6 +500,47 @@ describe('V8 · Guardarraíles de regresión', () => {
 });
 
 // ---------------------------------------------------------------------------
+describe('V12 · Consultas de reseñas: las privadas de una Minilista no se cuelan', () => {
+  // rPrivSub es privada, de la Minilista privada «priv», y se guarda en la Lista
+  // madre pública «pub». Leerla de una en una ya fallaba; en consulta, no.
+  it('❌ bob lista la subcolección de la Lista madre sin filtrar por visibilidad', async () => {
+    const reviews = collection(as('bob'), 'lists/pub/reviews');
+    await assertFails(getDocs(reviews));
+    await assertFails(getDocs(query(reviews, limit(20))));
+    await assertFails(getDocs(query(reviews, where('userId', '==', 'alice'), limit(20))));
+  });
+
+  it('❌ bob pide por collectionGroup las reseñas de la Lista madre o de alice', async () => {
+    const group = collectionGroup(as('bob'), 'reviews');
+    await assertFails(getDocs(query(group, where('listId', '==', 'pub'), limit(50))));
+    await assertFails(getDocs(query(group, where('userId', '==', 'alice'), limit(50))));
+  });
+
+  it('✅ bob y anónimo listan las públicas (Lista, perfil y filtro por Lista)', async () => {
+    await assertSucceeds(getDocs(query(collection(anon(), 'lists/pub/reviews'), where('visibility', '==', 'public'))));
+    await assertSucceeds(getDocs(query(collection(as('bob'), 'lists/pub/reviews'), where('userId', '==', 'alice'), where('visibility', '==', 'public'), limit(20))));
+    await assertSucceeds(getDocs(query(collectionGroup(as('bob'), 'reviews'), where('listId', '==', 'pub'), where('visibility', '==', 'public'), limit(50))));
+  });
+
+  it('✅ carol (editora de la Minilista) lista sus privadas en la Lista madre (useListDetails)', async () => {
+    await assertSucceeds(getDocs(query(collection(as('carol'), 'lists/pub/reviews'), where('sublistId', '==', 'priv'), where('visibility', '==', 'private'))));
+    await assertFails(getDocs(query(collection(as('bob'), 'lists/pub/reviews'), where('sublistId', '==', 'priv'), where('visibility', '==', 'private'))));
+  });
+
+  it('✅ miembros de una lista privada la listan entera; ❌ bob no', async () => {
+    await assertSucceeds(getDocs(collection(as('carol'), 'lists/priv/reviews')));
+    await assertSucceeds(getDocs(query(collection(as('gina'), 'lists/priv/reviews'), where('visibility', '==', 'private'))));
+    await assertFails(getDocs(collection(as('bob'), 'lists/priv/reviews')));
+  });
+
+  it('✅ alice lista las suyas (perfil propio, archivo) y un jefe todo', async () => {
+    await assertSucceeds(getDocs(query(collection(as('alice'), 'lists/pub/reviews'), where('userId', '==', 'alice'))));
+    await assertSucceeds(getDocs(query(collectionGroup(as('alice'), 'reviews'), where('userId', '==', 'alice'), limit(100))));
+    await assertSucceeds(getDocs(collection(jefe(), 'lists/pub/reviews')));
+  });
+});
+
+// ---------------------------------------------------------------------------
 describe('V9 · Criterios y pesos (B1): Minilistas comparables y nota bloqueada', () => {
   const extra = { type: 'slider', label: 'Bechamel', min: 0, max: 10, step: 0.5, ponderable: true };
   const miniPayload = (criteriaDefinition, extraFields = {}) => ({

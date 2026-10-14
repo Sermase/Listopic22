@@ -433,14 +433,23 @@ service cloud.firestore {
 
     match /{path=**}/reviews/{reviewId} {
       allow get: if resource.data.listId is string && canReadReviewByListId(resource.data.listId);
+      // Sin valores por defecto (ver la regla `list` de lists/{listId}/reviews):
+      // con canReadReviewByListId, `where('listId', '==', <Lista pública>)` devolvía
+      // también las privadas de sus Minilistas privadas.
       allow list: if request.query.limit != null
                   && request.query.limit <= 100
                   && (
-                    resource.data.get('visibility', 'private') == 'public' ||
+                    resource.data.visibility == 'public' ||
                     (
-                      request.auth != null &&
-                      resource.data.listId is string &&
-                      canReadReviewByListId(resource.data.listId)
+                      request.auth != null && (
+                        resource.data.userId == request.auth.uid ||
+                        resource.data.authorId == request.auth.uid ||
+                        isJefe(request.auth.uid) ||
+                        (resource.data.sublistId is string && canReadListById(resource.data.sublistId)) ||
+                        (resource.data.listId is string &&
+                          get(/databases/$(database)/documents/lists/$(resource.data.listId)).data.visibility != 'public' &&
+                          canReadListById(resource.data.listId))
+                      )
                     )
                   );
     }
@@ -609,7 +618,21 @@ service cloud.firestore {
       allow update: if request.auth != null && listUpdateIsAllowedFor(request.auth.uid);
 
       match /reviews/{reviewId} {
-        allow read: if canReadReviewByListId(listId);
+        allow get: if canReadReviewByListId(listId);
+        // En consultas, las reglas evalúan `resource.data.get(campo, defecto)` con el
+        // valor por defecto: con canReadReviewByListId, una consulta sin filtrar por
+        // visibilidad en una Lista pública devolvía las privadas de sus Minilistas
+        // privadas a cualquiera con sesión. Aquí nada usa valores por defecto: hay que
+        // pedir `visibility == 'public'`, las propias, la Minilista (`sublistId`) o
+        // ser miembro de una lista privada.
+        allow list: if (resource.data.visibility == 'public' && canReadListById(listId)) ||
+          (request.auth != null && (
+            resource.data.userId == request.auth.uid ||
+            isJefe(request.auth.uid) ||
+            (resource.data.sublistId is string && canReadListById(resource.data.sublistId)) ||
+            (get(/databases/$(database)/documents/lists/$(listId)).data.get('visibility', 'private') != 'public' &&
+              canReadListById(listId))
+          ));
         // CREATE: Validar que tenga permiso de ESCRITURA en la lista,
         // o que tenga acceso de escritura en una sublista de esta lista
         allow create: if request.auth != null
