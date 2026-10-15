@@ -61,6 +61,9 @@ export interface MapPinOptions {
     highlighted?: boolean;
 }
 
+/** Lo que asoma el pico por debajo de la chapa (ver .lt-pin::after en index.css). */
+const PIN_TIP = 7;
+
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /**
@@ -73,30 +76,42 @@ export const createMapPinIcon = ({ score, emoji, color, sponsored = false, highl
     const classes = ['lt-pin'];
     let style = '';
     let label = '';
+    // Tamaño fijo por tipo: el marcador de Leaflet ocupa lo mismo que el pin
+    // (se puede tocar, enfocar y ver en las pruebas) y el pico cae en el punto.
+    let width: number;
+    let height: number;
     if (emoji || color) {
         classes.push('lt-pin--emoji');
-        style = `--pin-ring:${escapeHtml(color || '#6366f1')}`;
+        style = `--pin-ring:${escapeHtml(color || '#6366f1')};`;
         label = escapeHtml(emoji || '📍');
+        width = 30;
+        height = 30;
     } else if (s === null) {
+        // Sin nota: un punto, para no llenar el mapa de interrogantes.
         classes.push('lt-pin--none');
+        width = 14;
+        height = 14;
     } else {
         const { bg, fg } = SCORE_BADGE[scoreBand(s)];
-        style = `--pin-bg:${bg};--pin-fg:${fg}`;
+        style = `--pin-bg:${bg};--pin-fg:${fg};`;
         label = formatScore(s);
+        width = label.length >= 3 ? 34 : 28;
+        height = 24;
     }
     if (sponsored) {
         classes.push('lt-pin--sponsored');
         label = `<span class="lt-pin__star" aria-hidden="true">★</span>${label}`;
+        width += 14;
     }
     if (highlighted) classes.push('lt-pin--hl');
+    const total = height + PIN_TIP;
 
     return L.divIcon({
-        html: `<div class="${classes.join(' ')}" style="${style}">${label}</div>`,
+        html: `<div class="${classes.join(' ')}" style="${style}height:${height}px">${label}</div>`,
         className: 'lt-pin-icon',
-        // Tamaño 0: el pin se coloca solo (translate en CSS) y crece con el texto.
-        iconSize: [0, 0],
-        iconAnchor: [0, 0],
-        popupAnchor: [0, -30],
+        iconSize: [width, total],
+        iconAnchor: [width / 2, total],
+        popupAnchor: [0, -total],
     });
 };
 
@@ -104,6 +119,6 @@ export const createMapPinIcon = ({ score, emoji, color, sponsored = false, highl
 export const createUserLocationIcon = (): L.DivIcon => L.divIcon({
     html: '<div class="lt-user-dot"><span class="lt-user-dot__pulse"></span></div>',
     className: 'lt-pin-icon',
-    iconSize: [0, 0],
-    iconAnchor: [0, 0],
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
 });
