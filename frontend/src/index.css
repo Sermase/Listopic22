@@ -1403,3 +1403,113 @@ html.theme-light .lt-on-accent {
     .lt-marquee-dup { display: none; }
     .lt-marquee-on { -webkit-mask-image: none; mask-image: none; text-overflow: ellipsis; }
 }
+
+/* Pins de los mapas (utils/mapUtils.ts → createMapPinIcon): iguales en todos los mapas. */
+.lt-pin-icon {
+    background: transparent !important;
+    border: none !important;
+}
+
+.lt-pin {
+    --pin-bg: #94a3b8;
+    --pin-fg: #0f172a;
+    --pin-ring: #ffffff;
+    position: relative;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    width: 100%;
+    height: 24px;
+    padding: 0;
+    border-radius: 999px;
+    border: 2px solid var(--pin-ring);
+    background: var(--pin-bg);
+    color: var(--pin-fg);
+    font: 800 12px/1 'Poppins', 'Inter', system-ui, sans-serif;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.35);
+    transform-origin: 50% calc(100% + 7px);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    cursor: pointer;
+}
+
+/* Pico: marca el punto exacto del sitio. */
+.lt-pin::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -5px;
+    width: 8px;
+    height: 8px;
+    margin-left: -5px;
+    background: var(--pin-bg);
+    border-right: 2px solid var(--pin-ring);
+    border-bottom: 2px solid var(--pin-ring);
+    transform: rotate(45deg);
+}
+
+.leaflet-marker-icon:hover .lt-pin,
+.lt-pin--hl {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 3px var(--lt-accent), 0 8px 18px rgba(15, 23, 42, 0.45);
+}
+
+/* Colecciones: emoji sobre blanco con el borde del color de la colección. */
+.lt-pin--emoji {
+    --pin-bg: #ffffff;
+    font-size: 16px;
+    font-weight: 400;
+}
+
+.lt-pin--sponsored {
+    --pin-ring: #f59e0b;
+}
+
+.lt-pin__star {
+    color: #b45309;
+    font-size: 10px;
+}
+
+.lt-pin--sponsored .lt-pin__star {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 999px;
+    background: #f59e0b;
+    color: #ffffff;
+    font-size: 9px;
+}
+
+.lt-user-dot {
+    position: relative;
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
+    border-radius: 999px;
+    background: #3b82f6;
+    border: 2.5px solid #ffffff;
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.4);
+}
+
+.lt-user-dot__pulse {
+    position: absolute;
+    inset: -8px;
+    border-radius: 999px;
+    background: rgba(59, 130, 246, 0.3);
+    animation: lt-user-dot-pulse 2s ease-out infinite;
+}
+
+@keyframes lt-user-dot-pulse {
+    0% { transform: scale(0.5); opacity: 1; }
+    100% { transform: scale(1.4); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lt-user-dot__pulse { animation: none; opacity: 0.5; }
+    .lt-pin { transition: none; }
+}

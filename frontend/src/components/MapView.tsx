@@ -1,18 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { createRatingMarkerIcon, createEmojiMarkerIcon, createSponsoredMarkerIcon, getRatingColor, MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
+import { createMapPinIcon, createUserLocationIcon, MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
+import { MapPopupCard } from './map/MapPopupCard';
 import { getSponsoredSearchCampaigns, recordSponsoredEvent } from '../services/BusinessProService';
 import type { MapLayerId } from '../utils/mapUtils';
 import { useLocation } from '../hooks/useLocation';
 import type { Location as UserLocation } from '../hooks/useLocation';
 import { Locate, Layers, Check } from 'lucide-react';
 import L from 'leaflet';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { whenMapSized } from '../lib/mapMotion';
+import { formatScore, scoreTextColor } from '../lib/scoreScale';
+
+const USER_LOCATION_ICON = createUserLocationIcon();
 
 // Component to handle User Location Marker & Range Circle
 const UserLocationFeatures = ({ range }: { range: number | null }) => {
@@ -20,21 +23,11 @@ const UserLocationFeatures = ({ range }: { range: number | null }) => {
 
     if (!location) return null;
 
-    // Custom Blue Dot Icon using DivIcon
-    const blueDotIcon = L.divIcon({
-        className: 'user-location-marker',
-        html: `<div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg relative">
-                 <div class="absolute -inset-2 bg-blue-500/30 rounded-full animate-ping"></div>
-               </div>`,
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-    });
-
     return (
         <>
             <Marker
                 position={[location.latitude, location.longitude]}
-                icon={blueDotIcon}
+                icon={USER_LOCATION_ICON}
                 zIndexOffset={1000} // Bring to front
             >
                 <Popup>
@@ -334,11 +327,7 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                     <Marker
                         key={item.id}
                         position={[item.lat!, item.lng!]}
-                        icon={isSponsored
-                            ? createSponsoredMarkerIcon(item.rating || 0)
-                            : item.emoji || item.color
-                                ? createEmojiMarkerIcon(item.emoji || '📍', item.color || '#6366f1')
-                                : createRatingMarkerIcon(item.rating || 0)}
+                        icon={createMapPinIcon({ score: item.rating, emoji: item.emoji, color: item.color, sponsored: isSponsored })}
                         eventHandlers={{
                             popupopen: () => {
                                 if (!isJefe) campaignIds.forEach((campaignId) => {
@@ -348,81 +337,36 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                         }}
                     >
                         <Popup className="listopic-popup" closeButton={false} maxWidth={270} minWidth={250}>
-                            {(() => {
-                                const { bg } = getRatingColor(item.rating || 0);
-                                const ratingText = item.rating ? item.rating.toFixed(1) : '-';
-                                return (
-                                    <div style={{ width: 250, borderRadius: 16, overflow: 'hidden', boxShadow: '0 12px 40px rgba(0,0,0,0.28), 0 2px 8px rgba(0,0,0,0.12)', border: '1px solid rgba(255,255,255,0.9)', background: '#fff', fontFamily: "'Poppins', system-ui, sans-serif" }}>
-                                        {/* Header Image */}
-                                        <div style={{ position: 'relative', height: 120, background: '#e5e7eb' }}>
-                                            {item.photoUrl ? (
-                                                <img src={item.photoUrl} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                    <span style={{ color: '#9ca3af', fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>Sin foto</span>
-                                                </div>
-                                            )}
-                                            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 60%)' }} />
-                                            {/* Rating badge overlay */}
-                                            <div style={{ position: 'absolute', bottom: 8, right: 8, background: bg, color: '#fff', borderRadius: 8, padding: '3px 10px', fontWeight: 800, fontSize: 14, boxShadow: `0 2px 8px ${bg}80`, display: 'flex', alignItems: 'center', gap: 4 }}>
-                                                <span style={{ fontSize: 11 }}>★</span>
-                                                {ratingText}
-                                            </div>
-                                        </div>
-
-                                        <div style={{ padding: '10px 14px 12px' }}>
-                                            {isSponsored && (
-                                                <div style={{ display: 'inline-flex', marginBottom: 6, padding: '2px 7px', borderRadius: 999, border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.12)', color: '#b45309', fontSize: 9, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                                                    Patrocinado
-                                                </div>
-                                            )}
-                                            <div style={{ fontWeight: 700, fontSize: 14, color: '#111827', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                {item.name}
-                                            </div>
-                                            {item.reviewsCount ? (
-                                                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
-                                                    {item.reviewsCount} {item.reviewsCount === 1 ? 'valoración' : 'valoraciones'}
-                                                </div>
-                                            ) : null}
-
-                                            {/* Sub Items List (List Mode) */}
-                                            {mode === 'list' && item.items && item.items.length > 0 && (
-                                                <div style={{ marginBottom: 10 }}>
-                                                    {item.items.slice(0, 3).map((subItem, idx) => {
-                                                        const { bg: subBg } = getRatingColor(subItem.score);
-                                                        return (
-                                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px', background: '#f9fafb', borderRadius: 6, marginBottom: 3, fontSize: 12, border: '1px solid #f3f4f6' }}>
-                                                                <span style={{ color: '#374151', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: 8 }}>{subItem.name}</span>
-                                                                <span style={{ fontWeight: 700, color: subBg }}>{subItem.score.toFixed(1)}</span>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    {item.items.length > 3 && (
-                                                        <div style={{ textAlign: 'center', fontSize: 10, color: '#9ca3af', marginTop: 2 }}>
-                                                            +{item.items.length - 3} más
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-
-                                            <Link
-                                                to={`/place/${item.placeId || item.id}`}
-                                                onClick={() => {
-                                                    if (!isJefe) campaignIds.forEach((campaignId) => {
-                                                        void Promise.all([
-                                                            recordSponsoredEvent('placement', campaignId, 'impression'),
-                                                            recordSponsoredEvent('placement', campaignId, 'click'),
-                                                        ]).catch(() => undefined);
-                                                    });
-                                                }}
-                                                style={{ display: 'block', width: '100%', padding: '8px 0', background: '#4f46e5', color: '#fff', textAlign: 'center', fontWeight: 700, fontSize: 13, borderRadius: 10, textDecoration: 'none', boxSizing: 'border-box' }}
-                                            >
-                                                Ver detalles
-                                            </Link>
-                                        </div>
-                                    </div>
-                                );
-                            })()}
+                            <MapPopupCard
+                                title={item.name}
+                                to={`/place/${item.placeId || item.id}`}
+                                photoUrl={item.photoUrl}
+                                score={item.rating}
+                                sponsored={isSponsored}
+                                subtitle={item.reviewsCount ? `${item.reviewsCount} ${item.reviewsCount === 1 ? 'valoración' : 'valoraciones'}` : null}
+                                onNavigate={() => {
+                                    if (!isJefe) campaignIds.forEach((campaignId) => {
+                                        void Promise.all([
+                                            recordSponsoredEvent('placement', campaignId, 'impression'),
+                                            recordSponsoredEvent('placement', campaignId, 'click'),
+                                        ]).catch(() => undefined);
+                                    });
+                                }}
+                            >
+                                {mode === 'list' && item.items && item.items.length > 0 && (
+                                    <ul className="mt-2 space-y-1">
+                                        {item.items.slice(0, 3).map((subItem, idx) => (
+                                            <li key={idx} className="flex items-center justify-between gap-2 rounded-lg bg-[var(--lt-card)] px-2 py-1 text-xs">
+                                                <span className="min-w-0 flex-1 truncate text-[var(--lt-text)]">{subItem.name}</span>
+                                                <span className="font-bold" style={{ color: scoreTextColor(subItem.score) }}>{formatScore(subItem.score)}</span>
+                                            </li>
+                                        ))}
+                                        {item.items.length > 3 && (
+                                            <li className="text-center text-[10px] text-[var(--lt-text-muted)]">+{item.items.length - 3} más</li>
+                                        )}
+                                    </ul>
+                                )}
+                            </MapPopupCard>
                         </Popup>
                     </Marker>
                     );

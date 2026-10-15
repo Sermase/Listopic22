@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useArchives, type SavedItemEntity } from '../hooks/useArchives';
 import { Folder, Check, Plus, X } from 'lucide-react';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { MarqueeText } from './ui/MarqueeText';
 import { useToast } from '../context/ToastContext';
 
 interface SaveToArchiveModalProps {
@@ -113,27 +114,57 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+        <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-end sm:items-center justify-center sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in" onClick={onClose}>
             <div
-                className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[80vh]"
+                role="dialog"
+                aria-modal="true"
+                aria-label="Guardar en una colección"
+                className="bg-[var(--lt-card-strong)] rounded-t-3xl sm:rounded-3xl w-full sm:max-w-sm border border-[var(--lt-border)] shadow-2xl overflow-hidden flex flex-col lt-mobile-modal-panel max-h-[85dvh] sm:max-h-[80vh]"
                 onClick={e => e.stopPropagation()}
             >
+                {/* Asa de la hoja (solo móvil) */}
+                <div className="sm:hidden flex justify-center pt-2.5">
+                    <span className="h-1 w-10 rounded-full bg-[var(--lt-border-strong)]" />
+                </div>
 
                 {/* Header */}
-                <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[var(--lt-bg)]/50">
-                    <h3 className="font-bold text-white flex items-center gap-2">
-                        <Folder className="w-5 h-5 text-[var(--lt-accent)]" />
-                        Guardar en...
-                    </h3>
-                    <button onClick={onClose} className="p-1 rounded-full hover:bg-white/10 transition-colors">
-                        <X className="w-5 h-5 text-gray-400" />
+                <div className="px-4 pt-3 pb-3 sm:pt-4 flex justify-between items-start gap-3 border-b border-[var(--lt-border)]">
+                    <div className="min-w-0">
+                        <h3 className="flex items-center gap-2 text-base font-display font-bold leading-tight text-[var(--lt-text)]">
+                            <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                <Folder className="w-3.5 h-3.5" />
+                            </span>
+                            Guardar en...
+                        </h3>
+                        {item.name && (
+                            <MarqueeText text={item.name} className="mt-0.5 block text-xs font-medium text-[var(--lt-text-muted)]" />
+                        )}
+                    </div>
+                    <button onClick={onClose} aria-label="Cerrar" className="p-1.5 -mr-1 rounded-full text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-[var(--lt-card)] transition-colors">
+                        <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 {/* List */}
                 <div className="flex-1 overflow-y-auto p-2 custom-scrollbar">
                     {loading ? (
-                        <div className="py-10 text-center text-gray-500">Cargando...</div>
+                        <div className="space-y-1.5 p-1" aria-label="Cargando colecciones">
+                            {[0, 1, 2].map(i => (
+                                <div key={i} className="flex items-center gap-3 p-2">
+                                    <div className="w-11 h-11 rounded-xl bg-[var(--lt-card)] animate-pulse" />
+                                    <div className="flex-1 space-y-1.5">
+                                        <div className="h-3 w-1/2 rounded bg-[var(--lt-card)] animate-pulse" />
+                                        <div className="h-2.5 w-1/4 rounded bg-[var(--lt-card)] animate-pulse" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : archives.length === 0 ? (
+                        <div className="py-8 px-4 text-center">
+                            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--lt-accent-soft)] text-2xl">📁</div>
+                            <p className="text-sm font-bold text-[var(--lt-text)]">Aún no tienes colecciones</p>
+                            <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Crea la primera aquí abajo.</p>
+                        </div>
                     ) : (
                         <div className="space-y-1">
                             {archives.map(arch => {
@@ -142,22 +173,29 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
                                     <button
                                         key={arch.id}
                                         onClick={() => handleToggle(arch.id)}
-                                        className={`w-full text-left p-3 rounded-xl flex items-center justify-between transition-all group ${isSelected ? 'bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)]' : 'hover:bg-white/5 border border-transparent'
-                                            }`}
+                                        aria-pressed={isSelected}
+                                        className={`w-full text-left p-2 pr-3 rounded-2xl flex items-center gap-3 transition-all border ${isSelected ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)]' : 'border-transparent hover:bg-[var(--lt-card)]'}`}
                                     >
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${isSelected ? 'bg-[var(--lt-accent)] text-white' : 'bg-gray-800 text-gray-500 group-hover:text-gray-300'
-                                                }`}>
-                                                <Folder className="w-5 h-5" />
-                                            </div>
-                                            <div>
-                                                <div className={`font-bold ${isSelected ? 'text-[var(--lt-accent)]' : 'text-gray-300'}`}>{arch.name}</div>
-                                                <div className="text-[10px] text-gray-500">
-                                                    {arch.itemCount !== undefined ? `${arch.itemCount} items` : 'Colección'}
-                                                </div>
+                                        <div
+                                            className="w-11 h-11 rounded-xl flex items-center justify-center text-xl shrink-0 shadow-sm"
+                                            style={{ backgroundColor: arch.color || 'var(--lt-card)' }}
+                                        >
+                                            {arch.emoji || <Folder className="w-5 h-5 text-[var(--lt-text-muted)]" />}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <MarqueeText
+                                                text={arch.name}
+                                                className={`block text-sm font-bold ${isSelected ? 'text-[var(--lt-accent)]' : 'text-[var(--lt-text)]'}`}
+                                            />
+                                            <div className="text-[11px] text-[var(--lt-text-muted)]">
+                                                {arch.itemCount !== undefined ? `${arch.itemCount} ${arch.itemCount === 1 ? 'elemento' : 'elementos'}` : 'Colección'}
                                             </div>
                                         </div>
-                                        {isSelected && <Check className="w-5 h-5 text-[var(--lt-accent)]" />}
+                                        <span
+                                            className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 border transition-colors ${isSelected ? 'bg-[var(--lt-accent)] border-transparent lt-on-accent' : 'border-[var(--lt-border-strong)]'}`}
+                                        >
+                                            {isSelected && <Check className="w-3.5 h-3.5" strokeWidth={3} />}
+                                        </span>
                                     </button>
                                 );
                             })}
@@ -166,22 +204,23 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
                 </div>
 
                 {/* Create New */}
-                <div className="p-4 border-t border-white/5 bg-[var(--lt-bg)]/30">
-                    <div className="flex gap-2 mb-4">
+                <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4 border-t border-[var(--lt-border)] bg-[var(--lt-bg)]/40">
+                    <div className="flex gap-2 mb-3">
                         <input
                             type="text"
                             placeholder="Nueva colección..."
                             value={newArchiveName}
                             onChange={(e) => setNewArchiveName(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors placeholder-gray-600"
+                            className="min-w-0 flex-1 bg-[var(--lt-card)] border border-[var(--lt-border)] rounded-xl px-3 py-2.5 text-sm text-[var(--lt-text)] placeholder:text-[var(--lt-text-muted)] focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors"
                         />
                         <button
                             onClick={handleCreate}
                             disabled={!newArchiveName.trim() || isCreating}
-                            className="bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-white p-2 rounded-lg transition-colors"
+                            aria-label="Crear colección"
+                            className="shrink-0 w-11 flex items-center justify-center rounded-xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] hover:opacity-80 disabled:opacity-40 transition-opacity"
                         >
-                            {isCreating ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus className="w-5 h-5" />}
+                            {isCreating ? <div className="w-5 h-5 border-2 border-[var(--lt-accent-border)] border-t-[var(--lt-accent)] rounded-full animate-spin" /> : <Plus className="w-5 h-5" />}
                         </button>
                     </div>
 
@@ -189,7 +228,8 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
                     <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="w-full py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-50 disabled:cursor-wait text-white font-bold rounded-xl transition-colors shadow-lg shadow-[var(--lt-accent-shadow)]"
+                        className="w-full py-3 disabled:opacity-50 disabled:cursor-wait lt-on-accent font-bold rounded-2xl transition-opacity hover:opacity-90 shadow-lg shadow-[var(--lt-accent-shadow)]"
+                        style={{ background: 'var(--lt-accent-grad)' }}
                     >
                         {saving ? 'Guardando...' : 'Hecho'}
                     </button>

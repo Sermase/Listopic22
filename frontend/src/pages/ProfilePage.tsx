@@ -82,6 +82,7 @@ import {
 } from "../services/UserProfileService";
 import { FollowersSection } from "../components/profile/FollowersSection";
 import ProfileStatsTab from "../components/profile/ProfileStatsTab";
+import { SignInToSee } from "../components/profile/SignInToSee";
 import { ProfileStatCard } from "../components/ProfileStatCard";
 import { ReviewGalleryGrid } from "../components/ReviewGalleryGrid";
 import {
@@ -374,6 +375,13 @@ export const ProfilePage: React.FC = () => {
   const openDetailsModal = (tab: DetailsModalTab) => {
     setDetailsModalTab(tab);
     setIsDetailsModalOpen(true);
+  };
+
+  // Seguidores, seguidos y Listas seguidas solo se leen con sesión (reglas):
+  // se cierra el detalle para que el aviso de acceso quede delante.
+  const promptSignInFromDetails = (action: string) => {
+    setIsDetailsModalOpen(false);
+    openAuthPrompt(action);
   };
 
   // Determine target user ID
@@ -3451,7 +3459,7 @@ export const ProfilePage: React.FC = () => {
                               : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
                               }`}
                           >
-                            Listas seguidas ({mainFollowedLists.length})
+                            Listas seguidas{user ? ` (${mainFollowedLists.length})` : ""}
                           </button>
                           <button
                             type="button"
@@ -3461,7 +3469,7 @@ export const ProfilePage: React.FC = () => {
                               : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
                               }`}
                           >
-                            Minilistas seguidas ({subFollowedLists.length})
+                            Minilistas seguidas{user ? ` (${subFollowedLists.length})` : ""}
                           </button>
                           <button
                             type="button"
@@ -3475,14 +3483,21 @@ export const ProfilePage: React.FC = () => {
                           </button>
                         </div>
 
-                        {listSubTab === "followed_lists" &&
+                        {!user && listSubTab !== "created_sublists" && (
+                          <SignInToSee
+                            what="las Listas que sigue"
+                            onSignIn={() => promptSignInFromDetails("ver las Listas que sigue")}
+                          />
+                        )}
+
+                        {user && listSubTab === "followed_lists" &&
                           renderMinimalListRows(
                             mainFollowedLists,
                             "No sigues listas principales.",
                             false,
                           )}
 
-                        {listSubTab === "followed_sublists" &&
+                        {user && listSubTab === "followed_sublists" &&
                           renderMinimalListRows(
                             subFollowedLists,
                             "No sigues minilistas.",
@@ -3500,7 +3515,14 @@ export const ProfilePage: React.FC = () => {
                   </>
                 )}
 
-                {detailsModalTab === "following" && (
+                {detailsModalTab === "following" && !user && (
+                  <SignInToSee
+                    what="a quién sigue"
+                    onSignIn={() => promptSignInFromDetails("ver a quién sigue")}
+                  />
+                )}
+
+                {detailsModalTab === "following" && user && (
                   <FollowingSection
                     targetUserId={targetUserId}
                     onNavigateToProfile={() => {
@@ -3510,7 +3532,14 @@ export const ProfilePage: React.FC = () => {
                   />
                 )}
 
-                {detailsModalTab === "followers" && (
+                {detailsModalTab === "followers" && !user && (
+                  <SignInToSee
+                    what="sus seguidores"
+                    onSignIn={() => promptSignInFromDetails("ver sus seguidores")}
+                  />
+                )}
+
+                {detailsModalTab === "followers" && user && (
                   <FollowersSection
                     targetUserId={targetUserId}
                     onNavigateToProfile={() => {

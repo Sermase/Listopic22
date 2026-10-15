@@ -25,6 +25,7 @@ import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { compareCriteria } from '../lib/criteria';
 import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
+import { MarqueeText } from './ui/MarqueeText';
 
 interface ReviewCardProps {
     review: ReviewEntity;
@@ -282,11 +283,11 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
             <article
                 onClick={handleCardClick}
                 style={{ willChange: 'transform' }} // Optimize for GPU
-                className="glass-card sm:rounded-3xl cursor-pointer group relative -mx-4 sm:mx-0 w-[calc(100%+2rem)] sm:w-full flex-col flex"
+                className="cursor-pointer group relative flex w-full flex-col overflow-hidden rounded-3xl border border-[var(--lt-border)] bg-[var(--lt-card)] shadow-lg transition-colors duration-300 hover:border-[var(--lt-accent-border)]"
             >
                 {/* 1. Header: User, Context, Menu */}
                 {/* ... (Header code unchanged) ... */}
-                <div className="px-4 py-3 flex items-center justify-center">
+                <div className="px-3.5 pt-3.5 pb-3 flex items-center justify-center">
                     <div className="flex items-center gap-3 w-full">
                         {/* Living Avatar Ring */}
                         <Link
@@ -303,35 +304,35 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         </Link>
 
                         <div className="flex flex-col leading-tight z-10 min-w-0 flex-1">
-                            <div className="flex items-start justify-between w-full">
-                                <div className="flex flex-col">
+                            <div className="flex items-center justify-between gap-2 w-full min-w-0">
+                                <div className="flex min-w-0 flex-1 flex-col">
                                     <Link
                                         to={review.userId ? `/profile/${review.userId}` : '#'}
                                         onClick={(e) => e.stopPropagation()}
-                                        className="font-bold text-sm text-gray-100 hover:underline cursor-pointer truncate"
+                                        className="min-w-0 font-bold text-sm text-[var(--lt-text)] hover:text-[var(--lt-accent)] transition-colors cursor-pointer"
                                     >
-                                        {review.authorName || 'Anónimo'}
+                                        <MarqueeText text={review.authorName || 'Anónimo'} />
                                     </Link>
                                     {(review.listName || review.placeName) && (
-                                        <span className="text-sm text-gray-400 truncate w-full">
+                                        <span className="text-xs text-[var(--lt-text-muted)] truncate w-full">
                                             en <Link
                                                 to={review.listId ? `/list/${review.listId}` : '#'}
                                                 onClick={(e) => e.stopPropagation()}
-                                                className="font-semibold text-gray-200 hover:text-[var(--lt-accent)] transition-colors"
+                                                className="font-semibold text-[var(--lt-text)] hover:text-[var(--lt-accent)] transition-colors"
                                             >
                                                 {review.listName || review.placeName}
                                             </Link>
                                         </span>
                                     )}
                                 </div>
-                                <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                                <span className="shrink-0 text-[11px] text-[var(--lt-text-muted)] whitespace-nowrap">
                                     {(() => {
                                         const date = review.createdAt;
                                         let dateObj: Date | null = null;
                                         if (date && typeof date.toDate === 'function') dateObj = date.toDate();
                                         else if (date instanceof Date) dateObj = date;
                                         else if (typeof date === 'string' || typeof date === 'number') dateObj = new Date(date);
-                                        return dateObj ? formatDistanceToNow(dateObj, { locale: es }) : 'Reciente';
+                                        return dateObj ? `hace ${formatDistanceToNow(dateObj, { locale: es })}` : 'Reciente';
                                     })()}
                                 </span>
                             </div>
@@ -360,51 +361,51 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 />
 
                 {/* 3. Content Body */}
-                <div className="p-4 pt-3 space-y-3 flex-1">
+                <div className="px-4 pt-3.5 pb-4 space-y-3 flex-1">
                     {/* Title & Item */}
                     <div>
                         {review.placeName && (
-                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <div className="flex items-center gap-2 min-w-0 mb-0.5">
                                 <Link
                                     to={`/place/${review.placeId}`}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="font-display font-bold text-lg sm:text-xl text-gray-100 hover:text-[var(--lt-accent)] transition-colors leading-tight"
+                                    className="min-w-0 font-display font-bold text-lg sm:text-xl text-[var(--lt-text)] hover:text-[var(--lt-accent)] transition-colors leading-tight"
                                 >
-                                    {review.placeName}
+                                    <MarqueeText text={review.placeName} />
                                 </Link>
                                 {placeClosedStatus && (
                                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${placeClosedStatus === 'permanently_closed'
-                                        ? 'bg-red-500/15 border-red-500/30 text-red-400'
-                                        : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                                        ? 'bg-[var(--lt-danger-soft)] border-[var(--lt-danger)]/30 text-[var(--lt-danger)]'
+                                        : 'bg-[var(--lt-warning-soft)] border-[var(--lt-warning)]/30 text-[var(--lt-warning)]'
                                         }`}>
                                         {placeClosedStatus === 'permanently_closed' ? '🔒 Cerrado' : '⏰ Cerrado temp.'}
                                     </span>
                                 )}
                             </div>
                         )}
-                        <h3 className="text-sm font-medium text-[var(--lt-accent)] group-hover:text-[var(--lt-accent)] transition-colors">
-                            {review.itemName}
+                        <h3 className="text-sm font-semibold text-[var(--lt-accent)]">
+                            <MarqueeText text={review.itemName || ''} />
                         </h3>
                     </div>
 
                     {/* Criteria Bars (Grouped) */}
                     {(ponderable.length > 0 || nonPonderable.length > 0) && (
-                        <div className="py-2 space-y-3">
+                        <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] p-3 space-y-3">
 
                             {/* Ponderable (Standard) - Grid */}
                             {ponderable.length > 0 && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
                                     {ponderable.map((crit, idx) => {
 
                                         return (
-                                            <div key={idx} className="flex flex-col">
-                                                <div className="flex justify-between items-end text-xs mb-1">
-                                                    <span className="text-gray-400 font-medium truncate opacity-90">{crit.label}</span>
-                                                    <span className="font-mono font-bold" style={{ color: scoreTextColor(crit.score) }}>
+                                            <div key={idx} className="flex min-w-0 flex-col">
+                                                <div className="flex justify-between items-end gap-1.5 text-[11px] mb-1">
+                                                    <span className="text-[var(--lt-text-muted)] font-medium truncate">{crit.label}</span>
+                                                    <span className="font-display font-bold" style={{ color: scoreTextColor(crit.score) }}>
                                                         {crit.score.toFixed(1)}
                                                     </span>
                                                 </div>
-                                                <div className="h-1.5 bg-[var(--lt-border)] rounded-full overflow-hidden">
+                                                <div className="h-1 bg-[var(--lt-border)] rounded-full overflow-hidden">
                                                     <div
                                                         className="h-full rounded-full"
                                                         style={{ width: `${crit.score * 10}%`, backgroundColor: scoreBadge(crit.score).bg }}
@@ -418,7 +419,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
                             {/* Non-Ponderable (Extras) - Gauges Grid */}
                             {nonPonderable.length > 0 && (
-                                <div className="pt-2 border-t border-white/5">
+                                <div className="pt-2 border-t border-[var(--lt-border)]">
                                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                                         {nonPonderable.map((crit, idx) => (
                                             <NonPonderableGauge key={idx} score={crit.score} label={crit.label} size={60} />
@@ -431,8 +432,8 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
                     {/* Review Text */}
                     {review.comment && (
-                        <div className="pl-3 border-l-2 border-white/10 mt-2">
-                            <p className="text-gray-300 text-sm leading-relaxed italic line-clamp-3">
+                        <div className="pl-3 border-l-2 border-[var(--lt-accent-border)]">
+                            <p className="text-[var(--lt-text)] text-sm leading-relaxed italic line-clamp-3">
                                 "{review.comment}"
                             </p>
                         </div>
@@ -440,9 +441,9 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
                     {/* Tags */}
                     {(review.tags && review.tags.length > 0) || (review.userTags && review.userTags.length > 0) ? (
-                        <div className="flex flex-wrap gap-2 mt-3">
+                        <div className="flex flex-wrap gap-1.5">
                             {[...(review.tags || []), ...(review.userTags || [])].filter((t, i, a) => a.indexOf(t) === i).map((tag, i) => (
-                                <span key={i} className="text-[10px] sm:text-xs font-bold text-[var(--lt-accent)] bg-[var(--lt-accent-soft)] px-2.5 py-1 rounded-lg border border-[var(--lt-accent-border)]">
+                                <span key={i} className="text-[10px] sm:text-xs font-bold text-[var(--lt-accent)] bg-[var(--lt-accent-soft)] px-2.5 py-1 rounded-full border border-[var(--lt-accent-border)]">
                                     #{tag}
                                 </span>
                             ))}
@@ -451,10 +452,10 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 </div>
 
                 {/* 4. Footer: Interactive Bar */}
-                <div className="px-4 py-3 border-t border-white/5 bg-white/[0.02] flex items-center justify-between mt-auto relative z-10">
+                <div className="px-4 py-2.5 border-t border-[var(--lt-border)] flex items-center justify-between mt-auto relative z-10">
                     <div className="flex items-center gap-4">
                         <button
-                            className={`flex items-center gap-1.5 transition-all group/btn ${liked ? 'text-pink-500 scale-105' : 'text-gray-400 hover:text-pink-500'} relative`}
+                            className={`flex items-center gap-1.5 transition-all group/btn ${liked ? 'text-pink-500 scale-105' : 'text-[var(--lt-text-muted)] hover:text-pink-500'} relative`}
                             onClick={handleLike}
                         >
                             <ThumbsUp className={`w-5 h-5 group-hover/btn:scale-110 transition-transform stroke-[1.5] ${liked ? 'fill-current' : ''}`} />
@@ -472,7 +473,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             )}
                         </button>
                         <button
-                            className={`flex items-center gap-1.5 transition-colors group/btn ${showComments ? 'text-[var(--lt-accent)]' : 'text-gray-400 hover:text-[var(--lt-accent)]'}`}
+                            className={`flex items-center gap-1.5 transition-colors group/btn ${showComments ? 'text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)]'}`}
                             onClick={handleCommentToggle}
                         >
                             <MessageCircle className="w-5 h-5 group-hover/btn:scale-110 transition-transform stroke-[1.5]" />
@@ -483,14 +484,14 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     <div className="flex items-center gap-3">
                         <button
                             aria-label="Guardar en una colección"
-                            className="text-gray-500 hover:text-[var(--lt-accent)] transition-colors p-1"
+                            className="text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)] transition-colors p-1"
                             onClick={handleSaveClick}
                         >
                             <Bookmark className="w-5 h-5 stroke-[1.5]" />
                         </button>
                         <button
                             aria-label="Compartir valoración"
-                            className="text-gray-500 hover:text-white transition-colors p-1"
+                            className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors p-1"
                             onClick={handleShareClick}
                         >
                             <Share2 className="w-5 h-5 stroke-[1.5]" />
@@ -500,7 +501,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
                 {/* Inline Comments Section */}
                 {showComments && review.listId && review.id && (
-                    <div className="border-t border-white/10 bg-[var(--lt-bg)]/50 p-4" onClick={e => e.stopPropagation()}>
+                    <div className="border-t border-[var(--lt-border)] bg-[var(--lt-bg)]/50 p-4" onClick={e => e.stopPropagation()}>
                         <ReviewComments
                             listId={review.listId}
                             reviewId={review.id}

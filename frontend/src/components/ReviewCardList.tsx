@@ -23,6 +23,8 @@ import { CategoryService } from '../services/CategoryService';
 import { useAuthPrompt } from '../context/AuthPromptContext';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { scoreBadgeStyle, scoreTextColor } from '../lib/scoreScale';
+import { MarqueeText } from './ui/MarqueeText';
 
 interface ReviewCardListProps {
     review: ReviewEntity;
@@ -33,13 +35,6 @@ interface ReviewCardListProps {
     /** Cuando la lista ya muestra el contexto del lugar (PlacePage), oculta nombre del lugar */
     hidePlaceName?: boolean;
 }
-
-const getScoreTone = (score: number) => {
-    if (score >= 9) return { bg: 'bg-emerald-500', ring: 'ring-emerald-500/30' };
-    if (score >= 7) return { bg: 'bg-[var(--lt-accent)]', ring: 'ring-[var(--lt-accent-shadow)]' };
-    if (score >= 5) return { bg: 'bg-amber-500', ring: 'ring-amber-500/30' };
-    return { bg: 'bg-rose-500', ring: 'ring-rose-500/30' };
-};
 
 const formatScore = (score: number | undefined) => {
     if (score === undefined || score === null) return '-';
@@ -235,8 +230,6 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
         return dateObj ? formatDistanceToNow(dateObj, { locale: es, addSuffix: false }) : 'Reciente';
     })();
 
-    const tone = getScoreTone(review.overallRating || 0);
-
     const reviewRoute = review.placeId && review.itemName
         ? `/group/${review.placeId}/${encodeURIComponent(review.itemName)}`
         : '/';
@@ -246,10 +239,10 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
         <>
             <article
                 onClick={handleCardClick}
-                className="group rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)] p-4 cursor-pointer transition-colors hover:border-[var(--lt-border-strong)]"
+                className="group rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-3.5 sm:p-4 cursor-pointer transition-colors hover:border-[var(--lt-accent-border)]"
             >
                 {/* Header: avatar + nombre + contexto + fecha + menú */}
-                <div className="flex items-start gap-3">
+                <div className="flex items-center gap-3">
                     <Link
                         to={review.userId ? `/profile/${review.userId}` : '#'}
                         onClick={(e) => e.stopPropagation()}
@@ -263,26 +256,25 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                         />
                     </Link>
                     <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex min-w-0 items-center gap-1.5">
                             <Link
                                 to={review.userId ? `/profile/${review.userId}` : '#'}
                                 onClick={(e) => e.stopPropagation()}
-                                className="text-sm font-bold text-[var(--lt-text)] hover:underline truncate"
+                                className="min-w-0 text-sm font-bold text-[var(--lt-text)] hover:text-[var(--lt-accent)] transition-colors"
                             >
-                                {review.authorName || 'Anónimo'}
+                                <MarqueeText text={review.authorName || 'Anónimo'} />
                             </Link>
-                            <span className="text-xs text-[var(--lt-text-muted)]">·</span>
-                            <span className="text-xs text-[var(--lt-text-muted)]">hace {formattedDate}</span>
+                            <span className="shrink-0 text-[11px] text-[var(--lt-text-muted)]">· hace {formattedDate}</span>
                             {placeClosedStatus && (
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${placeClosedStatus === 'permanently_closed'
-                                    ? 'bg-red-500/15 border-red-500/30 text-red-400'
-                                    : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
+                                <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${placeClosedStatus === 'permanently_closed'
+                                    ? 'bg-[var(--lt-danger-soft)] border-[var(--lt-danger)]/30 text-[var(--lt-danger)]'
+                                    : 'bg-[var(--lt-warning-soft)] border-[var(--lt-warning)]/30 text-[var(--lt-warning)]'
                                     }`}>
                                     {placeClosedStatus === 'permanently_closed' ? 'Cerrado' : 'Cerrado temp.'}
                                 </span>
                             )}
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs text-[var(--lt-text-muted)] truncate">
+                        <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-[var(--lt-text-muted)] truncate">
                             {/* «Patatas bravas · Patatas bravas»: si el elemento se llama como la Lista, una vez (con el enlace a la Lista). */}
                             {!listNameRepeatsItem && <span className="font-semibold text-[var(--lt-text)] truncate">{review.itemName}</span>}
                             {!hidePlaceName && review.placeName && (
@@ -311,6 +303,15 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                             )}
                         </div>
                     </div>
+                    {review.overallRating !== undefined && (
+                        <span
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 font-display text-sm font-bold shadow-lg"
+                            style={scoreBadgeStyle(review.overallRating)}
+                            aria-label={`Nota ${formatScore(review.overallRating)}`}
+                        >
+                            {formatScore(review.overallRating)}
+                        </span>
+                    )}
                     <ReviewCardMenu
                         isOwner={!!isOwner}
                         onShare={handleShareClick}
@@ -328,7 +329,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                             <button
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setLightboxIndex(0); }}
-                                className="relative shrink-0 w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-[var(--lt-border)] bg-[var(--lt-card)]"
+                                className="relative shrink-0 w-[4.5rem] h-[4.5rem] sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-[var(--lt-border)] bg-[var(--lt-card-strong)]"
                             >
                                 <ProgressiveImage
                                     src={firstPhoto}
@@ -337,7 +338,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                                     className="w-full h-full object-cover"
                                 />
                                 {extraPhotos > 0 && (
-                                    <span className="absolute bottom-1 right-1 rounded-md bg-black/65 text-white text-[10px] font-black px-1.5 py-0.5">
+                                    <span className="absolute bottom-1 right-1 rounded-md bg-black/65 text-[#fff] text-[10px] font-black px-1.5 py-0.5">
                                         +{extraPhotos}
                                     </span>
                                 )}
@@ -352,30 +353,25 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                 )}
 
                 {/* Notas: global + criterios resumidos */}
-                {(review.overallRating !== undefined || topCriteria.length > 0) && (
-                    <div className="mt-3 flex items-center gap-2 flex-wrap">
-                        {review.overallRating !== undefined && (
-                            <span className={`inline-flex items-center justify-center min-w-[2.25rem] h-8 px-2 rounded-lg text-white text-sm font-black ${tone.bg} ring-2 ${tone.ring}`}>
-                                {formatScore(review.overallRating)}
-                            </span>
-                        )}
+                {(topCriteria.length > 0 || review.tags?.length || review.userTags?.length) ? (
+                    <div className="mt-3 flex items-center gap-1.5 flex-wrap">
                         {topCriteria.map((crit) => (
                             <span
                                 key={crit.key}
-                                className="inline-flex items-center gap-1 rounded-md border border-[var(--lt-border)] bg-[var(--lt-card)] px-2 py-1 text-[11px] font-bold text-[var(--lt-text-muted)]"
+                                className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] px-2.5 py-1 text-[11px] font-semibold text-[var(--lt-text-muted)]"
                             >
                                 <span className="truncate max-w-[7rem]">{crit.label}</span>
-                                <span className="text-[var(--lt-text)]">{formatScore(crit.score)}</span>
+                                <span className="font-bold" style={{ color: scoreTextColor(crit.score) }}>{formatScore(crit.score)}</span>
                             </span>
                         ))}
                         {(review.tags?.length || review.userTags?.length) ? (
-                            <span className="inline-flex items-center text-[10px] text-[var(--lt-text-muted)]">
+                            <span className="inline-flex items-center rounded-full bg-[var(--lt-accent-soft)] px-2 py-1 text-[10px] font-bold text-[var(--lt-accent)]">
                                 #{[...(review.tags || []), ...(review.userTags || [])][0]}
                                 {([...(review.tags || []), ...(review.userTags || [])].length > 1) ? ` +${[...(review.tags || []), ...(review.userTags || [])].length - 1}` : ''}
                             </span>
                         ) : null}
                     </div>
-                )}
+                ) : null}
 
                 {/* Footer: acciones */}
                 <div className="mt-3 pt-3 border-t border-[var(--lt-border)] flex items-center justify-between">

@@ -3,7 +3,8 @@ import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { collection, collectionGroup, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, Flag, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, Star } from 'lucide-react';
+import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, Flag, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronRight, Star, BarChart3 } from 'lucide-react';
+import { MarqueeText } from '../components/ui/MarqueeText';
 import { scoreBadgeStyle } from '../lib/scoreScale';
 import { Lightbox } from '../components/Lightbox';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -588,18 +589,18 @@ export const GroupPage: React.FC = () => {
     if (loading) {
         return (
             <div className="min-h-screen bg-[var(--lt-bg)] animate-pulse">
-                <div className="h-[40vh] min-h-[300px] bg-white/5 animate-hero-from-left" />
+                <div className="h-[40vh] min-h-[300px] bg-[var(--lt-card)] animate-hero-from-left" />
                 <div className="max-w-7xl mx-auto px-4 sm:px-8 -mt-16 relative z-10">
-                    <div className="h-10 bg-white/10 rounded w-2/3 mb-3" />
-                    <div className="h-5 bg-white/5 rounded w-1/3 mb-8" />
-                    <div className="flex gap-4 mb-8">
-                        <div className="h-16 w-24 bg-white/10 rounded-xl" />
-                        <div className="h-16 w-24 bg-white/10 rounded-xl" />
-                        <div className="h-16 w-24 bg-white/10 rounded-xl" />
+                    <div className="h-10 bg-[var(--lt-card-strong)] rounded-xl w-2/3 mb-3" />
+                    <div className="h-5 bg-[var(--lt-card)] rounded-lg w-1/3 mb-8" />
+                    <div className="flex gap-3 mb-8">
+                        <div className="h-16 flex-1 bg-[var(--lt-card-strong)] rounded-2xl" />
+                        <div className="h-16 flex-1 bg-[var(--lt-card-strong)] rounded-2xl" />
+                        <div className="h-16 flex-1 bg-[var(--lt-card-strong)] rounded-2xl" />
                     </div>
-                    <div className="grid grid-cols-3 gap-1">
-                        {[1, 2, 3, 4, 5, 6].map(i => (
-                            <div key={i} className="aspect-square bg-white/5 rounded-lg" />
+                    <div className="space-y-3">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="h-28 bg-[var(--lt-card)] border border-[var(--lt-border)] rounded-2xl" />
                         ))}
                     </div>
                 </div>
@@ -611,12 +612,14 @@ export const GroupPage: React.FC = () => {
     if (placeMissing && reviews.length === 0) {
         return (
             <div className="min-h-screen pt-safe-32 px-4 text-center bg-[var(--lt-bg)]">
-                <MapPin className="w-16 h-16 text-[var(--lt-text-muted)] opacity-40 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-[var(--lt-text)] mb-2">Elemento no encontrado</h2>
+                <span className="w-16 h-16 rounded-2xl bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] flex items-center justify-center mx-auto mb-4">
+                    <MapPin className="w-8 h-8 text-[var(--lt-accent)]" />
+                </span>
+                <h2 className="text-xl md:text-2xl font-display font-bold text-[var(--lt-text)] mb-2">Elemento no encontrado</h2>
                 <p className="text-[var(--lt-text-muted)] mb-6 max-w-sm mx-auto text-sm">
                     Este enlace no lleva a ningún sitio de Listopic. Puede que lo hayan borrado o que el enlace esté incompleto.
                 </p>
-                <Link to="/search" className="inline-flex px-5 py-2 rounded-lg bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-text)] font-bold">
+                <Link to="/search" className="inline-flex px-5 py-2.5 rounded-xl text-sm font-bold lt-on-accent shadow-lg shadow-[var(--lt-accent-shadow)] hover:opacity-90 transition-opacity" style={{ backgroundImage: 'var(--lt-accent-grad)' }}>
                     Volver a buscar
                 </Link>
             </div>
@@ -653,7 +656,7 @@ export const GroupPage: React.FC = () => {
     const groupShareUrl = buildPublicRouteUrl(groupRoute);
 
     return (
-        <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
+        <div className="min-h-screen bg-[var(--lt-bg)] pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-20">
             {/* Hero */}
             <EntityHero
                 imageUrl={stats?.mainPhoto}
@@ -667,21 +670,25 @@ export const GroupPage: React.FC = () => {
                         <div className="lt-entity-hero-title flex-1">
                             <h1 className="text-3xl sm:text-4xl md:text-6xl font-display font-bold text-[var(--lt-hero-title)] mb-2 leading-tight line-clamp-2">{decodedName}</h1>
                             {placeClosedStatus && (
-                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold mb-2 border ${placeClosedStatus === 'permanently_closed'
-                                    ? 'bg-red-500/20 border-red-500/40 text-red-300'
-                                    : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                                <div className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold mb-2 mr-2 border backdrop-blur-md ${placeClosedStatus === 'permanently_closed'
+                                    ? 'bg-[var(--lt-danger-soft)] border-[var(--lt-danger)]/40 text-[var(--lt-danger)]'
+                                    : 'bg-[var(--lt-warning-soft)] border-[var(--lt-warning)]/40 text-[var(--lt-warning)]'
                                     }`}>
                                     ⚠ {placeClosedStatus === 'permanently_closed' ? 'Cerrado permanentemente' : 'Cerrado temporalmente'}
                                 </div>
                             )}
                             {unavailableItems.includes(decodedName) && (
-                                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold mb-2 border bg-gray-500/20 border-gray-500/40 text-gray-300 ml-2">
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold mb-2 border backdrop-blur-md bg-[var(--lt-glass)] border-[var(--lt-border-strong)] text-[var(--lt-text-muted)]">
                                     ✕ No disponible actualmente
                                 </div>
                             )}
-                            <Link to={`/place/${placeId}`} className="text-lg md:text-xl text-[var(--lt-accent)] hover:text-white flex items-center gap-2 font-medium transition-colors">
-                                <MapPin className="w-5 h-5 opacity-70 shrink-0" />
-                                <span className="underline decoration-indigo-500/30 underline-offset-4">{placeName || 'Lugar Desconocido'}</span>
+                            <Link to={`/place/${placeId}`} className="group/place inline-flex max-w-full items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1 bg-[var(--lt-glass)] border border-[var(--lt-border-strong)] backdrop-blur-md text-sm md:text-base text-[var(--lt-text)] font-semibold hover:border-[var(--lt-accent-border)] transition-colors">
+                                <span className="w-6 h-6 rounded-full bg-[var(--lt-accent-soft)] flex items-center justify-center shrink-0">
+                                    <MapPin className="w-3.5 h-3.5 text-[var(--lt-accent)]" />
+                                </span>
+                                <MarqueeText text={placeName || 'Lugar Desconocido'} className="min-w-0" />
+                                {placeCity && <span className="hidden sm:inline shrink-0 text-xs font-medium text-[var(--lt-text-muted)]">· {placeCity}</span>}
+                                <ChevronRight className="w-4 h-4 shrink-0 text-[var(--lt-text-muted)] group-hover/place:text-[var(--lt-accent)] transition-colors" />
                             </Link>
                         </div>
 
@@ -703,7 +710,8 @@ export const GroupPage: React.FC = () => {
                                     </span>
                                     <button
                                         onClick={openAddReviewFlow}
-                                        className="ml-auto shrink-0 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all md:ml-2"
+                                        className="ml-auto shrink-0 px-4 py-2 lt-on-accent text-sm font-bold rounded-xl shadow-lg shadow-[var(--lt-accent-shadow)] flex items-center gap-2 hover:opacity-90 active:scale-95 transition-all md:ml-2"
+                                        style={{ backgroundImage: 'var(--lt-accent-grad)' }}
                                     >
                                         <Plus className="w-4 h-4" />
                                         <span>Valorar</span>
@@ -724,7 +732,7 @@ export const GroupPage: React.FC = () => {
             </EntityHero>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 relative z-20 -mt-8 sm:-mt-12 flex flex-col lg:grid lg:grid-cols-12 gap-8">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 relative z-20 -mt-8 sm:-mt-12 flex flex-col lg:grid lg:grid-cols-12 gap-6 lg:gap-8">
 
                 <div className="order-1 lg:col-span-4 lg:order-last space-y-4 sm:space-y-6">
 
@@ -739,36 +747,47 @@ export const GroupPage: React.FC = () => {
                     )}
 
                     {/* Acciones (compactas, como en la ficha del sitio) */}
-                    <div className="glass-card p-3 rounded-2xl grid grid-cols-3 gap-2 sm:gap-3 shadow-lg">
+                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
                         <button
                             onClick={openSaveModal}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all"
                         >
                             <Bookmark className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
                             <span className="max-w-full truncate text-[11px] font-bold leading-tight">Guardar</span>
                         </button>
                         <button
                             onClick={() => setIsShareModalOpen(true)}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all"
                         >
                             <Share2 className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
                             <span className="max-w-full truncate text-[11px] font-bold leading-tight">Compartir</span>
                         </button>
                         <button
                             onClick={openReportModal}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-red-500/10 hover:text-red-500 transition-all"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:bg-[var(--lt-danger-soft)] hover:text-[var(--lt-danger)] transition-all"
                         >
-                            <Flag className="w-5 h-5 mb-1 text-red-500/60" />
+                            <Flag className="w-5 h-5 mb-1 text-[var(--lt-danger)] opacity-70" />
                             <span className="max-w-full truncate text-[11px] font-bold leading-tight">Reportar</span>
                         </button>
                     </div>
 
                     {/* 1. Detailed Stats (Refactored) */}
                     {stats && (stats.ponderable.length > 0 || stats.nonPonderable.length > 0) && (
-                        <div className="bg-[var(--lt-card-strong)] rounded-xl border border-white/10 p-5">
-                            <h3 className="font-bold text-white border-b border-white/5 pb-2 text-sm uppercase tracking-wider mb-4 flex justify-between items-center">
-                                <span>Puntuaciones</span>
-                            </h3>
+                        <section className="bg-[var(--lt-card-strong)] rounded-2xl border border-[var(--lt-border)] p-4 sm:p-5">
+                            <div className="mb-4">
+                                <h3 className="flex items-center gap-2 text-base md:text-lg font-display font-bold leading-tight text-[var(--lt-text)]">
+                                    <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                        <BarChart3 className="w-3.5 h-3.5" />
+                                    </span>
+                                    Puntuaciones
+                                </h3>
+                                {listStats && primaryListName && (
+                                    <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-[var(--lt-text-muted)]">
+                                        <span className="inline-block w-1 h-3 rounded-full bg-[var(--lt-text-muted)] opacity-60 shrink-0" aria-hidden />
+                                        <span className="truncate">La marca es la media de «{primaryListName}»</span>
+                                    </p>
+                                )}
+                            </div>
 
                             {/* Ponderable (Charts) */}
                             <div className="space-y-4">
@@ -777,21 +796,21 @@ export const GroupPage: React.FC = () => {
                                     return (
                                         <div key={c.key}>
                                             <div className="flex justify-between items-end mb-1">
-                                                <span className="text-gray-400 text-xs font-medium">{c.label}</span>
+                                                <span className="text-[var(--lt-text-muted)] text-xs font-semibold">{c.label}</span>
                                                 <div className="flex items-center gap-2">
                                                     {listAvg && (
                                                         <span className="text-[10px] text-[var(--lt-text-muted)]" title="Media de este criterio en toda la lista">
                                                             media lista {listAvg.toFixed(1)}
                                                         </span>
                                                     )}
-                                                    <span className="font-bold font-mono text-sm" style={{ color: scoreTextColor(c.avg) }}>{c.avg.toFixed(1)}</span>
+                                                    <span className="font-bold tabular-nums text-sm" style={{ color: scoreTextColor(c.avg) }}>{c.avg.toFixed(1)}</span>
                                                 </div>
                                             </div>
                                             <div className="h-2 bg-[var(--lt-border)] rounded-full overflow-hidden relative">
                                                 {/* List Avg Marker */}
                                                 {listAvg && (
                                                     <div
-                                                        className="absolute top-0 bottom-0 w-1 bg-white/40 z-10 shadow-[0_0_4px_rgba(255,255,255,0.5)]"
+                                                        className="absolute top-0 bottom-0 w-1 rounded-full bg-[var(--lt-text-muted)] opacity-70 z-10"
                                                         style={{ left: `${Math.min(listAvg * 10, 100)}%` }}
                                                     />
                                                 )}
@@ -807,8 +826,8 @@ export const GroupPage: React.FC = () => {
 
                             {/* Non-Ponderable (Gauges) */}
                             {stats.nonPonderable.length > 0 && (
-                                <div className="mt-6 pt-4 border-t border-white/5">
-                                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Otros Detalles</h4>
+                                <div className="mt-5 pt-4 border-t border-[var(--lt-border)]">
+                                    <h4 className="text-xs font-bold text-[var(--lt-text-muted)] mb-3">Otros detalles</h4>
                                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
                                         {stats.nonPonderable.map((c) => (
                                             <NonPonderableGauge key={c.key} score={c.avg} label={c.label} size={70} />
@@ -816,21 +835,24 @@ export const GroupPage: React.FC = () => {
                                     </div>
                                 </div>
                             )}
-                        </div>
+                        </section>
                     )}
 
                     {/* 2. Lists */}
                     {listsDetails.length > 0 && (
-                        <div className="bg-[var(--lt-card-strong)] rounded-xl border border-white/10 p-5">
-                            <h3 className="font-bold text-white border-b border-white/5 pb-2 text-sm uppercase tracking-wider mb-4">
-                                Listas Relacionadas
+                        <section className="bg-[var(--lt-card-strong)] rounded-2xl border border-[var(--lt-border)] p-4 sm:p-5">
+                            <h3 className="mb-3 flex items-center gap-2 text-base md:text-lg font-display font-bold leading-tight text-[var(--lt-text)]">
+                                <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                    <ListIcon className="w-3.5 h-3.5" />
+                                </span>
+                                En estas listas
                             </h3>
-                            <div className="space-y-3">
+                            <div className="space-y-1">
                                 {listsDetails.slice(0, 5).map((l: any) => (
                                     <Link key={l.id} to={`/list/${l.id}`} className="block group">
-                                        <div className="flex items-center gap-3 p-2 hover:bg-white/5 rounded-lg transition-colors border border-transparent hover:border-white/5">
+                                        <div className="flex items-center gap-3 p-2 -mx-2 rounded-xl transition-colors border border-transparent hover:bg-[var(--lt-card)] hover:border-[var(--lt-border)]">
                                             {/* Thumbnail */}
-                                            <div className={`w-12 h-12 shrink-0 rounded overflow-hidden flex items-center justify-center transition-colors bg-gray-800`}>
+                                            <div className="w-12 h-12 shrink-0 rounded-xl overflow-hidden flex items-center justify-center bg-[var(--lt-accent-soft)] border border-[var(--lt-border)]">
                                                 {l.photoUrl ? (
                                                     <ProgressiveImage
                                                         src={l.photoUrl}
@@ -839,60 +861,94 @@ export const GroupPage: React.FC = () => {
                                                         className="w-full h-full object-cover"
                                                         fallback={
                                                             <div className="w-full h-full flex items-center justify-center">
-                                                                <ListIcon className={`w-5 h-5 ${l.parentListId ? 'text-[var(--lt-accent-2)]' : 'text-gray-500'}`} />
+                                                                <ListIcon className={`w-5 h-5 ${l.parentListId ? 'text-[var(--lt-accent-2)]' : 'text-[var(--lt-accent)]'}`} />
                                                             </div>
                                                         }
                                                     />
                                                 ) : (
-                                                    <ListIcon className={`w-5 h-5 ${l.parentListId ? 'text-[var(--lt-accent-2)]' : 'text-gray-500'}`} />
+                                                    <ListIcon className={`w-5 h-5 ${l.parentListId ? 'text-[var(--lt-accent-2)]' : 'text-[var(--lt-accent)]'}`} />
                                                 )}
                                             </div>
 
                                             <div className="min-w-0 flex-1">
                                                 <div className="flex items-center gap-2">
-                                                    <div className={`font-bold text-sm truncate transition-colors ${l.parentListId ? 'text-[var(--lt-accent-2)] group-hover:text-[var(--lt-accent-2)]' : 'text-gray-200 group-hover:text-[var(--lt-accent)]'}`}>
-                                                        {l.name}
-                                                    </div>
+                                                    <MarqueeText
+                                                        text={l.name || 'Lista'}
+                                                        className={`min-w-0 font-bold text-sm transition-colors ${l.parentListId ? 'text-[var(--lt-accent-2)]' : 'text-[var(--lt-text)] group-hover:text-[var(--lt-accent)]'}`}
+                                                    />
                                                     {l.parentListId && (
-                                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)] uppercase tracking-wide font-bold">Sub</span>
+                                                        <span className="shrink-0 text-[9px] px-1.5 py-0.5 rounded-full bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)] uppercase tracking-wide font-bold">Sub</span>
                                                     )}
                                                 </div>
-                                                <div className="text-xs text-gray-500 truncate mt-0.5">
+                                                <div className="text-xs text-[var(--lt-text-muted)] truncate mt-0.5">
                                                     {l.itemCount ? `${l.itemCount} lugares` : 'Ver lista'}
                                                 </div>
                                             </div>
+                                            <ChevronRight className="w-4 h-4 shrink-0 text-[var(--lt-text-muted)] group-hover:text-[var(--lt-accent)] transition-colors" />
                                         </div>
                                     </Link>
                                 ))}
                             </div>
-                        </div>
+                        </section>
                     )}
                 </div>
 
                 {/* Main Content (Left) */}
                 <div className="order-2 lg:col-span-8 lg:order-first">
 
-                    {/* Tabs */}
-                    <div className="flex gap-2 mb-6 overflow-x-auto hide-scrollbar px-1 py-2">
-                        <button
-                            onClick={() => setGroupActiveTab('reviews')}
-                            className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${groupActiveTab === 'reviews'
-                                ? 'bg-[var(--lt-accent)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
-                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
-                                }`}
-                        >
-                            <MessageSquare className="w-4 h-4" /> Valoraciones ({reviews.length})
-                        </button>
-                        {stats && stats.photos.length > 0 && (
+                    {/* Cabecera de sección: pestañas y vista en una fila (las pestañas ya titulan la sección) */}
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                        <div className="flex min-w-0 gap-1 p-1 rounded-full bg-[var(--lt-card)] border border-[var(--lt-border)] overflow-x-auto hide-scrollbar">
                             <button
-                                onClick={() => setGroupActiveTab('photos')}
-                                className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${groupActiveTab === 'photos'
-                                    ? 'bg-[var(--lt-accent)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
-                                    : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
+                                onClick={() => setGroupActiveTab('reviews')}
+                                className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-full flex items-center gap-1.5 transition-all whitespace-nowrap ${groupActiveTab === 'reviews'
+                                    ? 'lt-on-accent shadow-md shadow-[var(--lt-accent-shadow)]'
+                                    : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'
                                     }`}
+                                style={groupActiveTab === 'reviews' ? { backgroundImage: 'var(--lt-accent-grad)' } : undefined}
                             >
-                                <ImageIcon className="w-4 h-4" /> Fotos ({stats.photos.length})
+                                <MessageSquare className="w-3.5 h-3.5" /> Valoraciones ({reviews.length})
                             </button>
+                            {stats && stats.photos.length > 0 && (
+                                <button
+                                    onClick={() => setGroupActiveTab('photos')}
+                                    className={`px-3.5 py-1.5 text-xs sm:text-sm font-bold rounded-full flex items-center gap-1.5 transition-all whitespace-nowrap ${groupActiveTab === 'photos'
+                                        ? 'lt-on-accent shadow-md shadow-[var(--lt-accent-shadow)]'
+                                        : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'
+                                        }`}
+                                    style={groupActiveTab === 'photos' ? { backgroundImage: 'var(--lt-accent-grad)' } : undefined}
+                                >
+                                    <ImageIcon className="w-3.5 h-3.5" /> Fotos ({stats.photos.length})
+                                </button>
+                            )}
+                        </div>
+                        {groupActiveTab === 'reviews' && reviews.length > 0 && (
+                            <div className="flex shrink-0 bg-[var(--lt-card)] rounded-full p-1 border border-[var(--lt-border)]">
+                                <button
+                                    onClick={() => setReviewViewMode('list')}
+                                    className={`h-7 w-7 flex items-center justify-center rounded-full transition-all ${reviewViewMode === 'list' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+                                    title="Vista lista"
+                                    aria-label="Vista lista"
+                                >
+                                    <ListIcon className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                    onClick={() => setReviewViewMode('full')}
+                                    className={`h-7 w-7 flex items-center justify-center rounded-full transition-all ${reviewViewMode === 'full' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+                                    title="Vista detallada"
+                                    aria-label="Vista detallada"
+                                >
+                                    <Rows3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                    onClick={() => setReviewViewMode('gallery')}
+                                    className={`h-7 w-7 flex items-center justify-center rounded-full transition-all ${reviewViewMode === 'gallery' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+                                    title="Vista galería"
+                                    aria-label="Vista galería"
+                                >
+                                    <LayoutGrid className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
                         )}
                     </div>
 
@@ -904,7 +960,7 @@ export const GroupPage: React.FC = () => {
                                     <div
                                         key={i}
                                         onClick={() => { setLightboxIndex(i); setIsLightboxOpen(true); }}
-                                        className="aspect-square rounded-xl overflow-hidden cursor-pointer bg-gray-800 relative group border border-white/10"
+                                        className="aspect-square rounded-2xl overflow-hidden cursor-pointer bg-[var(--lt-card)] relative group border border-[var(--lt-border)]"
                                     >
                                         <ProgressiveImage
                                             src={url}
@@ -912,8 +968,8 @@ export const GroupPage: React.FC = () => {
                                             containerClassName="w-full h-full"
                                             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                                             fallback={
-                                                <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                                                    <ImageIcon className="w-6 h-6 text-gray-600" />
+                                                <div className="w-full h-full flex items-center justify-center bg-[var(--lt-card)]">
+                                                    <ImageIcon className="w-6 h-6 text-[var(--lt-text-muted)] opacity-50" />
                                                 </div>
                                             }
                                         />
@@ -935,37 +991,10 @@ export const GroupPage: React.FC = () => {
                     {/* Reviews Tab */}
                     {groupActiveTab === 'reviews' && (<>
 
-                        {/* Reviews Header */}
-                        <div className="flex justify-end mb-4">
-                            <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/10">
-                                <button
-                                    onClick={() => setReviewViewMode('list')}
-                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'list' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
-                                    title="Vista lista"
-                                >
-                                    <ListIcon className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                    onClick={() => setReviewViewMode('full')}
-                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'full' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
-                                    title="Vista detallada"
-                                >
-                                    <Rows3 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                    onClick={() => setReviewViewMode('gallery')}
-                                    className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'gallery' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
-                                    title="Vista galería"
-                                >
-                                    <LayoutGrid className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        </div>
-
                         {/* Reviews Grid */}
                         {reviews.length > 0 ? (
                             reviewViewMode === 'full' ? (
-                                <div className="grid grid-cols-1 gap-8 animate-fade-in">
+                                <div className="grid grid-cols-1 gap-4 animate-fade-in">
                                     {reviews.slice(0, visibleCount).map(review => (
                                         <ReviewCard key={review.id} review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} placeClosedStatus={placeClosedStatus || undefined} />
                                     ))}
@@ -976,10 +1005,9 @@ export const GroupPage: React.FC = () => {
                                     )}
                                 </div>
                             ) : reviewViewMode === 'gallery' ? (
-                                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2 animate-fade-in">
+                                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1.5 sm:gap-2 animate-fade-in">
                                     {reviews.slice(0, visibleCount).map(review => {
                                         const score = review.overallRating || 0;
-                                        const scoreColor = score >= 8 ? 'bg-emerald-500' : score >= 6 ? 'bg-amber-500' : 'bg-red-500';
                                         const photoSrc = review.photoUrl || (review as any).placeMainImage || null;
                                         const isPlaceImg = !review.photoUrl && !!(review as any).placeMainImage;
                                         const isExpanded = expandedReviewId === review.id;
@@ -989,7 +1017,7 @@ export const GroupPage: React.FC = () => {
                                                 <div id={`expanded-review-${review.id}`} key={review.id} className="col-span-3 sm:col-span-4 lg:col-span-5 scroll-mt-24 mb-4 animate-fade-in flex flex-col">
                                                     <button
                                                         onClick={() => setExpandedReviewId(null)}
-                                                        className="self-center mb-3 flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-gray-200 hover:text-white text-sm font-semibold rounded-full transition-all border border-[var(--lt-accent-border)] shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]"
+                                                        className="self-center mb-3 flex items-center gap-2 px-4 py-1.5 bg-[var(--lt-accent-soft)] hover:opacity-80 text-[var(--lt-accent)] text-sm font-bold rounded-full transition-opacity border border-[var(--lt-accent-border)]"
                                                         aria-label="Plegar valoración"
                                                     >
                                                         <ChevronUp className="w-4 h-4" />
@@ -1004,7 +1032,7 @@ export const GroupPage: React.FC = () => {
                                             <div
                                                 key={review.id}
                                                 onClick={() => setExpandedReviewId(review.id)}
-                                                className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-[var(--lt-accent-border)] transition-colors"
+                                                className="lt-media-card group relative aspect-square bg-[var(--lt-card)] rounded-2xl overflow-hidden cursor-pointer border border-[var(--lt-border)] hover:border-[var(--lt-accent-border)] transition-colors"
                                             >
                                                 {photoSrc ? (
                                                     <ProgressiveImage
@@ -1013,22 +1041,25 @@ export const GroupPage: React.FC = () => {
                                                         containerClassName="w-full h-full"
                                                         className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImg ? 'opacity-40 saturate-50' : ''}`}
                                                         fallback={
-                                                            <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-gray-900 flex items-center justify-center">
-                                                                <MessageSquare className="w-6 h-6 text-gray-600" />
+                                                            <div className="w-full h-full bg-[var(--lt-accent-soft)] flex items-center justify-center">
+                                                                <MessageSquare className="w-6 h-6 text-[var(--lt-accent)] opacity-60" />
                                                             </div>
                                                         }
                                                     />
                                                 ) : (
-                                                    <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-gray-900 flex items-center justify-center">
-                                                        <MessageSquare className="w-6 h-6 text-gray-600" />
+                                                    <div className="w-full h-full bg-[var(--lt-accent-soft)] flex items-center justify-center">
+                                                        <MessageSquare className="w-6 h-6 text-[var(--lt-accent)] opacity-60" />
                                                     </div>
                                                 )}
-                                                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-6">
-                                                    <p className="text-[10px] sm:text-xs text-white font-bold line-clamp-1 leading-tight">{(review as any).authorName || 'Anónimo'}</p>
+                                                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent px-2 pb-1.5 pt-6">
+                                                    <MarqueeText text={(review as any).authorName || 'Anónimo'} className="block text-[10px] sm:text-xs text-white font-bold leading-tight" />
                                                 </div>
-                                                <div className={`absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full ${scoreColor} flex items-center justify-center shadow-lg`}>
-                                                    <span className="text-[9px] sm:text-[10px] font-bold text-white">{score.toFixed(1)}</span>
-                                                </div>
+                                                <span
+                                                    className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded-md text-[10px] sm:text-xs font-bold tabular-nums shadow-lg"
+                                                    style={scoreBadgeStyle(score)}
+                                                >
+                                                    {score.toFixed(1)}
+                                                </span>
                                             </div>
                                         );
                                     })}
@@ -1058,15 +1089,18 @@ export const GroupPage: React.FC = () => {
                                 </div>
                             )
                         ) : (
-                            <div className="p-8 bg-[var(--lt-card-strong)] rounded-xl border border-white/10 text-center animate-fade-in">
-                                <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                                <h3 className="text-lg font-bold text-white mb-2">Sé el primero en opinar</h3>
-                                <p className="text-gray-400 mb-6 text-sm">Nadie ha escrito una valoración detallada sobre este plato aún.</p>
+                            <div className="p-6 sm:p-8 bg-[var(--lt-card-strong)] rounded-3xl border border-dashed border-[var(--lt-border-strong)] text-center animate-fade-in">
+                                <span className="w-14 h-14 rounded-2xl bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] flex items-center justify-center mx-auto mb-4">
+                                    <MessageSquare className="w-7 h-7 text-[var(--lt-accent)]" />
+                                </span>
+                                <h3 className="text-lg font-display font-bold text-[var(--lt-text)] mb-1.5">Sé el primero en opinar</h3>
+                                <p className="text-[var(--lt-text-muted)] mb-5 text-sm max-w-xs mx-auto">Nadie ha escrito una valoración detallada sobre este plato aún.</p>
                                 <button
                                     onClick={openAddReviewFlow}
-                                    className="px-6 py-2 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white rounded-full font-bold transition-all shadow-lg shadow-[var(--lt-accent-shadow)]"
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 lt-on-accent rounded-xl text-sm font-bold transition-opacity hover:opacity-90 shadow-lg shadow-[var(--lt-accent-shadow)]"
+                                    style={{ backgroundImage: 'var(--lt-accent-grad)' }}
                                 >
-                                    Valorar
+                                    <Plus className="w-4 h-4" /> Valorar
                                 </button>
                             </div>
                         )}

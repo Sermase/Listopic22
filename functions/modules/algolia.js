@@ -10,6 +10,7 @@ const { buildGroupedItemsForList } = require("./grouped-aggregator");
 const { rankingIndexScore } = require("./lib/scoring");
 const { normalizeCcaa } = require("./lib/geo-areas");
 const { syncAllObjects } = require("./lib/algolia-sync");
+const { pickReviewPhoto } = require("./lib/place-review-photo");
 const { defineSecret } = require("firebase-functions/params");
 const { resolveAlgoliaCredentials, resolveAlgoliaHosts } = require("./lib/algolia-credentials");
 
@@ -366,6 +367,22 @@ async function collectPlaceReviewSignals(placeId) {
     }
 }
 
+async function findPlaceReviewPhoto(placeId) {
+    if (!isNonEmptyString(placeId)) return null;
+    try {
+        const snapshot = await getFirestore()
+            .collectionGroup("reviews")
+            .where("placeId", "==", placeId)
+            .where("visibility", "==", "public")
+            .limit(12)
+            .get();
+        return pickReviewPhoto(snapshot.docs.map((doc) => doc.data() || {}));
+    } catch (error) {
+        logger.warn(`Algolia: no se pudo leer una foto de valoración para place ${placeId}`, { error: error.message || String(error) });
+        return null;
+    }
+}
+
 async function resolveCategoryMetadata(categoryId, listData = {}) {
     const inlineNames = uniqueStrings([
         listData.categoryName,
@@ -567,11 +584,14 @@ function hasGroupedListMetadataChanged(beforeData, afterData) {
 
 async function transformPlaceRecord(data, docId) {
     if (!data) return null;
-    const coverImage = firstImageUrl(data.userPhotoUrl, data.thumbnailUrl, data.mainImageUrl, data.photoUrl, data.coverUrl, data.imageUrl, data.photos);
+    const ownCoverImage = firstImageUrl(data.userPhotoUrl, data.thumbnailUrl, data.mainImageUrl, data.photoUrl, data.coverUrl, data.imageUrl, data.photos);
     const hasStoredReviewSignals = Array.isArray(data.itemTags) && typeof data.hasReviewedPhoto === "boolean";
     const reviewSignals = hasStoredReviewSignals
         ? { itemTags: data.itemTags, hasReviewedPhoto: data.hasReviewedPhoto }
         : await collectPlaceReviewSignals(docId);
+    // Sin portada: la foto de un plato valorado en público (si hay alguno con foto).
+    const coverImage = ownCoverImage
+        || ((data.hasReviewedPhoto || reviewSignals.hasReviewedPhoto) ? await findPlaceReviewPhoto(docId) : null);
     const itemTags = collectTagsFromData(reviewSignals.itemTags, data.itemTags, data.placeTags, data.groupTags, data.availableTags, data.tags);
     const closedStatus = normalizeClosedStatus(data.closedStatus || data.businessStatus || data.googleBusinessStatus);
     const counts = placeReviewCounts(data);

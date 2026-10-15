@@ -1,5 +1,5 @@
 import L from 'leaflet';
-import { SCORE_TEXT_ON_LIGHT, scoreBand } from '../lib/scoreScale';
+import { SCORE_BADGE, formatScore, scoreBand } from '../lib/scoreScale';
 
 // ─── Capas de mapa disponibles ────────────────────────────────────────────────
 export type MapLayerId = 'standard' | 'light' | 'dark' | 'satellite';
@@ -51,172 +51,74 @@ export const MAP_LAYERS: Record<MapLayerId, MapLayerConfig> = {
 export const DEFAULT_MAP_LAYER: MapLayerId = 'standard';
 export const MAP_LAYER_STORAGE_KEY = 'listopic_map_layer';
 
+export interface MapPinOptions {
+    /** Nota 0–10; sin nota (o 0) el pin es un punto gris, sin número. */
+    score?: number | null;
+    /** Colecciones del perfil: emoji sobre blanco con el borde del color de la colección. */
+    emoji?: string | null;
+    color?: string | null;
+    sponsored?: boolean;
+    highlighted?: boolean;
+}
+
+/** Lo que asoma el pico por debajo de la chapa (ver .lt-pin::after en index.css). */
+const PIN_TIP = 7;
+
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
 /**
- * Devuelve colores para un rating (0-10).
+ * Pin único para todos los mapas (Home, Buscar, perfil, listas, sitio): una chapa con
+ * la nota en la escala de color de la app y un pico que marca el punto exacto.
+ * Es HTML con clases de index.css (.lt-pin), así el tamaño se ajusta al texto.
  */
-export const getRatingColor = (score: number | string): { bg: string; glow: string; border: string } => {
-    const s = parseFloat(String(score));
-    // En el mapa un 0 significa "sin nota". Color legible sobre blanco (escala única, lib/scoreScale).
-    const color = SCORE_TEXT_ON_LIGHT[isNaN(s) || s === 0 ? 'none' : scoreBand(s)];
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
-    return { bg: color, glow: `rgba(${r},${g},${b},0.45)`, border: color };
-};
-
-/** @deprecated */
-export const getRatingHexColor = (score: number | string): string => getRatingColor(score).bg;
-
-/**
- * Marcador estilo "lollipop": círculo blanco con borde de color + tallo fino.
- * El texto del score aparece en el color del rating — muy legible y moderno.
- */
-export const createRatingMarkerIcon = (score: number): L.DivIcon => {
-    const s = isNaN(score) ? 0 : score;
-    const { bg } = getRatingColor(s);
-    const scoreText = s === 0 ? '?' : (s % 1 === 0 ? s.toFixed(0) : s.toFixed(1));
-
-    const r = 14;          // radio del círculo
-    const cx = 15;         // centro x (r + 1 stroke)
-    const cy = 15;         // centro y
-    const stemTop = cy + r + 1;
-    const stemBot = stemTop + 13;
-    const dotCy = stemBot + 2.5;
-    const totalW = 30;
-    const totalH = Math.ceil(dotCy + 3);
-
-    const fontSize = scoreText.length >= 3 ? 10 : 12;
-    const filterId = `sm-${scoreText.replace('.', '')}`;
-
-    const svgHtml = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" overflow="visible">
-  <defs>
-    <filter id="${filterId}" x="-60%" y="-60%" width="220%" height="220%">
-      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="${bg}" flood-opacity="0.35"/>
-      <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="rgba(0,0,0,0.18)" flood-opacity="1"/>
-    </filter>
-  </defs>
-  <!-- Tallo -->
-  <line x1="${cx}" y1="${stemTop}" x2="${cx}" y2="${stemBot}"
-        stroke="${bg}" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
-  <!-- Punto inferior -->
-  <circle cx="${cx}" cy="${dotCy}" r="2.5" fill="${bg}" opacity="0.85"/>
-  <!-- Círculo blanco con borde de color -->
-  <circle cx="${cx}" cy="${cy}" r="${r}" fill="white" stroke="${bg}"
-          stroke-width="2.5" filter="url(#${filterId})"/>
-  <!-- Score en color del rating -->
-  <text x="${cx}" y="${cy + 1}"
-        dominant-baseline="middle" text-anchor="middle"
-        font-family="'Poppins','Inter',system-ui,sans-serif"
-        font-size="${fontSize}" font-weight="800" fill="${bg}">
-    ${scoreText}
-  </text>
-</svg>`;
+export const createMapPinIcon = ({ score, emoji, color, sponsored = false, highlighted = false }: MapPinOptions = {}): L.DivIcon => {
+    const s = typeof score === 'number' && Number.isFinite(score) && score > 0 ? score : null;
+    const classes = ['lt-pin'];
+    let style = '';
+    let label = '';
+    // Tamaño fijo por tipo: el marcador de Leaflet ocupa lo mismo que el pin
+    // (se puede tocar, enfocar y ver en las pruebas) y el pico cae en el punto.
+    let width: number;
+    let height: number;
+    if (emoji || color) {
+        classes.push('lt-pin--emoji');
+        style = `--pin-ring:${escapeHtml(color || '#6366f1')};`;
+        label = escapeHtml(emoji || '📍');
+        width = 30;
+        height = 30;
+    } else if (s === null) {
+        // Sin nota: un punto, para no llenar el mapa de interrogantes.
+        classes.push('lt-pin--none');
+        width = 14;
+        height = 14;
+    } else {
+        const { bg, fg } = SCORE_BADGE[scoreBand(s)];
+        style = `--pin-bg:${bg};--pin-fg:${fg};`;
+        label = formatScore(s);
+        width = label.length >= 3 ? 34 : 28;
+        height = 24;
+    }
+    if (sponsored) {
+        classes.push('lt-pin--sponsored');
+        label = `<span class="lt-pin__star" aria-hidden="true">★</span>${label}`;
+        width += 14;
+    }
+    if (highlighted) classes.push('lt-pin--hl');
+    const total = height + PIN_TIP;
 
     return L.divIcon({
-        html: svgHtml,
-        className: 'rating-marker',
-        iconSize: [totalW, totalH],
-        iconAnchor: [cx, totalH],
-        popupAnchor: [0, -(totalH + 4)]
+        html: `<div class="${classes.join(' ')}" style="${style}height:${height}px">${label}</div>`,
+        className: 'lt-pin-icon',
+        iconSize: [width, total],
+        iconAnchor: [width / 2, total],
+        popupAnchor: [0, -total],
     });
 };
 
-export const createLegacyMarkerIcon = createRatingMarkerIcon;
-
-/**
- * Variante patrocinada del marcador: mismo lollipop con borde dorado y una
- * "P" pequeña arriba a la derecha. Discreta pero reconocible — la nota sigue
- * siendo la comunitaria, solo cambia el marco.
- */
-export const createSponsoredMarkerIcon = (score: number): L.DivIcon => {
-    const s = isNaN(score) ? 0 : score;
-    const { bg } = getRatingColor(s);
-    const gold = '#f59e0b';
-    const scoreText = s === 0 ? '?' : (s % 1 === 0 ? s.toFixed(0) : s.toFixed(1));
-
-    const r = 14;
-    const cx = 15;
-    const cy = 15;
-    const stemTop = cy + r + 1;
-    const stemBot = stemTop + 13;
-    const dotCy = stemBot + 2.5;
-    const totalW = 34;
-    const totalH = Math.ceil(dotCy + 3);
-    const fontSize = scoreText.length >= 3 ? 10 : 12;
-    const filterId = `smp-${scoreText.replace('.', '')}`;
-
-    const svgHtml = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" overflow="visible">
-  <defs>
-    <filter id="${filterId}" x="-60%" y="-60%" width="220%" height="220%">
-      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="${gold}" flood-opacity="0.45"/>
-      <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="rgba(0,0,0,0.18)" flood-opacity="1"/>
-    </filter>
-  </defs>
-  <line x1="${cx}" y1="${stemTop}" x2="${cx}" y2="${stemBot}"
-        stroke="${gold}" stroke-width="2" stroke-linecap="round" opacity="0.9"/>
-  <circle cx="${cx}" cy="${dotCy}" r="2.5" fill="${gold}" opacity="0.9"/>
-  <!-- Círculo con borde dorado -->
-  <circle cx="${cx}" cy="${cy}" r="${r}" fill="white" stroke="${gold}"
-          stroke-width="3" filter="url(#${filterId})"/>
-  <text x="${cx}" y="${cy + 1}"
-        dominant-baseline="middle" text-anchor="middle"
-        font-family="'Poppins','Inter',system-ui,sans-serif"
-        font-size="${fontSize}" font-weight="800" fill="${bg}">
-    ${scoreText}
-  </text>
-  <!-- Insignia "P" de patrocinado -->
-  <circle cx="${cx + r - 2}" cy="${cy - r + 2}" r="6" fill="${gold}" stroke="white" stroke-width="1.5"/>
-  <text x="${cx + r - 2}" y="${cy - r + 2.8}"
-        dominant-baseline="middle" text-anchor="middle"
-        font-family="'Poppins','Inter',system-ui,sans-serif"
-        font-size="7.5" font-weight="900" fill="white">P</text>
-</svg>`;
-
-    return L.divIcon({
-        html: svgHtml,
-        className: 'rating-marker rating-marker-sponsored',
-        iconSize: [totalW, totalH],
-        iconAnchor: [cx, totalH],
-        popupAnchor: [0, -(totalH + 4)]
-    });
-};
-
-/**
- * Marcador personalizado para colecciones que usa un emoji y un color.
- */
-export const createEmojiMarkerIcon = (emoji: string, color: string): L.DivIcon => {
-    const bg = color || '#6366f1';
-
-    const r = 16;
-    const cx = 16;
-    const cy = 16;
-    const stemTop = cy + r + 1;
-    const stemBot = stemTop + 12;
-    const dotCy = stemBot + 3;
-    const totalW = 32;
-    const totalH = Math.ceil(dotCy + 3);
-
-    const filterId = `emj-${Math.random().toString(36).substr(2, 6)}`;
-
-    const svgHtml = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" overflow="visible">
-  <defs>
-    <filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="${bg}" flood-opacity="0.4"/>
-      <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="rgba(0,0,0,0.18)" flood-opacity="1"/>
-    </filter>
-  </defs>
-  <line x1="${cx}" y1="${stemTop}" x2="${cx}" y2="${stemBot}" stroke="${bg}" stroke-width="2.5" stroke-linecap="round" />
-  <circle cx="${cx}" cy="${dotCy}" r="3" fill="${bg}" opacity="0.9"/>
-  <circle cx="${cx}" cy="${cy}" r="${r}" fill="white" stroke="${bg}" stroke-width="2.5" filter="url(#${filterId})"/>
-  <text x="${cx}" y="${cy + 2}" dominant-baseline="middle" text-anchor="middle" font-size="16">${emoji || '📍'}</text>
-</svg>`;
-
-    return L.divIcon({
-        html: svgHtml,
-        className: 'emoji-marker',
-        iconSize: [totalW, totalH],
-        iconAnchor: [cx, totalH],
-        popupAnchor: [0, -(totalH + 4)]
-    });
-};
+/** Punto de «tu ubicación», igual en todos los mapas. */
+export const createUserLocationIcon = (): L.DivIcon => L.divIcon({
+    html: '<div class="lt-user-dot"><span class="lt-user-dot__pulse"></span></div>',
+    className: 'lt-pin-icon',
+    iconSize: [16, 16],
+    iconAnchor: [8, 8],
+});

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby, Megaphone, BarChart3, ShieldCheck
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby, Megaphone, BarChart3, ShieldCheck, Info
 } from 'lucide-react';
 import { LazyShareModal as ShareModal, LazyMapView as MapView, LazyAddReviewForm as AddReviewForm } from '../components/lazy';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -50,10 +50,13 @@ import { allergenLabel, itemDocIdFromName } from '../services/BusinessProService
 import { reviewItemId } from '../lib/placeItems';
 import { compareByRank } from '../lib/scoring';
 import { PlaceStatsPanel } from '../components/place/PlaceStatsPanel';
+import { PlaceSectionHeader } from '../components/place/PlaceSectionHeader';
+import { DishRateButton } from '../components/place/DishRateButton';
+import { MarqueeText } from '../components/ui/MarqueeText';
 import { PlaceOfferCard } from '../components/business/sponsored/PlaceOfferCard';
 import { heroStyleOf } from '../components/business/visual/heroStyles';
 import { cn } from '../lib/utils';
-import { scoreBadgeStyle } from '../lib/scoreScale';
+import { scoreBadgeStyle, scoreTextColor } from '../lib/scoreScale';
 import { todayHours } from '../lib/openingHours';
 import { NO_PUBLIC_RATING_LABEL } from '../lib/placeRating';
 
@@ -468,6 +471,17 @@ export const PlacePage: React.FC = () => {
         }).sort((a, b) => compareByRank({ average: a.avg, count: a.count }, { average: b.avg, count: b.count }));
     }, [place?.reviews, officialItemsById]);
 
+    // Lista de cada plato (por id canónico y por nombre) para fijarla al valorar desde la carta.
+    const dishListIdByKey = useMemo(() => {
+        const map = new Map<string, string>();
+        dishes.forEach((dish) => {
+            if (!dish.listId) return;
+            map.set(dish.itemId, dish.listId);
+            map.set(dish.name.trim().toLowerCase(), dish.listId);
+        });
+        return map;
+    }, [dishes]);
+
 
     // Carta por secciones (Business Pro): items oficiales agrupados por las
     // secciones definidas por el negocio, con foto y nota de la comunidad.
@@ -805,14 +819,14 @@ export const PlacePage: React.FC = () => {
 
     // Reclamar el negocio: en escritorio, en la barra lateral; en móvil, al final de la página.
     const businessClaimCard = isBusinessClaimed ? null : (
-        <div className="glass-card p-4 rounded-2xl shadow-lg border border-white/10 opacity-85">
+        <div className="glass-card p-4 rounded-2xl shadow-lg border border-[var(--lt-border)]">
             <div className="flex items-start gap-3">
                 <div className="w-9 h-9 rounded-xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] grid place-items-center shrink-0">
                     <BriefcaseBusiness className="w-4 h-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-bold text-white">¿Gestionas este negocio?</h3>
-                    <p className="mt-1 text-xs text-gray-400">
+                    <h3 className="text-sm font-bold text-[var(--lt-text)]">¿Gestionas este negocio?</h3>
+                    <p className="mt-1 text-xs text-[var(--lt-text-muted)]">
                         Solicita acceso para actualizar datos oficiales del lugar cuando se apruebe.
                     </p>
                 </div>
@@ -837,7 +851,7 @@ export const PlacePage: React.FC = () => {
                 <button
                     type="button"
                     onClick={handleOpenBusinessClaim}
-                    className="mt-4 w-full rounded-xl bg-white/5 border border-white/10 px-4 py-3 text-sm font-bold text-gray-200 hover:bg-white/10 hover:text-white"
+                    className="mt-4 w-full rounded-xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-4 py-3 text-sm font-bold text-[var(--lt-accent)] hover:opacity-85 transition-opacity"
                 >
                     {user ? 'Reclamar negocio' : 'Inicia sesión para reclamar'}
                 </button>
@@ -845,8 +859,16 @@ export const PlacePage: React.FC = () => {
             </div>
     );
 
+    const placeTabClass = (active: boolean) => cn(
+        'px-3.5 py-2 text-sm font-bold rounded-full flex items-center gap-1.5 transition-all whitespace-nowrap border [&>svg]:w-4 [&>svg]:h-4',
+        active
+            ? 'lt-on-accent border-transparent'
+            : 'bg-[var(--lt-card)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:border-[var(--lt-border-strong)]',
+    );
+    const activeTabStyle: React.CSSProperties = { backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' };
+
     return (
-        <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
+        <div className="min-h-screen bg-[var(--lt-bg)] pb-24 md:pb-20">
             {/* Hero */}
             <EntityHero
                 imageUrl={heroImageUrl}
@@ -918,7 +940,8 @@ export const PlacePage: React.FC = () => {
                                 )}
                                 <button
                                     onClick={handleOpenReviewFlow}
-                                    className="ml-auto shrink-0 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 flex items-center gap-2 hover:scale-105 transition-all md:ml-2"
+                                    className="ml-auto shrink-0 px-4 py-2 lt-on-accent text-sm font-bold rounded-xl flex items-center gap-2 hover:scale-105 hover:opacity-95 transition-all md:ml-2"
+                                    style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' }}
                                 >
                                     <Plus className="w-4 h-4" />
                                     <span>Valorar</span>
@@ -951,11 +974,11 @@ export const PlacePage: React.FC = () => {
                 {/* Order-1 on Mobile -> Renders FIRST. lg:order-last -> Renders RIGHT. */}
                 <div className="order-1 lg:col-span-4 lg:order-last flex flex-col gap-4 sm:gap-6">
 
-                    {/* 1. Actions Row */}
-                    <div className="glass-card p-3 rounded-2xl grid grid-cols-5 gap-2 sm:gap-3 shadow-lg">
+                    {/* 1. Acciones (compactas y sin recuadro exterior, como en la ficha del plato) */}
+                    <div className="grid grid-cols-5 gap-2 sm:gap-3">
                         <button
                             onClick={handleOpenSave}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all"
                         >
                             <Bookmark className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
                             <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Guardar</span>
@@ -963,30 +986,30 @@ export const PlacePage: React.FC = () => {
                         <button
                             onClick={handleFollowToggle}
                             disabled={followLoading}
-                            className={`lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border transition-all ${isFollowed ? 'bg-pink-500/20 border-pink-500 text-pink-400' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white'} ${followLoading ? 'opacity-50 cursor-wait' : ''}`}
+                            className={`lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border transition-all ${isFollowed ? 'bg-pink-500/15 border-pink-500/60 text-pink-500' : 'border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)]'} ${followLoading ? 'opacity-50 cursor-wait' : ''}`}
                         >
                             <Heart className={`w-5 h-5 mb-1 ${isFollowed ? 'fill-current' : ''}`} />
                             <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">{isFollowed ? 'Seguido' : 'Seguir'}</span>
                         </button>
                         <button
                             onClick={handleShareClick}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all active:scale-95 active:bg-[var(--lt-accent-soft)] active:border-[var(--lt-accent-border)]"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all active:scale-95"
                         >
                             <Share2 className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
                             <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Compartir</span>
                         </button>
                         <button
                             onClick={handleOpenPhotoUpload}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all"
                         >
                             <ImageIcon className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
                             <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Fotos</span>
                         </button>
                         <button
                             onClick={handleOpenReport}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-red-500/10 hover:text-red-500 transition-all group/report"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:bg-[var(--lt-danger-soft)] hover:text-[var(--lt-danger)] transition-all"
                         >
-                            <AlertTriangle className="w-5 h-5 mb-1 text-red-500/50 group-hover/report:text-red-500 transition-colors" />
+                            <AlertTriangle className="w-5 h-5 mb-1 text-[var(--lt-danger)] opacity-70" />
                             <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Reportar</span>
                         </button>
                     </div>
@@ -994,13 +1017,17 @@ export const PlacePage: React.FC = () => {
                     {/* Ofertas Business Pro (solo con plan activo, siempre etiquetadas) */}
                     {activeOffers.length > 0 && (
                         <div className="glass-card rounded-2xl p-5 shadow-lg border border-amber-500/20">
-                            <div className="mb-3 flex items-center gap-2">
-                                <Megaphone className="w-4 h-4 text-amber-400" />
-                                <h3 className="text-sm font-bold uppercase tracking-wider text-white">Ofertas</h3>
-                                <span className="ml-auto rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">
-                                    Patrocinado
-                                </span>
-                            </div>
+                            <PlaceSectionHeader
+                                as="h3"
+                                className="mb-3"
+                                title="Ofertas"
+                                icon={<Megaphone />}
+                                aside={(
+                                    <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-300">
+                                        Patrocinado
+                                    </span>
+                                )}
+                            />
                             <div className="space-y-3">
                                 {activeOffers.map((offer) => (
                                     <PlaceOfferCard key={offer.id} offer={offer} />
@@ -1041,8 +1068,8 @@ export const PlacePage: React.FC = () => {
                     )}
 
                     {/* 3. Información: lo esencial siempre a la vista; el resto, en «Más información» (en móvil) */}
-                    <div className="glass-card p-5 rounded-2xl space-y-4 shadow-lg">
-                        <h3 className="border-b border-white/5 pb-2 font-bold text-white text-sm uppercase tracking-wider">Información</h3>
+                    <div className="glass-card p-4 sm:p-5 rounded-2xl space-y-4 shadow-lg border border-[var(--lt-border)]">
+                        <PlaceSectionHeader as="h3" title="Información" icon={<Info />} />
 
                         {(place.businessOpenStatus || todaysHours || place.priceLevel !== undefined) && (
                             <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -1569,49 +1596,39 @@ export const PlacePage: React.FC = () => {
                 {/* Order-2 on Mobile -> Renders SECOND. lg:order-first -> Renders LEFT. */}
                 <div className="order-2 lg:col-span-8 lg:order-first">
                     {/* Tabs */}
-                    <div className="flex gap-2 mb-6 overflow-x-auto hide-scrollbar px-1 py-2">
+                    <div className="-mx-4 flex gap-2 mb-4 overflow-x-auto hide-scrollbar px-4 py-2 sm:mx-0 sm:px-1">
                         <button
                             onClick={() => setActiveTab('reviews')}
-                            className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'reviews'
-                                ? 'bg-[var(--lt-accent)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
-                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
-                                }`}
+                            className={placeTabClass(activeTab === 'reviews')}
+                            style={activeTab === 'reviews' ? activeTabStyle : undefined}
                         >
                             <MessageSquare className="w-4 h-4" /> Valoraciones ({place.reviews.length})
                         </button>
                         <button
                             onClick={() => setActiveTab('dishes')}
-                            className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'dishes'
-                                ? 'bg-[var(--lt-accent)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
-                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
-                                }`}
+                            className={placeTabClass(activeTab === 'dishes')}
+                            style={activeTab === 'dishes' ? activeTabStyle : undefined}
                         >
                             <ListIcon className="w-4 h-4" /> La Carta ({dishes.length || 0})
                         </button>
                         <button
                             onClick={() => setActiveTab('lists')}
-                            className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'lists'
-                                ? 'bg-[var(--lt-accent)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
-                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
-                                }`}
+                            className={placeTabClass(activeTab === 'lists')}
+                            style={activeTab === 'lists' ? activeTabStyle : undefined}
                         >
                             <Bookmark className="w-4 h-4" /> Listas ({place.relatedLists?.length || 0})
                         </button>
                         <button
                             onClick={() => setActiveTab('photos')}
-                            className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'photos'
-                                ? 'bg-[var(--lt-accent)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
-                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
-                                }`}
+                            className={placeTabClass(activeTab === 'photos')}
+                            style={activeTab === 'photos' ? activeTabStyle : undefined}
                         >
                             <ImageIcon className="w-4 h-4" /> Fotos ({galleryPhotos.length})
                         </button>
                         <button
                             onClick={() => setActiveTab('stats')}
-                            className={`px-4 py-2 text-sm font-bold rounded-full flex items-center gap-2 transition-all whitespace-nowrap ${activeTab === 'stats'
-                                ? 'bg-[var(--lt-accent)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
-                                : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-transparent hover:border-white/10'
-                                }`}
+                            className={placeTabClass(activeTab === 'stats')}
+                            style={activeTab === 'stats' ? activeTabStyle : undefined}
                         >
                             <BarChart3 className="w-4 h-4" /> Estadísticas
                         </button>
@@ -1632,31 +1649,57 @@ export const PlacePage: React.FC = () => {
                     {activeTab === 'reviews' && (
                         <div className="animate-fade-in">
                             {/* Reviews header with view toggle */}
-                            <div className="flex justify-end mb-4">
-                                <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/10">
+                            <PlaceSectionHeader
+                                className="mb-3"
+                                title="Valoraciones"
+                                icon={<MessageSquare />}
+                                subtitle={place.reviews.length > 0
+                                    ? `${place.reviews.length} ${place.reviews.length === 1 ? 'opinión' : 'opiniones'} de la comunidad`
+                                    : 'Nadie ha mojado pan todavía'}
+                                aside={place.reviews.length > 0 ? (
+                                <div className="flex rounded-xl p-0.5 border border-[var(--lt-border)] bg-[var(--lt-card)]">
                                     <button
                                         onClick={() => setReviewViewMode('list')}
-                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'list' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'list' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
                                         title="Vista lista"
                                     >
                                         <ListIcon className="w-3.5 h-3.5" />
                                     </button>
                                     <button
                                         onClick={() => setReviewViewMode('full')}
-                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'full' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'full' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
                                         title="Vista detallada"
                                     >
                                         <Rows3 className="w-3.5 h-3.5" />
                                     </button>
                                     <button
                                         onClick={() => setReviewViewMode('gallery')}
-                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'gallery' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-gray-500 hover:text-gray-300'}`}
+                                        className={`h-8 w-8 flex items-center justify-center rounded-lg transition-all ${reviewViewMode === 'gallery' ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] shadow-inner' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
                                         title="Vista galería"
                                     >
                                         <LayoutGrid className="w-3.5 h-3.5" />
                                     </button>
                                 </div>
-                            </div>
+                                ) : undefined}
+                            />
+
+                            {place.reviews.length === 0 && (
+                                <div className="flex flex-col items-center rounded-2xl border border-dashed border-[var(--lt-border-strong)] bg-[var(--lt-card)] px-6 py-10 text-center">
+                                    <span className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                        <MessageSquare className="h-6 w-6" />
+                                    </span>
+                                    <p className="text-sm font-bold text-[var(--lt-text)]">Aún sin valoraciones</p>
+                                    <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Estrena tú la ficha: la primera opinión siempre se recuerda.</p>
+                                    <button
+                                        type="button"
+                                        onClick={handleOpenReviewFlow}
+                                        className="mt-4 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-bold lt-on-accent"
+                                        style={{ backgroundImage: 'var(--lt-accent-grad)' }}
+                                    >
+                                        <Plus className="h-4 w-4" /> Valorar
+                                    </button>
+                                </div>
+                            )}
 
                             {reviewViewMode === 'full' ? (
                                 <div className="grid grid-cols-1 gap-6">
@@ -1680,7 +1723,6 @@ export const PlacePage: React.FC = () => {
                                     {place.reviews.slice(0, visibleCount).map(review => {
                                         const typedReview = review as PlaceReview;
                                         const score = typedReview.overallRating || 0;
-                                        const scoreColor = score >= 8 ? 'bg-emerald-500' : score >= 6 ? 'bg-amber-500' : 'bg-red-500';
                                         const photoSrc = typedReview.photoUrl || typedReview.placeMainImage || null;
                                         const isPlaceImg = !typedReview.photoUrl && !!typedReview.placeMainImage;
                                         const isExpanded = expandedReviewId === typedReview.id;
@@ -1710,7 +1752,7 @@ export const PlacePage: React.FC = () => {
                                             <div
                                                 key={typedReview.id}
                                                 onClick={() => setExpandedReviewId(typedReview.id)}
-                                                className="group relative aspect-square bg-gray-800 rounded-lg overflow-hidden cursor-pointer border border-[var(--lt-bg)] hover:border-[var(--lt-accent-border)] transition-colors"
+                                                className="lt-media-card group relative aspect-square bg-[var(--lt-card-strong)] rounded-xl overflow-hidden cursor-pointer border border-[var(--lt-border)] hover:border-[var(--lt-accent-border)] transition-colors"
                                             >
                                                 {photoSrc ? (
                                                     <ProgressiveImage
@@ -1730,11 +1772,14 @@ export const PlacePage: React.FC = () => {
                                                     </div>
                                                 )}
                                                 <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-6">
-                                                    <p className="text-[10px] sm:text-xs text-white font-bold line-clamp-1 leading-tight">{typedReview.authorName || 'Anónimo'}</p>
+                                                    <MarqueeText as="p" text={typedReview.authorName || 'Anónimo'} className="text-[10px] sm:text-xs text-white font-bold leading-tight" />
                                                 </div>
-                                                <div className={`absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full ${scoreColor} flex items-center justify-center shadow-lg`}>
-                                                    <span className="text-[9px] sm:text-[10px] font-bold text-white">{score.toFixed(1)}</span>
-                                                </div>
+                                                <span
+                                                    className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 rounded-full px-1.5 py-0.5 text-[10px] sm:text-xs font-bold tabular-nums shadow-lg"
+                                                    style={scoreBadgeStyle(score)}
+                                                >
+                                                    {score.toFixed(1)}
+                                                </span>
                                             </div>
                                         );
                                     })}
@@ -1767,17 +1812,16 @@ export const PlacePage: React.FC = () => {
 
                     {activeTab === 'dishes' && sectionedMenu && (
                         <div className="animate-fade-in">
-                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
-                                <div className="px-5 py-4 border-b border-white/10 flex flex-wrap items-center gap-x-3 gap-y-1">
-                                    <Utensils className="w-5 h-5 text-[var(--lt-accent)]" />
-                                    <span className="font-bold text-white tracking-wide text-sm uppercase">La Carta</span>
+                            <div className="bg-[var(--lt-card-strong)] border border-[var(--lt-border)] rounded-3xl overflow-hidden shadow-xl">
+                                <div className="px-4 sm:px-5 py-3.5 border-b border-[var(--lt-border)] flex flex-wrap items-center gap-x-3 gap-y-1">
+                                    <PlaceSectionHeader title="La Carta" icon={<Utensils />} />
                                     <div className="ml-auto flex flex-col items-end">
                                         <span className="flex items-center gap-1 text-[10px] font-bold uppercase text-emerald-300">
                                             <Check className="w-3 h-3" />
                                             Carta oficial del negocio
                                         </span>
                                         {place.menuUpdatedAtMs ? (
-                                            <span className="text-[10px] text-gray-500">
+                                            <span className="text-[10px] text-[var(--lt-text-muted)]">
                                                 Actualizada el {new Date(place.menuUpdatedAtMs).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
                                             </span>
                                         ) : null}
@@ -1786,19 +1830,18 @@ export const PlacePage: React.FC = () => {
                                 {sectionedMenu.map((section) => (
                                     <div key={section.name || 'general'}>
                                         {section.name && (
-                                            <div className="px-5 py-2.5 bg-white/[0.03] border-b border-white/5">
+                                            <div className="px-4 sm:px-5 py-2.5 bg-[var(--lt-card)] border-b border-[var(--lt-border)]">
                                                 <h3 className="text-xs font-black uppercase tracking-[0.18em]" style={{ color: proAccent || 'var(--lt-accent)' }}>
                                                     {section.name}
                                                 </h3>
                                             </div>
                                         )}
-                                        <div className="divide-y divide-white/5">
+                                        <div className="divide-y divide-[var(--lt-border)]">
                                             {section.items.map((item) => {
                                                 const unavailable = item.available === false;
-                                                const scoreColor = (item.rating ?? 0) >= 8 ? 'text-emerald-400' : (item.rating ?? 0) >= 6 ? 'text-amber-400' : 'text-red-400';
                                                 const content = (
                                                     <>
-                                                        <div className={`w-11 h-11 rounded-lg bg-gray-800 overflow-hidden shrink-0 ${unavailable ? 'opacity-40' : ''}`}>
+                                                        <div className={`w-12 h-12 rounded-xl bg-[var(--lt-card)] border border-[var(--lt-border)] overflow-hidden shrink-0 ${unavailable ? 'opacity-40' : ''}`}>
                                                             {item.photo ? (
                                                                 <ProgressiveImage
                                                                     src={item.photo}
@@ -1815,7 +1858,7 @@ export const PlacePage: React.FC = () => {
                                                         </div>
                                                         <div className={`flex-1 min-w-0 ${unavailable ? 'opacity-50' : ''}`}>
                                                             <div className="flex items-center gap-2 flex-wrap">
-                                                                <span className="font-semibold text-white text-sm sm:text-base">{item.name}</span>
+                                                                <span className="font-semibold text-[var(--lt-text)] text-sm sm:text-base">{item.name}</span>
                                                                 {item.discount && (
                                                                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">{item.discount}</span>
                                                                 )}
@@ -1824,7 +1867,7 @@ export const PlacePage: React.FC = () => {
                                                                 )}
                                                             </div>
                                                             {item.description && (
-                                                                <p className="mt-0.5 text-xs leading-snug text-gray-400 line-clamp-2">{item.description}</p>
+                                                                <p className="mt-0.5 text-xs leading-snug text-[var(--lt-text-muted)] line-clamp-2">{item.description}</p>
                                                             )}
                                                             {item.ingredients && (
                                                                 <p className="mt-0.5 text-[11px] leading-snug text-gray-500 line-clamp-1">
@@ -1835,9 +1878,9 @@ export const PlacePage: React.FC = () => {
                                                             )}
                                                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                                                 {item.reviewCount > 0 && item.rating !== null && (
-                                                                    <span className={`text-xs font-black font-mono ${scoreColor}`}>
+                                                                    <span className="text-xs font-black tabular-nums" style={{ color: scoreTextColor(item.rating) }}>
                                                                         ★ {item.rating.toFixed(1)}
-                                                                        <span className="ml-1 font-normal text-gray-500">({item.reviewCount})</span>
+                                                                        <span className="ml-1 font-normal text-[var(--lt-text-muted)]">({item.reviewCount})</span>
                                                                     </span>
                                                                 )}
                                                                 {item.allergens.map((allergen) => (
@@ -1848,21 +1891,29 @@ export const PlacePage: React.FC = () => {
                                                             </div>
                                                         </div>
                                                         {item.price && (
-                                                            <span className={`shrink-0 text-sm sm:text-base font-black text-gray-100 ${unavailable ? 'opacity-50' : ''}`}>{item.price}</span>
+                                                            <span className={`shrink-0 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-2.5 py-1 text-sm font-black tabular-nums text-[var(--lt-text)] ${unavailable ? 'opacity-50' : ''}`}>{item.price}</span>
                                                         )}
                                                     </>
                                                 );
-                                                return item.reviewCount > 0 ? (
-                                                    <Link
-                                                        key={item.id}
-                                                        to={`/group/${placeId}/${encodeURIComponent(item.name)}`}
-                                                        className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 hover:bg-white/5 transition-colors"
-                                                    >
-                                                        {content}
-                                                    </Link>
-                                                ) : (
-                                                    <div key={item.id} className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3">
-                                                        {content}
+                                                const itemListId = dishListIdByKey.get(item.id)
+                                                    ?? item.keys.map((key) => dishListIdByKey.get(key)).find(Boolean);
+                                                return (
+                                                    <div key={item.id} className={`flex items-center transition-colors ${item.reviewCount > 0 ? 'hover:bg-[var(--lt-card)]' : ''}`}>
+                                                        {item.reviewCount > 0 ? (
+                                                            <Link
+                                                                to={`/group/${placeId}/${encodeURIComponent(item.name)}`}
+                                                                className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3"
+                                                            >
+                                                                {content}
+                                                            </Link>
+                                                        ) : (
+                                                            <div className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3">
+                                                                {content}
+                                                            </div>
+                                                        )}
+                                                        {placeId && (
+                                                            <DishRateButton placeId={placeId} itemName={item.name} listId={itemListId} className="mr-4 sm:mr-5" />
+                                                        )}
                                                     </div>
                                                 );
                                             })}
@@ -1876,31 +1927,36 @@ export const PlacePage: React.FC = () => {
                     {activeTab === 'dishes' && !sectionedMenu && (
                         <div className="animate-fade-in">
                             {dishes && dishes.length > 0 ? (
-                                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+                                <div className="bg-[var(--lt-card-strong)] border border-[var(--lt-border)] rounded-3xl overflow-hidden shadow-xl">
                                     {/* Menu header */}
-                                    <div className="px-5 py-4 border-b border-white/10 flex items-center gap-3">
-                                        <Utensils className="w-5 h-5 text-[var(--lt-accent)]" />
-                                        <span className="font-bold text-white tracking-wide text-sm uppercase">La Carta</span>
-                                        <span className="ml-auto text-xs text-gray-500">{dishes.length} platos</span>
-                                    </div>
-                                    <div className="divide-y divide-white/5">
+                                    <PlaceSectionHeader
+                                        className="px-4 sm:px-5 py-3.5 border-b border-[var(--lt-border)]"
+                                        title="La Carta"
+                                        icon={<Utensils />}
+                                        subtitle="Lo que la comunidad ha probado aquí"
+                                        aside={(
+                                            <span className="rounded-full bg-[var(--lt-accent-soft)] px-2.5 py-1 text-xs font-bold text-[var(--lt-accent)]">
+                                                {dishes.length} {dishes.length === 1 ? 'plato' : 'platos'}
+                                            </span>
+                                        )}
+                                    />
+                                    <div className="divide-y divide-[var(--lt-border)]">
                                         {dishes.map((dish, idx) => {
                                             const isTop = dish.avg >= 8.5 && idx < 3;
-                                            const scoreColor = dish.avg >= 8 ? 'text-emerald-400' : dish.avg >= 6 ? 'text-amber-400' : 'text-red-400';
                                             const official = place.hasBusinessPro
                                                 ? (officialItemsById.get(dish.itemId) ?? place.officialItemData?.[dish.name.trim().toLowerCase()])
                                                 : undefined;
                                             return (
+                                                <div key={idx} className="flex items-center hover:bg-[var(--lt-card)] transition-colors">
                                                 <Link
-                                                    key={idx}
                                                     to={`/group/${placeId}/${encodeURIComponent(dish.name)}`}
-                                                    className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 hover:bg-white/5 transition-colors group"
+                                                    className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3 sm:py-4 group"
                                                 >
                                                     {/* Rank */}
-                                                    <span className="text-xs font-mono text-gray-600 w-4 shrink-0 text-right">{idx + 1}</span>
+                                                    <span className={`w-5 shrink-0 text-center font-display text-sm font-bold tabular-nums ${idx < 3 ? 'text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)]'}`}>{idx + 1}</span>
 
                                                     {/* Photo thumbnail */}
-                                                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gray-800 overflow-hidden shrink-0">
+                                                    <div className="w-12 h-12 rounded-xl bg-[var(--lt-card)] border border-[var(--lt-border)] overflow-hidden shrink-0">
                                                         {dish.photo ? (
                                                             <ProgressiveImage
                                                                 src={dish.photo}
@@ -1922,8 +1978,8 @@ export const PlacePage: React.FC = () => {
 
                                                     {/* Name + meta */}
                                                     <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 flex-wrap">
-                                                            <span className="font-semibold text-white group-hover:text-[var(--lt-accent)] transition-colors text-sm sm:text-base truncate">{dish.name}</span>
+                                                        <div className="flex min-w-0 items-center gap-2">
+                                                            <MarqueeText text={dish.name} className="flex-1 font-semibold text-[var(--lt-text)] group-hover:text-[var(--lt-accent)] transition-colors text-sm sm:text-base" />
                                                             {isTop && (
                                                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">★ Top</span>
                                                             )}
@@ -1932,7 +1988,7 @@ export const PlacePage: React.FC = () => {
                                                             )}
                                                         </div>
                                                         <div className="flex items-center gap-2 flex-wrap">
-                                                            <span className="text-xs text-gray-500">{dish.count} {dish.count === 1 ? 'valoración' : 'valoraciones'}</span>
+                                                            <span className="text-xs text-[var(--lt-text-muted)]">{dish.count} {dish.count === 1 ? 'valoración' : 'valoraciones'}</span>
                                                             {official?.group && (
                                                                 <span className="text-[11px] text-gray-400">· {official.group}</span>
                                                             )}
@@ -1947,19 +2003,40 @@ export const PlacePage: React.FC = () => {
 
                                                     {/* Precio oficial (ficha del negocio) */}
                                                     {official?.price && (
-                                                        <span className="shrink-0 text-xs sm:text-sm font-bold text-gray-200">{official.price}</span>
+                                                        <span className="shrink-0 text-xs sm:text-sm font-bold text-[var(--lt-text)]">{official.price}</span>
                                                     )}
 
                                                     {/* Score */}
-                                                    <span className={`text-base sm:text-lg font-black font-mono ${scoreColor} shrink-0`}>{dish.avg.toFixed(1)}</span>
+                                                    <span
+                                                        className="min-w-[2.6rem] shrink-0 rounded-full px-2 py-1 text-center font-display text-sm font-bold tabular-nums"
+                                                        style={scoreBadgeStyle(dish.avg)}
+                                                    >
+                                                        {dish.avg.toFixed(1)}
+                                                    </span>
                                                 </Link>
+                                                {placeId && (
+                                                    <DishRateButton placeId={placeId} itemName={dish.name} listId={dish.listId} className="mr-4 sm:mr-5" />
+                                                )}
+                                                </div>
                                             );
                                         })}
                                     </div>
                                 </div>
                             ) : (
-                                <div className="text-center py-10 text-gray-500">
-                                    No hay suficientes datos para mostrar la carta.
+                                <div className="flex flex-col items-center rounded-2xl border border-dashed border-[var(--lt-border-strong)] bg-[var(--lt-card)] px-6 py-10 text-center">
+                                    <span className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                        <Utensils className="h-6 w-6" />
+                                    </span>
+                                    <p className="text-sm font-bold text-[var(--lt-text)]">La carta está por escribir</p>
+                                    <p className="mt-1 text-xs text-[var(--lt-text-muted)]">No hay suficientes datos para mostrar la carta. Valora un plato y abre tú el menú.</p>
+                                    <button
+                                        type="button"
+                                        onClick={handleOpenReviewFlow}
+                                        className="mt-4 inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-bold lt-on-accent"
+                                        style={{ backgroundImage: 'var(--lt-accent-grad)' }}
+                                    >
+                                        <Plus className="h-4 w-4" /> Valorar un plato
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -1973,8 +2050,12 @@ export const PlacePage: React.FC = () => {
 
                                 if (mainLists.length === 0 && subLists.length === 0) {
                                     return (
-                                        <div className="py-10 text-center text-gray-500 border border-dashed border-white/10 rounded-xl">
-                                            Este sitio aún no está en otras listas públicas.
+                                        <div className="flex flex-col items-center rounded-2xl border border-dashed border-[var(--lt-border-strong)] bg-[var(--lt-card)] px-6 py-10 text-center">
+                                            <span className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                                <Bookmark className="h-6 w-6" />
+                                            </span>
+                                            <p className="text-sm font-bold text-[var(--lt-text)]">Sin listas por ahora</p>
+                                            <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Este sitio aún no está en otras listas públicas.</p>
                                         </div>
                                     );
                                 }
@@ -1983,15 +2064,18 @@ export const PlacePage: React.FC = () => {
                                     <>
                                         {mainLists.length > 0 && (
                                             <div>
-                                                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                                                    <ListIcon className="w-5 h-5 text-[var(--lt-accent)]" />
-                                                    Listas ({mainLists.length})
-                                                </h3>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <PlaceSectionHeader
+                                                    as="h3"
+                                                    className="mb-3"
+                                                    title="Listas"
+                                                    icon={<ListIcon />}
+                                                    subtitle="Donde la comunidad ha colado este sitio"
+                                                    aside={<span className="rounded-full bg-[var(--lt-accent-soft)] px-2.5 py-1 text-xs font-bold text-[var(--lt-accent)]">{mainLists.length}</span>}
+                                                />
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     {mainLists.map((list) => (
-                                                        <Link key={list.id} to={`/list/${list.id}`} className="block group">
-                                                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden hover:border-[var(--lt-accent-border)] transition-all h-full flex flex-col">
-                                                                <div className="h-32 bg-gray-800 relative">
+                                                        <Link key={list.id} to={`/list/${list.id}`} className="lt-media-card group relative block h-44 overflow-hidden rounded-3xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-lg transition-transform duration-300 hover:scale-[1.02]">
+                                                            <div className="absolute inset-0">
                                                                     {list.photoUrl ? (
                                                                         <ProgressiveImage
                                                                             src={list.photoUrl}
@@ -1999,28 +2083,23 @@ export const PlacePage: React.FC = () => {
                                                                             containerClassName="w-full h-full"
                                                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                                                             fallback={
-                                                                                <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                                                                                    <ListIcon className="w-10 h-10 text-gray-600" />
+                                                                                <div className="w-full h-full flex items-center justify-center bg-[var(--lt-card-strong)]">
+                                                                                    <ListIcon className="w-10 h-10 text-[var(--lt-text-muted)]" />
                                                                                 </div>
                                                                             }
                                                                         />
                                                                     ) : (
-                                                                        <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                                                                            <ListIcon className="w-10 h-10 text-gray-600" />
+                                                                        <div className="w-full h-full flex items-center justify-center bg-[var(--lt-card-strong)]">
+                                                                            <ListIcon className="w-10 h-10 text-[var(--lt-text-muted)]" />
                                                                         </div>
                                                                     )}
-                                                                </div>
-                                                                <div className="p-4 flex-1 flex flex-col justify-between">
-                                                                    <div>
-                                                                        <h3 className="text-white font-bold text-lg mb-1 truncate">{list.name}</h3>
-                                                                        <p className="text-gray-500 text-xs line-clamp-2">{list.description}</p>
-                                                                    </div>
-                                                                    <div className="mt-4 pt-2 border-t border-white/5 flex items-center justify-between">
-                                                                        {/* Hiding Author as requested */}
-                                                                        <span className="text-xs text-[var(--lt-accent)] font-medium group-hover:underline">Ver Lista</span>
-                                                                        <span className="text-xs text-gray-500">{list.itemCount || 0} lugares</span>
-                                                                    </div>
-                                                                </div>
+                                                            </div>
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                                                            {list.itemCount ? <span className="absolute top-2.5 right-2.5 z-10 rounded-full bg-black/45 backdrop-blur-md border border-white/15 px-2 py-0.5 text-[10px] font-bold text-white">{list.itemCount} {list.itemCount === 1 ? 'lugar' : 'lugares'}</span> : null}
+                                                            <div className="absolute inset-x-0 bottom-0 z-10 p-4">
+                                                                <MarqueeText as="h3" text={list.name} className="font-display text-lg font-bold leading-tight text-white" />
+                                                                {list.description && <p className="mt-0.5 line-clamp-1 text-xs text-gray-300">{list.description}</p>}
+                                                                <span className="mt-1.5 inline-block text-xs font-bold text-white/85 group-hover:underline">Ver Lista →</span>
                                                             </div>
                                                         </Link>
                                                     ))}
@@ -2030,15 +2109,17 @@ export const PlacePage: React.FC = () => {
 
                                         {subLists.length > 0 && (
                                             <div>
-                                                <h3 className="text-white font-bold mb-4 flex items-center gap-2">
-                                                    <div className="p-1 bg-[var(--lt-accent-soft)] rounded text-[var(--lt-accent-2)]"><ListIcon className="w-4 h-4" /></div>
-                                                    Minilistas ({subLists.length})
-                                                </h3>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <PlaceSectionHeader
+                                                    as="h3"
+                                                    className="mb-3"
+                                                    title="Minilistas"
+                                                    icon={<ListIcon />}
+                                                    aside={<span className="rounded-full bg-[var(--lt-accent-soft)] px-2.5 py-1 text-xs font-bold text-[var(--lt-accent)]">{subLists.length}</span>}
+                                                />
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     {subLists.map((list) => (
-                                                        <Link key={list.id} to={`/list/${list.id}`} className="block group">
-                                                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden hover:border-[var(--lt-accent-border)] transition-all h-full flex flex-col relative">
-                                                                <div className="h-32 bg-gray-800 relative">
+                                                        <Link key={list.id} to={`/list/${list.id}`} className="lt-media-card group relative block h-44 overflow-hidden rounded-3xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-lg transition-transform duration-300 hover:scale-[1.02]">
+                                                            <div className="absolute inset-0">
                                                                     {list.photoUrl ? (
                                                                         <ProgressiveImage
                                                                             src={list.photoUrl}
@@ -2046,31 +2127,24 @@ export const PlacePage: React.FC = () => {
                                                                             containerClassName="w-full h-full"
                                                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                                                             fallback={
-                                                                                <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                                                                                    <ListIcon className="w-10 h-10 text-gray-600" />
+                                                                                <div className="w-full h-full flex items-center justify-center bg-[var(--lt-card-strong)]">
+                                                                                    <ListIcon className="w-10 h-10 text-[var(--lt-text-muted)]" />
                                                                                 </div>
                                                                             }
                                                                         />
                                                                     ) : (
-                                                                        <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                                                                            <ListIcon className="w-10 h-10 text-gray-600" />
+                                                                        <div className="w-full h-full flex items-center justify-center bg-[var(--lt-card-strong)]">
+                                                                            <ListIcon className="w-10 h-10 text-[var(--lt-text-muted)]" />
                                                                         </div>
                                                                     )}
-                                                                    <div className="absolute top-2 right-2 p-1 bg-black/50 rounded backdrop-blur-md">
-                                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--lt-accent-2)] bg-[var(--lt-accent-soft)] px-2 py-0.5 rounded">Minilista</span>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="p-4 flex-1 flex flex-col justify-between">
-                                                                    <div>
-                                                                        <h3 className="text-white font-bold text-lg mb-1 truncate">{list.name}</h3>
-                                                                        <p className="text-gray-500 text-xs line-clamp-2">{list.description}</p>
-                                                                    </div>
-                                                                    <div className="mt-4 pt-2 border-t border-white/5 flex items-center justify-between">
-                                                                        {/* Hiding Author */}
-                                                                        <span className="text-xs text-[var(--lt-accent-2)] font-medium group-hover:underline">Ver Minilista</span>
-                                                                        <span className="text-xs text-gray-500">{list.itemCount || 0} lugares</span>
-                                                                    </div>
-                                                                </div>
+                                                            </div>
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                                                                <span className="absolute top-2.5 left-2.5 z-10 rounded-full bg-black/45 backdrop-blur-md border border-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">Minilista</span>
+                                                            {list.itemCount ? <span className="absolute top-2.5 right-2.5 z-10 rounded-full bg-black/45 backdrop-blur-md border border-white/15 px-2 py-0.5 text-[10px] font-bold text-white">{list.itemCount} {list.itemCount === 1 ? 'lugar' : 'lugares'}</span> : null}
+                                                            <div className="absolute inset-x-0 bottom-0 z-10 p-4">
+                                                                <MarqueeText as="h3" text={list.name} className="font-display text-lg font-bold leading-tight text-white" />
+                                                                {list.description && <p className="mt-0.5 line-clamp-1 text-xs text-gray-300">{list.description}</p>}
+                                                                <span className="mt-1.5 inline-block text-xs font-bold text-white/85 group-hover:underline">Ver Minilista →</span>
                                                             </div>
                                                         </Link>
                                                     ))}
@@ -2088,7 +2162,7 @@ export const PlacePage: React.FC = () => {
                         activeTab === 'photos' && (
                             <div className="animate-fade-in">
                                 {galleryItems.length > 0 ? (
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3">
                                         {galleryItems.map((photo, idx) => (
                                             <div
                                                 key={idx}
@@ -2096,7 +2170,7 @@ export const PlacePage: React.FC = () => {
                                                     setLightboxIndex(idx);
                                                     setIsLightboxOpen(true);
                                                 }}
-                                                className="aspect-square rounded-xl overflow-hidden bg-gray-800 cursor-pointer group relative border border-white/5 hover:border-[var(--lt-accent-border)] transition-all"
+                                                className="lt-media-card aspect-square rounded-2xl overflow-hidden bg-[var(--lt-card-strong)] cursor-pointer group relative border border-[var(--lt-border)] hover:border-[var(--lt-accent-border)] transition-all"
                                             >
                                                 <ProgressiveImage
                                                     src={photo.url}
@@ -2120,7 +2194,7 @@ export const PlacePage: React.FC = () => {
                                                     </div>
                                                 )}
                                                 {photo.source === 'place' && (
-                                                    <span className="absolute left-2 top-2 rounded-full bg-[var(--lt-accent)] px-2 py-0.5 text-[9px] font-bold text-white shadow">
+                                                    <span className="absolute left-2 top-2 rounded-full bg-[var(--lt-accent)] px-2 py-0.5 text-[9px] font-bold lt-on-accent shadow">
                                                         Lugar
                                                     </span>
                                                 )}
@@ -2128,16 +2202,19 @@ export const PlacePage: React.FC = () => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="py-16 text-center bg-[var(--lt-card-strong)] rounded-xl border border-dashed border-white/10">
-                                        <ImageIcon className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                                        <h3 className="text-white font-bold">Sin fotos</h3>
+                                    <div className="flex flex-col items-center rounded-2xl border border-dashed border-[var(--lt-border-strong)] bg-[var(--lt-card)] px-6 py-10 text-center">
+                                        <span className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                            <ImageIcon className="h-6 w-6" />
+                                        </span>
+                                        <h3 className="text-sm font-bold text-[var(--lt-text)]">Sin fotos</h3>
+                                        <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Aún no hay fotos de este sitio.</p>
                                         <button
                                             onClick={handleOpenPhotoUpload}
-                                            className="mt-4 px-4 py-2 rounded-xl bg-[var(--lt-accent)] text-white text-sm font-bold"
+                                            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl lt-on-accent text-sm font-bold"
+                                            style={{ backgroundImage: 'var(--lt-accent-grad)' }}
                                         >
-                                            Subir fotos
+                                            <ImageIcon className="h-4 w-4" /> Subir fotos
                                         </button>
-                                        <p className="text-gray-500 text-sm">Aún no hay fotos de este sitio.</p>
                                     </div>
                                 )}
                             </div>
