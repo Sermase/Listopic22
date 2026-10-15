@@ -13,6 +13,7 @@ import { NotificationModal } from './NotificationModal';
 import { useAuthPrompt } from '../context/AuthPromptContext';
 import { PageAnalyticsModal } from './PageAnalyticsModal';
 import { isTrackableAnalyticsPath } from '../services/AnalyticsService';
+import { useManagedBusinesses } from '../hooks/useManagedBusinesses';
 
 const FIREBASE_STORAGE_HOST = 'firebasestorage.googleapis.com';
 
@@ -67,6 +68,8 @@ export const Navbar: React.FC = () => {
         light: config.logoUrlLight,
         warm: config.logoUrlWarm,
         cool: config.logoUrlCool,
+        neon: config.logoUrlNeon,
+        graphite: config.logoUrlGraphite,
     };
     const activeLogoUrl = themeLogoUrls[theme] || config.logoUrl;
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -78,7 +81,7 @@ export const Navbar: React.FC = () => {
     const [showPageAnalytics, setShowPageAnalytics] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [unreadChatCount, setUnreadChatCount] = useState(0);
-    const [managedBusinessCount, setManagedBusinessCount] = useState(0);
+    const { count: managedBusinessCount } = useManagedBusinesses(user?.uid);
     const [profileUsername, setProfileUsername] = useState('');
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
     const [profilePhotoRetryUrl, setProfilePhotoRetryUrl] = useState('');
@@ -122,52 +125,6 @@ export const Navbar: React.FC = () => {
         });
 
         return () => unsubscribe();
-    }, [user]);
-
-    useEffect(() => {
-        if (!user) {
-            setManagedBusinessCount(0);
-            return;
-        }
-
-        let managerPlaceIds = new Set<string>();
-        let ownerPlaceIds = new Set<string>();
-        const publishBusinessCount = () => {
-            setManagedBusinessCount(new Set([...managerPlaceIds, ...ownerPlaceIds]).size);
-        };
-
-        const managedBusinessesQuery = query(
-            collection(db, 'places'),
-            where('businessManagerIds', 'array-contains', user.uid),
-            limit(20),
-        );
-        const ownedBusinessesQuery = query(
-            collection(db, 'places'),
-            where('businessOwnerUserId', '==', user.uid),
-            limit(20),
-        );
-
-        const unsubscribeManaged = onSnapshot(managedBusinessesQuery, (snapshot) => {
-            managerPlaceIds = new Set(snapshot.docs.map((snap) => snap.id));
-            publishBusinessCount();
-        }, (error) => {
-            console.warn('Navbar managed businesses snapshot error:', error);
-            managerPlaceIds = new Set();
-            publishBusinessCount();
-        });
-        const unsubscribeOwned = onSnapshot(ownedBusinessesQuery, (snapshot) => {
-            ownerPlaceIds = new Set(snapshot.docs.map((snap) => snap.id));
-            publishBusinessCount();
-        }, (error) => {
-            console.warn('Navbar owned businesses snapshot error:', error);
-            ownerPlaceIds = new Set();
-            publishBusinessCount();
-        });
-
-        return () => {
-            unsubscribeManaged();
-            unsubscribeOwned();
-        };
     }, [user]);
 
     useEffect(() => {

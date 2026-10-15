@@ -679,6 +679,76 @@
         radial-gradient(circle at 20% 80%, rgba(20, 184, 166, 0.08), transparent 50%);
 }
 
+.theme-neon {
+    color-scheme: dark;
+    --lt-bg: #12081a;
+    --lt-bg-deep: #0b0411;
+    --lt-text: #fdf4ff;
+    --lt-text-muted: #c4a7d4;
+    --lt-card: rgba(38, 16, 52, 0.6);
+    --lt-card-strong: #1f1029;
+    --lt-card-strong-alpha: rgba(38, 16, 52, 0.72);
+    --lt-glass: rgba(255, 170, 230, 0.05);
+    --lt-border: rgba(244, 114, 182, 0.12);
+    --lt-border-strong: rgba(244, 114, 182, 0.26);
+    --lt-nav-scrolled: rgba(31, 16, 41, 0.75);
+    --lt-accent: #ec4899;
+    --lt-accent-2: #8b5cf6;
+    --lt-accent-grad: linear-gradient(135deg, #ec4899, #8b5cf6);
+    --lt-accent-border: #f472b6;
+    --lt-accent-shadow: rgba(236, 72, 153, 0.42);
+    --lt-accent-soft: rgba(236, 72, 153, 0.16);
+    --lt-success: #34d399;
+    --lt-success-soft: rgba(52, 211, 153, 0.15);
+    --lt-warning: #fb923c;
+    --lt-warning-soft: rgba(251, 146, 60, 0.15);
+    --lt-danger: #fb7185;
+    --lt-danger-soft: rgba(251, 113, 133, 0.15);
+    --lt-promo: #fbbf24;
+    --lt-promo-soft: rgba(251, 191, 36, 0.15);
+    --lt-hero-grad: linear-gradient(90deg, #f9a8d4, #ec4899, #8b5cf6);
+    --lt-brand-mark: linear-gradient(135deg, #f9a8d4, #ec4899, #8b5cf6);
+    --lt-body-mesh:
+        radial-gradient(circle at 10% 15%, rgba(236, 72, 153, 0.20), transparent 45%),
+        radial-gradient(circle at 90% 20%, rgba(139, 92, 246, 0.18), transparent 42%),
+        radial-gradient(circle at 50% 65%, rgba(217, 70, 239, 0.10), transparent 50%),
+        radial-gradient(circle at 85% 90%, rgba(56, 189, 248, 0.08), transparent 45%);
+}
+
+.theme-graphite {
+    color-scheme: dark;
+    --lt-bg: #050506;
+    --lt-bg-deep: #000000;
+    --lt-text: #f4f4f5;
+    --lt-text-muted: #a1a1aa;
+    --lt-card: rgba(24, 24, 27, 0.7);
+    --lt-card-strong: #141417;
+    --lt-card-strong-alpha: rgba(20, 20, 23, 0.8);
+    --lt-glass: rgba(255, 255, 255, 0.04);
+    --lt-border: rgba(255, 255, 255, 0.08);
+    --lt-border-strong: rgba(255, 255, 255, 0.16);
+    --lt-nav-scrolled: rgba(20, 20, 23, 0.8);
+    --lt-accent: #38bdf8;
+    --lt-accent-2: #818cf8;
+    --lt-accent-grad: linear-gradient(135deg, #38bdf8, #818cf8);
+    --lt-accent-border: #7dd3fc;
+    --lt-accent-shadow: rgba(56, 189, 248, 0.35);
+    --lt-accent-soft: rgba(56, 189, 248, 0.13);
+    --lt-success: #4ade80;
+    --lt-success-soft: rgba(74, 222, 128, 0.14);
+    --lt-warning: #fb923c;
+    --lt-warning-soft: rgba(251, 146, 60, 0.14);
+    --lt-danger: #f87171;
+    --lt-danger-soft: rgba(248, 113, 113, 0.14);
+    --lt-promo: #fbbf24;
+    --lt-promo-soft: rgba(251, 191, 36, 0.14);
+    --lt-hero-grad: linear-gradient(90deg, #e4e4e7, #38bdf8, #818cf8);
+    --lt-brand-mark: linear-gradient(135deg, #7dd3fc, #38bdf8, #818cf8);
+    --lt-body-mesh:
+        radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.07), transparent 45%),
+        radial-gradient(circle at 85% 85%, rgba(129, 140, 248, 0.06), transparent 45%);
+}
+
 /* =====================================================================
    Legacy tokens mapeados a --lt-*. Así los componentes viejos que usan
    --bg-primary, --card-bg, --glass-bg, etc. cambian de tema automático.
@@ -1292,4 +1362,21 @@ html.theme-light .lt-media-card .bg-black\/60 { background-color: rgba(0, 0, 0, 
         animation: none;
         display: none;
     }
+}
+
+/* Botón «Mi negocio» de la barra inferior (Business Pro): brillo suave. */
+@keyframes lt-pro-glow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(236, 72, 153, 0.0), 0 4px 12px rgba(236, 72, 153, 0.35); }
+    50% { box-shadow: 0 0 0 4px rgba(236, 72, 153, 0.18), 0 4px 16px rgba(245, 158, 11, 0.45); }
+}
+
+.lt-pro-glow {
+    animation: lt-pro-glow 2.8s ease-in-out infinite;
+}
+
+/* Texto blanco sobre el color de acento o degradados vivos, en todos los temas
+   (el tema claro oscurece .text-white). */
+.lt-on-accent,
+html.theme-light .lt-on-accent {
+    color: #ffffff !important;
 }

@@ -34,12 +34,16 @@ export const BrandingManager: React.FC = () => {
         light: config.logoUrlLight || null,
         warm: config.logoUrlWarm || null,
         cool: config.logoUrlCool || null,
+        neon: config.logoUrlNeon || null,
+        graphite: config.logoUrlGraphite || null,
     });
     const themeInputRefs: Record<ThemeId, React.RefObject<HTMLInputElement | null>> = {
         dark: useRef<HTMLInputElement>(null),
         light: useRef<HTMLInputElement>(null),
         warm: useRef<HTMLInputElement>(null),
         cool: useRef<HTMLInputElement>(null),
+        neon: useRef<HTMLInputElement>(null),
+        graphite: useRef<HTMLInputElement>(null),
     };
 
     // Track which theme files have been selected
@@ -53,7 +57,7 @@ export const BrandingManager: React.FC = () => {
             const url = ev.target?.result as string;
             if (type === 'logo') {
                 setLogoPreview(url);
-            } else if (['dark', 'light', 'warm', 'cool'].includes(type as string)) {
+            } else if (THEMES.some((t) => t.id === type)) {
                 const tid = type as ThemeId;
                 setThemePreviews(prev => ({ ...prev, [tid]: url }));
                 setPendingThemeFiles(prev => ({ ...prev, [tid]: file }));

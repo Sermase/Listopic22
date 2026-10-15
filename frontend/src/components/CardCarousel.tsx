@@ -31,19 +31,19 @@ export function CardCarousel<T>({
 
     return (
         <section className="py-2">
-            <div className="container mx-auto px-4 mb-4 flex items-end justify-between">
-                <div className="flex items-center gap-3">
+            <div className="container mx-auto px-4 mb-3 flex items-end justify-between gap-3">
+                <div className="flex items-center gap-2.5 min-w-0">
                     {icon && (
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${accentClass}`}>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 [&>svg]:w-4 [&>svg]:h-4 ${accentClass}`}>
                             {icon}
                         </div>
                     )}
-                    <div>
-                        <h2 className="text-xl md:text-2xl font-display font-bold text-white mb-1">
+                    <div className="min-w-0">
+                        <h2 className="text-lg md:text-2xl font-display font-bold leading-tight text-[var(--lt-text)]">
                             {title}
                         </h2>
                         {subtitle && (
-                            <p className="text-sm text-gray-400 font-medium">
+                            <p className="text-sm text-[var(--lt-text-muted)] font-medium">
                                 {subtitle}
                             </p>
                         )}

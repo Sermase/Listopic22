@@ -15,7 +15,7 @@ import { computeTasteMatch } from '../utils/tasteMatch';
 import { WeeklyDuelBanner } from '../components/WeeklyDuelBanner';
 import { LazyMapView as MapView } from '../components/lazy';
 import { UserAvatar } from '../components/UserAvatar';
-import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, Flame, TrendingUp, Gem, HeartHandshake, Rows3 } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, TrendingUp, Gem, HeartHandshake, Rows3, Search } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, collectionGroup, query, getDocs, limit, doc, getDoc, getDocFromServer, onSnapshot, where } from 'firebase/firestore';
@@ -25,6 +25,8 @@ import { useToast } from '../context/ToastContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { Footer } from '../components/Footer';
 import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
+import { FeaturedListCard } from '../components/home/FeaturedListCard';
+import { HomeRanking, type RankingRow } from '../components/home/HomeRanking';
 import {
     completeUserProfileSetup,
     getUsernameGateStatus,
@@ -1175,21 +1177,68 @@ export const HomePage: React.FC = () => {
         return `/search?${params.toString()}`;
     }, [range]);
 
+    // Ranking de platos: cada plato (sitio + nombre) con su media y nº de valoraciones.
+    const rankedDishes = useMemo<RankingRow[]>(() => {
+        const groups = new Map<string, { row: RankingRow; sum: number; count: number }>();
+        reviewsInRange.forEach((r: any) => {
+            if (!r.placeId || typeof r.overallRating !== 'number' || !Number.isFinite(r.overallRating)) return;
+            const name = String(r.itemName || r.placeName || '').trim();
+            if (!name) return;
+            const key = `${r.placeId}::${name.toLowerCase()}`;
+            const existing = groups.get(key);
+            if (existing) {
+                existing.sum += r.overallRating;
+                existing.count += 1;
+                if (!existing.row.imageUrl && (r.photoUrl || r.placeMainImage)) existing.row.imageUrl = r.photoUrl || r.placeMainImage;
+                return;
+            }
+            groups.set(key, {
+                sum: r.overallRating,
+                count: 1,
+                row: {
+                    key,
+                    to: `/group/${r.placeId}/${encodeURIComponent(name)}`,
+                    title: name,
+                    subtitle: r.placeName && r.placeName !== name ? r.placeName : (r.placeCity || undefined),
+                    imageUrl: r.photoUrl || r.placeMainImage || undefined,
+                    score: null,
+                },
+            });
+        });
+        return Array.from(groups.values())
+            .map((g) => ({ ...g, average: g.sum / g.count }))
+            .sort((a, b) => compareByRank({ average: a.average, count: a.count }, { average: b.average, count: b.count }))
+            .slice(0, 10)
+            .map((g) => ({ ...g.row, score: g.average }));
+    }, [reviewsInRange]);
+
+    const rankedPlaces = useMemo<RankingRow[]>(() => filteredPlaces.slice(0, 10).map((place: any) => ({
+        key: place.id,
+        to: `/place/${place.id}`,
+        title: place.name || 'Sitio',
+        subtitle: place.address?.split(',')[0] || undefined,
+        imageUrl: place.photoUrl || undefined,
+        score: typeof place.rating === 'number' ? place.rating : null,
+    })), [filteredPlaces]);
+
+    const featuredList = listCarouselItems[0] as any;
+    const firstName = (user?.displayName || '').trim().split(/\s+/)[0];
+    const greeting = user ? `Hola${firstName ? `, ${firstName}` : ''}` : 'Bienvenido a Listopic';
+    const heroTitle = areaFilter.kind === 'near' ? 'Lo mejor cerca de ti' : 'Lo mejor de tu zona';
+
     return (
         <>
             <div className="min-h-screen bg-[var(--lt-bg)] pb-20 font-sans">
                 <div className="pt-safe-24 px-4 pb-6">
 
-                    {/* Hero Section (Clean) */}
-                    <div className="max-w-4xl mx-auto mb-10 text-center pt-8 relative z-10">
-                        <div className="absolute top-0 left-1/4 w-64 h-64 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" style={{ backgroundColor: 'var(--lt-accent-soft)' }} />
-                        <div className="absolute top-10 right-1/4 w-72 h-72 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" style={{ backgroundColor: 'var(--lt-accent-soft)', animationDelay: '2s' }} />
-                        <h1 className="text-5xl md:text-[5.5rem] font-black tracking-tighter mb-4 select-none leading-[1.1]">
-                            <span className="bg-clip-text text-transparent drop-shadow-md" style={{ backgroundImage: 'var(--lt-hero-grad)' }}>
-                                LISTOPIC
-                            </span>
+                    {/* Cabecera: saludo, titular con gancho y buscador */}
+                    <div className="max-w-4xl mx-auto pt-2 sm:pt-6 relative z-10">
+                        <div className="absolute -top-16 right-0 w-72 h-72 rounded-full blur-[90px] pointer-events-none -z-10 opacity-80" style={{ backgroundColor: 'var(--lt-accent-soft)' }} />
+                        <p className="text-sm font-semibold text-[var(--lt-text-muted)]">{greeting}</p>
+                        <h1 className="mt-1 text-[2.25rem] leading-[1.05] md:text-6xl font-bold tracking-tight text-[var(--lt-text)] [text-wrap:balance]">
+                            {heroTitle}
                         </h1>
-                        <p className="text-lg md:text-2xl text-gray-400 font-light tracking-wide max-w-2xl mx-auto leading-relaxed">
+                        <p className="mt-3 max-w-2xl text-base md:text-lg text-[var(--lt-text-muted)] leading-relaxed">
                             {parsedHeroSubtitle.map((segment) => (
                                 segment.isHighlight ? (
                                     <span key={segment.key} className={`${segment.className} font-bold`}>
@@ -1200,11 +1249,17 @@ export const HomePage: React.FC = () => {
                                 )
                             ))}
                         </p>
-
+                        <Link
+                            to="/search"
+                            className="mt-5 flex items-center gap-3 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] px-4 py-3.5 text-[var(--lt-text-muted)] backdrop-blur-xl transition-colors hover:border-[var(--lt-border-strong)] hover:text-[var(--lt-text)]"
+                        >
+                            <Search className="w-5 h-5 shrink-0 text-[var(--lt-accent)]" />
+                            <span className="truncate text-sm sm:text-base">Busca platos, sitios o listas</span>
+                        </Link>
                     </div>
 
                     {/* Navigation Pills */}
-                    <div className="flex flex-col items-center mt-8 gap-3">
+                    <div className="max-w-4xl mx-auto flex flex-col items-start mt-6 gap-3">
                         <div className="inline-flex bg-white/5 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-inner">
                             <button
                                 onClick={() => setActiveTab('explore')}
@@ -1228,7 +1283,7 @@ export const HomePage: React.FC = () => {
                             </button>
                         </div>
                         {activeTab === 'news' && (
-                            <div className="flex w-full max-w-[95%] justify-end">
+                            <div className="flex w-full justify-end">
                                 <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/10">
                                 <button
                                     onClick={() => setFeedViewMode('full')}
@@ -1258,26 +1313,11 @@ export const HomePage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Duelo de la semana (flag en Developer → Otros) */}
-                    {activeTab === 'explore' && appConfig.showWeeklyDuel && <WeeklyDuelBanner />}
-
-                    {/* Destacados patrocinados (Business Pro, aprobados por admin) */}
-                    {activeTab === 'explore' && <SponsoredHomeSpotlight />}
-                    {activeTab === 'explore' && <SponsoredItemsCarousel className="mx-auto mt-6 w-full max-w-4xl" />}
-
-                    {/* Filter Chips (Categories) */}
-                    {activeTab === 'explore' && (
-                        <div className="flex flex-wrap justify-between items-center mt-8 gap-4">
-                            <div className="flex-1"></div>
-                        </div>
-                    )}
-
-
                     {/* Map Collapsible */}
                     {activeTab === 'explore' && (
-                        <div className="max-w-7xl mx-auto mb-8">
-                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden transition-all duration-300">
-                                <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[var(--lt-card)]">
+                        <div className="max-w-4xl mx-auto mt-6">
+                            <div className="bg-[var(--lt-card)] border border-[var(--lt-border)] rounded-2xl overflow-hidden backdrop-blur-xl transition-all duration-300">
+                                <div className="w-full p-3 flex items-center justify-between text-[var(--lt-text-muted)]">
                                     <button
                                         onClick={() => setIsMapOpen(!isMapOpen)}
                                         className="flex items-center gap-2 hover:text-white transition-colors shrink-0 text-left"
@@ -1317,18 +1357,39 @@ export const HomePage: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Duelo de la semana (flag en Developer → Otros) */}
+                    {activeTab === 'explore' && appConfig.showWeeklyDuel && <WeeklyDuelBanner />}
+
+                    {/* Destacados patrocinados (Business Pro, aprobados por admin) */}
+                    {activeTab === 'explore' && <SponsoredHomeSpotlight />}
+                    {activeTab === 'explore' && <SponsoredItemsCarousel className="mx-auto mt-6 w-full max-w-4xl" />}
+
+                    {/* Portada y ranking: lo primero que se ve al bajar */}
+                    {activeTab === 'explore' && (
+                        <div className="max-w-4xl mx-auto mt-8 mb-8 space-y-8">
+                            {featuredList && <FeaturedListCard list={featuredList} />}
+                            <HomeRanking
+                                dishes={rankedDishes}
+                                places={rankedPlaces}
+                                dishesLink={buildCarouselSearchLink('items', 'top_rated')}
+                                placesLink={buildCarouselSearchLink('places', 'rating')}
+                                loading={loadingReviews}
+                            />
+                        </div>
+                    )}
+
                     <div className="max-w-[95%] mx-auto space-y-1">
 
 
                         {activeTab === 'explore' && (<>
                             {/* 1. Listas */}
                             <CardCarousel
-                                title={activeTab === 'explore' ? "Listas con más valoraciones" : "Listas recientes"}
+                                title={activeTab === 'explore' ? "Más listas con movimiento" : "Listas recientes"}
                                 viewAllLink={buildCarouselSearchLink('lists', activeTab === 'explore' ? 'most_reviewed' : 'latest')}
                                 items={activeTab === 'explore'
-                                    ? listCarouselItems
+                                    ? listCarouselItems.slice(1)
                                     : filteredLists}
-                                loading={(loadingLists || loadingReviews) && (activeTab === 'explore' ? listCarouselItems.length === 0 : filteredLists.length === 0)}
+                                loading={(loadingLists || loadingReviews) && (activeTab === 'explore' ? listCarouselItems.length <= 1 : filteredLists.length === 0)}
                                 icon={<ListIcon className="w-5 h-5 text-blue-400" />}
                                 accentClass="bg-blue-500/20"
                                 renderItem={(list: any, index: number) => (
@@ -1346,7 +1407,7 @@ export const HomePage: React.FC = () => {
                                             {list.itemCount}
                                         </div>
                                         <div className="absolute top-2 left-2 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
-                                            #{index + 1}
+                                            #{index + 2}
                                         </div>
 
                                         <div className="absolute bottom-0 left-0 right-0 p-3">
@@ -1365,19 +1426,6 @@ export const HomePage: React.FC = () => {
                                             </div>
                                         </div>
                                     </Link>
-                                )}
-                            />
-
-                            {/* 2. Items */}
-                            <CardCarousel
-                                title={activeTab === 'explore' ? "Mejor en Listopic" : "Últimos elementos"}
-                                viewAllLink={buildCarouselSearchLink('items', activeTab === 'explore' ? 'top_rated' : 'latest')}
-                                items={filteredItems}
-                                loading={loadingReviews}
-                                icon={<Star className="w-5 h-5 text-amber-400" />}
-                                accentClass="bg-amber-500/20"
-                                renderItem={(item: any) => (
-                                    <ReviewCarouselItem review={item} variant="item" />
                                 )}
                             />
 
@@ -1529,40 +1577,6 @@ export const HomePage: React.FC = () => {
                                     </Link>
                                 )}
                             />
-
-                            {/* 6. Lugares top */}
-                            <CardCarousel
-                                title={activeTab === 'explore' ? "Sitios top" : "Nuevos sitios"}
-                                viewAllLink={buildCarouselSearchLink('places', activeTab === 'explore' ? 'rating' : 'latest')}
-                                items={filteredPlaces}
-                                loading={loadingReviews}
-                                icon={<Flame className="w-5 h-5 text-rose-400" />}
-                                accentClass="bg-rose-500/20"
-                                renderItem={(place: any) => (
-                                    <Link to={`/place/${place.id}`} className="lt-media-card block relative group h-40 md:h-48 rounded-md overflow-hidden border border-white/5 shadow-lg transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
-                                        {place.photoUrl ? (
-                                            <div className="absolute inset-0">
-                                                <ProgressiveImage src={place.photoUrl} alt={place.name} containerClassName="w-full h-full" className="w-full h-full object-cover" />
-                                                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
-                                            </div>
-                                        ) : (
-                                            <PlacePhotoPlaceholder compact />
-                                        )}
-
-                                        <div className="absolute top-2 right-2 bg-teal-600 px-1.5 py-0.5 rounded text-[10px] font-bold text-white shadow-sm">
-                                            {place.rating?.toFixed(1) || 9.5}
-                                        </div>
-
-                                        <div className="absolute bottom-0 left-0 right-0 p-3">
-                                            <h3 className="text-white font-bold text-sm leading-tight mb-1 truncate">{place.name}</h3>
-                                            <p className="text-gray-300 text-[10px] flex items-center gap-1 opacity-80">
-                                                <MapPin className="w-3 h-3" /> {place.address?.split(',')[0]}
-                                            </p>
-                                        </div>
-                                    </Link>
-                                )}
-                            />
-
 
                         </>)}
 

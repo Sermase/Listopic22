@@ -5,6 +5,7 @@ import { ConfirmProvider } from './context/ConfirmContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LegalAcceptanceGate } from './components/legal/LegalAcceptanceGate';
 import { Navbar } from './components/Navbar';
+import { BottomNav } from './components/BottomNav';
 import { App as CapApp } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Capacitor } from '@capacitor/core';
@@ -290,6 +291,7 @@ function App() {
               <NavbarWrapper />
               <NotificationBanner />
               <AppRoutes />
+              <BottomNav />
               <PushSetup />
               <LegalAcceptanceGate />
             </div>
