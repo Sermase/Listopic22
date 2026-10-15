@@ -204,11 +204,11 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
     const showSubtitle = Boolean(item.placeName && item.placeName !== item.name && dishSubtitle);
     const cityLabel = item.placeCity || item.placeAddress;
     const closedChip = item.placeClosedStatus ? (
-        <span className={`inline-flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${isPermanentlyClosed
+        <span title={isPermanentlyClosed ? 'Google lo da por cerrado' : 'Google lo marca como cerrado temporalmente'} className={`inline-flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${isPermanentlyClosed
             ? 'bg-[var(--lt-danger-soft)] border-[var(--lt-danger)]/30 text-[var(--lt-danger)]'
             : 'bg-[var(--lt-warning-soft)] border-[var(--lt-warning)]/30 text-[var(--lt-warning)]'
             }`}>
-            {isPermanentlyClosed ? '🔒 Cerrado' : '⏰ Temp.'}
+            {isPermanentlyClosed ? '🔒 Cerrado' : '⏸️ Cierre temporal'}
         </span>
     ) : null;
     const photo = (
@@ -359,20 +359,17 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                     </Link>
                                 </h3>
 
-                                {/* Subtítulo: sitio (o elemento) · ciudad */}
-                                {(showSubtitle || cityLabel || closedChip) && (
+                                {/* Subtítulo: sitio (o elemento); la ciudad, en su propia línea */}
+                                {showSubtitle && (
                                     <div className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-[var(--lt-text-muted)]">
-                                        {showSubtitle && (
-                                            <>
-                                                {!swapTitle && <MapPin className="w-3 h-3 shrink-0" />}
-                                                <MarqueeText text={dishSubtitle || ''} className="font-medium" />
-                                            </>
-                                        )}
+                                        {!swapTitle && <MapPin className="w-3 h-3 shrink-0" />}
+                                        <MarqueeText text={dishSubtitle || ''} className="font-medium" />
+                                    </div>
+                                )}
+                                {(cityLabel || closedChip) && (
+                                    <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs">
                                         {cityLabel && (
-                                            <span className="min-w-0 shrink truncate font-semibold text-[var(--lt-accent)]">
-                                                {showSubtitle && <span className="mr-1 text-[var(--lt-text-muted)]" aria-hidden>·</span>}
-                                                {cityLabel}
-                                            </span>
+                                            <span className="min-w-0 truncate font-semibold text-[var(--lt-accent)]">{cityLabel}</span>
                                         )}
                                         {closedChip}
                                     </div>
