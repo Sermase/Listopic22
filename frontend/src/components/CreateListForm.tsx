@@ -12,6 +12,7 @@ import { isInlineImage, uploadListCover } from '../lib/listCover';
 import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
 import { writeWithOptionalFields } from '../lib/optionalFields';
 import { deriveScoringWeights } from '../lib/scoring';
+import { categoryFixedTags, tagKey, withCategoryTags } from '../lib/categoryTags';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -132,15 +133,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
         if (!categoryId) return;
         const selectedCat = categories.find(c => c.id === categoryId);
         if (selectedCat) {
-            // 1. Prefill Tags as pre-selected but removable
-            if (selectedCat['fixed-tags'] && Array.isArray(selectedCat['fixed-tags'])) {
-                const catTags: string[] = (selectedCat['fixed-tags'] as string[]).filter(t => !fixedTags.includes(t));
-                setCustomTags(prev => {
-                    // Category tags first, preserve any extra tags the user already added
-                    const userExtras = prev.filter(t => !catTags.includes(t));
-                    return [...catTags, ...userExtras];
-                });
-            }
+            // 1. Las etiquetas fijas de la categoría van aparte (categoryTags) y no se quitan.
 
             // 2. Prefill Criteria
             if (selectedCat.defaultCriteria) {
@@ -162,7 +155,15 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 }
             }
         }
-    }, [categoryId, categories, fixedTags]);
+    }, [categoryId, categories]);
+
+    // Fijas de la categoría (en «Hmm...»: Vegetariano, Sin gluten…): siempre en la lista.
+    const categoryTags = useMemo(
+        () => categoryFixedTags(categories.find(c => c.id === categoryId)),
+        [categories, categoryId],
+    );
+    const lockedTags = useMemo(() => withCategoryTags(categoryTags, fixedTags), [categoryTags, fixedTags]);
+    const lockedTagKeys = useMemo(() => new Set(lockedTags.map(tagKey)), [lockedTags]);
 
     // Image Handlers
     const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -180,7 +181,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
         if (e.key === 'Enter' && tagInput.trim()) {
             e.preventDefault();
             const val = buildTagString(tagIcon, tagInput);
-            if (val && !customTags.includes(val) && !fixedTags.includes(val)) {
+            if (val && !customTags.includes(val) && !lockedTagKeys.has(tagKey(val))) {
                 setCustomTags([...customTags, val]);
             }
             setTagInput('');
@@ -190,7 +191,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
 
     const commitAddTag = () => {
         const val = buildTagString(tagIcon, tagInput);
-        if (val && !customTags.includes(val) && !fixedTags.includes(val)) {
+        if (val && !customTags.includes(val) && !lockedTagKeys.has(tagKey(val))) {
             setCustomTags([...customTags, val]);
         }
         setTagInput('');
@@ -227,7 +228,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 };
             });
 
-            const finalListTags = [...fixedTags, ...customTags];
+            const finalListTags = withCategoryTags(lockedTags, customTags);
 
             // Legacy Structure Match
             const newListData = {
@@ -247,7 +248,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
 
                 criteriaDefinition: criteriaDefinitionMap,
                 availableTags: finalListTags, // Combined tags
-                fixedTags: fixedTags,
+                fixedTags: lockedTags,
 
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
@@ -417,18 +418,18 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                     <h3 className="text-lg font-bold text-white mb-2">Etiquetas (Tags)</h3>
                     <p className="text-sm text-gray-400 mb-4">
                         Ayuda a otros a filtrar tu lista.
-                        {categoryId && (categories.find(c => c.id === categoryId)?.['fixed-tags']?.length ?? 0) > 0 && (
-                            <span className="text-[var(--lt-accent)] ml-1">Se han preseleccionado las etiquetas sugeridas de la categoría — puedes quitarlas o añadir más.</span>
+                        {categoryTags.length > 0 && (
+                            <span className="text-[var(--lt-accent)] ml-1">Las de la categoría van siempre; añade las que quieras.</span>
                         )}
                     </p>
 
                     <div className="flex flex-wrap gap-2 mb-3">
-                        {fixedTags.map(tag => (
+                        {lockedTags.map(tag => (
                             <span key={`fixed-${tag}`} className="bg-gray-700/50 text-gray-300 px-3 py-1 rounded-full text-sm flex items-center gap-1 border border-white/5 cursor-not-allowed">
                                 {tag}
                             </span>
                         ))}
-                        {customTags.map(tag => {
+                        {customTags.filter(tag => !lockedTagKeys.has(tagKey(tag))).map(tag => {
                             const { icon, label } = splitTagEmoji(tag);
                             return (
                                 <span key={tag} className="bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] px-3 py-1 rounded-full text-sm flex items-center gap-1.5">

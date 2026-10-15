@@ -12,6 +12,8 @@ import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
 import { writeWithOptionalFields } from '../lib/optionalFields';
 import { deriveScoringWeights } from '../lib/scoring';
 import { listVisibility } from '../lib/reviewVisibility';
+import { withCategoryTags } from '../lib/categoryTags';
+import { CategoryService } from '../services/CategoryService';
 
 export const CreateSublistPage: React.FC = () => {
     const { user } = useAuth();
@@ -92,7 +94,8 @@ export const CreateSublistPage: React.FC = () => {
 
                         // Prefill data
                         setName(`${data.name} (Mi Versión)`);
-                        setFixedTags(data.availableTags || []);
+                        // Las de la madre y las fijas de la categoría (Vegetariano, Sin gluten… en «Hmm...»).
+                        setFixedTags(withCategoryTags(await CategoryService.getFixedTags(data.categoryId), data.availableTags));
 
                         // Prefill criteria
                         if (data.criteriaDefinition) {

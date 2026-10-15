@@ -1,5 +1,6 @@
 import { db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { categoryFixedTags } from '../lib/categoryTags';
 
 export interface CategoryEntity {
     id: string;
@@ -8,6 +9,7 @@ export interface CategoryEntity {
     label?: string;
     like?: string;
     dislike?: string;
+    'fixed-tags'?: string[];
     defaultCriteria?: {
         rangos?: {
             like?: string;
@@ -16,6 +18,9 @@ export interface CategoryEntity {
         }
     }
 }
+
+// Las etiquetas fijas casi nunca cambian: una lectura por categoría y sesión.
+const fixedTagsCache = new Map<string, Promise<string[]>>();
 
 export const CategoryService = {
     getCategory: async (categoryId: string): Promise<CategoryEntity | null> => {
@@ -31,6 +36,18 @@ export const CategoryService = {
             console.warn("Error fetching category", error);
             return null;
         }
+    },
+
+    /** Etiquetas fijas de la categoría (vacío si no tiene o no se puede leer). */
+    getFixedTags: (categoryId: unknown): Promise<string[]> => {
+        if (typeof categoryId !== 'string' || !categoryId.trim()) return Promise.resolve([]);
+        const id = categoryId.trim();
+        let pending = fixedTagsCache.get(id);
+        if (!pending) {
+            pending = CategoryService.getCategory(id).then(categoryFixedTags);
+            fixedTagsCache.set(id, pending);
+        }
+        return pending;
     },
 
     getReactionConfig: (category: CategoryEntity | null | undefined): { like?: string; dislike?: string } | null => {
