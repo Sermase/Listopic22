@@ -55,6 +55,8 @@ export const ReviewService = {
                 // Remove the deleted review from all cached review pages immediately
                 // (avoids refetch race with Firestore cache returning stale data)
                 queryClient.setQueriesData({ queryKey: ['reviews'] }, (old: unknown) => {
+                    // «Recuerdos» de la Home guarda una lista simple, no páginas.
+                    if (Array.isArray(old)) return old.filter((review: { id?: string }) => review?.id !== reviewId);
                     const cache = old as ReviewInfiniteCache | undefined;
                     if (!cache?.pages) return old;
                     return {

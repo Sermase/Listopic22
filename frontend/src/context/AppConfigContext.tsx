@@ -9,6 +9,8 @@ export interface AppConfig {
     logoUrlLight?: string;
     logoUrlWarm?: string;
     logoUrlCool?: string;
+    logoUrlNeon?: string;
+    logoUrlGraphite?: string;
     faviconType: 'default' | 'image';
     faviconUrl?: string;
     appName: string;

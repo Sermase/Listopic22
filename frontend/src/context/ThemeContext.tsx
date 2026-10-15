@@ -13,7 +13,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 
-export type ThemeId = 'dark' | 'light' | 'warm' | 'cool';
+export type ThemeId = 'dark' | 'light' | 'warm' | 'cool' | 'neon' | 'graphite';
 
 export interface ThemeMeta {
     id: ThemeId;
@@ -63,6 +63,22 @@ export const THEMES: ThemeMeta[] = [
         preview: { bg: '#031a20', card: '#0c2a32', accent: '#14b8a6', accent2: '#06b6d4', text: '#ecfeff' },
         statusBarStyle: 'dark',   // Style.Dark = iconos blancos sobre fondo oscuro
     },
+    {
+        id: 'neon',
+        label: 'Neón',
+        mood: 'Fucsia · Violeta',
+        description: 'Noche de ciudad: ciruela profundo con brillos fucsia.',
+        preview: { bg: '#12081a', card: '#1f1029', accent: '#ec4899', accent2: '#8b5cf6', text: '#fdf4ff' },
+        statusBarStyle: 'dark',
+    },
+    {
+        id: 'graphite',
+        label: 'Grafito',
+        mood: 'Negro · Celeste',
+        description: 'Negro puro, sobrio y cómodo para pantallas OLED.',
+        preview: { bg: '#050506', card: '#141417', accent: '#38bdf8', accent2: '#818cf8', text: '#f4f4f5' },
+        statusBarStyle: 'dark',
+    },
 ];
 
 const THEME_CLASS: Record<ThemeId, string> = {
@@ -70,10 +86,12 @@ const THEME_CLASS: Record<ThemeId, string> = {
     light: 'theme-light',
     warm: 'theme-warm',
     cool: 'theme-cool',
+    neon: 'theme-neon',
+    graphite: 'theme-graphite',
 };
 
 const LS_KEY = 'listopic-theme';
-const VALID_IDS = new Set<ThemeId>(['dark', 'light', 'warm', 'cool']);
+const VALID_IDS = new Set<ThemeId>(['dark', 'light', 'warm', 'cool', 'neon', 'graphite']);
 
 function sanitizeTheme(value: unknown): ThemeId | null {
     if (typeof value !== 'string') return null;

@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { getExpandedRangeValue, useFilters } from '../context/FilterContext';
 import { useLists } from '../hooks/useLists';
 import { useUsers } from '../hooks/useUsers';
-import { useReviews } from '../hooks/useReviews';
+import { useMemoryReviews, useReviews } from '../hooks/useReviews';
 import { ReviewCard } from '../components/ReviewCard';
 import { ReviewCardList } from '../components/ReviewCardList';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -15,7 +15,7 @@ import { computeTasteMatch } from '../utils/tasteMatch';
 import { WeeklyDuelBanner } from '../components/WeeklyDuelBanner';
 import { LazyMapView as MapView } from '../components/lazy';
 import { UserAvatar } from '../components/UserAvatar';
-import { Map as MapIcon, ChevronDown, MapPin, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, Flame, TrendingUp, Gem, HeartHandshake, Rows3 } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, TrendingUp, Gem, HeartHandshake, Rows3, Search, Utensils, Sparkles, Camera, Trophy, History } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, collectionGroup, query, getDocs, limit, doc, getDoc, getDocFromServer, onSnapshot, where } from 'firebase/firestore';
@@ -25,6 +25,10 @@ import { useToast } from '../context/ToastContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { Footer } from '../components/Footer';
 import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
+import { FeaturedListCard } from '../components/home/FeaturedListCard';
+import { HomeRanking, type RankingRow } from '../components/home/HomeRanking';
+import { HomeFeedCard } from '../components/home/HomeFeedCard';
+import { buildHomeFeeds, homeFeedAreaKey, isJunkName, isPermanentlyClosed, type HomeFeedCard as HomeFeedCardData, type HomeFeedReview } from '../lib/homeFeeds';
 import {
     completeUserProfileSetup,
     getUsernameGateStatus,
@@ -146,6 +150,21 @@ const getErrorCode = (error: unknown): string | null => {
 
 const clampScore = (value: number): number => Math.max(0, Math.min(100, Math.round(value)));
 const HIDDEN_GEM_MIN_RATING = 8.4;
+// Carruseles antiguos de la Home (listas, joyas, recientes, usuarios, que gustan).
+// Apagados desde que llegaron los de lib/homeFeeds; poner a true para recuperarlos.
+const SHOW_LEGACY_HOME_CAROUSELS = false;
+
+// Aspecto y enlace «Ver todo» de cada carrusel de lib/homeFeeds.
+const HOME_FEED_LOOK: Record<string, { icon: React.ReactNode; accentClass: string; searchType: 'lists' | 'places' | 'items'; searchSort?: string }> = {
+    platos: { icon: <Utensils className="w-5 h-5 text-amber-400" />, accentClass: 'bg-amber-500/20', searchType: 'items', searchSort: 'top_rated' },
+    joyas: { icon: <Gem className="w-5 h-5 text-emerald-300" />, accentClass: 'bg-emerald-500/20', searchType: 'places', searchSort: 'rating' },
+    listas: { icon: <ListIcon className="w-5 h-5 text-blue-400" />, accentClass: 'bg-blue-500/20', searchType: 'lists', searchSort: 'most_reviewed' },
+    novedades: { icon: <Sparkles className="w-5 h-5 text-cyan-300" />, accentClass: 'bg-cyan-500/20', searchType: 'places', searchSort: 'latest' },
+    resenas: { icon: <Camera className="w-5 h-5 text-rose-400" />, accentClass: 'bg-rose-500/20', searchType: 'items', searchSort: 'latest' },
+    recuerdos: { icon: <History className="w-5 h-5 text-purple-300" />, accentClass: 'bg-purple-500/20', searchType: 'items' },
+    ranking: { icon: <Trophy className="w-5 h-5 text-yellow-400" />, accentClass: 'bg-yellow-500/20', searchType: 'items', searchSort: 'top_rated' },
+    default: { icon: <Star className="w-5 h-5 text-amber-400" />, accentClass: 'bg-amber-500/20', searchType: 'items' },
+};
 const FAVORITE_REVIEW_MIN_RATING = 7.5;
 
 export const HomePage: React.FC = () => {
@@ -191,6 +210,12 @@ export const HomePage: React.FC = () => {
         bio: '',
     });
     const [heroSubtitle] = useState<string>(() => pickRandomHeroSubtitle());
+    const [homeSearch, setHomeSearch] = useState('');
+    // Semilla del día (fecha local): los carruseles rotan cada día, no en cada render.
+    const [feedSeed] = useState(() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    });
     const [loadingMessageIndex, setLoadingMessageIndex] = useState<number>(() => Math.floor(Math.random() * HOME_LOADING_MESSAGES.length));
 
     const parsedHeroSubtitle = useMemo(() => {
@@ -646,6 +671,15 @@ export const HomePage: React.FC = () => {
         });
     }, [reviews, activeFilter, range, location, botUserIds, checkDistance]);
 
+    // «Recuerdos»: tus reseñas de hace un tiempo, con la misma zona y categoría.
+    const myMemories = useMemoryReviews(activeTab === 'explore' ? user?.uid : null);
+    const memoriesInRange = useMemo(() => myMemories.filter((r) => {
+        const geo = r as { placeLat?: number; lat?: number; placeLng?: number; lng?: number };
+        return checkCategory(r) && checkDistance(geo.placeLat || geo.lat, geo.placeLng || geo.lng, {
+            city: r.placeCity, province: r.placeProvince, region: r.placeRegion, country: r.placeCountry,
+        });
+    }), [myMemories, checkCategory, checkDistance]);
+
     const filteredItems = useMemo(() => {
         const base = [...reviewsInRange];
 
@@ -671,7 +705,7 @@ export const HomePage: React.FC = () => {
     // 4b. Carousel Reviews (Specific Logic: Last 2 Months + Top Liked + Filtered by Range/Cat)
     const carouselReviews = useMemo(() => {
         // "Reseñas que gustan" (Trending/Liked in range)
-        return reviewsInRange
+        return [...reviewsInRange]
             .sort((a, b) => (b.reactionCounts?.like || 0) - (a.reactionCounts?.like || 0))
             .slice(0, 15);
     }, [reviewsInRange]);
@@ -768,7 +802,9 @@ export const HomePage: React.FC = () => {
                         reviewsCount: 1,
                         closedStatus: (r as any).placeClosedStatus || null,
                         lat, lng,
-                        items: [] // Can populate if needed
+                        items: [], // Can populate if needed
+                        // Sacado de una reseña: su nota puede ser la de esa reseña, no la media pública.
+                        fromReviews: true
                     });
                 }
             }
@@ -1175,36 +1211,125 @@ export const HomePage: React.FC = () => {
         return `/search?${params.toString()}`;
     }, [range]);
 
+    // Ranking de platos: cada plato (sitio + nombre) con su media y nº de valoraciones.
+    const rankedDishes = useMemo<RankingRow[]>(() => {
+        const groups = new Map<string, { row: RankingRow; sum: number; count: number }>();
+        reviewsInRange.forEach((r: any) => {
+            if (!r.placeId || typeof r.overallRating !== 'number' || !Number.isFinite(r.overallRating)) return;
+            if (r.visibility && r.visibility !== 'public') return;
+            if (isPermanentlyClosed(r.placeClosedStatus)) return;
+            const name = String(r.itemName || '').trim();
+            if (!name || isJunkName(name)) return;
+            const key = `${r.placeId}::${name.toLowerCase()}`;
+            const existing = groups.get(key);
+            if (existing) {
+                existing.sum += r.overallRating;
+                existing.count += 1;
+                if (!existing.row.imageUrl && (r.photoUrl || r.placeMainImage)) existing.row.imageUrl = r.photoUrl || r.placeMainImage;
+                return;
+            }
+            groups.set(key, {
+                sum: r.overallRating,
+                count: 1,
+                row: {
+                    key,
+                    to: `/group/${r.placeId}/${encodeURIComponent(name)}`,
+                    title: name,
+                    subtitle: r.placeName && r.placeName !== name ? r.placeName : (r.placeCity || undefined),
+                    imageUrl: r.photoUrl || r.placeMainImage || undefined,
+                    score: null,
+                },
+            });
+        });
+        return Array.from(groups.values())
+            .map((g) => ({ ...g, average: g.sum / g.count }))
+            .sort((a, b) => compareByRank({ average: a.average, count: a.count }, { average: b.average, count: b.count }))
+            .slice(0, 10)
+            .map((g) => ({ ...g.row, score: g.average }));
+    }, [reviewsInRange]);
+
+    const rankedPlaces = useMemo<RankingRow[]>(() => filteredPlaces.slice(0, 10).map((place: any) => ({
+        key: place.id,
+        to: `/place/${place.id}`,
+        title: place.name || 'Sitio',
+        subtitle: place.address?.split(',')[0] || undefined,
+        imageUrl: place.photoUrl || undefined,
+        score: typeof place.rating === 'number' ? place.rating : null,
+    })), [filteredPlaces]);
+
+    const homeFeeds = useMemo(() => buildHomeFeeds({
+        reviews: reviewsInRange as unknown as HomeFeedReview[],
+        // Los sitios sacados de reseñas los reconstruye homeFeeds con reseñas ya limpias.
+        places: filteredPlaces.filter((place: { fromReviews?: boolean }) => !place.fromReviews),
+        lists,
+        users: topUsers,
+        botUserIds,
+        seed: feedSeed,
+        areaKey: homeFeedAreaKey(areaFilter, range),
+        userId: user?.uid ?? null,
+        memories: memoriesInRange as unknown as HomeFeedReview[],
+        // Lo que ya enseña el ranking (top 5 de cada pestaña) no se repite abajo.
+        exclude: {
+            placeIds: rankedPlaces.slice(0, 5).map((row) => row.key),
+            dishKeys: rankedDishes.slice(0, 5).map((row) => row.key),
+        },
+    }), [reviewsInRange, filteredPlaces, lists, topUsers, botUserIds, feedSeed, areaFilter, range, user?.uid, memoriesInRange, rankedPlaces, rankedDishes]);
+    const firstName = (user?.displayName || '').trim().split(/\s+/)[0];
+    const greeting = user ? `Hola${firstName ? `, ${firstName}` : ''}` : 'Bienvenido a Listopic';
+
     return (
         <>
             <div className="min-h-screen bg-[var(--lt-bg)] pb-20 font-sans">
                 <div className="pt-safe-24 px-4 pb-6">
 
-                    {/* Hero Section (Clean) */}
-                    <div className="max-w-4xl mx-auto mb-10 text-center pt-8 relative z-10">
-                        <div className="absolute top-0 left-1/4 w-64 h-64 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" style={{ backgroundColor: 'var(--lt-accent-soft)' }} />
-                        <div className="absolute top-10 right-1/4 w-72 h-72 rounded-full blur-[80px] animate-blob pointer-events-none -z-10" style={{ backgroundColor: 'var(--lt-accent-soft)', animationDelay: '2s' }} />
-                        <h1 className="text-5xl md:text-[5.5rem] font-black tracking-tighter mb-4 select-none leading-[1.1]">
-                            <span className="bg-clip-text text-transparent drop-shadow-md" style={{ backgroundImage: 'var(--lt-hero-grad)' }}>
-                                LISTOPIC
-                            </span>
-                        </h1>
-                        <p className="text-lg md:text-2xl text-gray-400 font-light tracking-wide max-w-2xl mx-auto leading-relaxed">
+                    {/* Cabecera: saludo, frase con gancho y buscador */}
+                    <div className="max-w-4xl mx-auto pt-2 sm:pt-6 relative z-10">
+                        <div className="absolute -top-16 right-0 w-72 h-72 rounded-full blur-[90px] pointer-events-none -z-10 opacity-80" style={{ backgroundColor: 'var(--lt-accent-soft)' }} />
+                        <p className="text-sm font-semibold text-[var(--lt-text-muted)]">{greeting}</p>
+                        <h1 className="mt-1 text-[1.9rem] leading-[1.12] md:text-5xl font-bold tracking-tight text-[var(--lt-text)] [text-wrap:balance]">
                             {parsedHeroSubtitle.map((segment) => (
                                 segment.isHighlight ? (
-                                    <span key={segment.key} className={`${segment.className} font-bold`}>
+                                    <span key={segment.key} className={segment.className}>
                                         {segment.text}
                                     </span>
                                 ) : (
                                     <React.Fragment key={segment.key}>{segment.text}</React.Fragment>
                                 )
                             ))}
-                        </p>
-
+                        </h1>
+                        <form
+                            role="search"
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                const q = homeSearch.trim();
+                                navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search');
+                            }}
+                            className="mt-5 flex items-center gap-2 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] pl-4 pr-1.5 py-1.5 backdrop-blur-xl transition-colors focus-within:border-[var(--lt-accent-border)]"
+                        >
+                            <Search className="w-5 h-5 shrink-0 text-[var(--lt-accent)]" aria-hidden="true" />
+                            <label htmlFor="home-search" className="sr-only">Buscar en Listopic</label>
+                            <input
+                                id="home-search"
+                                type="search"
+                                enterKeyHint="search"
+                                autoComplete="off"
+                                value={homeSearch}
+                                onChange={(event) => setHomeSearch(event.target.value)}
+                                placeholder="Busca platos, sitios o listas"
+                                className="min-w-0 flex-1 bg-transparent py-2 text-sm sm:text-base text-[var(--lt-text)] placeholder:text-[var(--lt-text-muted)] outline-none"
+                            />
+                            <button
+                                type="submit"
+                                className="shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold lt-on-accent transition-opacity hover:opacity-90"
+                                style={{ backgroundImage: 'var(--lt-accent-grad)' }}
+                            >
+                                Buscar
+                            </button>
+                        </form>
                     </div>
 
                     {/* Navigation Pills */}
-                    <div className="flex flex-col items-center mt-8 gap-3">
+                    <div className="max-w-4xl mx-auto flex flex-col items-center mt-6 gap-3">
                         <div className="inline-flex bg-white/5 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-inner">
                             <button
                                 onClick={() => setActiveTab('explore')}
@@ -1228,7 +1353,7 @@ export const HomePage: React.FC = () => {
                             </button>
                         </div>
                         {activeTab === 'news' && (
-                            <div className="flex w-full max-w-[95%] justify-end">
+                            <div className="flex w-full justify-end">
                                 <div className="flex bg-black/20 rounded-xl p-0.5 border border-white/10">
                                 <button
                                     onClick={() => setFeedViewMode('full')}
@@ -1258,26 +1383,11 @@ export const HomePage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Duelo de la semana (flag en Developer → Otros) */}
-                    {activeTab === 'explore' && appConfig.showWeeklyDuel && <WeeklyDuelBanner />}
-
-                    {/* Destacados patrocinados (Business Pro, aprobados por admin) */}
-                    {activeTab === 'explore' && <SponsoredHomeSpotlight />}
-                    {activeTab === 'explore' && <SponsoredItemsCarousel className="mx-auto mt-6 w-full max-w-4xl" />}
-
-                    {/* Filter Chips (Categories) */}
-                    {activeTab === 'explore' && (
-                        <div className="flex flex-wrap justify-between items-center mt-8 gap-4">
-                            <div className="flex-1"></div>
-                        </div>
-                    )}
-
-
                     {/* Map Collapsible */}
                     {activeTab === 'explore' && (
-                        <div className="max-w-7xl mx-auto mb-8">
-                            <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl overflow-hidden transition-all duration-300">
-                                <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[var(--lt-card)]">
+                        <div className="max-w-4xl mx-auto mt-6">
+                            <div className="bg-[var(--lt-card)] border border-[var(--lt-border)] rounded-2xl overflow-hidden backdrop-blur-xl transition-all duration-300">
+                                <div className="w-full p-3 flex items-center justify-between text-[var(--lt-text-muted)]">
                                     <button
                                         onClick={() => setIsMapOpen(!isMapOpen)}
                                         className="flex items-center gap-2 hover:text-white transition-colors shrink-0 text-left"
@@ -1317,18 +1427,57 @@ export const HomePage: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Duelo de la semana (flag en Developer → Otros) */}
+                    {activeTab === 'explore' && appConfig.showWeeklyDuel && <WeeklyDuelBanner />}
+
+                    {/* Destacados patrocinados (Business Pro, aprobados por admin) */}
+                    {activeTab === 'explore' && <SponsoredHomeSpotlight />}
+                    {activeTab === 'explore' && <SponsoredItemsCarousel className="mx-auto mt-6 w-full max-w-4xl" />}
+
+                    {/* Portada y ranking: lo primero que se ve al bajar */}
+                    {activeTab === 'explore' && (
+                        <div className="max-w-4xl mx-auto mt-8 mb-8 space-y-8">
+                            {homeFeeds.featuredList && <FeaturedListCard list={homeFeeds.featuredList} />}
+                            <HomeRanking
+                                dishes={rankedDishes}
+                                places={rankedPlaces}
+                                dishesLink={buildCarouselSearchLink('items', 'top_rated')}
+                                placesLink={buildCarouselSearchLink('places', 'rating')}
+                                loading={loadingReviews}
+                            />
+                        </div>
+                    )}
+
                     <div className="max-w-[95%] mx-auto space-y-1">
 
 
                         {activeTab === 'explore' && (<>
+                            {/* Carruseles nuevos (lib/homeFeeds): en tu zona y rotando cada día. */}
+                            {homeFeeds.feeds.map((feed) => {
+                                const look = HOME_FEED_LOOK[feed.id] ?? HOME_FEED_LOOK.default;
+                                return (
+                                    <CardCarousel
+                                        key={feed.id}
+                                        title={feed.title}
+                                        subtitle={feed.subtitle}
+                                        viewAllLink={feed.viewAllTo ?? buildCarouselSearchLink(look.searchType, look.searchSort)}
+                                        items={feed.items}
+                                        itemClassName="w-auto"
+                                        icon={look.icon}
+                                        accentClass={look.accentClass}
+                                        renderItem={(card: HomeFeedCardData) => <HomeFeedCard card={card} />}
+                                    />
+                                );
+                            })}
+
                             {/* 1. Listas */}
-                            <CardCarousel
-                                title={activeTab === 'explore' ? "Listas con más valoraciones" : "Listas recientes"}
+                            {SHOW_LEGACY_HOME_CAROUSELS && <CardCarousel
+                                title={activeTab === 'explore' ? "Más listas con movimiento" : "Listas recientes"}
                                 viewAllLink={buildCarouselSearchLink('lists', activeTab === 'explore' ? 'most_reviewed' : 'latest')}
                                 items={activeTab === 'explore'
-                                    ? listCarouselItems
+                                    ? listCarouselItems.slice(1)
                                     : filteredLists}
-                                loading={(loadingLists || loadingReviews) && (activeTab === 'explore' ? listCarouselItems.length === 0 : filteredLists.length === 0)}
+                                loading={(loadingLists || loadingReviews) && (activeTab === 'explore' ? listCarouselItems.length <= 1 : filteredLists.length === 0)}
                                 icon={<ListIcon className="w-5 h-5 text-blue-400" />}
                                 accentClass="bg-blue-500/20"
                                 renderItem={(list: any, index: number) => (
@@ -1346,7 +1495,7 @@ export const HomePage: React.FC = () => {
                                             {list.itemCount}
                                         </div>
                                         <div className="absolute top-2 left-2 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
-                                            #{index + 1}
+                                            #{index + 2}
                                         </div>
 
                                         <div className="absolute bottom-0 left-0 right-0 p-3">
@@ -1366,23 +1515,10 @@ export const HomePage: React.FC = () => {
                                         </div>
                                     </Link>
                                 )}
-                            />
-
-                            {/* 2. Items */}
-                            <CardCarousel
-                                title={activeTab === 'explore' ? "Mejor en Listopic" : "Últimos elementos"}
-                                viewAllLink={buildCarouselSearchLink('items', activeTab === 'explore' ? 'top_rated' : 'latest')}
-                                items={filteredItems}
-                                loading={loadingReviews}
-                                icon={<Star className="w-5 h-5 text-amber-400" />}
-                                accentClass="bg-amber-500/20"
-                                renderItem={(item: any) => (
-                                    <ReviewCarouselItem review={item} variant="item" />
-                                )}
-                            />
+                            />}
 
                             {/* 2b. Joyas ocultas */}
-                            <CardCarousel
+                            {SHOW_LEGACY_HOME_CAROUSELS && <CardCarousel
                                 title="Joyas ocultas"
                                 subtitle="Buena nota y pocas valoraciones."
                                 viewAllLink={buildCarouselSearchLink('places', 'rating')}
@@ -1442,10 +1578,10 @@ export const HomePage: React.FC = () => {
                                         </Link>
                                     );
                                 }}
-                            />
+                            />}
 
                             {/* 3. Reseñas Recientes */}
-                            <CardCarousel
+                            {SHOW_LEGACY_HOME_CAROUSELS && <CardCarousel
                                 title="Valoraciones recientes"
                                 viewAllLink={buildCarouselSearchLink('items', 'latest')}
                                 items={recentReviewsInRange}
@@ -1455,7 +1591,7 @@ export const HomePage: React.FC = () => {
                                 renderItem={(item: any) => (
                                     <ReviewCarouselItem review={item} variant="review" />
                                 )}
-                            />
+                            />}
 
                             {appConfig.showAffinityCarousel && (
                                 <CardCarousel
@@ -1503,7 +1639,7 @@ export const HomePage: React.FC = () => {
                             )}
 
                             {/* 5. Usuarios activos */}
-                            <CardCarousel
+                            {SHOW_LEGACY_HOME_CAROUSELS && <CardCarousel
                                 title="Usuarios activos"
                                 viewAllLink={buildCarouselSearchLink('users')}
                                 items={activeUsersInRange}
@@ -1528,41 +1664,7 @@ export const HomePage: React.FC = () => {
                                         </div>
                                     </Link>
                                 )}
-                            />
-
-                            {/* 6. Lugares top */}
-                            <CardCarousel
-                                title={activeTab === 'explore' ? "Sitios top" : "Nuevos sitios"}
-                                viewAllLink={buildCarouselSearchLink('places', activeTab === 'explore' ? 'rating' : 'latest')}
-                                items={filteredPlaces}
-                                loading={loadingReviews}
-                                icon={<Flame className="w-5 h-5 text-rose-400" />}
-                                accentClass="bg-rose-500/20"
-                                renderItem={(place: any) => (
-                                    <Link to={`/place/${place.id}`} className="lt-media-card block relative group h-40 md:h-48 rounded-md overflow-hidden border border-white/5 shadow-lg transition-all duration-300 transform hover:scale-105 hover:z-10 bg-zinc-900">
-                                        {place.photoUrl ? (
-                                            <div className="absolute inset-0">
-                                                <ProgressiveImage src={place.photoUrl} alt={place.name} containerClassName="w-full h-full" className="w-full h-full object-cover" />
-                                                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
-                                            </div>
-                                        ) : (
-                                            <PlacePhotoPlaceholder compact />
-                                        )}
-
-                                        <div className="absolute top-2 right-2 bg-teal-600 px-1.5 py-0.5 rounded text-[10px] font-bold text-white shadow-sm">
-                                            {place.rating?.toFixed(1) || 9.5}
-                                        </div>
-
-                                        <div className="absolute bottom-0 left-0 right-0 p-3">
-                                            <h3 className="text-white font-bold text-sm leading-tight mb-1 truncate">{place.name}</h3>
-                                            <p className="text-gray-300 text-[10px] flex items-center gap-1 opacity-80">
-                                                <MapPin className="w-3 h-3" /> {place.address?.split(',')[0]}
-                                            </p>
-                                        </div>
-                                    </Link>
-                                )}
-                            />
-
+                            />}
 
                         </>)}
 
@@ -1632,7 +1734,7 @@ export const HomePage: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                        ) : (
+                        ) : SHOW_LEGACY_HOME_CAROUSELS ? (
 
                             <CardCarousel
                                 title="Valoraciones que gustan"
@@ -1646,7 +1748,7 @@ export const HomePage: React.FC = () => {
                                     <ReviewCarouselItem review={review} />
                                 )}
                             />
-                        )}
+                        ) : null}
 
                     </div>
                 </div>
