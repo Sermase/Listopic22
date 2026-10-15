@@ -82,6 +82,7 @@ interface ReviewFormData {
     photoStoragePaths?: string[];
     listId?: string;
     parentListId?: string;
+    sublistId?: string | null;
     placeId?: string;
     placeName?: string;
     placeAddress?: string;
@@ -327,7 +328,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     setExistingPhotoStoragePaths(photoStoragePaths);
                 }
 
-                const effectiveListId = resolvedListId || data.listId || data.parentListId || listId || null;
+                // Las reseñas de una Minilista viven en lists/{padre}/reviews con
+                // `sublistId`: hay que seleccionar la Minilista, no la padre, o al
+                // guardar se cambiaría el destino y las reglas lo rechazan.
+                const storedSublistId = typeof data.sublistId === 'string' && data.sublistId.trim() ? data.sublistId : null;
+                const effectiveListId = storedSublistId || resolvedListId || data.listId || data.parentListId || listId || null;
                 if (effectiveListId) {
                     setInternalListId(effectiveListId);
                 }
@@ -357,8 +362,15 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             };
 
             try {
+                const baseCandidates = [listId, internalListId].filter((value): value is string => !!value);
+                // Desde una Minilista la reseña está en la lista padre.
+                const parentCandidates = await Promise.all(baseCandidates.map(async (id) => {
+                    const listSnap = await getDoc(doc(db, 'lists', id)).catch(() => null);
+                    const parentId = listSnap?.exists() ? listSnap.data().parentListId : null;
+                    return typeof parentId === 'string' && parentId ? parentId : null;
+                }));
                 const candidateListIds = Array.from(new Set(
-                    [listId, internalListId].filter((value): value is string => !!value)
+                    [...baseCandidates, ...parentCandidates].filter((value): value is string => !!value)
                 ));
 
                 for (const candidateListId of candidateListIds) {
@@ -906,11 +918,32 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     createdAtToKeep = existingTargetSnap.data().createdAt || null;
                 }
 
-                await setDoc(targetSubRef, {
-                    ...reviewData,
-                    createdAt: createdAtToKeep || serverTimestamp(),
-                    updatedAt: serverTimestamp()
-                }, { merge: true });
+                const existingData = existingTargetSnap.exists() ? existingTargetSnap.data() : null;
+                const sameTarget = !!existingData && (existingData.sublistId || null) === (sublistId || null);
+                if (existingData && !sameTarget) {
+                    // Pasa a otra Minilista de la misma lista: se recrea en su sitio.
+                    await deleteDoc(targetSubRef);
+                }
+                if (sameTarget) {
+                    // Misma reseña en el mismo sitio: solo se cambia el contenido.
+                    // Destino, autoría, visibilidad y contadores se conservan (las
+                    // reglas no dejan cambiarlos y reactionCounts se reiniciaba).
+                    const contentData: Record<string, unknown> = { ...reviewData };
+                    for (const key of ['listId', 'parentListId', 'sublistId', 'visibility', 'userId', 'reactionCounts']) {
+                        delete contentData[key];
+                    }
+                    await updateDoc(targetSubRef, {
+                        ...contentData,
+                        updatedAt: serverTimestamp()
+                    });
+                } else {
+                    await setDoc(targetSubRef, {
+                        ...reviewData,
+                        reactionCounts: existingData?.reactionCounts ?? reviewData.reactionCounts,
+                        createdAt: createdAtToKeep || serverTimestamp(),
+                        updatedAt: serverTimestamp()
+                    });
+                }
 
                 if (replacedPhotoStoragePaths.length > 0) {
                     await Promise.allSettled(
