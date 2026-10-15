@@ -63,7 +63,10 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
       </>
     ) : (
       fallback || (
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-900/40 via-[var(--lt-bg)] to-[var(--lt-bg)]" />
+        <div
+          className="absolute inset-0"
+          style={{ background: 'radial-gradient(120% 90% at 15% 0%, var(--lt-accent-soft), transparent 60%), linear-gradient(160deg, var(--lt-bg-deep, var(--lt-bg)) 0%, var(--lt-bg) 100%)' }}
+        />
       )
     )}
 

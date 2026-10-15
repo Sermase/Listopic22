@@ -32,6 +32,9 @@ import { useLocation } from '../hooks/useLocation';
 import { getPlaceTypeLabel, getPlaceTypeLabels } from '../utils/placeTypeLabels';
 import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/placeStatus';
 import { placeCardScore } from '../lib/placeRating';
+import { HomeFeedCard } from '../components/home/HomeFeedCard';
+import type { HomeFeedCard as HomeFeedCardData } from '../lib/homeFeeds';
+import { MarqueeText } from '../components/ui/MarqueeText';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -396,31 +399,37 @@ const CustomSearchBox = ({ rawQuery = '', onQueryChange, ...props }: CustomSearc
                 saveRecentSearch(val);
                 refine(SearchQueryParser.parse(val).cleanedQuery);
                 onQueryChange?.(val);
-            }}>
+            }} role="search">
                 <input ref={ref} type="text" value={val}
                     onChange={e => setVal(e.target.value)}
                     onFocus={() => { setRecents(getRecentSearches()); setFocused(true); }}
                     onBlur={() => setTimeout(() => setFocused(false), 150)}
                     placeholder="Buscar listas, sitios, platos o personas"
-                    className="w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl py-4 pl-14 pr-10 text-white text-base focus:outline-none focus:border-[var(--lt-accent-border)] focus:bg-white/10 placeholder-gray-500 transition-all"
+                    aria-label="Buscar en Listopic"
+                    enterKeyHint="search"
+                    autoComplete="off"
+                    className="w-full rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] py-3.5 pl-12 pr-10 text-base text-[var(--lt-text)] backdrop-blur-xl placeholder:text-[var(--lt-text-muted)] transition-colors focus:outline-none focus:border-[var(--lt-accent-border)] focus:shadow-[0_0_0_3px_var(--lt-accent-soft)]"
                 />
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--lt-accent)]" aria-hidden="true" />
                 {val && (
-                    <button type="button" onClick={() => { setVal(''); refine(''); onQueryChange?.(''); }} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
+                    <button type="button" aria-label="Borrar búsqueda" onClick={() => { setVal(''); refine(''); onQueryChange?.(''); }} className="absolute right-3 top-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--lt-card-strong)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">
                         <X className="w-4 h-4" />
                     </button>
                 )}
             </form>
             {(showRecent || matchRecent.length > 0) && (
-                <div className="absolute top-full mt-1 left-0 right-0 bg-[var(--lt-card-strong)] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
+                <div className="absolute top-full mt-1.5 left-0 right-0 bg-[var(--lt-card-strong)] border border-[var(--lt-border)] rounded-2xl shadow-2xl z-50 overflow-hidden py-1">
+                    {showRecent && (
+                        <p className="px-4 pt-2 pb-1 text-[10px] font-bold uppercase tracking-wider text-[var(--lt-text-muted)]">Búsquedas recientes</p>
+                    )}
                     {showRecent && recents.map(t => (
-                        <button key={t} onMouseDown={() => select(t)} className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-300 hover:bg-white/5 transition-colors">
-                            <Clock className="w-4 h-4 text-gray-600 shrink-0" /><span className="truncate text-sm">{t}</span>
+                        <button key={t} onMouseDown={() => select(t)} className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[var(--lt-text)] hover:bg-[var(--lt-accent-soft)] transition-colors">
+                            <Clock className="w-4 h-4 text-[var(--lt-text-muted)] shrink-0" /><span className="truncate text-sm">{t}</span>
                         </button>
                     ))}
                     {matchRecent.map(t => (
-                        <button key={t} onMouseDown={() => select(t)} className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-gray-300 hover:bg-white/5 transition-colors">
-                            <Search className="w-4 h-4 text-gray-600 shrink-0" /><span className="truncate text-sm">{t}</span>
+                        <button key={t} onMouseDown={() => select(t)} className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-[var(--lt-text)] hover:bg-[var(--lt-accent-soft)] transition-colors">
+                            <Search className="w-4 h-4 text-[var(--lt-text-muted)] shrink-0" /><span className="truncate text-sm">{t}</span>
                         </button>
                     ))}
                 </div>
@@ -443,15 +452,17 @@ const SortControl = ({
     const opts = SORT_OPTIONS[activeTab] || [];
     if (opts.length <= 1) return null;
     return (
-        <div className="flex items-center gap-1.5">
-            <ArrowUpDown className="w-3.5 h-3.5 shrink-0 text-gray-500" />
+        <div className="relative flex items-center rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] pl-2.5 pr-2 transition-colors hover:border-[var(--lt-accent-border)]">
+            <ArrowUpDown className="pointer-events-none w-3.5 h-3.5 shrink-0 text-[var(--lt-accent)]" aria-hidden="true" />
             <select
                 value={value}
                 onChange={e => onChange(e.target.value)}
-                className="bg-transparent border-0 text-sm focus:outline-none cursor-pointer pr-1 text-gray-400 hover:text-white"
+                aria-label="Ordenar resultados"
+                className="appearance-none bg-transparent border-0 py-1.5 pl-1.5 pr-4 text-xs font-bold text-[var(--lt-text)] focus:outline-none cursor-pointer"
             >
                 {opts.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
+            <ChevronDown className="pointer-events-none absolute right-2 w-3 h-3 text-[var(--lt-text-muted)]" aria-hidden="true" />
         </div>
     );
 };
@@ -463,17 +474,18 @@ const ActiveFiltersChips = () => {
     const { refine: clearAll, canRefine } = useClearRefinements();
     if (!canRefine || items.length === 0) return null;
     return (
-        <div className="flex flex-wrap items-center gap-2 mt-3">
+        <div className="flex flex-wrap items-center gap-1.5 mt-2">
             {items.map(item => item.refinements.map(r => (
                 <button key={`${item.attribute}-${r.value}`}
                     onClick={() => item.refine(r)}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] rounded-full text-xs text-[var(--lt-accent)] hover:bg-[var(--lt-accent)]/40 transition-colors">
-                    <span className="font-semibold text-[var(--lt-accent)]">{FILTER_LABELS[item.attribute] || item.attribute}:</span>
+                    aria-label={`Quitar ${FILTER_LABELS[item.attribute] || item.attribute}: ${formatFacetLabel(item.attribute, r.label)}`}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] rounded-full text-xs text-[var(--lt-text)] hover:opacity-80 transition-opacity">
+                    <span className="font-bold text-[var(--lt-accent)]">{FILTER_LABELS[item.attribute] || item.attribute}:</span>
                     {formatFacetLabel(item.attribute, r.label)}
-                    <X className="w-3 h-3 ml-0.5" />
+                    <X className="w-3 h-3 ml-0.5 text-[var(--lt-text-muted)]" />
                 </button>
             )))}
-            <button onClick={clearAll} className="flex items-center gap-1 px-2.5 py-1 bg-red-500/10 border border-red-500/20 rounded-full text-xs text-red-400 hover:bg-red-500/20 transition-colors">
+            <button onClick={clearAll} className="flex items-center gap-1 px-2.5 py-1 bg-[var(--lt-danger-soft)] border border-[var(--lt-danger)]/30 rounded-full text-xs font-bold text-[var(--lt-danger)] hover:opacity-80 transition-opacity">
                 Limpiar <X className="w-3 h-3" />
             </button>
         </div>
@@ -486,9 +498,9 @@ const ResultsCount = () => {
     const { nbHits, processingTimeMS } = useStats();
     if (nbHits === 0) return null;
     return (
-        <span className="text-xs text-gray-600">
-            {nbHits.toLocaleString('es')} resultado{nbHits !== 1 ? 's' : ''}
-            <span className="opacity-50 ml-1">· {processingTimeMS}ms</span>
+        <span className="text-xs text-[var(--lt-text-muted)]">
+            <strong className="font-bold text-[var(--lt-text)]">{nbHits.toLocaleString('es')}</strong> resultado{nbHits !== 1 ? 's' : ''}
+            <span className="opacity-60 ml-1">· {processingTimeMS}ms</span>
         </span>
     );
 };
@@ -566,38 +578,41 @@ const CustomRefinementList = ({ attribute, label, icon: Icon, limit = 8, default
     const selectedCount = visibleItems.filter(item => item.isRefined).length;
 
     return (
-        <section className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
+        <section className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] overflow-hidden">
             <button
                 type="button"
                 onClick={() => setIsOpen(open => !open)}
-                className="w-full flex items-center gap-3 px-3.5 py-3 text-left"
+                aria-expanded={isOpen}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left"
             >
-                <span className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[var(--lt-accent)] shrink-0">
-                    <Icon className="w-4 h-4" />
+                <span className="w-6 h-6 rounded-md bg-[var(--lt-accent-soft)] flex items-center justify-center text-[var(--lt-accent)] shrink-0">
+                    <Icon className="w-3.5 h-3.5" />
                 </span>
                 <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-bold text-white leading-tight">{label}</span>
-                    <span className="block text-[11px] text-gray-500">
-                        {selectedCount > 0 ? `${selectedCount} activo${selectedCount > 1 ? 's' : ''}` : `${visibleItems.length} opciones`}
+                    <span className="block text-sm font-bold text-[var(--lt-text)] leading-tight">{label}</span>
+                    <span className={`block text-[11px] ${selectedCount > 0 ? 'font-bold text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)]'}`}>
+                        {selectedCount > 0 ? `${selectedCount} activo${selectedCount > 1 ? 's' : ''}` : `${visibleItems.length} ${visibleItems.length === 1 ? 'opción' : 'opciones'}`}
                     </span>
                 </span>
-                <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-[var(--lt-text-muted)] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
             {isOpen && (
-                <div className="px-3.5 pb-3 flex flex-wrap gap-2">
+                <div className="px-3 pb-3 flex flex-wrap gap-1.5">
                 {visibleItems.map(item => (
                     <button
                         type="button"
                         key={String(item.value)}
                         onClick={() => refine(item.value)}
-                        className={`min-h-9 max-w-full overflow-hidden box-border rounded-full border px-3 py-1.5 text-xs font-bold leading-none transition-colors active:scale-95 ${
+                        aria-pressed={item.isRefined}
+                        className={`min-h-8 max-w-full overflow-hidden box-border rounded-full border px-3 py-1.5 text-xs font-bold leading-none transition-colors active:scale-95 ${
                             item.isRefined
-                                ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white'
-                                : 'bg-white/5 border-white/10 text-gray-300 hover:bg-white/10 hover:border-[var(--lt-accent-border)] hover:text-white'
+                                ? 'border-transparent lt-on-accent shadow-md shadow-[var(--lt-accent-shadow)]'
+                                : 'bg-[var(--lt-card-strong)] border-[var(--lt-border)] text-[var(--lt-text)] hover:border-[var(--lt-accent-border)]'
                         }`}
+                        style={item.isRefined ? { backgroundImage: 'var(--lt-accent-grad)' } : undefined}
                     >
                         <span className="inline-block max-w-36 truncate align-middle">{formatFacetLabel(attribute, item.label)}</span>
-                        <span className={item.isRefined ? 'ml-1 text-white/70 align-middle' : 'ml-1 text-gray-600 align-middle'}>
+                        <span className={item.isRefined ? 'ml-1 opacity-75 align-middle' : 'ml-1 text-[var(--lt-text-muted)] align-middle'}>
                             {item.count}
                         </span>
                     </button>
@@ -622,15 +637,17 @@ const ClosedPlacesToggle = ({
     if (!shouldFilterClosed(activeTab)) return null;
 
     return (
-        <section className="rounded-xl border border-white/10 bg-white/[0.025] p-2.5">
+        <section className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 py-2.5">
             <label className="flex items-center justify-between gap-3 cursor-pointer">
-                <span className="flex items-center gap-2 min-w-0">
-                    <EyeOff className="w-3.5 h-3.5 text-red-300 shrink-0" />
+                <span className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-6 h-6 rounded-md bg-[var(--lt-danger-soft)] flex items-center justify-center shrink-0">
+                        <EyeOff className="w-3.5 h-3.5 text-[var(--lt-danger)]" />
+                    </span>
                     <span className="min-w-0">
-                        <span className="block text-xs font-bold text-white leading-tight">Incluir cerrados</span>
+                        <span className="block text-sm font-bold text-[var(--lt-text)] leading-tight">Incluir cerrados</span>
                     </span>
                 </span>
-                <span className={`relative h-5 w-9 rounded-full transition-colors ${includeClosed ? 'bg-red-600' : 'bg-gray-700'}`}>
+                <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${includeClosed ? 'bg-[var(--lt-danger)]' : 'bg-[var(--lt-border-strong)]'}`}>
                     <input
                         type="checkbox"
                         className="sr-only"
@@ -655,7 +672,7 @@ const FilterContent = ({
 }) => {
     const sections = FILTER_SECTIONS[activeTab] || [];
     return (
-        <div className="space-y-3">
+        <div className="space-y-2">
             {sections.map(section => (
                 <CustomRefinementList key={section.attribute} {...section} />
             ))}
@@ -668,12 +685,30 @@ const FilterContent = ({
 
 const SearchResultsSkeleton = ({ listLayout }: { listLayout: boolean }) => (
     <div
-        className={listLayout ? 'flex flex-col gap-3' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4'}
+        className={listLayout ? 'flex flex-col gap-3' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3'}
         aria-busy="true"
         aria-label="Cargando resultados"
     >
         {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="lt-skeleton-card h-28 rounded-2xl" />
+            <div key={i} className="lt-skeleton-card flex h-[7.5rem] gap-3 overflow-hidden rounded-2xl p-2" aria-hidden="true">
+                <div className="h-full w-28 shrink-0 rounded-xl bg-[var(--lt-skeleton-base)]" />
+                <div className="flex-1 space-y-2 py-2 pr-2">
+                    <div className="h-4 w-3/4 rounded bg-[var(--lt-skeleton-base)]" />
+                    <div className="h-3 w-1/2 rounded bg-[var(--lt-skeleton-base)]" />
+                    <div className="flex gap-2 pt-2">
+                        <div className="h-3 w-12 rounded bg-[var(--lt-skeleton-base)]" />
+                        <div className="h-3 w-12 rounded bg-[var(--lt-skeleton-base)]" />
+                    </div>
+                </div>
+            </div>
+        ))}
+    </div>
+);
+
+const CarouselSkeleton = () => (
+    <div className="-mx-4 flex gap-2 overflow-hidden px-4 pb-2 lg:mx-0 lg:px-0" aria-busy="true" aria-label="Cargando resultados">
+        {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="lt-skeleton-card h-[170px] w-[220px] shrink-0 rounded-3xl md:h-[190px] md:w-[260px]" aria-hidden="true" />
         ))}
     </div>
 );
@@ -683,8 +718,8 @@ const SearchErrorNotice = () => {
     const { status, error, refresh } = useInstantSearch({ catchError: true });
     if (status !== 'error' || !error) return null;
     return (
-        <div role="alert" className="mx-4 lg:mx-8 mb-6 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+        <div role="alert" className="mx-4 lg:mx-8 mb-5 rounded-2xl border border-[var(--lt-warning)]/30 bg-[var(--lt-warning-soft)] p-4 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-[var(--lt-warning)] shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
                 <p className="text-[var(--lt-text)] font-bold text-sm">La búsqueda no responde ahora mismo</p>
                 <p className="text-[var(--lt-text-muted)] text-xs mt-0.5">Comprueba tu conexión e inténtalo de nuevo.</p>
@@ -710,28 +745,37 @@ const AllTabEmptyState = ({ hasQuery }: { hasQuery: boolean }) => {
 const EmptyState = ({ activeTab, onTabChange, zoneLabel, onClearZone }: { activeTab: string; onTabChange?: (t: string) => void; zoneLabel?: string | null; onClearZone?: () => void }) => {
     const msg = EMPTY_MESSAGES[activeTab] || EMPTY_MESSAGES.all;
     const inZone = Boolean(zoneLabel && onClearZone);
+    const EmptyIcon = TAB_ICONS[activeTab === 'grouped_items' ? 'items' : activeTab] || Search;
     return (
-        <div className="text-center py-20 px-4">
-            <div className="text-4xl mb-3">🔍</div>
-            <h3 className="text-[var(--lt-text)] font-bold mb-1">{inZone ? `${msg.title} en ${zoneLabel}` : msg.title}</h3>
-            <p className="text-[var(--lt-text-muted)] text-sm mb-6">{inZone ? 'Prueba con otra zona o quítala.' : msg.hint}</p>
+        <div className="relative mx-auto my-6 max-w-md overflow-hidden rounded-3xl border border-[var(--lt-border)] bg-[var(--lt-card)] px-5 py-10 text-center">
+            <div className="pointer-events-none absolute -top-16 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full blur-[60px]" style={{ backgroundColor: 'var(--lt-accent-soft)' }} aria-hidden="true" />
+            <div className="relative mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                <EmptyIcon className="h-6 w-6" />
+                <Search className="absolute -bottom-1.5 -right-1.5 h-6 w-6 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card-strong)] p-1 text-[var(--lt-text-muted)]" aria-hidden="true" />
+            </div>
+            <h3 className="relative text-lg font-bold text-[var(--lt-text)] mb-1 [text-wrap:balance]">{inZone ? `${msg.title} en ${zoneLabel}` : msg.title}</h3>
+            <p className="relative text-[var(--lt-text-muted)] text-sm mb-5">{inZone ? 'Prueba con otra zona o quítala.' : msg.hint}</p>
             {inZone && (
                 <button
                     type="button"
                     onClick={onClearZone}
-                    className="mb-4 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-4 py-1.5 text-sm font-bold text-[var(--lt-text)]"
+                    className="relative rounded-full px-4 py-2 text-sm font-bold lt-on-accent shadow-lg shadow-[var(--lt-accent-shadow)] transition-opacity hover:opacity-90"
+                    style={{ backgroundImage: 'var(--lt-accent-grad)' }}
                 >
                     Buscar en todas las zonas
                 </button>
             )}
             {!inZone && onTabChange && activeTab !== 'all' && (
-                <div className="flex flex-wrap justify-center gap-2">
-                    {Object.entries(TAB_LABELS).filter(([k]) => k !== activeTab).map(([k, l]) => (
-                        <button key={k} onClick={() => onTabChange(k)}
-                            className="px-4 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-gray-400 hover:text-white transition-colors">
-                            Buscar en {l}
-                        </button>
-                    ))}
+                <div className="relative flex flex-wrap justify-center gap-2">
+                    {Object.entries(TAB_LABELS).filter(([k]) => k !== activeTab).map(([k, l]) => {
+                        const TabIcon = TAB_ICONS[k] || Search;
+                        return (
+                            <button key={k} onClick={() => onTabChange(k)}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card-strong)] px-3.5 py-1.5 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
+                                <TabIcon className="h-3.5 w-3.5 text-[var(--lt-accent)]" /> Buscar en {l}
+                            </button>
+                        );
+                    })}
                 </div>
             )}
         </div>
@@ -739,6 +783,9 @@ const EmptyState = ({ activeTab, onTabChange, zoneLabel, onClearZone }: { active
 };
 
 // ─── User Hit Card ────────────────────────────────────────────────────────────
+
+const userAvatarUrl = (hit: SearchHit, displayName: string) =>
+    hit.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff`;
 
 const UserHitCard = ({ hit, selected, onHover }: { hit: SearchHit; selected: boolean; onHover: (id: string | null) => void }) => {
     const displayName = hit.displayName || hit.username || '?';
@@ -748,27 +795,105 @@ const UserHitCard = ({ hit, selected, onHover }: { hit: SearchHit; selected: boo
             id={`hit-${hit.objectID}`}
             onMouseEnter={() => onHover(hit.objectID)}
             onMouseLeave={() => onHover(null)}
-            className={`block group rounded-2xl p-4 flex items-center gap-3 hover:scale-[1.01] transition-all duration-200 shadow-lg border glass-card ${selected ? 'border-[var(--lt-accent-border)] ring-1 ring-[var(--lt-accent)]' : 'border-white/5'}`}>
-            <img src={hit.photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=6366f1&color=fff`}
-                className="w-14 h-14 rounded-full object-cover border-2 border-white/10 shrink-0" alt={displayName} />
+            className={`group flex items-center gap-3 rounded-2xl border bg-[var(--lt-card)] p-3 transition-colors duration-200 hover:border-[var(--lt-accent-border)] ${selected ? 'border-[var(--lt-accent-border)] ring-1 ring-[var(--lt-accent)]' : 'border-[var(--lt-border)]'}`}>
+            <span className="relative shrink-0">
+                <img src={userAvatarUrl(hit, displayName)}
+                    className="h-14 w-14 rounded-full object-cover ring-2 ring-[var(--lt-border)]" alt="" />
+                <span
+                    className="absolute -bottom-1 -right-1 rounded-full border-2 border-[var(--lt-card-strong)] px-1.5 py-px text-[10px] font-black leading-tight lt-on-accent"
+                    style={{ backgroundImage: 'var(--lt-accent-grad)' }}
+                    aria-label={`Nivel ${level}`}
+                >
+                    {level}
+                </span>
+            </span>
             <div className="min-w-0 flex-1">
-                <h3 className="text-white font-bold text-sm group-hover:text-[var(--lt-accent)] transition-colors truncate">{displayName}</h3>
+                <MarqueeText as="h3" text={displayName} className="text-sm font-bold text-[var(--lt-text)]" />
                 {hit.username && hit.displayName && hit.username !== hit.displayName && (
-                    <p className="text-[var(--lt-accent)]/70 text-xs truncate">@{hit.username}</p>
+                    <MarqueeText text={`@${hit.username}`} className="text-xs font-medium text-[var(--lt-accent)]" />
                 )}
-                {hit.bio && <p className="text-gray-400 text-xs line-clamp-1 mt-0.5">{hit.bio}</p>}
-                <div className="flex flex-wrap gap-2 mt-1.5 text-xs text-gray-500">
-                    <span className="flex items-center gap-0.5 rounded-full bg-white/5 border border-white/10 px-2 py-0.5">
-                        Nv. {level}
-                    </span>
-                    <span className="flex items-center gap-0.5"><Users className="w-3 h-3" /> {hit.followersCount || 0}</span>
-                    <span className="flex items-center gap-0.5"><Star className="w-3 h-3" /> {hit.reviewsCount || 0}</span>
+                {hit.bio && <p className="text-[var(--lt-text-muted)] text-xs line-clamp-1 mt-0.5">{hit.bio}</p>}
+                <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-[var(--lt-text-muted)]">
+                    <span className="flex items-center gap-1"><Users className="w-3 h-3" /> <strong className="font-bold text-[var(--lt-text)]">{hit.followersCount || 0}</strong> seg.</span>
+                    <span className="flex items-center gap-1"><Star className="w-3 h-3" /> <strong className="font-bold text-[var(--lt-text)]">{hit.reviewsCount || 0}</strong> valoraciones</span>
                 </div>
             </div>
-            <ChevronRight className="w-4 h-4 text-gray-700 shrink-0" />
+            <ChevronRight className="w-4 h-4 text-[var(--lt-text-muted)] shrink-0 transition-transform group-hover:translate-x-0.5" />
         </Link>
     );
 };
+
+/** Persona en el carrusel de «Todo»: avatar grande, nombre y nivel. */
+const UserMiniCard = ({ hit }: { hit: SearchHit }) => {
+    const displayName = hit.displayName || hit.username || '?';
+    const level = Math.max(1, hit.level || 1);
+    return (
+        <Link
+            to={`/profile/${hit.objectID}`}
+            id={`hit-${hit.objectID}`}
+            className="group flex w-[9.5rem] shrink-0 snap-start flex-col items-center rounded-3xl border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 pb-3 pt-4 text-center transition-colors hover:border-[var(--lt-accent-border)]"
+        >
+            <span className="relative">
+                <img src={userAvatarUrl(hit, displayName)} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-[var(--lt-accent-border)] transition-transform duration-300 group-hover:scale-105" />
+                <span
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border-2 border-[var(--lt-card-strong)] px-1.5 py-px text-[10px] font-black leading-tight lt-on-accent"
+                    style={{ backgroundImage: 'var(--lt-accent-grad)' }}
+                >
+                    Nv. {level}
+                </span>
+            </span>
+            <MarqueeText as="h3" text={displayName} className="mt-3 w-full text-sm font-bold text-[var(--lt-text)]" />
+            <span className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--lt-text-muted)]">
+                <span className="flex items-center gap-0.5"><Users className="h-3 w-3" /> {hit.followersCount || 0}</span>
+                <span className="flex items-center gap-0.5"><Star className="h-3 w-3" /> {hit.reviewsCount || 0}</span>
+            </span>
+        </Link>
+    );
+};
+
+/** Resultado de Algolia → tarjeta con foto de la Home (carruseles de «Todo»). */
+function hitToFeedCard(activeTab: string, hit: SearchHit): HomeFeedCardData {
+    const photoUrl = hit.thumbnailUrl ?? hit.mainImageUrl ?? hit.photoUrl ?? hit.coverUrl ?? hit.imageUrl ?? null;
+    const closed = isClosedStatus(getHitClosedStatus(activeTab, hit));
+    const city = hit.city || hit.placeCity;
+    if (activeTab === 'places') {
+        const score = placeCardScore(hit, false);
+        const typeLabel = getPlaceTypeLabels(hit.types || [], 1)[0];
+        return {
+            key: `place:${hit.objectID}`, kind: 'place', id: hit.objectID,
+            title: hit.name || hit.placeName || 'Sitio',
+            subtitle: [typeLabel, city].filter(Boolean).join(' · ') || undefined,
+            badge: closed ? 'Cerrado' : undefined,
+            photoUrl, rating: score.avgRating, count: score.reviewCount,
+            to: `/place/${hit.objectID}`,
+        };
+    }
+    if (activeTab === 'lists') {
+        const owner = hit.ownerName || hit.authorName || hit.listOwnerName;
+        const rating = hit.averageRating ?? hit.avgGeneralScore;
+        return {
+            key: `list:${hit.objectID}`, kind: 'list', id: hit.objectID,
+            title: hit.name || 'Lista',
+            subtitle: [owner ? `por ${owner}` : null, typeof hit.itemCount === 'number' ? `${hit.itemCount} elementos` : null].filter(Boolean).join(' · ') || undefined,
+            badge: hit.categoryName || undefined,
+            photoUrl, rating: typeof rating === 'number' && rating > 0 ? rating : null, count: hit.reviewsCount ?? 0,
+            to: `/list/${hit.objectID}`,
+        };
+    }
+    // Elementos (grouped_items): plato en un sitio.
+    // Mismo nombre y enlace que ListItemCard en la pestaña Elementos.
+    const name = hit.name ?? hit.itemName ?? 'Resultado';
+    const rating = hit.averageRating ?? hit.avgGeneralScore;
+    return {
+        key: `dish:${hit.objectID}`, kind: 'dish', id: hit.objectID,
+        title: name,
+        subtitle: [hit.placeName, city].filter(Boolean).join(' · ') || undefined,
+        badge: closed ? 'Cerrado' : (hit.listCategoryName || undefined),
+        photoUrl, rating: typeof rating === 'number' && rating > 0 ? rating : null, count: hit.reviewsCount ?? hit.reviewCount ?? 0,
+        to: hit.placeId ? `/group/${hit.placeId}/${encodeURIComponent(name)}` : `/list/${hit.objectID}`,
+        placeId: hit.placeId, placeName: hit.placeName, itemName: name,
+    };
+}
 
 // ─── Custom Hits ──────────────────────────────────────────────────────────────
 
@@ -782,6 +907,8 @@ interface HitsProps {
     listLayout?: boolean;
     /** Desactiva el scroll infinito (usado en sección federated) */
     noInfiniteScroll?: boolean;
+    /** Carrusel horizontal de tarjetas con foto, como en la Home (sección de «Todo»). */
+    carousel?: boolean;
     includeClosed?: boolean;
     /**
      * Los resultados están en el orden del ranking de una sola Lista (sin texto
@@ -799,7 +926,7 @@ const ResultsConfigure = ({ tab, query, filters, geo }: { tab: string; query: st
     return <Configure query={query} filters={joinAlgoliaFilters([filters, botFilter])} hitsPerPage={20} {...geo} />;
 };
 
-const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false, includeClosed = false, rankEligible = false, zoneLabel: selectedZoneLabel = null, onClearZone }) => {
+const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false, carousel = false, includeClosed = false, rankEligible = false, zoneLabel: selectedZoneLabel = null, onClearZone }) => {
     const { hits, isLastPage, showMore } = useInfiniteHits();
     const { status, results } = useInstantSearch();
     // Cualquier filtro de la barra lateral (tags, tipo de usuario…) deja un
@@ -862,14 +989,30 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
         // Sin respuesta todavía (o buscando): esqueleto, no un falso "no hay".
         const awaitingResults = (results as { __isArtificial?: boolean } | undefined)?.__isArtificial
             || status === 'loading' || status === 'stalled';
-        if (awaitingResults) return <SearchResultsSkeleton listLayout={listLayout} />;
+        if (awaitingResults) return carousel ? <CarouselSkeleton /> : <SearchResultsSkeleton listLayout={listLayout} />;
         if (status === 'error') return null; // SearchErrorNotice ya lo explica
         return <EmptyState activeTab={activeTab} onTabChange={onTabChange} zoneLabel={selectedZoneLabel} onClearZone={onClearZone} />;
     }
 
+    if (carousel) {
+        return (
+            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 scroll-px-4 pb-3 pt-0.5 snap-x snap-mandatory hide-scrollbar scroll-smooth lg:mx-0 lg:px-0 lg:scroll-px-0">
+                {visibleHits.map(hit => (
+                    activeTab === 'users'
+                        ? <UserMiniCard key={hit.objectID} hit={hit} />
+                        : (
+                            <div key={hit.objectID} id={`hit-${hit.objectID}`} className="shrink-0 snap-start">
+                                <HomeFeedCard card={hitToFeedCard(activeTab, hit)} />
+                            </div>
+                        )
+                ))}
+            </div>
+        );
+    }
+
     return (
         <div>
-            <div className={listLayout ? 'flex flex-col gap-3' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4'}>
+            <div className={listLayout ? 'flex flex-col gap-3' : 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3'}>
                 {visibleHits.map((hit, index) => {
                     const selected = selectedHitId === hit.objectID;
                     if (activeTab === 'users') {
@@ -882,7 +1025,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                             onMouseEnter={() => hover(hit.objectID)}
                             onMouseLeave={() => hover(null)}
                             onClick={() => onSelectHit?.(hit.objectID)}
-                            className={`rounded-2xl transition-colors duration-200 cursor-pointer ${selected ? 'outline outline-2 outline-[var(--lt-accent)] outline-offset-0' : ''}`}
+                            className={`rounded-2xl transition-shadow duration-200 cursor-pointer ${selected ? 'outline outline-2 outline-[var(--lt-accent)] outline-offset-2 shadow-lg shadow-[var(--lt-accent-shadow)]' : ''}`}
                         >
                             <ListItemCard
                                 item={{
@@ -924,8 +1067,8 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                 })}
             </div>
             {!noInfiniteScroll && !isLastPage && (
-                <div ref={sentinelRef} className="py-8 flex justify-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[var(--lt-accent-border)]" />
+                <div ref={sentinelRef} className="py-8 flex items-center justify-center gap-2 text-xs font-medium text-[var(--lt-text-muted)]">
+                    <Loader2 className="h-4 w-4 animate-spin text-[var(--lt-accent)]" aria-hidden="true" /> Buscando más…
                 </div>
             )}
         </div>
@@ -934,30 +1077,38 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
 
 // ─── Federated Section ────────────────────────────────────────────────────────
 
-const FedSectionContent = ({ title, type, icon: Icon, onViewAll }: { title: string; type: string; icon: React.ElementType; onViewAll: () => void }) => {
+const FedSectionContent = ({ title, subtitle, type, icon: Icon, onViewAll }: { title: string; subtitle: string; type: string; icon: React.ElementType; onViewAll: () => void }) => {
     const { hits } = useInfiniteHits();
+    const { nbHits } = useStats();
     const visibleCount = hits.length;
     if (visibleCount === 0) return null;
     return (
-        <div className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                    <Icon className="w-4 h-4 text-[var(--lt-accent)]" />
-                    <h3 className="text-lg font-bold text-white">{title}</h3>
-                    <span className="text-xs text-gray-700">({visibleCount})</span>
+        <section className="mb-5">
+            <div className="flex items-center justify-between gap-3 mb-2.5">
+                <div className="min-w-0">
+                    <h2 className="flex items-center gap-2 text-base md:text-xl font-display font-bold leading-tight text-[var(--lt-text)]">
+                        <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                            <Icon className="w-3.5 h-3.5" />
+                        </span>
+                        <span className="truncate">{title}</span>
+                    </h2>
+                    <p className="mt-0.5 truncate text-xs font-medium text-[var(--lt-text-muted)]">
+                        {nbHits > visibleCount ? `${visibleCount} de ${nbHits.toLocaleString('es')} · ${subtitle}` : subtitle}
+                    </p>
                 </div>
-                <button onClick={onViewAll} className="flex items-center gap-1 text-sm text-[var(--lt-accent)] hover:text-[var(--lt-accent)] transition-colors">
-                    Ver todos <ChevronRight className="w-4 h-4" />
+                <button onClick={onViewAll} className="shrink-0 inline-flex items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-bold text-[var(--lt-accent)] bg-[var(--lt-accent-soft)] hover:opacity-80 transition-opacity">
+                    Ver todo <ChevronRight className="w-3.5 h-3.5" />
                 </button>
             </div>
-            <CustomHits activeTab={type} noInfiniteScroll />
-        </div>
+            <CustomHits activeTab={type} noInfiniteScroll carousel />
+        </section>
     );
 };
 
 const FederatedSection = ({
     indexName,
     title,
+    subtitle,
     type,
     icon,
     onViewAll,
@@ -966,6 +1117,7 @@ const FederatedSection = ({
 }: {
     indexName: string;
     title: string;
+    subtitle: string;
     type: string;
     icon: React.ElementType;
     onViewAll: () => void;
@@ -974,7 +1126,7 @@ const FederatedSection = ({
 }) => (
     <Index indexName={indexName}>
         <Configure hitsPerPage={3} filters={filters} query={query} />
-        <FedSectionContent title={title} type={type} icon={icon} onViewAll={onViewAll} />
+        <FedSectionContent title={title} subtitle={subtitle} type={type} icon={icon} onViewAll={onViewAll} />
     </Index>
 );
 
@@ -1000,12 +1152,13 @@ const GeoControls = ({
                 <select
                     value={geoRadius}
                     onChange={e => onRadiusChange(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                    className="bg-[var(--lt-card-strong)] border border-white/10 rounded-full px-3 py-1.5 text-xs text-white focus:outline-none"
+                    aria-label="Radio de búsqueda"
+                    className="bg-[var(--lt-card)] border border-[var(--lt-success)]/40 rounded-full px-3 py-1.5 text-xs font-bold text-[var(--lt-text)] focus:outline-none"
                 >
                     {GEO_RADIUS_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
             )}
-            {locError && <span className="text-xs text-red-400">{locError}</span>}
+            {locError && <span className="text-xs text-[var(--lt-danger)]">{locError}</span>}
         </div>
     );
 };
@@ -1018,16 +1171,17 @@ const FilterTrigger = ({ onClick }: { onClick: () => void }) => {
         <button
             type="button"
             onClick={onClick}
-            className={`flex items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-bold transition-all active:scale-95 ${
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
                 activeCount > 0
-                    ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
-                    : 'bg-white/5 border-white/10 text-gray-300 hover:border-[var(--lt-accent-border)] hover:text-white'
+                    ? 'border-transparent lt-on-accent shadow-lg shadow-[var(--lt-accent-shadow)]'
+                    : 'bg-[var(--lt-card)] border-[var(--lt-border)] text-[var(--lt-text)] hover:border-[var(--lt-accent-border)]'
             }`}
+            style={activeCount > 0 ? { backgroundImage: 'var(--lt-accent-grad)' } : undefined}
         >
-            <SlidersHorizontal className="w-4 h-4" />
+            <SlidersHorizontal className={`w-3.5 h-3.5 ${activeCount > 0 ? '' : 'text-[var(--lt-accent)]'}`} />
             Filtros
             {activeCount > 0 && (
-                <span className="min-w-5 h-5 rounded-full bg-white/20 px-1.5 text-[11px] flex items-center justify-center">
+                <span className="min-w-4 h-4 rounded-full bg-white/25 px-1 text-[10px] flex items-center justify-center">
                     {activeCount}
                 </span>
             )}
@@ -1046,17 +1200,19 @@ const QuickFacetButton = ({ attribute, value, label, icon: Icon }: { attribute: 
             type="button"
             disabled={!isAvailable}
             onClick={() => item && refine(item.value)}
-            className={`shrink-0 flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-bold transition-all active:scale-95 ${
+            aria-pressed={isActive}
+            className={`shrink-0 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
                 isActive
-                    ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
+                    ? 'border-transparent lt-on-accent shadow-md shadow-[var(--lt-accent-shadow)]'
                     : isAvailable
-                        ? 'bg-white/5 border-white/10 text-gray-300 hover:border-[var(--lt-accent-border)] hover:text-white'
-                        : 'bg-white/[0.02] border-white/5 text-gray-700 cursor-not-allowed'
+                        ? 'bg-[var(--lt-card)] border-[var(--lt-border)] text-[var(--lt-text)] hover:border-[var(--lt-accent-border)]'
+                        : 'bg-transparent border-[var(--lt-border)] text-[var(--lt-text-muted)] opacity-50 cursor-not-allowed'
             }`}
+            style={isActive ? { backgroundImage: 'var(--lt-accent-grad)' } : undefined}
         >
-            <Icon className="w-3.5 h-3.5" />
+            <Icon className={`w-3.5 h-3.5 ${isActive || !isAvailable ? '' : 'text-[var(--lt-accent)]'}`} />
             {label}
-            {item && <span className={isActive ? 'text-white/70' : 'text-gray-600'}>{item.count}</span>}
+            {item && <span className={isActive ? 'opacity-75' : 'text-[var(--lt-text-muted)]'}>{item.count}</span>}
         </button>
     );
 };
@@ -1080,19 +1236,20 @@ const QuickFilters = ({
     if (!isGeoTab && !showReviewUserTypes && !showPlaceTypes) return null;
 
     return (
-        <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1">
+        <div className="-mx-4 flex gap-1.5 overflow-x-auto hide-scrollbar px-4 pb-1 lg:mx-0 lg:px-0">
             {isGeoTab && (
                 <button
                     type="button"
                     onClick={onToggleGeo}
                     disabled={locLoading}
-                    className={`shrink-0 flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-bold transition-all active:scale-95 ${
+                    aria-pressed={geoActive}
+                    className={`shrink-0 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${
                         geoActive
-                            ? 'bg-emerald-600/90 border-emerald-400/50 text-white shadow-lg shadow-emerald-900/30'
-                            : 'bg-white/5 border-white/10 text-gray-300 hover:border-emerald-400/40 hover:text-white'
+                            ? 'bg-emerald-600 border-emerald-400/50 lt-on-accent shadow-md shadow-emerald-900/30'
+                            : 'bg-[var(--lt-card)] border-[var(--lt-border)] text-[var(--lt-text)] hover:border-[var(--lt-success)]'
                     }`}
                 >
-                    {locLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LocateFixed className="w-3.5 h-3.5" />}
+                    {locLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <LocateFixed className={`w-3.5 h-3.5 ${geoActive ? '' : 'text-[var(--lt-success)]'}`} />}
                     Cerca de mí
                 </button>
             )}
@@ -1331,7 +1488,7 @@ export const SearchPage: React.FC = () => {
     }, [activeSortOption.requiresLocation, effectiveGeoActive, geoRadius, isGeoTab, location]);
 
     const zoneBar = isGeoTab ? (
-        <div className="flex flex-wrap items-center gap-2 mt-2">
+        <div className="flex flex-wrap items-center gap-1.5">
             <ZonePicker
                 key={activeTab}
                 tab={activeTab as 'items' | 'places'}
@@ -1347,9 +1504,10 @@ export const SearchPage: React.FC = () => {
                     onClick={clearListScope}
                     title="Buscar en todas las Listas"
                     aria-label={`Quitar el filtro «En la Lista ${listNameParam || 'elegida'}»: buscar en todas las Listas`}
-                    className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--lt-text)] hover:bg-[var(--lt-accent)]/20"
+                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-3 py-1.5 text-xs font-bold text-[var(--lt-text)] hover:opacity-80"
                 >
-                    En la Lista «{listNameParam || 'elegida'}»
+                    <ListIcon className="w-3.5 h-3.5 shrink-0 text-[var(--lt-accent)]" aria-hidden />
+                    <span className="truncate">En la Lista «{listNameParam || 'elegida'}»</span>
                     <X className="ml-0.5 w-3 h-3 text-[var(--lt-text-muted)]" aria-hidden />
                 </button>
             )}
@@ -1371,30 +1529,29 @@ export const SearchPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[var(--bg-primary)] pt-safe-20 pb-20">
+        <div className="min-h-screen bg-[var(--lt-bg)] pt-safe-20 pb-28 md:pb-20">
             <InstantSearch
                 searchClient={algoliaClient}
                 indexName={INDEX_NAMES.lists}
                 future={{ preserveSharedStateOnUnmount: true }}
             >
                 {/* ── Header: search + tabs ────────────────────────────────── */}
-                <div className="px-4 lg:px-8 mb-6">
-                    <div className="flex items-center gap-4 mb-4">
-                        <div className="flex-1"><CustomSearchBox rawQuery={queryParam} onQueryChange={handleQueryChange} /></div>
-                    </div>
+                <div className="relative z-10 px-4 lg:px-8 pt-2 mb-4">
+                    <div className="pointer-events-none absolute -top-20 right-0 -z-10 h-64 w-64 rounded-full opacity-80 blur-[90px]" style={{ backgroundColor: 'var(--lt-accent-soft)' }} aria-hidden="true" />
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--lt-text)]">Buscar</h1>
+                    <p className="mt-0.5 mb-3 text-xs md:text-sm font-medium text-[var(--lt-text-muted)]">Listas, sitios, platos y gente con buen criterio.</p>
+                    <CustomSearchBox rawQuery={queryParam} onQueryChange={handleQueryChange} />
 
                     {/* Tabs */}
-                    <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar">
-                        <button onClick={() => handleTabChange('all')}
-                            className={`flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === 'all' ? 'bg-[var(--lt-accent)] text-white shadow-lg' : 'text-gray-400 hover:text-white bg-white/5 border border-white/10'}`}>
-                            <Search className="w-4 h-4" /> Todo
-                        </button>
-                        {Object.keys(INDEX_NAMES).map(key => {
-                            const Icon = TAB_ICONS[key] || Search;
+                    <div role="tablist" aria-label="Qué buscar" className="-mx-4 mt-3 flex items-center gap-1.5 overflow-x-auto hide-scrollbar px-4 lg:mx-0 lg:px-0">
+                        {['all', ...Object.keys(INDEX_NAMES)].map(key => {
+                            const Icon = key === 'all' ? Search : (TAB_ICONS[key] || Search);
+                            const isActive = activeTab === key;
                             return (
-                                <button key={key} onClick={() => handleTabChange(key)}
-                                    className={`flex items-center gap-1.5 px-5 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap shrink-0 ${activeTab === key ? 'bg-[var(--lt-accent)] text-white shadow-lg' : 'text-gray-400 hover:text-white bg-white/5 border border-white/10'}`}>
-                                    <Icon className="w-4 h-4" /> {TAB_LABELS[key] || key}
+                                <button key={key} role="tab" aria-selected={isActive} onClick={() => handleTabChange(key)}
+                                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap shrink-0 border ${isActive ? 'border-transparent lt-on-accent shadow-lg shadow-[var(--lt-accent-shadow)]' : 'border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:border-[var(--lt-accent-border)]'}`}
+                                    style={isActive ? { backgroundImage: 'var(--lt-accent-grad)' } : undefined}>
+                                    <Icon className="w-4 h-4" /> {key === 'all' ? 'Todo' : (TAB_LABELS[key] || key)}
                                 </button>
                             );
                         })}
@@ -1407,10 +1564,10 @@ export const SearchPage: React.FC = () => {
                 {activeTab === 'all' ? (
                     <div className="px-4 lg:px-8">
                         <AllTabEmptyState hasQuery={parsedQuery.cleanedQuery.trim().length > 0} />
-                        <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" type="lists" icon={ListIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('lists')} />
-                        <FederatedSection indexName={INDEX_NAMES.places} title="Sitios" type="places" icon={MapIcon} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('places'), PLACES_WITH_REVIEWS_FILTER])} onViewAll={() => handleTabChange('places')} />
-                        <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" type="users" icon={Users} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('users')} />
-                        <FederatedSection indexName={INDEX_NAMES.items} title="Elementos" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('items'), HIDE_BOT_ONLY])} onViewAll={() => handleTabChange('items')} />
+                        <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" subtitle="Rankings con opinión propia" type="lists" icon={ListIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('lists')} />
+                        <FederatedSection indexName={INDEX_NAMES.places} title="Sitios" subtitle="Donde ir a comprobarlo" type="places" icon={MapIcon} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('places'), PLACES_WITH_REVIEWS_FILTER])} onViewAll={() => handleTabChange('places')} />
+                        <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" subtitle="Gente que opina (y mucho)" type="users" icon={Users} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('users')} />
+                        <FederatedSection indexName={INDEX_NAMES.items} title="Elementos" subtitle="Platos y cosas concretas" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('items'), HIDE_BOT_ONLY])} onViewAll={() => handleTabChange('items')} />
                     </div>
                 ) : (
                     <Index indexName={activeIndexName}>
@@ -1425,22 +1582,34 @@ export const SearchPage: React.FC = () => {
                         {mobileFiltersOpen && (
                             <div className="fixed inset-0 z-[2000] lg:hidden">
                                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileFiltersOpen(false)} />
-                                <div className="absolute inset-x-0 bottom-0 max-h-[82dvh] rounded-t-3xl bg-[var(--lt-card-strong)] border-t border-white/10 shadow-2xl overflow-hidden animate-slide-up-modal">
-                                    <div className="px-5 pt-3 pb-4 border-b border-white/10 bg-white/[0.03]">
-                                        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" />
-                                        <div className="flex justify-between items-center">
-                                            <div>
-                                                <h3 className="text-white font-bold flex items-center gap-2">
-                                                    <SlidersHorizontal className="w-4 h-4 text-[var(--lt-accent)]" />
+                                <div role="dialog" aria-modal="true" aria-label="Filtros" className="absolute inset-x-0 bottom-0 flex max-h-[82dvh] flex-col rounded-t-3xl bg-[var(--lt-card-strong)] border-t border-[var(--lt-border)] shadow-2xl overflow-hidden animate-slide-up-modal">
+                                    <div className="px-5 pt-3 pb-3 border-b border-[var(--lt-border)]">
+                                        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--lt-border-strong)]" />
+                                        <div className="flex justify-between items-center gap-3">
+                                            <div className="min-w-0">
+                                                <h3 className="flex items-center gap-2 text-base font-bold text-[var(--lt-text)]">
+                                                    <span className="w-6 h-6 rounded-md flex items-center justify-center bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                                        <SlidersHorizontal className="w-3.5 h-3.5" />
+                                                    </span>
                                                     Filtros
                                                 </h3>
-                                                <p className="text-xs text-gray-500 mt-0.5">Afina la búsqueda sin salir de la lista.</p>
+                                                <p className="text-xs text-[var(--lt-text-muted)] mt-0.5">Afina la búsqueda sin salir de la lista.</p>
                                             </div>
-                                            <button onClick={() => setMobileFiltersOpen(false)} className="p-2 rounded-full bg-white/5 text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
+                                            <button onClick={() => setMobileFiltersOpen(false)} aria-label="Cerrar filtros" className="p-2 rounded-full bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"><X className="w-5 h-5" /></button>
                                         </div>
                                     </div>
-                                    <div className="p-4 overflow-y-auto overscroll-contain subtle-scrollbar max-h-[calc(82dvh-88px)]">
+                                    <div className="min-h-0 flex-1 p-4 overflow-y-auto overscroll-contain subtle-scrollbar">
                                         <FilterContent activeTab={activeTab} includeClosed={includeClosedPlaces} onIncludeClosedChange={setIncludeClosedPlaces} />
+                                    </div>
+                                    <div className="border-t border-[var(--lt-border)] px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+                                        <button
+                                            type="button"
+                                            onClick={() => setMobileFiltersOpen(false)}
+                                            className="w-full rounded-2xl py-3 text-sm font-bold lt-on-accent shadow-lg shadow-[var(--lt-accent-shadow)]"
+                                            style={{ backgroundImage: 'var(--lt-accent-grad)' }}
+                                        >
+                                            Ver resultados
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -1454,12 +1623,12 @@ export const SearchPage: React.FC = () => {
 
                                 {/* Panel izquierdo: filtros */}
                                 <aside className="w-56 xl:w-64 flex-shrink-0 flex flex-col overflow-hidden min-h-0">
-                                    <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)]/75 backdrop-blur-xl p-4 flex-1 min-h-0 h-full overflow-y-auto overscroll-contain subtle-scrollbar [scrollbar-gutter:stable]">
-                                        <h3 className="text-white font-bold text-sm mb-1 flex items-center gap-2">
-                                            <SlidersHorizontal className="w-4 h-4 text-[var(--lt-accent)]" />
+                                    <div className="rounded-3xl border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] backdrop-blur-xl p-3 flex-1 min-h-0 h-full overflow-y-auto overscroll-contain subtle-scrollbar [scrollbar-gutter:stable]">
+                                        <h3 className="text-[var(--lt-text)] font-bold text-base mb-0.5 flex items-center gap-2">
+                                            <span className="w-6 h-6 rounded-md flex items-center justify-center bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]"><SlidersHorizontal className="w-3.5 h-3.5" /></span>
                                             Filtros
                                         </h3>
-                                        <p className="text-xs text-gray-500 mb-4">Combina tipo, ciudad y autor.</p>
+                                        <p className="text-xs text-[var(--lt-text-muted)] mb-3">Combina tipo, ciudad y autor.</p>
                                         <FilterContent activeTab={activeTab} includeClosed={includeClosedPlaces} onIncludeClosedChange={setIncludeClosedPlaces} />
                                     </div>
                                 </aside>
@@ -1537,12 +1706,12 @@ export const SearchPage: React.FC = () => {
                                     )}
 
                                     {/* Filtros */}
-                                    <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)]/75 backdrop-blur-xl p-4 flex-1 min-h-0 overflow-y-auto overscroll-contain subtle-scrollbar [scrollbar-gutter:stable]">
-                                        <h3 className="text-white font-bold text-sm mb-1 flex items-center gap-2">
-                                            <SlidersHorizontal className="w-4 h-4 text-[var(--lt-accent)]" />
+                                    <div className="rounded-3xl border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] backdrop-blur-xl p-3 flex-1 min-h-0 overflow-y-auto overscroll-contain subtle-scrollbar [scrollbar-gutter:stable]">
+                                        <h3 className="text-[var(--lt-text)] font-bold text-base mb-0.5 flex items-center gap-2">
+                                            <span className="w-6 h-6 rounded-md flex items-center justify-center bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]"><SlidersHorizontal className="w-3.5 h-3.5" /></span>
                                             Filtros
                                         </h3>
-                                        <p className="text-xs text-gray-500 mb-4">Combina varias señales.</p>
+                                        <p className="text-xs text-[var(--lt-text-muted)] mb-3">Combina varias señales.</p>
                                         <FilterContent activeTab={activeTab} includeClosed={includeClosedPlaces} onIncludeClosedChange={setIncludeClosedPlaces} />
                                     </div>
                                 </div>
@@ -1550,6 +1719,21 @@ export const SearchPage: React.FC = () => {
 
                             {/* MAIN CONTENT */}
                             <div className="flex-1 min-w-0">
+                                {/* Mobile: filtros + mapa + zona, en una fila */}
+                                <div className="flex flex-wrap items-center gap-1.5 mb-2 lg:hidden">
+                                    <FilterTrigger onClick={() => setMobileFiltersOpen(true)} />
+                                    {isGeoTab && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setMapExpanded(p => !p)}
+                                            aria-pressed={mapExpanded}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ${mapExpanded ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]' : 'bg-[var(--lt-card)] border-[var(--lt-border)] text-[var(--lt-text)] hover:border-[var(--lt-accent-border)]'}`}>
+                                            <MapIcon className="w-3.5 h-3.5 text-[var(--lt-accent)]" /> {mapExpanded ? 'Ocultar mapa' : 'Mapa'}
+                                        </button>
+                                    )}
+                                    {zoneBar}
+                                </div>
+                                {zoneBar && <div className="hidden lg:block mb-2">{zoneBar}</div>}
                                 <QuickFilters
                                     activeTab={activeTab}
                                     isGeoTab={isGeoTab}
@@ -1557,23 +1741,10 @@ export const SearchPage: React.FC = () => {
                                     locLoading={locLoading}
                                     onToggleGeo={toggleGeo}
                                 />
-                                {zoneBar}
 
                                 {/* Controls bar */}
-                                <div className="flex flex-wrap items-center gap-3 mb-3 mt-3">
-                                    {/* Mobile: filtros + mapa */}
-                                    <div className="flex items-center gap-2 lg:hidden">
-                                        <FilterTrigger onClick={() => setMobileFiltersOpen(true)} />
-                                        {isGeoTab && (
-                                            <button
-                                                onClick={() => setMapExpanded(p => !p)}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors ${mapExpanded ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]' : 'bg-white/5 border-white/10 text-gray-400'}`}>
-                                                <MapIcon className="w-4 h-4" /> Mapa
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {/* Geo: cerca de mí */}
+                                <div className="flex flex-wrap items-center gap-2 mb-2 mt-2">
+                                    {/* Geo: radio de «Cerca de mí» */}
                                     <GeoControls
                                         isGeoTab={isGeoTab}
                                         geoActive={effectiveGeoActive}
@@ -1583,8 +1754,8 @@ export const SearchPage: React.FC = () => {
                                         onRadiusChange={handleGeoRadiusChange}
                                     />
 
-                                    {/* Ordenar + Contador */}
-                                    <div className="ml-auto flex items-center gap-4">
+                                    {/* Contador + Ordenar */}
+                                    <div className="ml-auto flex min-w-0 items-center gap-3">
                                         <ResultsCount />
                                         <SortControl activeTab={activeTab} value={activeSortOption.value} onChange={handleSortChange} />
                                     </div>
@@ -1595,7 +1766,7 @@ export const SearchPage: React.FC = () => {
 
                                 {/* ── Mapa expandido (mobile) ───────────────── */}
                                 {isGeoTab && mapExpanded && (
-                                    <div className="mb-6 h-[65vh] min-h-[400px]">
+                                    <div className="mb-4 h-[60vh] min-h-[360px] overflow-hidden rounded-3xl border border-[var(--lt-border)]">
                                         <SearchMapView
                                             mode="full"
                                             {...mapSharedProps}

@@ -180,9 +180,10 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
             className={cn(
               "rounded-2xl border p-4 transition-colors",
               isEarned
-                ? "border-amber-400/30 bg-gradient-to-br from-[#1d140b] via-[#22160d] to-[#302010]"
-                : "border-white/10 bg-[var(--lt-card-strong)]/70",
+                ? "border-[color-mix(in_srgb,var(--lt-warning)_40%,transparent)]"
+                : "border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)]",
             )}
+            style={isEarned ? { backgroundImage: "linear-gradient(135deg, var(--lt-warning-soft), var(--lt-card-strong) 75%)" } : undefined}
           >
             <div className="flex items-start gap-3">
               <div
@@ -190,7 +191,7 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
                   "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border",
                   isEarned
                     ? "border-amber-300/30 bg-gradient-to-br from-[#f8d26c] via-[#d9961f] to-[#8f4a06] text-white"
-                    : "border-white/10 bg-black/20 text-gray-500",
+                    : "border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] grayscale",
                 )}
               >
                 {renderBadgeFace(
@@ -205,15 +206,15 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h4 className="text-sm font-black uppercase tracking-wide text-white">
+                  <h4 className="text-sm font-black uppercase tracking-wide text-[var(--lt-text)]">
                     {badge.name}
                   </h4>
                   <span
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
                       isEarned
-                        ? "border-amber-400/30 bg-amber-500/10 text-amber-200"
-                        : "border-white/10 bg-white/5 text-gray-400",
+                        ? "border-[color-mix(in_srgb,var(--lt-warning)_40%,transparent)] bg-[var(--lt-warning-soft)] text-[var(--lt-warning)]"
+                        : "border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)]",
                     )}
                   >
                     {isEarned ? (
@@ -228,12 +229,12 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
                       </>
                     )}
                   </span>
-                  <span className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--lt-accent)]">
+                  <span className="rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--lt-accent)]">
                     +{getBadgeXpReward(badge)} XP
                   </span>
                 </div>
 
-                <p className="mt-2 text-sm leading-relaxed text-gray-300">
+                <p className="mt-2 text-sm leading-relaxed text-[var(--lt-text-muted)]">
                   {getBadgePublicDescription(badge)}
                 </p>
               </div>
@@ -241,19 +242,19 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
 
             {progress && progress.isTrackable && progress.progressLabel && (
               <div className="mt-4 space-y-2">
-                <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-gray-400">
+                <div className="flex items-center justify-between text-[11px] uppercase tracking-wide text-[var(--lt-text-muted)]">
                   <span>{progress.metricLabel}</span>
                   <span>{progress.progressLabel}</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-black/30">
+                <div className="h-2 overflow-hidden rounded-full bg-[var(--lt-border)]">
                   <div
                     className={cn(
                       "h-full rounded-full transition-[width]",
                       isEarned
                         ? "bg-gradient-to-r from-amber-300 via-amber-400 to-orange-500"
-                        : "bg-gradient-to-r from-indigo-400 to-cyan-400",
+                        : "",
                     )}
-                    style={{ width: `${Math.max(progress.ratio * 100, isEarned ? 100 : 8)}%` }}
+                    style={{ ...(isEarned ? {} : { backgroundImage: "var(--lt-accent-grad)" }), width: `${Math.max(progress.ratio * 100, isEarned ? 100 : 8)}%` }}
                   />
                 </div>
               </div>

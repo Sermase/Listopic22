@@ -2,7 +2,8 @@ import React, { useState, useMemo, useEffect, useRef, useLayoutEffect, useCallba
 import { createPortal } from 'react-dom';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useParams, Link, useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
-import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid, Bot, Star } from 'lucide-react';
+import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid, Bot, Star, Trophy, SearchX } from 'lucide-react';
+import { MarqueeText } from '../components/ui/MarqueeText';
 import { useListDetails } from '../hooks/useListDetails';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { ListItemCard } from '../components/ListItemCard';
@@ -924,26 +925,26 @@ export const ListPage: React.FC = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen pt-safe-24 px-4 max-w-4xl mx-auto animate-pulse">
+            <div className="min-h-screen bg-[var(--lt-bg)] pt-safe-24 px-4 max-w-4xl mx-auto animate-pulse" aria-busy="true">
                 {/* List header */}
-                <div className="h-8 w-2/5 bg-gray-800 rounded mb-3" />
-                <div className="h-4 w-3/5 bg-gray-700 rounded mb-2" />
-                <div className="h-4 w-1/4 bg-gray-700 rounded mb-8" />
+                <div className="h-8 w-2/5 bg-[var(--lt-skeleton-base)] rounded-lg mb-3" />
+                <div className="h-4 w-3/5 bg-[var(--lt-skeleton-base)] rounded mb-2" />
+                <div className="h-4 w-1/4 bg-[var(--lt-skeleton-base)] rounded mb-8" />
                 {/* Stats row */}
                 <div className="flex gap-3 mb-8">
-                    <div className="h-8 w-20 bg-gray-800 rounded-full" />
-                    <div className="h-8 w-20 bg-gray-800 rounded-full" />
-                    <div className="h-8 w-20 bg-gray-800 rounded-full" />
+                    <div className="h-8 w-20 bg-[var(--lt-skeleton-base)] rounded-full" />
+                    <div className="h-8 w-20 bg-[var(--lt-skeleton-base)] rounded-full" />
+                    <div className="h-8 w-20 bg-[var(--lt-skeleton-base)] rounded-full" />
                 </div>
                 {/* Item cards */}
-                <div className="space-y-4">
+                <div className="space-y-3">
                     {[1, 2, 3].map(i => (
-                        <div key={i} className="flex gap-3 h-32 bg-gray-800 rounded-xl overflow-hidden">
-                            <div className="w-28 h-full bg-gray-700 shrink-0" />
+                        <div key={i} className="flex gap-3 h-32 bg-[var(--lt-card)] border border-[var(--lt-border)] rounded-2xl overflow-hidden">
+                            <div className="w-28 h-full bg-[var(--lt-skeleton-base)] shrink-0" />
                             <div className="flex-1 p-3 space-y-2">
-                                <div className="h-5 bg-gray-700 rounded w-3/4" />
-                                <div className="h-3 bg-gray-700 rounded w-1/2" />
-                                <div className="h-3 bg-gray-700 rounded w-1/3" />
+                                <div className="h-5 bg-[var(--lt-skeleton-base)] rounded w-3/4" />
+                                <div className="h-3 bg-[var(--lt-skeleton-base)] rounded w-1/2" />
+                                <div className="h-3 bg-[var(--lt-skeleton-base)] rounded w-1/3" />
                             </div>
                         </div>
                     ))}
@@ -956,17 +957,17 @@ export const ListPage: React.FC = () => {
         if (error === 'private') {
             return (
                 <div className="min-h-screen pt-safe-40 px-4 text-center">
-                    <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl p-8 max-w-md mx-auto">
-                        <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Lock className="w-8 h-8 text-gray-400" />
+                    <div className="bg-[var(--lt-card-strong)] border border-[var(--lt-border)] rounded-3xl p-8 max-w-md mx-auto shadow-xl">
+                        <div className="w-14 h-14 bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] rounded-2xl flex items-center justify-center mx-auto mb-4">
+                            <Lock className="w-7 h-7 text-[var(--lt-accent)]" />
                         </div>
                         {/* Firestore no distingue «no existe» de «no tienes permiso»: se dice tal cual. */}
-                        <h2 className="text-2xl font-bold text-white mb-2">Lista no disponible</h2>
-                        <p className="text-gray-400 mb-6">
+                        <h2 className="text-2xl font-display font-bold text-[var(--lt-text)] mb-2">Lista no disponible</h2>
+                        <p className="text-[var(--lt-text-muted)] mb-6">
                             No existe o es privada y no tienes permiso para verla.
                             {!user && <> Si es tuya, <Link to="/login" className="text-[var(--lt-accent)] font-semibold hover:underline">inicia sesión</Link>.</>}
                         </p>
-                        <Link to="/search" className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold rounded-xl transition-colors">
+                        <Link to="/search" style={{ backgroundImage: 'var(--lt-accent-grad)' }} className="lt-on-accent inline-flex items-center gap-2 px-6 py-3 bg-[var(--lt-accent)] font-bold rounded-full shadow-lg shadow-[var(--lt-accent-shadow)] hover:opacity-90 transition-opacity">
                             <Search className="w-4 h-4" />
                             Explorar otras listas
                         </Link>
@@ -977,14 +978,14 @@ export const ListPage: React.FC = () => {
 
         return (
             <div className="min-h-screen pt-safe-40 px-4 text-center">
-                <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl p-8 max-w-md mx-auto">
-                    <h2 className="text-2xl font-bold text-white mb-2">No se ha podido cargar la Lista</h2>
-                    <p className="text-gray-400 mb-6">Revisa tu conexión e inténtalo otra vez.</p>
+                <div className="bg-[var(--lt-card-strong)] border border-[var(--lt-border)] rounded-3xl p-8 max-w-md mx-auto shadow-xl">
+                    <h2 className="text-2xl font-display font-bold text-[var(--lt-text)] mb-2">No se ha podido cargar la Lista</h2>
+                    <p className="text-[var(--lt-text-muted)] mb-6">Revisa tu conexión e inténtalo otra vez.</p>
                     <div className="flex flex-wrap justify-center gap-3">
-                        <button type="button" onClick={() => window.location.reload()} className="px-5 py-2.5 bg-[var(--lt-accent)] text-white font-bold rounded-xl">
+                        <button type="button" onClick={() => window.location.reload()} className="lt-on-accent px-5 py-2.5 bg-[var(--lt-accent)] font-bold rounded-full shadow-lg shadow-[var(--lt-accent-shadow)]">
                             Reintentar
                         </button>
-                        <Link to="/search" className="px-5 py-2.5 border border-white/10 text-[var(--lt-text)] font-bold rounded-xl">
+                        <Link to="/search" className="px-5 py-2.5 border border-[var(--lt-border-strong)] text-[var(--lt-text)] font-bold rounded-full">
                             Ir a Buscar
                         </Link>
                     </div>
@@ -1026,7 +1027,7 @@ export const ListPage: React.FC = () => {
     const listShareCriteria = buildShareCriteriaGroups(list.criteriaAverages, list.criteriaDefinition);
 
     return (
-        <div className="min-h-screen bg-[var(--lt-bg)] pb-20 transition-colors duration-300">
+        <div className="min-h-screen bg-[var(--lt-bg)] pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-20 transition-colors duration-300">
             {/* Hero Section */}
             <EntityHero
                 imageUrl={listShareImage}
@@ -1064,12 +1065,17 @@ export const ListPage: React.FC = () => {
                         <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm ${list.parentListId ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent-2)]' : 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'}`}>
                             {list.parentListId ? 'Minilista' : 'Lista'}
                         </span>
+                        {groupedItems.length > 0 && (
+                            <span className="px-2 py-0.5 rounded-md bg-[var(--lt-card-strong-alpha)] border border-[var(--lt-border)] text-[var(--lt-text-muted)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" title="Elementos en toda la Lista">
+                                {groupedItems.length} {groupedItems.length === 1 ? 'elemento' : 'elementos'}
+                            </span>
+                        )}
                         {/* Public/private only shown on sublists (user-owned) or to jefe */}
                         {(list.parentListId || isJefe) && (
                             list.isPublic ? (
-                                <span className="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Pública</span>
+                                <span className="px-2 py-0.5 rounded-md bg-[var(--lt-success-soft)] border border-[var(--lt-success)]/30 text-[var(--lt-success)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Pública</span>
                             ) : (
-                                <span className="px-2 py-0.5 rounded-md bg-red-500/15 border border-red-500/30 text-red-300 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm flex items-center gap-1">
+                                <span className="px-2 py-0.5 rounded-md bg-[var(--lt-danger-soft)] border border-[var(--lt-danger)]/30 text-[var(--lt-danger)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm flex items-center gap-1">
                                     <Lock className="w-2.5 h-2.5" /> Privada
                                 </span>
                             )
@@ -1077,7 +1083,7 @@ export const ListPage: React.FC = () => {
                         {/* Role pill — only on sublists */}
                         {list.parentListId && (
                             user?.uid === list.userId ? (
-                                <span className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Propietario</span>
+                                <span className="px-2 py-0.5 rounded-md bg-[var(--lt-warning-soft)] border border-[var(--lt-warning)]/30 text-[var(--lt-warning)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Propietario</span>
                             ) : user && list.editors?.includes(user.uid) ? (
                                 <span className="px-2 py-0.5 rounded-md bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-accent-2)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Editor</span>
                             ) : user && (list as any).publicAccess === 'writer' ? (
@@ -1096,10 +1102,10 @@ export const ListPage: React.FC = () => {
                                     to={`/profile/${list.userId}`}
                                     className="flex items-center gap-1.5 bg-black/30 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/10 hover:bg-black/50 transition-colors shrink-0"
                                 >
-                                    <div className="w-4 h-4 rounded-full bg-[var(--lt-accent)] flex items-center justify-center text-[9px] text-white font-bold">
+                                    <div className="lt-on-accent w-4 h-4 rounded-full bg-[var(--lt-accent)] flex items-center justify-center text-[9px] font-bold shrink-0">
                                         {list.authorName?.[0]?.toUpperCase() ?? '?'}
                                     </div>
-                                    <span className="text-xs font-medium text-white/80 max-w-[100px] truncate">{list.authorName || 'Usuario'}</span>
+                                    <MarqueeText text={list.authorName || 'Usuario'} className="text-xs font-medium text-white/85 max-w-[110px]" />
                                 </Link>
                             )}
                             <div className="flex items-center gap-1 bg-black/30 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/10 text-pink-400 text-xs font-bold shrink-0">
@@ -1115,7 +1121,7 @@ export const ListPage: React.FC = () => {
                             {canAddReview && (
                                 <button
                                     onClick={handleOpenAddReview}
-                                    className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all"
+                                    className="lt-on-accent flex items-center gap-1.5 px-3.5 sm:px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-sm font-bold rounded-full shadow-lg shadow-emerald-500/25 transition-all active:scale-95"
                                 >
                                     <Plus className="w-4 h-4" />
                                     <span>Valorar</span>
@@ -1165,19 +1171,20 @@ export const ListPage: React.FC = () => {
                                         }
                                         setIsActionsMenuOpen(v => !v);
                                     }}
-                                    className="p-2 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 text-white hover:bg-black/60 transition-colors"
+                                    aria-label={isActionsMenuOpen ? 'Cerrar acciones' : 'Más acciones'}
+                                    className="p-2 rounded-full bg-black/40 backdrop-blur-md border border-white/15 text-white hover:bg-black/60 transition-colors"
                                 >
                                     {isActionsMenuOpen ? <X className="w-5 h-5" /> : <MoreVertical className="w-5 h-5" />}
                                 </button>
 
                                 {isActionsMenuOpen && dropdownPosition && createPortal(
-                                    <div ref={dropdownPortalRef} className="fixed w-52 bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl shadow-2xl overflow-hidden py-1 z-[9999]"
+                                    <div ref={dropdownPortalRef} className="fixed w-56 bg-[var(--lt-card-strong)] border border-[var(--lt-border-strong)] rounded-2xl shadow-2xl overflow-hidden p-1 z-[9999]"
                                         style={{ top: dropdownPosition.top, right: dropdownPosition.right }}
                                     >
                                         {(!user || list.userId !== user.uid) && (
                                             <button
                                                 onClick={() => { toggleLike(); setIsActionsMenuOpen(false); }}
-                                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors text-left"
+                                                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-[var(--lt-text)] hover:bg-[var(--lt-glass)] transition-colors text-left"
                                             >
                                                 <Heart className={`w-4 h-4 shrink-0 ${isLiked ? 'fill-current text-pink-400' : ''}`} />
                                                 {isLiked ? 'Quitar de guardados' : 'Guardar lista'}
@@ -1186,7 +1193,7 @@ export const ListPage: React.FC = () => {
                                         {!list.parentListId && (
                                             <button
                                                 onClick={() => { setIsSublistsModalOpen(true); setIsActionsMenuOpen(false); }}
-                                                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors text-left"
+                                                className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-[var(--lt-text)] hover:bg-[var(--lt-glass)] transition-colors text-left"
                                             >
                                                 <ListIcon className="w-4 h-4 shrink-0 text-[var(--lt-accent)]" />
                                                 Minilistas
@@ -1197,25 +1204,25 @@ export const ListPage: React.FC = () => {
                                         )}
                                         <button
                                             onClick={() => { setIsPublicShareModalOpen(true); setIsActionsMenuOpen(false); }}
-                                            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors text-left"
+                                            className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-[var(--lt-text)] hover:bg-[var(--lt-glass)] transition-colors text-left"
                                         >
-                                            <Share2 className="w-4 h-4 shrink-0 text-blue-400" />
+                                            <Share2 className="w-4 h-4 shrink-0 text-[var(--lt-accent-2)]" />
                                             Compartir
                                         </button>
                                         {canManageList && (
                                             <>
                                                 <button
                                                     onClick={() => { setIsShareModalOpen(true); setIsActionsMenuOpen(false); }}
-                                                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors text-left"
+                                                    className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-[var(--lt-text)] hover:bg-[var(--lt-glass)] transition-colors text-left"
                                                 >
                                                     <Lock className="w-4 h-4 shrink-0 text-[var(--lt-accent)]" />
                                                     Permisos
                                                 </button>
                                                 <button
                                                     onClick={() => { setIsActionsMenuOpen(false); setIsEditListModalOpen(true); }}
-                                                    className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-200 hover:bg-white/5 transition-colors"
+                                                    className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-[var(--lt-text)] hover:bg-[var(--lt-glass)] transition-colors"
                                                 >
-                                                    <Edit3 className="w-4 h-4 shrink-0 text-amber-400" />
+                                                    <Edit3 className="w-4 h-4 shrink-0 text-[var(--lt-warning)]" />
                                                     Editar lista
                                                 </button>
                                             </>
@@ -1231,14 +1238,16 @@ export const ListPage: React.FC = () => {
 
             {/* Map Collapsible */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 relative -mt-8 sm:-mt-12 z-40">
-                <div className="glass-card rounded-xl overflow-hidden transition-all duration-300 shadow-2xl">
-                    <div className="w-full p-3 flex items-center justify-between text-gray-300 bg-[var(--lt-card-strong)]/60 border-b border-white/5">
+                <div className="glass-card rounded-2xl overflow-hidden transition-all duration-300 shadow-2xl border border-[var(--lt-border)]">
+                    <div className="w-full p-2.5 pl-3 flex items-center justify-between text-[var(--lt-text)] bg-[var(--lt-card-strong-alpha)]">
                         <button
                             onClick={() => setIsMapOpen(!isMapOpen)}
-                            className="flex items-center gap-2 hover:text-white transition-colors shrink-0"
+                            className="flex items-center gap-2 hover:opacity-80 transition-opacity shrink-0"
                         >
-                            <MapIcon className="w-5 h-5 text-gray-400 shrink-0" />
-                            <span className="font-bold text-sm whitespace-nowrap">Mapa<span className="hidden sm:inline"> de la Lista</span></span>
+                            <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                <MapIcon className="w-3.5 h-3.5" />
+                            </span>
+                            <span className="font-display font-bold text-sm whitespace-nowrap">Mapa<span className="hidden sm:inline"> de la Lista</span></span>
                         </button>
 
                         <div className="flex items-center justify-end gap-2 sm:gap-3 min-w-0 flex-1 ml-2">
@@ -1253,7 +1262,7 @@ export const ListPage: React.FC = () => {
                             <button
                                 aria-label={isMapOpen ? 'Ocultar mapa' : 'Ver mapa'}
                                 onClick={() => setIsMapOpen(!isMapOpen)}
-                                className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-white transition-colors whitespace-nowrap shrink-0"
+                                className="flex items-center justify-center gap-1 h-8 min-w-8 px-1.5 rounded-full text-xs font-bold text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-[var(--lt-glass)] transition-colors whitespace-nowrap shrink-0"
                             >
                                 <span className="hidden sm:inline">{isMapOpen ? 'Ocultar' : 'Ver mapa'}</span>
                                 <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapOpen ? 'rotate-180' : ''}`} />
@@ -1281,28 +1290,27 @@ export const ListPage: React.FC = () => {
 
                 {/* Modern Toolbar */}
                 <div className="sticky top-20 z-30 mb-8 mx-auto max-w-4xl">
-                    <div className="bg-[var(--lt-card-strong)]/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl p-2 flex flex-col sm:flex-row items-center justify-between gap-3 transition-all duration-300 hover:border-white/20">
+                    <div className="bg-[var(--lt-card-strong-alpha)] backdrop-blur-xl border border-[var(--lt-border)] rounded-2xl shadow-2xl p-2 flex flex-col sm:flex-row items-center justify-between gap-2.5 transition-colors duration-300 hover:border-[var(--lt-border-strong)]">
 
                         {/* Search & Count */}
-                        <div className="flex items-center flex-1 w-full gap-3 px-2">
-                            <div className="bg-white/5 text-xs px-2.5 py-1 rounded-full text-[var(--lt-accent)] font-bold border border-white/5 flex-shrink-0">
-                                {filteredItems.length}
-                            </div>
-                            <div className="h-4 w-px bg-white/10 mx-1 hidden sm:block"></div>
-                            <div className="relative flex-1 group/search">
-                                <Search className="absolute left-0 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within/search:text-[var(--lt-accent)] transition-colors" />
+                        <div className="flex items-center flex-1 w-full gap-2 px-1">
+                            <div className="relative flex-1 group/search rounded-xl bg-[var(--lt-glass)] border border-[var(--lt-border)] focus-within:border-[var(--lt-accent-border)] px-3 py-2 transition-colors">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--lt-text-muted)] group-focus-within/search:text-[var(--lt-accent)] transition-colors" />
                                 <input
                                     type="text"
                                     placeholder="Buscar en esta lista..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full bg-transparent border-none p-0 pl-7 text-sm text-[var(--lt-text)] placeholder:text-[var(--lt-text-muted)] focus:ring-0 transition-colors"
+                                    className="w-full bg-transparent border-none p-0 pl-6 text-sm text-[var(--lt-text)] placeholder:text-[var(--lt-text-muted)] focus:ring-0 focus:outline-none transition-colors"
                                 />
+                            </div>
+                            <div className="text-xs min-w-[2rem] text-center px-2.5 py-1.5 rounded-full text-[var(--lt-accent)] font-bold bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] flex-shrink-0" title="Elementos visibles">
+                                {filteredItemsAll.length}
                             </div>
                         </div>
 
                         {/* Barra de herramientas: cada botón dice lo que hace */}
-                        <div className="flex items-center gap-1.5 w-full border-t sm:border-t-0 border-white/5 pt-2 sm:pt-0">
+                        <div className="flex items-center gap-1.5 w-full sm:w-auto">
                             <ToolbarToggle
                                 label="Filtros"
                                 pressed={filters.minRating > 0 || filters.hasPhoto || filters.glutenFree || filters.petFriendly || filters.visited || selectedTags.length > 0 || Object.values(filters.accessibility || {}).some(Boolean) || Object.values(filters.criteriaMin || {}).some(v => v > 0)}
@@ -1355,18 +1363,28 @@ export const ListPage: React.FC = () => {
                 </div>
 
                 {filteredItemsAll.length > 0 && (
-                    <p className="text-xs text-[var(--lt-text-muted)] mb-2 px-1" aria-live="polite">
-                        {filteredItemsAll.length} {filteredItemsAll.length === 1 ? 'elemento' : 'elementos'}
-                        {sortMode === 'rating' && ` · puestos ${effectiveArea.kind !== 'near'
-                            ? `en ${geoAreaLabel(effectiveArea.kind, effectiveArea.value)}`
-                            : range !== null ? distanceLabel(range).toLowerCase() : 'en toda la Lista'}`}
-                    </p>
+                    <div className="mb-3 px-1 min-w-0">
+                        <h2 className="flex items-center gap-2 text-base md:text-xl font-display font-bold leading-tight text-[var(--lt-text)]">
+                            <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                {sortMode === 'rating' ? <Trophy className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                            </span>
+                            <span className="truncate">
+                                {sortMode === 'rating' ? 'El ranking' : sortMode === 'count' ? 'Los más valorados' : sortMode === 'newest' ? 'Lo último' : 'Los primeros'}
+                            </span>
+                        </h2>
+                        <p className="mt-0.5 truncate text-xs text-[var(--lt-text-muted)] font-medium" aria-live="polite">
+                            {filteredItemsAll.length} {filteredItemsAll.length === 1 ? 'elemento' : 'elementos'}
+                            {sortMode === 'rating' && ` · puestos ${effectiveArea.kind !== 'near'
+                                ? `en ${geoAreaLabel(effectiveArea.kind, effectiveArea.value)}`
+                                : range !== null ? distanceLabel(range).toLowerCase() : 'en toda la Lista'}`}
+                        </p>
+                    </div>
                 )}
                 <div className="animate-fade-in">
                     {filteredItems.length > 0 ? (
                         <>
                             {viewMode === 'gallery' ? (
-                                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-1 sm:gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
                                     {filteredItems.map((item, idx) => {
                                         // El puesto solo tiene sentido ordenando por nota.
                                         const rank = sortMode === 'rating' ? idx + 1 : undefined;
@@ -1391,36 +1409,36 @@ export const ListPage: React.FC = () => {
                                                         containerClassName="w-full h-full"
                                                         className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 ${isPlaceImg ? 'opacity-70 saturate-[0.6]' : ''}`}
                                                         fallback={
-                                                            <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-gray-900 flex items-center justify-center">
-                                                                <Store className="w-8 h-8 text-gray-600" />
+                                                            <div className="w-full h-full bg-[var(--lt-card-strong)] flex items-center justify-center">
+                                                                <Store className="w-8 h-8 text-[var(--lt-text-muted)] opacity-50" />
                                                             </div>
                                                         }
                                                     />
                                                 ) : (
-                                                    <div className="w-full h-full bg-gradient-to-br from-indigo-900/40 to-gray-900 flex items-center justify-center">
-                                                        <Store className="w-8 h-8 text-gray-600" />
+                                                    <div className="w-full h-full flex items-center justify-center" style={{ backgroundImage: 'radial-gradient(circle at 30% 20%, var(--lt-accent-soft), transparent 70%)', backgroundColor: 'var(--lt-card-strong)' }}>
+                                                        <Store className="w-8 h-8 text-[var(--lt-text-muted)] opacity-50" />
                                                     </div>
                                                 )}
                                                 {/* Gradient overlay */}
-                                                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-1.5 pt-6">
-                                                    <p className="text-[10px] sm:text-xs text-[#fff] font-bold line-clamp-1 leading-tight">{primaryName}</p>
+                                                <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-2.5 pb-2 pt-8">
+                                                    <MarqueeText as="h3" text={primaryName} className="text-xs sm:text-sm text-white font-bold leading-tight" />
                                                     {secondaryName && (
-                                                        <p className="text-[9px] sm:text-[10px] text-[#fff]/75 line-clamp-1 leading-tight mt-0.5">{secondaryName}</p>
+                                                        <MarqueeText text={secondaryName} className="text-[10px] sm:text-[11px] text-gray-300 font-medium leading-tight mt-0.5" />
                                                     )}
                                                 </div>
                                                 {/* Score bubble top-right */}
-                                                <div className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center shadow-lg" style={scoreBadgeStyle(score)}>
-                                                    <span className="text-[9px] sm:text-[10px] font-bold">{score.toFixed(1)}</span>
+                                                <div className="absolute top-2 right-2 h-7 min-w-[2.25rem] px-1.5 rounded-full flex items-center justify-center shadow-lg" style={scoreBadgeStyle(score)}>
+                                                    <span className="text-[11px] font-bold tabular-nums">{score.toFixed(1)}</span>
                                                 </div>
-                                                {/* Rank badge top-left for top 3 */}
-                                                {rank !== undefined && rank <= 3 && (
-                                                    <div className={`absolute top-1 left-1 sm:top-1.5 sm:left-1.5 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shadow-lg text-[9px] sm:text-[10px] font-bold ${rank === 1 ? 'bg-amber-400 text-black' : rank === 2 ? 'bg-gray-300 text-black' : 'bg-amber-700 text-white'}`}>
-                                                        {rank}
+                                                {/* Rank badge top-left */}
+                                                {rank !== undefined && (
+                                                    <div className={`absolute top-2 left-2 h-6 min-w-6 px-1.5 rounded-full flex items-center justify-center shadow-lg text-[10px] font-bold ${rank === 1 ? 'bg-amber-400 text-black' : rank === 2 ? 'bg-gray-300 text-black' : rank === 3 ? 'bg-amber-700 lt-on-accent' : 'bg-black/55 backdrop-blur-sm border border-white/15 lt-on-accent'}`}>
+                                                        {rank <= 3 ? rank : `#${rank}`}
                                                     </div>
                                                 )}
                                             </>
                                         );
-                                        const cardClass = "group relative isolate aspect-square bg-gray-900 rounded-lg overflow-hidden cursor-pointer border border-white/10 hover:border-[var(--lt-accent-border)] transition-colors shadow-sm";
+                                        const cardClass = "lt-media-card group relative isolate block aspect-[4/5] sm:aspect-square bg-[var(--lt-card-strong)] rounded-2xl overflow-hidden cursor-pointer border border-[var(--lt-border)] hover:border-[var(--lt-accent-border)] transition-colors shadow-lg";
                                         return href ? (
                                             <Link key={item.id} to={href} className={cardClass} data-element-key={item.id}>{cardContent}</Link>
                                         ) : (
@@ -1431,7 +1449,7 @@ export const ListPage: React.FC = () => {
                             ) : (
                             <div
                                 ref={listViewRef}
-                                className="rounded-xl overflow-hidden border border-[var(--border-color)]"
+                                className="rounded-2xl overflow-hidden border border-[var(--lt-border)] bg-[var(--lt-card)] shadow-lg"
                                 style={{ position: 'relative', height: `${listVirtualizer.getTotalSize()}px` }}
                             >
                                 {listVirtualizer.getVirtualItems().map((virtualRow) => (
@@ -1446,7 +1464,7 @@ export const ListPage: React.FC = () => {
                                             width: '100%',
                                             transform: `translateY(${virtualRow.start - listVirtualizer.options.scrollMargin}px)`,
                                         }}
-                                        className={virtualRow.index > 0 ? 'border-t border-[var(--border-color)]' : ''}
+                                        className={virtualRow.index > 0 ? 'border-t border-[var(--lt-border)]' : ''}
                                     >
                                         <ListItemCard
                                             item={filteredItems[virtualRow.index]}
@@ -1468,23 +1486,30 @@ export const ListPage: React.FC = () => {
                                 <div className="mt-8 text-center">
                                     <button
                                         onClick={handleLoadMore}
-                                        className="px-6 py-2 bg-[var(--lt-card-strong)] hover:bg-[var(--lt-card)] border border-white/10 rounded-full text-[var(--lt-accent)] hover:text-[var(--lt-accent)] font-medium transition-colors shadow-lg"
+                                        className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-[var(--lt-accent-soft)] hover:opacity-80 border border-[var(--lt-accent-border)] rounded-full text-sm text-[var(--lt-accent)] font-bold transition-opacity"
                                     >
-                                        Cargar más ({filteredItemsAll.length - visibleCount} restantes)
+                                        Ver más <span className="font-medium opacity-75">· quedan {filteredItemsAll.length - visibleCount}</span>
+                                        <ChevronDown className="w-4 h-4" />
                                     </button>
                                 </div>
                             )}
                         </>
                     ) : (
-                        <div className="text-center py-16 bg-[var(--lt-card-strong)]/30 rounded-2xl border border-dashed border-white/5">
-                            <p className="text-gray-400 mb-4 text-lg">
+                        <div className="text-center px-6 py-12 bg-[var(--lt-card)] rounded-3xl border border-dashed border-[var(--lt-border-strong)]">
+                            <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-accent)]">
+                                {emptyReason === 'none' ? <Trophy className="w-6 h-6" /> : <SearchX className="w-6 h-6" />}
+                            </div>
+                            <p className="text-[var(--lt-text)] font-display font-bold text-base mb-1">
                                 {emptyMessage}
+                            </p>
+                            <p className="text-xs text-[var(--lt-text-muted)] mb-4">
+                                {emptyReason === 'none' ? 'El podio está libre. Alguien tendrá que estrenarlo.' : 'Prueba a quitar algún filtro o a ampliar la zona.'}
                             </p>
                             {emptyReason === 'area' && (
                                 <button
                                     type="button"
                                     onClick={() => handleAreaSelect('r:all')}
-                                    className="mb-3 px-4 py-2 rounded-xl border border-[var(--lt-accent-border)] text-[var(--lt-accent)] font-bold"
+                                    className="mb-1 px-4 py-2 rounded-full text-sm bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-accent)] font-bold"
                                 >
                                     Ver toda la Lista
                                 </button>
@@ -1492,7 +1517,8 @@ export const ListPage: React.FC = () => {
                             {canAddReview && emptyReason === 'none' && (
                                 <button
                                     onClick={handleOpenAddReview}
-                                    className="text-[var(--lt-accent)] hover:text-[var(--lt-accent)] font-bold hover:underline"
+                                    style={{ backgroundImage: 'var(--lt-accent-grad)' }}
+                                    className="lt-on-accent inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[var(--lt-accent)] text-sm font-bold shadow-lg shadow-[var(--lt-accent-shadow)] hover:opacity-90 transition-opacity"
                                 >
                                     ¡Añade la primera valoración!
                                 </button>

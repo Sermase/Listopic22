@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 
-import { MapPin, ChevronRight, Users, Star, Bot } from 'lucide-react';
+import { MapPin, Users, Star, Bot } from 'lucide-react';
 import { PlacePhotoPlaceholder } from './PlacePhotoPlaceholder';
 import { ProgressiveImage } from './ProgressiveImage';
 import { compareCriteria } from '../lib/criteria';
 import { scoreBadge, scoreBadgeStyle } from '../lib/scoreScale';
+import { MarqueeText } from './ui/MarqueeText';
 
 type CriteriaDefinitionEntry = {
     id?: string;
@@ -62,7 +63,9 @@ const ScoreBadge: React.FC<{ value: number | null; kind?: 'bot'; size: 'sm' | 'l
             </span>
         );
     }
-    const box = size === 'sm' ? 'w-7 h-7 text-xs rounded-lg font-bold' : 'w-10 h-10 sm:w-12 sm:h-12 rounded-lg shadow-lg font-display font-bold text-base sm:text-lg';
+    const box = size === 'sm'
+        ? 'w-8 h-8 text-xs rounded-full font-display font-bold border border-white/10'
+        : 'w-11 h-11 sm:w-12 sm:h-12 rounded-full shadow-lg font-display font-bold text-sm sm:text-base border border-white/10';
     return (
         <div
             className={`relative flex items-center justify-center shrink-0 ${box}`}
@@ -80,7 +83,29 @@ const ScoreBadge: React.FC<{ value: number | null; kind?: 'bot'; size: 'sm' | 'l
 };
 
 // El enlace del título cubre toda la tarjeta (::after); lo demás clicable va encima (relative z-10).
-const TITLE_LINK = "hover:underline after:absolute after:inset-0 after:content-['']";
+const TITLE_LINK = "block after:absolute after:inset-0 after:content-['']";
+
+// Podio como en la Home: oro, plata y bronce; del cuarto en adelante, neutro.
+const RANK_STYLE: Record<number, React.CSSProperties> = {
+    0: { background: 'rgba(0,0,0,0.55)', color: '#fff', backdropFilter: 'blur(8px)' },
+    1: { backgroundImage: 'linear-gradient(135deg, #fde68a, #f59e0b)', color: '#451a03' },
+    2: { backgroundImage: 'linear-gradient(135deg, #f1f5f9, #94a3b8)', color: '#0f172a' },
+    3: { backgroundImage: 'linear-gradient(135deg, #fdba74, #c2410c)', color: '#431407' },
+};
+
+const RankPill: React.FC<{ rank: number; small?: boolean }> = ({ rank, small }) => (
+    <span
+        className={`absolute left-1.5 top-1.5 z-10 flex items-center justify-center rounded-full border border-white/15 font-display font-black leading-none shadow-lg ${small ? 'h-6 min-w-6 px-1.5 text-[11px]' : 'h-7 min-w-7 px-1.5 text-xs'}`}
+        style={RANK_STYLE[rank] ?? RANK_STYLE[0]}
+        aria-label={`Puesto ${rank}`}
+    >
+        #{rank}
+    </span>
+);
+
+const CHIP = 'inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold border';
+const CHIP_ACCENT = `${CHIP} bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border-[var(--lt-accent-border)]`;
+const CHIP_NEUTRAL = `${CHIP} bg-[var(--lt-card)] text-[var(--lt-text-muted)] border-[var(--lt-border)]`;
 
 export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextRankLabel, isGrid, groupingMode = 'place', listId, disableLift = false, elementKey, placeFirst = false }) => {
     // Una misma etiqueta puede llegar repetida (varias valoraciones del elemento).
@@ -102,7 +127,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
         }
         // For Lists
         return (
-            <div className="flex items-center gap-3 mt-2 text-xs text-gray-400 font-medium">
+            <div className="flex items-center gap-3 mt-1.5 text-xs text-[var(--lt-text-muted)] font-medium">
                 {item.reviewCount !== undefined && (
                     <span className="flex items-center gap-1">
                         <Star className="w-3 h-3" /> {item.reviewCount} valoraciones
@@ -170,117 +195,120 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
     }, [item.criteriaAverages, item.criteriaDefinition]);
 
     // --- Render Content ---
+    const titleHref = item.placeId
+        ? (groupingMode === 'dish'
+            ? `/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`
+            : `/place/${item.placeId}`)
+        : `/list/${item.id}`;
+    const listModeTitle = groupingMode === 'dish' ? (dishTitle || item.name) : item.name;
+    const showSubtitle = Boolean(item.placeName && item.placeName !== item.name && dishSubtitle);
+    const cityLabel = item.placeCity || item.placeAddress;
+    const closedChip = item.placeClosedStatus ? (
+        <span className={`inline-flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${isPermanentlyClosed
+            ? 'bg-[var(--lt-danger-soft)] border-[var(--lt-danger)]/30 text-[var(--lt-danger)]'
+            : 'bg-[var(--lt-warning-soft)] border-[var(--lt-warning)]/30 text-[var(--lt-warning)]'
+            }`}>
+            {isPermanentlyClosed ? '🔒 Cerrado' : '⏰ Temp.'}
+        </span>
+    ) : null;
+    const photo = (
+        item.photoUrl ? (
+            <ProgressiveImage
+                src={item.photoUrl}
+                alt={item.name}
+                containerClassName="absolute inset-0"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                fallback={<PlacePhotoPlaceholder compact variant={photoPlaceholderVariant} />}
+            />
+        ) : (
+            <div className="absolute inset-0"><PlacePhotoPlaceholder compact variant={photoPlaceholderVariant} /></div>
+        )
+    );
+
     return (
-        <article data-element-key={elementKey} className={`group relative ${disableLift
-            ? 'bg-[var(--card-bg)] border border-[var(--glass-border)] backdrop-blur-2xl rounded-2xl md:rounded-3xl overflow-hidden transition-colors duration-200 ring-1 ring-white/5 active:scale-[0.98]'
-            : 'glass-card'}
-            ${isGrid
-                ? 'flex flex-row min-h-[120px] md:min-h-[148px]'
-                : 'flex flex-row min-h-[120px]'}`}>
+        <article data-element-key={elementKey} className={`group relative flex flex-row overflow-hidden rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] transition-[border-color,box-shadow,transform] duration-300 hover:border-[var(--lt-accent-border)] active:scale-[0.99] ${disableLift
+            ? ''
+            : 'md:hover:-translate-y-0.5 hover:shadow-[0_14px_32px_-14px_var(--lt-accent-shadow)]'}
+            ${isGrid ? 'min-h-[120px] md:min-h-[148px]' : 'min-h-[112px]'}`}>
 
             {/* --- GRID MODE (Horizontal compact — same on mobile and desktop) --- */}
             {isGrid ? (
                 <>
                     {/* Thumbnail */}
-                    <div className="w-28 md:w-36 shrink-0 self-stretch relative bg-gray-800">
-                        {item.photoUrl ? (
-                            <ProgressiveImage
-                                src={item.photoUrl}
-                                alt={item.name}
-                                containerClassName="w-full h-full"
-                                className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                                fallback={<PlacePhotoPlaceholder compact variant={photoPlaceholderVariant} />}
-                            />
-                        ) : (
-                            <PlacePhotoPlaceholder compact variant={photoPlaceholderVariant} />
-                        )}
-                        {rank && (
-                            <div className="absolute top-0 left-0 bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-br-lg">
-                                #{rank}
-                            </div>
-                        )}
+                    <div className="w-28 md:w-36 shrink-0 self-stretch relative overflow-hidden bg-[var(--lt-card-strong)]">
+                        {photo}
+                        {rank && <RankPill rank={rank} small />}
                     </div>
 
                     {/* Content area */}
-                    <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
+                    <div className="flex-1 p-3 flex flex-col gap-1 min-w-0">
 
                         {/* Context badges */}
-                        <div className="flex flex-wrap gap-1 mb-1">
-                            {contextRankLabel && (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black bg-[var(--lt-accent)] text-white border border-[var(--lt-accent-border)] whitespace-nowrap">
-                                    {contextRankLabel}
-                                </span>
-                            )}
-                            {item.listName && (
-                                item.listId ? (
-                                    <Link
-                                        to={`/list/${item.listId}`}
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="relative z-10 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] truncate hover:text-[var(--lt-accent)] transition-colors max-w-[120px]"
-                                    >
-                                        {item.listName}
-                                    </Link>
-                                ) : (
-                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] truncate max-w-[120px]">
-                                        {item.listName}
+                        {(contextRankLabel || item.listName || item.placeName || item.placeCity) && (
+                            <div className="flex flex-wrap gap-1">
+                                {contextRankLabel && (
+                                    <span className={`${CHIP} lt-on-accent bg-[var(--lt-accent)] border-[var(--lt-accent-border)] font-black whitespace-nowrap`}>
+                                        {contextRankLabel}
                                     </span>
-                                )
-                            )}
-                            {(item.placeName || item.placeCity) && (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-white/5 text-gray-300 border border-white/10 truncate max-w-[120px]">
-                                    <MapPin className="w-2.5 h-2.5 mr-0.5 text-emerald-400 shrink-0" />
-                                    {item.placeName || item.placeCity}
-                                </span>
-                            )}
-                        </div>
+                                )}
+                                {item.listName && (
+                                    item.listId ? (
+                                        <Link
+                                            to={`/list/${item.listId}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                            className={`${CHIP_ACCENT} relative z-10 truncate max-w-[120px] hover:border-[var(--lt-accent)] transition-colors`}
+                                        >
+                                            {item.listName}
+                                        </Link>
+                                    ) : (
+                                        <span className={`${CHIP_ACCENT} truncate max-w-[120px]`}>
+                                            {item.listName}
+                                        </span>
+                                    )
+                                )}
+                                {(item.placeName || item.placeCity) && (
+                                    <span className={`${CHIP_NEUTRAL} truncate max-w-[120px]`}>
+                                        <MapPin className="w-2.5 h-2.5 mr-0.5 text-[var(--lt-success)] shrink-0" />
+                                        <span className="truncate">{item.placeName || item.placeCity}</span>
+                                    </span>
+                                )}
+                            </div>
+                        )}
 
                         {/* Title */}
-                        <div className="mb-1">
-                            <h3 className="font-display font-bold text-sm md:text-base text-[var(--text-primary)] leading-tight group-hover:text-[var(--lt-accent)] transition-colors line-clamp-2">
-                                {item.placeId ? (
-                                    groupingMode === 'dish' ? (
-                                        <Link to={`/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`} className={TITLE_LINK}>{item.name}</Link>
-                                    ) : (
-                                        <Link to={`/place/${item.placeId}`} className={TITLE_LINK}>{item.name}</Link>
-                                    )
-                                ) : (
-                                    <Link to={`/list/${item.id}`} className={TITLE_LINK}>{item.name}</Link>
-                                )}
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <h3 className="min-w-0 flex-1 font-display font-bold text-sm md:text-base text-[var(--lt-text)] leading-tight group-hover:text-[var(--lt-accent)] transition-colors">
+                                <Link to={titleHref} className={TITLE_LINK}>
+                                    <MarqueeText text={item.name} />
+                                </Link>
                             </h3>
-                            {item.placeClosedStatus && (
-                                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold border mt-0.5 ${
-                                    isPermanentlyClosed
-                                        ? 'bg-red-500/15 border-red-500/30 text-red-400'
-                                        : 'bg-amber-500/15 border-amber-500/30 text-amber-400'
-                                }`}>
-                                    {isPermanentlyClosed ? '🔒 Cerrado' : '⏰ Temp.'}
-                                </span>
-                            )}
+                            {closedChip}
                         </div>
 
                         {/* Author (lists) */}
                         {item.authorName && !item.placeName && (
-                            <div className="flex items-center gap-1 mb-1">
-                                {item.authorPhoto && <img src={item.authorPhoto} className="w-4 h-4 rounded-full" alt="" />}
-                                <span className="text-gray-500 text-xs truncate">por <span className="text-gray-400 font-medium">{item.authorName}</span></span>
+                            <div className="flex items-center gap-1 min-w-0 text-xs text-[var(--lt-text-muted)]">
+                                {item.authorPhoto && <img src={item.authorPhoto} className="w-4 h-4 rounded-full shrink-0 object-cover" alt="" />}
+                                <span className="shrink-0">por</span>
+                                <MarqueeText text={item.authorName} className="font-semibold text-[var(--lt-text)]" />
                             </div>
                         )}
 
                         {/* Tags (max 3 on mobile, 4 on desktop) */}
                         {tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mb-1">
+                            <div className="flex flex-wrap gap-1">
                                 {tags.slice(0, 3).map(tag => (
-                                    <span key={tag} className="px-1.5 py-0.5 bg-white/5 text-gray-400 border border-white/10 rounded text-[10px] font-medium truncate max-w-[72px]">{tag}</span>
+                                    <span key={tag} className={`${CHIP_NEUTRAL} font-medium truncate max-w-[72px]`}>{tag}</span>
                                 ))}
                                 {tags.length > 3 && (
-                                    <span className="hidden md:inline px-1.5 py-0.5 bg-white/5 text-gray-400 border border-white/10 rounded text-[10px]">{tags[3]}</span>
+                                    <span className={`${CHIP_NEUTRAL} hidden md:inline-flex font-medium`}>{tags[3]}</span>
                                 )}
                             </div>
                         )}
 
                         {/* Stats + Score */}
-                        <div className="flex items-center justify-between border-t border-white/5 pt-1.5 mt-auto">
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 font-medium">
+                        <div className="flex items-center justify-between border-t border-[var(--lt-border)] pt-1.5 mt-auto">
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--lt-text-muted)] font-medium">
                                 {groupingMode === 'list' ? (
                                     <>
                                         <span className="flex items-center gap-0.5">
@@ -315,101 +343,69 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
             ) : (
                 /* --- LIST MODE (Horizontal Compact) --- */
                 <>
-                    {/* Rank Badge (Podium) */}
-                    {rank && (
-                        <div className={`absolute top-0 left-0 z-20 px-3 py-1.5 rounded-br-xl font-bold text-sm shadow-lg flex items-center justify-center min-w-[36px]
-                            ${rank === 1 ? 'bg-yellow-400 text-yellow-950 shadow-yellow-500/20' :
-                                rank === 2 ? 'bg-gray-200 text-gray-800 shadow-white/10' :
-                                    rank === 3 ? 'bg-orange-400 text-orange-950 shadow-orange-500/20' :
-                                        'bg-black/60 backdrop-blur-md text-white border-r border-b border-white/10 text-xs'
-                            }`}>
-                            <span className={rank <= 3 ? "scale-110 block" : ""}>#{rank}</span>
-                        </div>
-                    )}
-
-                    {/* Image Section */}
-                    <div className="relative shrink-0 bg-gray-800 w-24 h-24 sm:w-32 sm:h-32">
-                        {item.photoUrl ? (
-                            <ProgressiveImage
-                                src={item.photoUrl}
-                                alt={item.name}
-                                containerClassName="w-full h-full"
-                                className="w-full h-full object-cover opacity-90 group-hover:opacity-100 transition-opacity"
-                                fallback={<PlacePhotoPlaceholder compact variant={photoPlaceholderVariant} />}
-                            />
-                        ) : (
-                            <PlacePhotoPlaceholder compact variant={photoPlaceholderVariant} />
-                        )}
+                    {/* Foto con el puesto encima (podio como en la Home) */}
+                    <div className="relative shrink-0 self-stretch overflow-hidden bg-[var(--lt-card-strong)] w-24 min-h-24 sm:w-32 sm:min-h-32">
+                        {photo}
+                        {rank && <RankPill rank={rank} />}
                     </div>
 
                     {/* Content Section */}
-                    <div className="flex-1 p-3 flex flex-col justify-between min-w-0">
-                        <div className="flex justify-between items-start gap-2">
+                    <div className="flex-1 p-3 flex flex-col gap-2 min-w-0">
+                        <div className="flex items-start gap-2.5">
                             <div className="min-w-0 flex-1">
-                                <h3 className="font-display font-bold text-base sm:text-lg text-[var(--text-primary)] leading-tight line-clamp-2 pr-1 group-hover:text-[var(--lt-accent)] transition-colors">
-                                    {item.placeId ? (
-                                        groupingMode === 'dish' ? (
-                                            <Link
-                                                to={`/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`}
-                                                className={TITLE_LINK}
-                                            >
-                                                {dishTitle}
-                                            </Link>
-                                        ) : (
-                                            <Link to={`/place/${item.placeId}`} className={TITLE_LINK}>{item.name}</Link>
-                                        )
-                                    ) : (
-                                        <Link to={`/list/${item.id}`} className={TITLE_LINK}>{item.name}</Link>
-                                    )}
+                                <h3 className="font-display font-bold text-base sm:text-lg text-[var(--lt-text)] leading-tight group-hover:text-[var(--lt-accent)] transition-colors">
+                                    <Link to={titleHref} className={TITLE_LINK}>
+                                        <MarqueeText text={listModeTitle} />
+                                    </Link>
                                 </h3>
 
-                                {/* Improved Subtext: Place Name + City */}
-                                <div className="text-xs text-[var(--text-secondary)] flex flex-wrap gap-1 mt-1 leading-relaxed">
-                                    {/* Place Context (Items/Places) */}
-                                    {item.placeName && item.placeName !== item.name && (
-                                        <span className="flex items-center gap-1 font-medium text-gray-400 truncate max-w-full">
-                                            {!swapTitle && <MapPin className="w-3 h-3 shrink-0" />}
-                                            <span className="truncate">{dishSubtitle}</span>
-                                        </span>
-                                    )}
-
-                                    {(item.placeCity || item.placeAddress) && (
-                                        <>
-                                            <span className="text-gray-600 hidden sm:inline">•</span>
-                                            <span className="text-[var(--lt-accent)]/80 font-medium truncate max-w-full block sm:inline">
-                                                {item.placeCity || item.placeAddress}
+                                {/* Subtítulo: sitio (o elemento) · ciudad */}
+                                {(showSubtitle || cityLabel || closedChip) && (
+                                    <div className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-[var(--lt-text-muted)]">
+                                        {showSubtitle && (
+                                            <>
+                                                {!swapTitle && <MapPin className="w-3 h-3 shrink-0" />}
+                                                <MarqueeText text={dishSubtitle || ''} className="font-medium" />
+                                            </>
+                                        )}
+                                        {cityLabel && (
+                                            <span className="min-w-0 shrink truncate font-semibold text-[var(--lt-accent)]">
+                                                {showSubtitle && <span className="mr-1 text-[var(--lt-text-muted)]" aria-hidden>·</span>}
+                                                {cityLabel}
                                             </span>
-                                        </>
-                                    )}
+                                        )}
+                                        {closedChip}
+                                    </div>
+                                )}
 
-                                    {/* List Context Badge (for Items) */}
-                                    {item.listName && (
-                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] truncate max-w-[120px]">
-                                            {item.listName}
-                                        </span>
-                                    )}
+                                {/* Author Context (Lists) */}
+                                {item.authorName && !item.placeName && (
+                                    <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-[var(--lt-text-muted)]">
+                                        {item.authorPhoto && <img src={item.authorPhoto} className="w-4 h-4 rounded-full shrink-0 object-cover" alt="" />}
+                                        <span className="shrink-0">por</span>
+                                        <MarqueeText text={item.authorName} className="font-semibold text-[var(--lt-text)]" />
+                                    </div>
+                                )}
 
-                                    {/* Author Context (Lists) */}
-                                    {item.authorName && !item.placeName && (
-                                        <div className="flex items-center gap-2">
-                                            {item.authorPhoto && <img src={item.authorPhoto} className="w-4 h-4 rounded-full" alt="" />}
-                                            <span className="text-gray-400">por <span className="text-gray-300 font-medium">{item.authorName}</span></span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="text-xs text-[var(--lt-text-muted)] mt-1 flex flex-wrap items-center gap-x-2">
-                                    {item.reviewCount > 0 && <span>{`${item.reviewCount} ${item.reviewCount === 1 ? 'valoración' : 'valoraciones'}${item.scoreKind === 'bot' ? ' de bots' : ''}`}</span>}
-                                    {contextRankLabel && (
-                                        <span className="font-semibold text-[var(--lt-accent)]">{contextRankLabel}</span>
-                                    )}
-                                </div>
+                                {/* Meta compacta: valoraciones · puesto en la zona · Lista */}
+                                {((groupingMode !== 'list' && item.reviewCount > 0) || contextRankLabel || item.listName) && (
+                                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--lt-text-muted)]">
+                                        {groupingMode !== 'list' && item.reviewCount > 0 && <span>{`${item.reviewCount} ${item.reviewCount === 1 ? 'valoración' : 'valoraciones'}${item.scoreKind === 'bot' ? ' de bots' : ''}`}</span>}
+                                        {contextRankLabel && (
+                                            <span className="rounded-full bg-[var(--lt-accent-soft)] px-1.5 py-0.5 font-bold text-[var(--lt-accent)]">{contextRankLabel}</span>
+                                        )}
+                                        {item.listName && (
+                                            <span className={`${CHIP_ACCENT} truncate max-w-[120px]`}>
+                                                {item.listName}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
 
                                 {/* List Stats */}
                                 {renderStats()}
                             </div>
 
-                            {/* Score Box - Visible on Mobile List View now */}
                             {groupingMode !== 'list' && (
                                 <ScoreBadge value={item.avgRating} kind={item.scoreKind} size="lg" />
                             )}
@@ -417,26 +413,26 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
 
                         {/* Tags */}
                         {tags.length > 0 && criteriaPreview.length === 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
+                            <div className="flex flex-wrap gap-1 mt-auto">
                                 {tags.slice(0, 4).map(tag => (
-                                    <span key={tag} className="px-1.5 py-0.5 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)] rounded text-[10px] font-medium">
+                                    <span key={tag} className={`${CHIP_ACCENT} font-medium`}>
                                         {tag}
                                     </span>
                                 ))}
                             </div>
                         )}
 
-                        {/* Mini Criteria Bars (Legacy Compact Style) */}
+                        {/* Mini barras de criterios */}
                         {criteriaPreview.length > 0 && (
-                            <div className="mt-2 grid grid-cols-4 gap-x-2 gap-y-0.5 sm:grid-cols-4">
+                            <div className="mt-auto grid grid-cols-4 gap-x-2 gap-y-0.5">
                                 {criteriaPreview.slice(0, 4).map(({ key, label, score }) => {
                                     return (
-                                        <div key={key} className="flex flex-col">
-                                            <div className="flex justify-between items-end text-[9px] text-[var(--text-secondary)] leading-none mb-0.5">
-                                                <span className="truncate max-w-[70%] opacity-80">{label}</span>
-                                                <span className="font-mono opacity-100 font-bold">{score.toFixed(1)}</span>
+                                        <div key={key} className="flex min-w-0 flex-col">
+                                            <div className="flex justify-between items-end gap-1 text-[9px] text-[var(--lt-text-muted)] leading-none mb-1">
+                                                <span className="truncate">{label}</span>
+                                                <span className="font-bold text-[var(--lt-text)]">{score.toFixed(1)}</span>
                                             </div>
-                                            <div className="h-0.5 bg-[var(--lt-border)] rounded-full overflow-hidden">
+                                            <div className="h-1 bg-[var(--lt-border)] rounded-full overflow-hidden">
                                                 <div
                                                     className="h-full rounded-full"
                                                     style={{ width: `${score * 10}%`, backgroundColor: scoreBadge(score).bg }}
@@ -447,11 +443,6 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                 })}
                             </div>
                         )}
-                    </div>
-
-                    {/* Interactions / CTA */}
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block">
-                        <ChevronRight className="w-5 h-5 text-[var(--text-secondary)]" />
                     </div>
                 </>
             )}

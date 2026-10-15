@@ -61,18 +61,23 @@ export const TastePassport: React.FC<{ reviews: PassportReview[] }> = ({ reviews
     if (stamps.length === 0) return null;
 
     return (
-        <div className="mb-4 rounded-2xl border border-amber-300/20 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 p-4">
+        <div
+            className="mb-4 rounded-3xl border border-[var(--lt-border)] p-4"
+            style={{ backgroundImage: 'linear-gradient(135deg, var(--lt-warning-soft), var(--lt-card-strong-alpha) 70%)' }}
+        >
             <div className="mb-3 flex items-center gap-2">
-                <Stamp className="h-4 w-4 text-amber-300" />
-                <h3 className="text-sm font-black uppercase tracking-wider text-white">Pasaporte de sabores</h3>
-                <span className="ml-auto text-[11px] text-gray-400">{stamps.length} categoría{stamps.length === 1 ? '' : 's'}</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--lt-warning-soft)] text-[var(--lt-warning)]">
+                    <Stamp className="h-3.5 w-3.5" />
+                </span>
+                <h3 className="text-base font-bold text-[var(--lt-text)]">Pasaporte de sabores</h3>
+                <span className="ml-auto shrink-0 text-xs font-medium text-[var(--lt-text-muted)]">{stamps.length} categoría{stamps.length === 1 ? '' : 's'}</span>
             </div>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
                 {stamps.map((stamp) => (
                     <div
                         key={stamp.key}
                         className={`relative rounded-2xl border px-2 py-3 text-center ${
-                            stamp.level ? stamp.level.className : 'border-white/10 bg-white/5 text-gray-400'
+                            stamp.level ? stamp.level.className : 'border-dashed border-[var(--lt-border-strong)] bg-[var(--lt-card)] text-[var(--lt-text-muted)]'
                         }`}
                         title={stamp.level
                             ? `Sello de ${stamp.level.label}: ${stamp.count} sitios de ${stamp.label}`
@@ -90,7 +95,7 @@ export const TastePassport: React.FC<{ reviews: PassportReview[] }> = ({ reviews
                     </div>
                 ))}
             </div>
-            <p className="mt-3 text-center text-[10px] uppercase tracking-wider text-gray-500">
+            <p className="mt-3 text-center text-[10px] uppercase tracking-wider text-[var(--lt-text-muted)]">
                 Bronce 3 · Plata 5 · Oro 10 sitios distintos por categoría
             </p>
         </div>

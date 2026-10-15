@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useArchives, type SavedItemEntity } from '../hooks/useArchives';
-import { Folder, MapPin, MessageSquare, List as ListIcon, Trash2, Map as MapIcon, X, Filter, Edit2, Search, Check, MoreVertical, Image as ImageIcon } from 'lucide-react';
+import { Folder, MapPin, MessageSquare, List as ListIcon, Trash2, Map as MapIcon, X, Filter, Edit2, Search, Check, MoreVertical, Image as ImageIcon, ChevronRight, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { collection, collectionGroup, deleteDoc, deleteField, getDocs, limit, orderBy, query, doc, getDoc, updateDoc, where } from 'firebase/firestore';
@@ -15,6 +15,7 @@ import { Button, Card, IconButton, Modal, Tabs } from '../components/ui';
 import { fetchUserReviewsFromAccessibleLists } from '../lib/reviewFallbacks';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
+import { MarqueeText } from '../components/ui/MarqueeText';
 
 const COLOR_OPTIONS = [
     '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
@@ -35,14 +36,14 @@ const EMOJI_OPTIONS = [
 const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
     place: {
         label: 'Sitio',
-        color: 'text-blue-300',
-        bg: 'bg-blue-500/20',
+        color: 'text-emerald-300',
+        bg: 'bg-emerald-500/20',
         icon: <MapPin className="w-3 h-3" />,
     },
     review: {
         label: 'Valoración',
-        color: 'text-[var(--lt-accent-2)]',
-        bg: 'bg-[var(--lt-accent-soft)]',
+        color: 'text-purple-300',
+        bg: 'bg-purple-500/20',
         icon: <MessageSquare className="w-3 h-3" />,
     },
     group: {
@@ -789,7 +790,7 @@ export const ArchivePage: React.FC = () => {
         }
     };
 
-    if (!user) return <div className="pt-safe-32 text-center text-gray-500">Inicia sesión para ver tus colecciones.</div>;
+    if (!user) return <div className="pt-safe-32 px-4 text-center text-sm text-[var(--lt-text-muted)]">Inicia sesión para ver tus colecciones.</div>;
 
     // ── VISTA MAPA ────────────────────────────────────────────────────────────
     if (viewMode === 'map') {
@@ -833,8 +834,8 @@ export const ArchivePage: React.FC = () => {
                 {/* Panel de filtro de colecciones */}
                 {showMapFilters && (
                     <Card className="absolute left-4 right-4 z-[1001] flex max-h-[50vh] flex-col overflow-hidden shadow-2xl" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
-                        <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
-                            <span className="text-white font-bold text-sm">Filtrar colecciones</span>
+                        <div className="px-4 py-3 border-b border-[var(--lt-border)] flex items-center justify-between">
+                            <span className="text-[var(--lt-text)] font-bold text-sm">Filtrar colecciones</span>
                             <IconButton label="Cerrar filtros" icon={<X className="w-4 h-4" />} size="sm" variant="ghost" onClick={() => setShowMapFilters(false)} />
                         </div>
                         <div className="overflow-y-auto p-2">
@@ -846,14 +847,14 @@ export const ArchivePage: React.FC = () => {
                                         onClick={() => setMapSelectedArchives(prev =>
                                             active ? prev.filter(x => x !== arch.id) : [...prev, arch.id]
                                         )}
-                                        className={`w-full flex items-center gap-3 p-3 rounded-xl mb-1 transition-colors ${active ? 'bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)]' : 'hover:bg-white/5 border border-transparent'}`}
+                                        className={`w-full flex items-center gap-3 p-3 rounded-xl mb-1 transition-colors ${active ? 'bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)]' : 'hover:bg-[var(--lt-card)] border border-transparent'}`}
                                     >
                                         <div className="w-8 h-8 rounded-xl flex items-center justify-center text-base shrink-0" style={{ backgroundColor: arch.color || '#6366f1' }}>
                                             {arch.emoji || '📍'}
                                         </div>
-                                        <span className="flex-1 text-left text-sm font-medium text-gray-200">{arch.name}</span>
-                                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${active ? 'bg-[var(--lt-accent)] border-indigo-600' : 'border-white/20'}`}>
-                                            {active && <Check className="w-3 h-3 text-white" />}
+                                        <span className="flex-1 min-w-0 text-left text-sm font-medium text-[var(--lt-text)] truncate">{arch.name}</span>
+                                        <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${active ? 'bg-[var(--lt-accent)] border-transparent lt-on-accent' : 'border-[var(--lt-border-strong)]'}`}>
+                                            {active && <Check className="w-3 h-3" />}
                                         </div>
                                     </button>
                                 );
@@ -867,17 +868,30 @@ export const ArchivePage: React.FC = () => {
 
     // ── VISTA GRID ────────────────────────────────────────────────────────────
     return (
-        <div className="min-h-screen bg-[var(--lt-bg)] pt-safe-24 pb-20 px-4 sm:px-6">
+        <div className="min-h-screen bg-[var(--lt-bg)] pt-safe-24 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-20 px-4 sm:px-6">
             <div className="max-w-4xl mx-auto">
 
                 {/* Header */}
-                <header className="mb-6">
-                    <div className="flex justify-between items-center mb-4">
-                        <h1 className="text-3xl font-bold text-white">Mis colecciones</h1>
+                <header className="mb-5">
+                    <div className="flex justify-between items-end gap-3 mb-4">
+                        <div className="min-w-0">
+                            <h1 className="text-2xl md:text-3xl font-display font-black leading-tight text-[var(--lt-text)]">Mis colecciones</h1>
+                            <p className="mt-0.5 text-xs font-medium text-[var(--lt-text-muted)]">
+                                {activeSection === 'photos'
+                                    ? `${uploadedPlacePhotos.length + uploadedReviewPhotos.length} fotos subidas por ti`
+                                    : archives.length > 0
+                                        ? `${archives.length} ${archives.length === 1 ? 'colección' : 'colecciones'} · ${archives.reduce((sum, a) => sum + (a.itemCount || 0), 0)} guardados`
+                                        : 'Tus sitios, platos y listas, a mano'}
+                            </p>
+                        </div>
                         {activeSection === 'collections' && (
-                            <Button size="sm" leftIcon={<MapIcon className="w-4 h-4" />} onClick={() => setViewMode('map')}>
-                                Mapa
-                            </Button>
+                            <button
+                                type="button"
+                                onClick={() => setViewMode('map')}
+                                className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-3 py-1.5 text-xs font-bold text-[var(--lt-accent)] hover:opacity-80 transition-opacity"
+                            >
+                                <MapIcon className="w-3.5 h-3.5" /> Mapa
+                            </button>
                         )}
                     </div>
 
@@ -890,16 +904,16 @@ export const ArchivePage: React.FC = () => {
 
                     <div className="flex flex-col sm:flex-row gap-3">
                         <div className="relative flex-1">
-                            <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            <Search className="w-4 h-4 text-[var(--lt-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                             <input
                                 type="text"
                                 placeholder={activeSection === 'photos' ? 'Buscar en tus fotos...' : 'Buscar en tus colecciones...'}
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
-                                className="w-full bg-[var(--lt-card-strong)] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-white text-sm placeholder:text-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors"
+                                className="w-full bg-[var(--lt-card-strong)] border border-[var(--lt-border)] rounded-2xl pl-9 pr-4 py-2.5 text-[var(--lt-text)] text-sm placeholder:text-[var(--lt-text-muted)] focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors"
                             />
                         </div>
-                        <div className="flex gap-1.5 overflow-x-auto custom-scrollbar shrink-0">
+                        <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex gap-1.5 overflow-x-auto hide-scrollbar shrink-0">
                             {(activeSection === 'photos' ? [
                                 { id: 'all', label: 'Todas' },
                                 { id: 'place', label: 'Sitios' },
@@ -914,9 +928,10 @@ export const ArchivePage: React.FC = () => {
                                 <button
                                     key={f.id}
                                     onClick={() => activeSection === 'photos' ? setPhotoFilter(f.id as any) : setFilterType(f.id as any)}
-                                    className={`px-3 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${(activeSection === 'photos' ? photoFilter : filterType) === f.id
-                                        ? 'bg-[var(--lt-accent)] text-white'
-                                        : 'bg-[var(--lt-card-strong)] border border-white/10 text-gray-400 hover:text-white'}`}
+                                    aria-pressed={(activeSection === 'photos' ? photoFilter : filterType) === f.id}
+                                    className={`px-3.5 py-1.5 rounded-full border text-xs font-bold whitespace-nowrap transition-colors ${(activeSection === 'photos' ? photoFilter : filterType) === f.id
+                                        ? 'bg-[var(--lt-accent)] border-transparent lt-on-accent shadow-md shadow-[var(--lt-accent-shadow)]'
+                                        : 'bg-[var(--lt-card-strong)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
                                 >
                                     {f.label}
                                 </button>
@@ -927,24 +942,32 @@ export const ArchivePage: React.FC = () => {
 
                 {activeSection === 'photos' && (
                     <Card className="overflow-hidden">
-                        <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-3">
+                        <div className="px-4 py-3 border-b border-[var(--lt-border)] flex items-center justify-between gap-3">
                             <div className="min-w-0">
-                                <h2 className="text-sm font-bold text-white">Fotos</h2>
-                                <p className="text-xs text-gray-500">Fotos que has subido a valoraciones y sitios</p>
+                                <h2 className="flex items-center gap-2 text-base font-display font-bold leading-tight text-[var(--lt-text)]">
+                                    <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                        <ImageIcon className="w-3.5 h-3.5" />
+                                    </span>
+                                    Fotos
+                                </h2>
+                                <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Las que has subido a valoraciones y sitios</p>
                             </div>
-                            <span className="text-xs font-bold text-gray-300 bg-white/5 border border-white/10 rounded-lg px-2.5 py-1">
+                            <span className="text-xs font-bold text-[var(--lt-accent)] bg-[var(--lt-accent-soft)] rounded-full px-2.5 py-1">
                                 {uploadedPlacePhotos.length + uploadedReviewPhotos.length}
                             </span>
                         </div>
                         {loadingPlacePhotos || loadingReviewPhotos ? (
-                            <div className="flex items-center justify-center gap-2 py-8 text-gray-500 text-sm">
+                            <div className="flex items-center justify-center gap-2 py-8 text-[var(--lt-text-muted)] text-sm">
                                 <div className="animate-spin w-4 h-4 border-2 border-[var(--lt-accent-border)] border-t-transparent rounded-full" />
                                 Cargando fotos...
                             </div>
                         ) : photosForGrid.length === 0 ? (
-                            <div className="px-4 py-12 text-center text-sm text-gray-500">
-                                <ImageIcon className="w-12 h-12 mx-auto mb-3 text-gray-600" />
-                                No hay fotos que coincidan.
+                            <div className="px-4 py-12 text-center">
+                                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                    <ImageIcon className="w-7 h-7" />
+                                </div>
+                                <p className="text-sm font-bold text-[var(--lt-text)]">No hay fotos que coincidan.</p>
+                                <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Sube alguna al valorar y aparecerá aquí.</p>
                             </div>
                         ) : (
                             <div className="p-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
@@ -965,11 +988,11 @@ export const ArchivePage: React.FC = () => {
                                     return (
                                         <div
                                             key={menuId}
-                                            className="group relative rounded-xl overflow-visible border border-white/5 hover:border-white/20 transition-all bg-[var(--lt-card)] flex flex-col"
+                                            className="group relative rounded-2xl overflow-visible border border-[var(--lt-border)] hover:border-[var(--lt-border-strong)] transition-all bg-[var(--lt-card)] flex flex-col"
                                         >
-                                            <Link to={route || ''} onClick={(event) => { if (!route) event.preventDefault(); }} className="aspect-square bg-gray-800/60 relative block rounded-t-xl overflow-hidden">
+                                            <Link to={route || ''} onClick={(event) => { if (!route) event.preventDefault(); }} className="lt-media-card aspect-square bg-[var(--lt-card-strong)] relative block rounded-t-2xl overflow-hidden">
                                                 <UploadedPhotoImage photo={item.photo} kind={item.kind} alt={title} />
-                                                <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide ${item.kind === 'place' ? 'bg-blue-500/20 text-blue-300' : 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent-2)]'}`}>
+                                                <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-bold uppercase tracking-wide ${item.kind === 'place' ? 'text-emerald-300' : 'text-purple-300'}`}>
                                                     {item.kind === 'place' ? <MapPin className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
                                                     {item.kind === 'place' ? 'Sitio' : 'Valoración'}
                                                 </span>
@@ -988,13 +1011,13 @@ export const ArchivePage: React.FC = () => {
                                                     <MoreVertical className="w-3.5 h-3.5" />
                                                 </button>
                                                 {openPhotoMenu === menuId && (
-                                                    <div className="absolute right-0 mt-1 w-32 rounded-xl border border-white/10 bg-[var(--lt-card-strong)] shadow-2xl overflow-hidden">
+                                                    <div className="absolute right-0 mt-1 w-32 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-2xl overflow-hidden">
                                                         <button
                                                             type="button"
                                                             onClick={() => item.kind === 'place'
                                                                 ? openPlacePhotoEdit(item.photo)
                                                                 : openReviewPhotoEdit(item.photo)}
-                                                            className="w-full px-3 py-2 text-left text-xs font-bold text-gray-200 hover:bg-white/10 flex items-center gap-2"
+                                                            className="w-full px-3 py-2 text-left text-xs font-bold text-[var(--lt-text)] hover:bg-[var(--lt-card)] flex items-center gap-2"
                                                         >
                                                             <Edit2 className="w-3.5 h-3.5" /> Editar
                                                         </button>
@@ -1010,8 +1033,8 @@ export const ArchivePage: React.FC = () => {
                                                     </div>
                                                 )}
                                             </div>
-                                            <Link to={route || ''} onClick={(event) => { if (!route) event.preventDefault(); }} className="p-2 flex-1 hover:bg-white/5 transition-colors rounded-b-xl">
-                                                <p className="text-white text-xs font-semibold leading-tight line-clamp-2">{title}</p>
+                                            <Link to={route || ''} onClick={(event) => { if (!route) event.preventDefault(); }} className="p-2 flex-1 min-w-0 hover:bg-[var(--lt-card-strong)] transition-colors rounded-b-2xl">
+                                                <MarqueeText text={title} className="block text-[var(--lt-text)] text-xs font-semibold leading-tight" />
                                                 {subtitle && <p className="text-[var(--lt-accent)] text-[10px] truncate mt-0.5">{subtitle}</p>}
                                             </Link>
                                         </div>
@@ -1024,11 +1047,16 @@ export const ArchivePage: React.FC = () => {
 
                 {/* Colecciones */}
                 {activeSection === 'collections' && (archives.length === 0 ? (
-                    <div className="text-center py-20 border-2 border-dashed border-white/5 rounded-2xl">
-                        <Folder className="w-16 h-16 text-gray-600 mx-auto mb-4" />
-                        <p className="text-gray-500 mb-4">No tienes colecciones aún.</p>
-                        <button onClick={openCreate} className="px-5 py-2.5 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] rounded-xl text-white font-bold transition-colors">
-                            Crear colección
+                    <div className="text-center py-14 px-6 border-2 border-dashed border-[var(--lt-border)] rounded-3xl bg-[var(--lt-card)]">
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-[var(--lt-accent-soft)] text-3xl">📁</div>
+                        <p className="text-base font-display font-bold text-[var(--lt-text)]">No tienes colecciones aún.</p>
+                        <p className="mt-1 mb-5 text-xs text-[var(--lt-text-muted)]">Guarda sitios, platos y listas para tenerlos a mano.</p>
+                        <button
+                            onClick={openCreate}
+                            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full lt-on-accent font-bold text-sm shadow-lg shadow-[var(--lt-accent-shadow)] hover:opacity-90 transition-opacity"
+                            style={{ background: 'var(--lt-accent-grad)' }}
+                        >
+                            <Plus className="w-4 h-4" /> Crear colección
                         </button>
                     </div>
                 ) : (
@@ -1036,9 +1064,9 @@ export const ArchivePage: React.FC = () => {
                         {/* Botón nueva colección */}
                         <button
                             onClick={openCreate}
-                            className="w-full py-3 border-2 border-dashed border-white/10 rounded-2xl text-gray-500 hover:text-white hover:bg-white/5 hover:border-white/20 transition-all font-bold flex justify-center items-center gap-2 text-sm"
+                            className="w-full py-3 border-2 border-dashed border-[var(--lt-border)] rounded-2xl text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)] hover:bg-[var(--lt-accent-soft)] hover:border-[var(--lt-accent-border)] transition-all font-bold flex justify-center items-center gap-1.5 text-sm"
                         >
-                            + Nueva colección
+                            <Plus className="w-4 h-4" /> Nueva colección
                         </button>
 
                         {archives.map(arch => {
@@ -1049,7 +1077,7 @@ export const ArchivePage: React.FC = () => {
                             return (
                                 <div
                                     key={arch.id}
-                                    className={`bg-[var(--lt-card-strong)] rounded-2xl border transition-all ${isExpanded ? 'border-white/20' : 'border-white/8 hover:border-white/15'}`}
+                                    className={`relative overflow-hidden bg-[var(--lt-card-strong)] rounded-3xl border transition-all ${isExpanded ? 'border-[var(--lt-border-strong)] shadow-lg' : 'border-[var(--lt-border)] hover:border-[var(--lt-border-strong)]'}`}
                                     onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
                                     onDrop={e => handleDrop(e, arch.id)}
                                 >
@@ -1058,44 +1086,51 @@ export const ArchivePage: React.FC = () => {
                                         onClick={() => setExpandedIds(prev =>
                                             prev.includes(arch.id) ? prev.filter(i => i !== arch.id) : [...prev, arch.id]
                                         )}
-                                        className="p-4 cursor-pointer flex items-center gap-3"
+                                        aria-expanded={isExpanded}
+                                        className="relative p-3.5 cursor-pointer flex items-center gap-3"
                                     >
+                                        {/* Tinte suave con el color de la colección */}
                                         <div
-                                            className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
+                                            aria-hidden
+                                            className="pointer-events-none absolute inset-0 opacity-[0.14]"
+                                            style={{ background: `linear-gradient(90deg, ${arch.color || '#6366f1'}, transparent 70%)` }}
+                                        />
+                                        <div
+                                            className="relative w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 shadow-md"
                                             style={{ backgroundColor: arch.color || '#6366f1' }}
                                         >
                                             {arch.emoji || '📁'}
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h3 className="text-white font-bold truncate">{arch.name}</h3>
-                                            <p className="text-xs text-gray-500">{arch.itemCount || 0} elementos</p>
+                                        <div className="relative flex-1 min-w-0">
+                                            <MarqueeText as="h3" text={arch.name} className="block text-[var(--lt-text)] font-display font-bold text-base leading-tight" />
+                                            <span className="mt-1 inline-flex items-center rounded-full bg-[var(--lt-card)] border border-[var(--lt-border)] px-2 py-0.5 text-[11px] font-bold text-[var(--lt-text-muted)]">
+                                                {arch.itemCount || 0} {(arch.itemCount || 0) === 1 ? 'elemento' : 'elementos'}
+                                            </span>
                                         </div>
                                         <button
                                             onClick={e => openEdit(e, arch)}
-                                            className="p-2 text-gray-500 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+                                            aria-label={`Editar ${arch.name}`}
+                                            className="relative p-2 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-[var(--lt-card)] rounded-full transition-all"
                                         >
                                             <Edit2 className="w-4 h-4" />
                                         </button>
-                                        <div className="text-gray-600 pl-1">
-                                            {isExpanded
-                                                ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                                                : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                                            }
-                                        </div>
+                                        <ChevronRight className={`relative w-5 h-5 shrink-0 text-[var(--lt-text-muted)] transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
                                     </div>
 
                                     {/* Contenido expandido */}
                                     {isExpanded && (
-                                        <div className="border-t border-white/5 bg-black/20 p-4 rounded-b-2xl">
+                                        <div className="border-t border-[var(--lt-border)] bg-[var(--lt-bg-deep)]/40 p-3 sm:p-4">
                                             {loadingItems[arch.id] ? (
-                                                <div className="flex items-center justify-center gap-2 py-8 text-gray-500 text-sm">
+                                                <div className="flex items-center justify-center gap-2 py-8 text-[var(--lt-text-muted)] text-sm">
                                                     <div className="animate-spin w-4 h-4 border-2 border-[var(--lt-accent-border)] border-t-transparent rounded-full" />
                                                     Cargando...
                                                 </div>
                                             ) : filtered.length === 0 ? (
-                                                <p className="text-center py-8 text-gray-600 text-sm italic">
-                                                    {items.length ? 'Nada coincide con el filtro.' : 'Arrastra elementos aquí o guárdalos desde la app.'}
-                                                </p>
+                                                <div className="text-center py-8 px-4">
+                                                    <div className="mx-auto mb-2 text-2xl">{items.length ? '🔍' : '🫙'}</div>
+                                                    <p className="text-sm font-bold text-[var(--lt-text)]">{items.length ? 'Nada coincide con el filtro.' : 'Esta colección está vacía.'}</p>
+                                                    {!items.length && <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Arrastra elementos aquí o guárdalos desde la app.</p>}
+                                                </div>
                                             ) : (
                                                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                                                     {filtered.map(item => {
@@ -1114,13 +1149,16 @@ export const ArchivePage: React.FC = () => {
                                                                 }}
                                                                 role="link"
                                                                 tabIndex={0}
-                                                                className="group relative rounded-xl overflow-hidden border border-white/5 hover:border-white/20 transition-all cursor-pointer bg-[var(--lt-card)] flex flex-col focus:outline-none focus:border-[var(--lt-accent-border)]"
+                                                                className="lt-media-card group relative rounded-2xl overflow-hidden border border-[var(--lt-border)] hover:border-[var(--lt-border-strong)] transition-all cursor-pointer bg-[var(--lt-card-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lt-accent)]"
                                                             >
-                                                                {/* Imagen cuadrada */}
-                                                                <div className="aspect-square bg-gray-800/60 relative">
-                                                                    <ArchiveItemImage item={item} />
+                                                                {/* Imagen con el nombre encima */}
+                                                                <div className="aspect-[4/5] relative">
+                                                                    <div className="absolute inset-0 transition-transform duration-500 group-hover:scale-105">
+                                                                        <ArchiveItemImage item={item} />
+                                                                    </div>
+                                                                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
                                                                     {/* Badge de tipo */}
-                                                                    <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wide ${tc.bg} ${tc.color}`}>
+                                                                    <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-bold uppercase tracking-wide ${tc.color}`}>
                                                                         {tc.icon}{tc.label}
                                                                     </span>
                                                                     {/* Botón eliminar */}
@@ -1138,16 +1176,16 @@ export const ArchivePage: React.FC = () => {
                                                                             }
                                                                         }}
                                                                         aria-label="Quitar de la colección"
-                                                                        className="absolute top-1.5 right-1.5 p-1.5 rounded-md bg-black/60 text-gray-200 hover:text-red-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-all"
+                                                                        className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 backdrop-blur-md text-gray-200 hover:text-red-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-all"
                                                                     >
                                                                         <Trash2 className="w-3 h-3" />
                                                                     </button>
-                                                                </div>
 
-                                                                {/* Nombre */}
-                                                                <div className="p-2 flex-1 group-hover:bg-white/5 transition-colors">
-                                                                    <p className="text-white text-xs font-semibold leading-tight line-clamp-2">{item.name}</p>
-                                                                    {item.subtitle && <p className="text-[var(--lt-accent)] text-[10px] truncate mt-0.5">{item.subtitle}</p>}
+                                                                    {/* Nombre */}
+                                                                    <div className="absolute inset-x-2 bottom-2 min-w-0 text-left">
+                                                                        <MarqueeText as="h3" text={item.name} className="block text-white text-xs font-bold leading-tight drop-shadow" />
+                                                                        {item.subtitle && <MarqueeText text={item.subtitle} className="block text-gray-300 text-[10px] font-medium mt-0.5" />}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         );
@@ -1155,7 +1193,7 @@ export const ArchivePage: React.FC = () => {
                                                 </div>
                                             )}
 
-                                            <div className="mt-4 pt-3 border-t border-white/5 flex justify-end">
+                                            <div className="mt-4 pt-3 border-t border-[var(--lt-border)] flex justify-end">
                                                 <button
                                                     onClick={async () => {
                                                         const ok = await confirm({
@@ -1172,7 +1210,7 @@ export const ArchivePage: React.FC = () => {
                                                             showToast({ variant: 'error', message: 'No se pudo eliminar la colección.' });
                                                         }
                                                     }}
-                                                    className="text-xs text-red-500/60 hover:text-red-400 flex items-center gap-1 transition-colors"
+                                                    className="text-xs font-bold text-[var(--lt-danger)] opacity-70 hover:opacity-100 flex items-center gap-1 rounded-full px-2.5 py-1 hover:bg-[var(--lt-danger-soft)] transition-all"
                                                 >
                                                     <Trash2 className="w-3 h-3" /> Eliminar colección
                                                 </button>

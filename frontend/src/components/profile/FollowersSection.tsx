@@ -3,6 +3,7 @@ import { collection, query, getDocs, where, documentId, limit } from 'firebase/f
 import { db } from '../../firebase';
 import { Link } from 'react-router-dom';
 import { getUserTypeGradient } from '../UserAvatar';
+import { MarqueeText } from '../ui/MarqueeText';
 
 interface FollowersSectionProps {
     targetUserId: string;
@@ -72,11 +73,11 @@ export const FollowersSection: React.FC<FollowersSectionProps> = ({
     return (
         <div className="animate-fade-in">
             {loading ? (
-                <div className="py-20 text-center text-gray-500">Cargando...</div>
+                <div className="py-20 text-center text-[var(--lt-text-muted)]">Cargando...</div>
             ) : items.length === 0 ? (
-                <div className="py-16 text-center border border-dashed border-white/5 rounded-xl bg-white/5">
-                    <p className="text-gray-400 mb-1">Nada por aquí.</p>
-                    <p className="text-xs text-gray-600">Este usuario aún no tiene seguidores.</p>
+                <div className="py-16 text-center border border-dashed border-[var(--lt-border-strong)] rounded-2xl bg-[var(--lt-card-strong-alpha)]">
+                    <p className="text-sm font-bold text-[var(--lt-text)] mb-1">Nada por aquí.</p>
+                    <p className="text-xs text-[var(--lt-text-muted)]">Este usuario aún no tiene seguidores.</p>
                 </div>
             ) : (
                 <div className="space-y-2">
@@ -97,10 +98,10 @@ export const FollowersSection: React.FC<FollowersSectionProps> = ({
                                 key={item.id}
                                 to={`/profile/${item.id}`}
                                 onClick={() => onNavigateToProfile?.()}
-                                className="group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 hover:border-[var(--lt-accent-border)] hover:bg-white/5 transition-all"
+                                className="group flex items-center gap-3 p-2 pr-3 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] hover:border-[var(--lt-accent-border)] transition-all"
                             >
                                 <div className={`w-14 h-14 rounded-lg overflow-hidden shrink-0 p-[2px] bg-gradient-to-tr ${getUserTypeGradient(item.userType)}`}>
-                                    <div className="w-full h-full rounded-md overflow-hidden bg-gray-800 border border-[var(--lt-bg)]">
+                                    <div className="w-full h-full rounded-md overflow-hidden bg-[var(--lt-card-strong)] border border-[var(--lt-bg)]">
                                         <img
                                             src={item.photoUrl || item.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(item.username || item.displayName || 'U')}`}
                                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
@@ -109,9 +110,9 @@ export const FollowersSection: React.FC<FollowersSectionProps> = ({
                                     </div>
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <h4 className="text-white font-black text-base truncate">{username}</h4>
+                                    <MarqueeText as="h4" text={username} className="text-[var(--lt-text)] font-black text-base" />
                                     {nameLine && (
-                                        <p className="text-gray-400 text-xs truncate">{nameLine}</p>
+                                        <p className="text-[var(--lt-text-muted)] text-xs truncate">{nameLine}</p>
                                     )}
                                 </div>
                             </Link>

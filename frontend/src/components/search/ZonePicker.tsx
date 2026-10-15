@@ -141,7 +141,7 @@ export const ZonePicker: React.FC<ZonePickerProps> = ({ tab, zones: committedZon
         const isOpen = expanded.has(key);
         return (
             <li key={key}>
-                <div className="flex items-center gap-1 rounded-lg pr-2 hover:bg-[var(--lt-accent-soft)]" style={{ paddingLeft: `${depth * 14 + 4}px` }}>
+                <div className={`flex items-center gap-1 rounded-xl pr-2 hover:bg-[var(--lt-accent-soft)] ${isSelected ? 'bg-[var(--lt-accent-soft)]' : ''}`} style={{ paddingLeft: `${depth * 14 + 4}px` }}>
                     {hasChildren ? (
                         <button
                             type="button"
@@ -168,7 +168,7 @@ export const ZonePicker: React.FC<ZonePickerProps> = ({ tab, zones: committedZon
                             )}
                         </span>
                         <span className="shrink-0 text-[10px] uppercase tracking-wide text-[var(--lt-text-muted)]">{LEVEL_NAME[node.level]}</span>
-                        <span className="shrink-0 tabular-nums text-xs font-bold text-[var(--lt-text-muted)]">{node.count}</span>
+                        <span className={`shrink-0 min-w-7 rounded-full px-1.5 py-0.5 text-center tabular-nums text-[11px] font-bold ${isSelected ? 'bg-[var(--lt-accent)] lt-on-accent' : 'bg-[var(--lt-card)] text-[var(--lt-text-muted)]'}`}>{node.count}</span>
                     </label>
                 </div>
                 {hasChildren && isOpen && (
@@ -186,14 +186,15 @@ export const ZonePicker: React.FC<ZonePickerProps> = ({ tab, zones: committedZon
                     onClick={() => setOpen((v) => !v)}
                     aria-expanded={open}
                     aria-haspopup="dialog"
-                    className={`inline-flex max-w-[16rem] items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-bold transition-colors ${label ? 'border-[var(--lt-accent)] bg-[var(--lt-accent)] text-white' : 'border-[var(--lt-border)] bg-[var(--lt-bg)] text-[var(--lt-text)] hover:border-[var(--lt-accent-border)]'}`}
+                    className={`inline-flex max-w-[16rem] items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-all active:scale-95 ${label ? 'border-transparent lt-on-accent shadow-md shadow-[var(--lt-accent-shadow)]' : 'border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text)] hover:border-[var(--lt-accent-border)]'}`}
+                    style={label ? { backgroundImage: 'var(--lt-accent-grad)' } : undefined}
                 >
-                    <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    <MapPin className={`h-3.5 w-3.5 shrink-0 ${label ? '' : 'text-[var(--lt-accent)]'}`} aria-hidden />
                     <span className="truncate">{label ? label : 'Zona: toda'}</span>
                     <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
                 </button>
                 {label && (
-                    <button type="button" onClick={() => onChange([])} aria-label="Quitar zona" className="rounded-full p-1 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">
+                    <button type="button" onClick={() => onChange([])} aria-label="Quitar zona" className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">
                         <X className="h-3.5 w-3.5" />
                     </button>
                 )}
@@ -201,18 +202,24 @@ export const ZonePicker: React.FC<ZonePickerProps> = ({ tab, zones: committedZon
 
             {open && (
                 <>
-                    <button type="button" aria-label="Cerrar" onClick={() => setOpen(false)} className="fixed inset-0 z-[1190] bg-black/40 sm:hidden" />
+                    <button type="button" aria-label="Cerrar" onClick={() => setOpen(false)} className="fixed inset-0 z-[1190] bg-black/60 backdrop-blur-sm sm:hidden" />
                     <div
                         role="dialog"
                         aria-label="Elegir zona"
-                        className="fixed inset-x-0 bottom-0 z-[1200] flex max-h-[80vh] flex-col rounded-t-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:left-0 sm:top-full sm:mt-2 sm:max-h-[65vh] sm:w-96 sm:rounded-2xl"
+                        className="fixed inset-x-0 bottom-0 z-[1200] flex max-h-[80vh] flex-col overflow-hidden rounded-t-3xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:left-0 sm:top-full sm:mt-2 sm:max-h-[65vh] sm:w-96 sm:rounded-3xl"
                     >
+                        <div className="mx-auto mt-2.5 h-1 w-10 shrink-0 rounded-full bg-[var(--lt-border-strong)] sm:hidden" aria-hidden />
                         <div className="flex items-center justify-between gap-2 border-b border-[var(--lt-border)] px-4 py-3">
-                            <div>
-                                <p className="text-sm font-black text-[var(--lt-text)]">Zona</p>
-                                <p className="text-[11px] text-[var(--lt-text-muted)]">Elige una o varias, del nivel que quieras.</p>
+                            <div className="min-w-0">
+                                <p className="flex items-center gap-2 text-base font-bold text-[var(--lt-text)]">
+                                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                        <MapPin className="h-3.5 w-3.5" aria-hidden />
+                                    </span>
+                                    Zona
+                                </p>
+                                <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Elige una o varias, del nivel que quieras.</p>
                             </div>
-                            <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar" className="rounded-full p-1.5 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">
+                            <button type="button" onClick={() => setOpen(false)} aria-label="Cerrar" className="rounded-full bg-[var(--lt-card)] p-1.5 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">
                                 <X className="h-4 w-4" />
                             </button>
                         </div>
@@ -232,8 +239,8 @@ export const ZonePicker: React.FC<ZonePickerProps> = ({ tab, zones: committedZon
                         )}
 
                         <div className="px-4 pt-3">
-                            <label className="flex items-center gap-2 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-bg)] px-3 py-2">
-                                <Search className="h-4 w-4 shrink-0 text-[var(--lt-text-muted)]" aria-hidden />
+                            <label className="flex items-center gap-2 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 py-2 transition-colors focus-within:border-[var(--lt-accent-border)]">
+                                <Search className="h-4 w-4 shrink-0 text-[var(--lt-accent)]" aria-hidden />
                                 <input
                                     value={text}
                                     onChange={(e) => setText(e.target.value)}
@@ -264,11 +271,11 @@ export const ZonePicker: React.FC<ZonePickerProps> = ({ tab, zones: committedZon
                             )}
                         </div>
 
-                        <div className="flex items-center justify-between gap-2 border-t border-[var(--lt-border)] px-4 py-3">
+                        <div className="flex items-center justify-between gap-2 border-t border-[var(--lt-border)] px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-3">
                             <p className="text-[11px] text-[var(--lt-text-muted)]">
                                 {truncated ? `Zonas de los primeros ${MAX_RECORDS} resultados.` : 'El número es de resultados.'}
                             </p>
-                            <button type="button" onClick={() => setOpen(false)} className="rounded-full bg-[var(--lt-accent)] px-4 py-1.5 text-xs font-black text-white">
+                            <button type="button" onClick={() => setOpen(false)} className="shrink-0 rounded-full px-5 py-2 text-xs font-bold lt-on-accent shadow-md shadow-[var(--lt-accent-shadow)]" style={{ backgroundImage: 'var(--lt-accent-grad)' }}>
                                 Listo
                             </button>
                         </div>
