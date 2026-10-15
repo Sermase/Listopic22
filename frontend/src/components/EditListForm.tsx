@@ -28,6 +28,8 @@ import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
 import { deriveScoringWeights } from '../lib/scoring';
 import { isPermissionDeniedError, writeWithOptionalFields } from '../lib/optionalFields';
 import { listVisibility, syncListReviewVisibility } from '../lib/reviewVisibility';
+import { lockedCategoryTags, withCategoryTags } from '../lib/categoryTags';
+import { CategoryService } from '../services/CategoryService';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -51,6 +53,7 @@ interface EditableListData {
     publicAccess?: 'reader' | 'writer';
     parentListId?: string | null;
     availableTags?: string[];
+    categoryId?: string;
     criteriaDefinition?: CriteriaDefinitionMap;
     reviewCount?: number;
     scoringWeights?: Record<string, number>;
@@ -105,6 +108,9 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     // Criterios de otro tipo (no deslizador): se conservan tal cual al guardar.
     const [preservedCriteria, setPreservedCriteria] = useState<CriteriaDefinitionMap>({});
     const [inheritedTags, setInheritedTags] = useState<string[]>([]);
+    // Fijas de la categoría (Vegetariano, Sin gluten… en «Hmm...»): no se quitan ni se renombran.
+    const [categoryLockedTags, setCategoryLockedTags] = useState<string[]>([]);
+    const isLockedTag = (tag: string) => inheritedTags.includes(tag) || categoryLockedTags.includes(tag);
     const [showMigration, setShowMigration] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
 
@@ -138,7 +144,9 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 setPublicAccess(data.publicAccess || 'reader');
                 const pListId = data.parentListId || null;
                 setParentListId(pListId);
-                setCustomTags(data.availableTags || []);
+                const categoryTags = await CategoryService.getFixedTags(data.categoryId);
+                setCustomTags(withCategoryTags(categoryTags, data.availableTags));
+                setCategoryLockedTags(lockedCategoryTags(categoryTags, data.availableTags));
 
                 if (pListId) {
                     try {
@@ -218,13 +226,13 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     };
 
     const removeTag = (tag: string) => {
-        if (inheritedTags.includes(tag)) return;
+        if (isLockedTag(tag)) return;
         setCustomTags(customTags.filter(t => t !== tag));
         setTagRenames(prev => { const m = new Map(prev); m.delete(tag); return m; });
     };
 
     const startEditTag = (tag: string) => {
-        if (inheritedTags.includes(tag)) return;
+        if (isLockedTag(tag)) return;
         const { icon, label } = splitTagEmoji(tag);
         setEditingTag(tag);
         setEditingTagIcon(icon);
@@ -506,7 +514,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                     <p className="text-sm text-gray-400 mb-3">Define qué etiquetas estarán disponibles para clasificar las valoraciones.</p>
                     <div className="flex flex-wrap gap-2 mb-3">
                         {customTags.map(tag => {
-                            const isLocked = inheritedTags.includes(tag);
+                            const isLocked = isLockedTag(tag);
                             const { icon, label } = splitTagEmoji(tag);
                             if (editingTag === tag) {
                                 return (

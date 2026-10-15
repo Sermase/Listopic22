@@ -19,6 +19,8 @@ import { computeReviewScore, criterionWeight, isComputingCriterion } from '../li
 import { formatScore, SCORE_BADGE, SCORE_BAND_EMOJI, SCORE_BAND_LABEL, scoreBand, scoreTextColor } from '../lib/scoreScale';
 import { CriterionRating } from './CriterionRating';
 import { orderedCriteriaEntries } from '../lib/criteria';
+import { withCategoryTags } from '../lib/categoryTags';
+import { CategoryService } from '../services/CategoryService';
 
 interface AddReviewFormProps {
     listId: string | null;
@@ -68,6 +70,7 @@ interface ListMetadata {
     criteriaDefinition?: ReviewCriterion[] | Record<string, ReviewCriterion>;
     scoringWeights?: Record<string, number>;
     availableTags?: string[];
+    categoryId?: string;
 }
 
 interface ReviewFormData {
@@ -522,14 +525,10 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                         setCriteriaList(cList);
                     }
 
-                    if (data.availableTags && Array.isArray(data.availableTags)) {
-                        setListAvailableTags(Array.from(new Set(
-                            data.availableTags
-                                .filter((tag): tag is string => typeof tag === 'string')
-                                .map((tag) => tag.trim())
-                                .filter(Boolean)
-                        )));
-                    }
+                    // Las fijas de la categoría (Vegetariano, Sin gluten… en «Hmm...») salen
+                    // siempre, también en listas creadas antes de fijarlas.
+                    const categoryTags = await CategoryService.getFixedTags(data.categoryId);
+                    setListAvailableTags(withCategoryTags(categoryTags, data.availableTags));
                 }
             } catch (e) {
                 console.error("Error fetching list definition", e);
