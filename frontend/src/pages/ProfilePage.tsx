@@ -39,7 +39,6 @@ import {
   Palette,
   Check,
   HeartHandshake,
-  Trophy,
 } from "lucide-react";
 import { ReportModal } from "../components/ReportModal";
 import { MyDataRequest } from "../components/profile/MyDataRequest";
@@ -83,6 +82,7 @@ import {
 } from "../services/UserProfileService";
 import { FollowersSection } from "../components/profile/FollowersSection";
 import ProfileStatsTab from "../components/profile/ProfileStatsTab";
+import { SignInToSee } from "../components/profile/SignInToSee";
 import { ProfileStatCard } from "../components/ProfileStatCard";
 import { ReviewGalleryGrid } from "../components/ReviewGalleryGrid";
 import {
@@ -97,8 +97,6 @@ import { useAuthPrompt } from "../context/AuthPromptContext";
 import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from "../lib/storageCache";
 import { useToast } from "../context/ToastContext";
 import { compareByRank } from "../lib/scoring";
-import { scoreBadgeStyle } from "../lib/scoreScale";
-import { MarqueeText } from "../components/ui/MarqueeText";
 
 interface ListRatingStats {
   listId: string;
@@ -377,6 +375,13 @@ export const ProfilePage: React.FC = () => {
   const openDetailsModal = (tab: DetailsModalTab) => {
     setDetailsModalTab(tab);
     setIsDetailsModalOpen(true);
+  };
+
+  // Seguidores, seguidos y Listas seguidas solo se leen con sesión (reglas):
+  // se cierra el detalle para que el aviso de acceso quede delante.
+  const promptSignInFromDetails = (action: string) => {
+    setIsDetailsModalOpen(false);
+    openAuthPrompt(action);
   };
 
   // Determine target user ID
@@ -1297,6 +1302,12 @@ export const ProfilePage: React.FC = () => {
     );
   };
 
+  const getScoreBubbleClass = (score: number) => {
+    if (score >= 7) return "from-emerald-500 to-teal-500";
+    if (score >= 5) return "from-yellow-400 to-orange-500";
+    return "from-red-500 to-pink-500";
+  };
+
   const formatReviewDate = (value: any) => {
     if (!value) return "";
 
@@ -1532,8 +1543,8 @@ export const ProfilePage: React.FC = () => {
   ) => {
     if (lists.length === 0) {
       return (
-        <div className="py-10 text-center border border-dashed border-[var(--lt-border-strong)] rounded-2xl bg-[var(--lt-card-strong-alpha)]">
-          <p className="text-[var(--lt-text-muted)] text-sm">{emptyMessage}</p>
+        <div className="py-10 text-center border border-dashed border-white/10 rounded-xl bg-white/5">
+          <p className="text-gray-500 text-sm">{emptyMessage}</p>
         </div>
       );
     }
@@ -1546,9 +1557,9 @@ export const ProfilePage: React.FC = () => {
             <Link
               key={list.id}
               to={`/list/${list.id}`}
-              className="group flex items-center gap-3 p-2 pr-3 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] hover:border-[var(--lt-accent-border)] transition-all"
+              className="group flex items-center gap-3 p-2.5 rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 hover:border-[var(--lt-accent-border)] hover:bg-white/5 transition-all"
             >
-              <div className="w-14 h-14 rounded-xl overflow-hidden border border-[var(--lt-border)] shrink-0 bg-[var(--lt-card-strong)]">
+              <div className="w-14 h-14 rounded-lg overflow-hidden border border-white/10 shrink-0 bg-gray-800">
                 {listImage ? (
                   <ProgressiveImage
                     src={listImage}
@@ -1557,15 +1568,17 @@ export const ProfilePage: React.FC = () => {
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-[var(--lt-text-muted)]" style={{ backgroundImage: "linear-gradient(135deg, var(--lt-accent-soft), transparent)" }}>
+                  <div className="w-full h-full flex items-center justify-center text-gray-600">
                     <ListIcon className="w-5 h-5" />
                   </div>
                 )}
               </div>
 
               <div className="min-w-0 flex-1">
-                <MarqueeText text={list.name || "Lista"} className="text-sm font-bold text-[var(--lt-text)]" />
-                <div className="text-[11px] text-[var(--lt-text-muted)] truncate">
+                <div className="text-sm font-bold text-white truncate">
+                  {list.name || "Lista"}
+                </div>
+                <div className="text-[11px] text-gray-400 truncate">
                   {list.itemCount || 0} sitios
                   {list.description ? ` - ${list.description}` : ""}
                 </div>
@@ -1912,58 +1925,6 @@ export const ProfilePage: React.FC = () => {
   const usableProfilePhotoUrl = profile.photoUrl && profile.photoUrl !== failedProfilePhotoUrl ? profile.photoUrl : "";
   const profileAvatarSrc = usableProfilePhotoUrl || profileFallbackAvatar;
 
-  // Tarjeta del plato favorito (cabecera): la misma en móvil y escritorio.
-  const renderFavoriteCard = (widthClass: string) => {
-    if (!favoriteReview) return null;
-    return (
-      <Link
-        to={favoriteGroupLink}
-        className={`group ${widthClass} flex items-center gap-3 rounded-2xl border p-2 pr-3 transition-all hover:-translate-y-0.5`}
-        style={{
-          borderColor: "color-mix(in srgb, var(--lt-warning) 45%, transparent)",
-          backgroundImage: "linear-gradient(110deg, var(--lt-warning-soft), var(--lt-card-strong-alpha) 70%)",
-        }}
-        title="Abrir favorito en pagina de grupo"
-      >
-        <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-lg">
-          {favoriteReview.photoUrl ? (
-            <ProgressiveImage
-              src={favoriteReview.photoUrl}
-              alt={favoriteReview.itemName}
-              containerClassName="w-full h-full"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-[var(--lt-text-muted)]">
-              <ListIcon className="w-4 h-4" />
-            </div>
-          )}
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-[var(--lt-warning)]">
-            <Trophy className="w-2.5 h-2.5" /> Favorito
-          </div>
-          <MarqueeText
-            text={favoriteReview.itemName || favoriteReview.placeName || favoriteReview.listName || "Sin nombre"}
-            className="text-sm font-extrabold leading-tight text-[var(--lt-text)]"
-          />
-          <MarqueeText
-            text={[favoriteReview.itemName ? favoriteReview.placeName : "", favoriteReview.listName].filter(Boolean).join(" · ")}
-            className="text-[11px] font-medium text-[var(--lt-text-muted)]"
-          />
-        </div>
-
-        <span
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 font-display text-sm font-bold shadow-lg"
-          style={scoreBadgeStyle(favoriteReview.score)}
-        >
-          {favoriteReview.score.toFixed(1)}
-        </span>
-      </Link>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-[var(--lt-bg)] pb-20">
       {/* Header / Banner */}
@@ -2025,7 +1986,7 @@ export const ProfilePage: React.FC = () => {
               );
             })()}
             <div className="relative w-20 h-20 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full bg-[var(--lt-bg)] p-1.5 md:p-2">
-              <div className="w-full h-full rounded-full bg-[var(--lt-card-strong)] overflow-hidden border-[3px] border-[var(--lt-bg)] shadow-2xl relative">
+              <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-[3px] border-[var(--lt-bg)] shadow-2xl relative">
                 <ProgressiveImage
                   src={profileAvatarSrc}
                   alt={profile.username}
@@ -2117,7 +2078,7 @@ export const ProfilePage: React.FC = () => {
                         disabled={followLoading}
                         className={`px-6 py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg ${isFollowing
                           ? "bg-[var(--lt-card-strong)] border border-white/20 text-white hover:border-red-500 hover:text-red-500"
-                          : "lt-on-accent bg-[var(--lt-accent)] hover:opacity-90 shadow-[var(--lt-accent-shadow)]"
+                          : "bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white shadow-[var(--lt-accent-shadow)]"
                           }`}
                       >
                         {isFollowing ? (
@@ -2171,15 +2132,103 @@ export const ProfilePage: React.FC = () => {
                   )}
                 </div>
 
-                {appConfig.showProfileFavoriteBadge && favoriteReview && renderFavoriteCard("w-[240px]")}
+                {appConfig.showProfileFavoriteBadge && favoriteReview && (
+                  <Link
+                    to={favoriteGroupLink}
+                    className="group w-[220px] flex items-center gap-2 p-2 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 transition-all"
+                    title="Abrir favorito en pagina de grupo"
+                  >
+                    <div className="relative w-11 h-11 shrink-0">
+                      <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-300/60 shadow-lg bg-gray-800">
+                        {favoriteReview.photoUrl ? (
+                          <ProgressiveImage
+                            src={favoriteReview.photoUrl}
+                            alt={favoriteReview.itemName}
+                            containerClassName="w-full h-full"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-gray-500">
+                            <ListIcon className="w-4 h-4" />
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[var(--lt-bg)] shadow-lg`}
+                      >
+                        {favoriteReview.score.toFixed(1)}
+                      </div>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[9px] uppercase tracking-widest text-amber-300 font-bold flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5" /> Favorito
+                      </div>
+                      <div className="text-xs font-extrabold text-[var(--lt-text)] truncate">
+                        {favoriteReview.itemName}
+                      </div>
+                      {favoriteReview.placeName && (
+                        <div className="text-[11px] text-[var(--lt-accent)] truncate">
+                          {favoriteReview.placeName}
+                        </div>
+                      )}
+                      <div className="text-[10px] text-gray-300 truncate">
+                        {favoriteReview.listName}
+                      </div>
+                    </div>
+                  </Link>
+                )}
               </div>
             </div>
           </div>
         </div>
 
         {appConfig.showProfileFavoriteBadge && favoriteReview && (
-          <div className="md:hidden mb-3">
-            {renderFavoriteCard("w-full")}
+          <div className="md:hidden mb-3 flex justify-end">
+            <Link
+              to={favoriteGroupLink}
+              className="group w-full sm:w-auto sm:max-w-md flex items-center gap-2 p-2 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 transition-all"
+              title="Abrir favorito en pagina de grupo"
+            >
+              <div className="relative w-11 h-11 shrink-0">
+                <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-300/60 shadow-lg bg-gray-800">
+                  {favoriteReview.photoUrl ? (
+                    <ProgressiveImage
+                      src={favoriteReview.photoUrl}
+                      alt={favoriteReview.itemName}
+                      containerClassName="w-full h-full"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                      <ListIcon className="w-4 h-4" />
+                    </div>
+                  )}
+                </div>
+                <div
+                  className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[var(--lt-bg)] shadow-lg`}
+                >
+                  {favoriteReview.score.toFixed(1)}
+                </div>
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="text-[9px] uppercase tracking-widest text-amber-300 font-bold flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5" /> Favorito
+                </div>
+                <div className="text-xs font-extrabold text-[var(--lt-text)] truncate">
+                  {favoriteReview.itemName}
+                </div>
+                {favoriteReview.placeName && (
+                  <div className="text-[11px] text-[var(--lt-accent)] truncate">
+                    {favoriteReview.placeName}
+                  </div>
+                )}
+                <div className="text-[10px] text-gray-300 truncate">
+                  {favoriteReview.listName}
+                </div>
+              </div>
+            </Link>
           </div>
         )}
 
@@ -2187,7 +2236,7 @@ export const ProfilePage: React.FC = () => {
         <div className="space-y-4 md:space-y-8">
           {/* Bio */}
           {profile.bio && (
-            <p className="text-[var(--lt-text-muted)] text-sm max-w-2xl leading-relaxed">
+            <p className="text-gray-400 text-sm max-w-2xl leading-relaxed">
               {profile.bio}
             </p>
           )}
@@ -2201,21 +2250,20 @@ export const ProfilePage: React.FC = () => {
                   profile.userType === "jefe") && (
                     <Link
                       to="/developer"
-                      className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--lt-card-strong)] border border-[var(--lt-border)] text-[var(--lt-accent)]"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--lt-card-strong)] border border-white/10 text-[var(--lt-accent)]"
                     >
                       <Bug className="w-4 h-4" />
                     </Link>
                   )}
                 <button
                   onClick={() => openPreferencesModal("user")}
-                  className="flex h-10 flex-1 items-center justify-center rounded-xl bg-[var(--lt-card-strong)] border border-[var(--lt-border)] px-3 text-[13px] font-bold text-[var(--lt-text)]"
+                  className="flex h-10 flex-1 items-center justify-center rounded-lg bg-[var(--lt-card-strong)] border border-white/10 px-3 text-[13px] font-bold text-gray-300"
                 >
                   Editar Perfil
                 </button>
                 <button
-                  aria-label="Compartir perfil"
                   onClick={() => setIsShareModalOpen(true)}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--lt-card-strong)] border border-[var(--lt-border)] text-[var(--lt-text-muted)]"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--lt-card-strong)] border border-white/10 text-gray-300"
                 >
                   <Share2 className="w-4 h-4" />
                 </button>
@@ -2224,8 +2272,7 @@ export const ProfilePage: React.FC = () => {
                     await signOut(auth);
                     navigate("/login");
                   }}
-                  aria-label="Cerrar sesión"
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--lt-card-strong)] border border-[var(--lt-border)] text-[var(--lt-danger)]"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--lt-card-strong)] border border-white/10 text-red-400"
                 >
                   <Power className="w-4 h-4" />
                 </button>
@@ -2235,46 +2282,41 @@ export const ProfilePage: React.FC = () => {
                 <button
                   onClick={handleFollowToggle}
                   disabled={followLoading}
-                  className={`flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-bold transition-all active:scale-[0.98] ${isFollowing
-                    ? "bg-[var(--lt-card-strong)] border border-[var(--lt-border-strong)] text-[var(--lt-text)]"
-                    : "lt-on-accent shadow-lg shadow-[var(--lt-accent-shadow)]"
+                  className={`flex h-10 flex-1 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-bold transition-all shadow-lg ${isFollowing
+                    ? "bg-[var(--lt-card-strong)] border border-white/20 text-white"
+                    : "bg-[var(--lt-accent)] text-white"
                     }`}
-                  style={isFollowing ? undefined : { backgroundImage: "var(--lt-accent-grad)" }}
                 >
-                  {isFollowing ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
                   {isFollowing ? "Siguiendo" : "Seguir"}
                 </button>
                 <button
-                  aria-label="Enviar mensaje"
                   onClick={handleMessage}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--lt-card-strong)] border border-[var(--lt-border)] text-[var(--lt-text)]"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--lt-card-strong)] border border-white/10 text-white shadow-lg"
                 >
                   <MessageCircle className="w-4 h-4" />
                 </button>
                 <button
-                  aria-label="Compartir perfil"
                   onClick={() => setIsShareModalOpen(true)}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--lt-card-strong)] border border-[var(--lt-border)] text-[var(--lt-text-muted)]"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--lt-card-strong)] border border-white/10 text-gray-300 shadow-lg"
                 >
                   <Share2 className="w-4 h-4" />
                 </button>
                 <div className="relative">
                   <button
-                    aria-label="Más opciones"
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--lt-card-strong)] border border-[var(--lt-border)] text-[var(--lt-text-muted)]"
+                    className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--lt-card-strong)] border border-white/10 text-gray-400"
                   >
                     <MoreVertical className="w-4 h-4" />
                   </button>
                   {isMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-[var(--lt-card-strong)] border border-[var(--lt-border)] rounded-xl shadow-2xl py-1 z-50">
+                    <div className="absolute right-0 mt-2 w-48 bg-[var(--lt-card-strong)] border border-white/10 rounded-xl shadow-2xl py-1 z-50">
                       <button
                         onClick={() => {
                           setIsMenuOpen(false);
                           if (!user) openAuthPrompt("reportar este perfil");
                           else setShowReportModal(true);
                         }}
-                        className="lt-report-action w-full text-left px-4 py-2.5 text-sm text-[var(--lt-text)] flex items-center gap-2"
+                        className="w-full text-left px-4 py-2.5 text-sm text-gray-300 flex items-center gap-2"
                       >
                         <Flag className="w-4 h-4" /> Reportar
                       </button>
@@ -3006,40 +3048,18 @@ export const ProfilePage: React.FC = () => {
 
         {/* Main Content (Reviews are always visible below stats) */}
         <div className="mt-5 space-y-5 md:mt-8 md:space-y-6">
-          {/* Cabecera de sección, compacta como los carruseles de la Home */}
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="flex items-center gap-2 text-base md:text-xl font-display font-bold leading-tight text-[var(--lt-text)]">
-                <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
-                  <Star className="w-3.5 h-3.5" />
-                </span>
-                <span className="truncate">Valoraciones</span>
-              </h2>
-              <p className="mt-0.5 truncate text-xs font-medium text-[var(--lt-text-muted)]">
-                {displayedReviewsCount} {displayedReviewsCount === 1 ? "plato probado" : "platos probados"} · {reviewSortMode === "recent" ? "lo último primero" : "lo mejor primero"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => openDetailsModal("stats")}
-              className="shrink-0 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold text-[var(--lt-accent)] bg-[var(--lt-accent-soft)] hover:opacity-80 transition-opacity"
-            >
-              <BarChart3 className="w-3.5 h-3.5" /> Estadísticas
-            </button>
-          </div>
-
           {/* STICKY REVIEWS HEADER */}
-          <div className="sticky top-14 md:top-16 z-30 bg-[var(--lt-bg)]/90 backdrop-blur-md border-b border-[var(--lt-border)] py-2 -mx-4 px-4 sm:-mx-6 sm:px-6 !mt-2 mb-3 md:mb-5">
+          <div className="sticky top-14 md:top-16 z-30 bg-[var(--lt-bg)]/90 backdrop-blur-md border-b border-white/10 py-2.5 -mx-4 px-4 sm:-mx-6 sm:px-6 mb-4 md:mb-6 rounded-t-3xl sm:rounded-none">
             <div className="flex items-center justify-between gap-2 w-full min-w-0">
 
               <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-                <div className="inline-flex rounded-full border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] p-0.5 shrink-0">
+                <div className="inline-flex rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-1 shrink-0">
                   <button
                     type="button"
                     onClick={() => setReviewSortMode("recent")}
-                    className={`px-2.5 py-1.5 rounded-full transition-colors flex items-center justify-center ${reviewSortMode === "recent"
-                      ? "lt-on-accent bg-[var(--lt-accent)] shadow-sm"
-                      : "text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewSortMode === "recent"
+                      ? "bg-[var(--lt-accent)] text-white"
+                      : "text-gray-300 hover:text-white"
                       }`}
                     title="Recientes"
                   >
@@ -3048,9 +3068,9 @@ export const ProfilePage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setReviewSortMode("top_rated")}
-                    className={`px-2.5 py-1.5 rounded-full transition-colors flex items-center justify-center ${reviewSortMode === "top_rated"
-                      ? "lt-on-accent bg-[var(--lt-accent)] shadow-sm"
-                      : "text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewSortMode === "top_rated"
+                      ? "bg-[var(--lt-accent)] text-white"
+                      : "text-gray-300 hover:text-white"
                       }`}
                     title="Mejor valoradas"
                   >
@@ -3058,15 +3078,15 @@ export const ProfilePage: React.FC = () => {
                   </button>
                 </div>
 
-                <div className="inline-flex rounded-full border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] p-0.5 min-w-0 max-w-[130px] sm:max-w-[200px]">
+                <div className="inline-flex rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-1 min-w-0 max-w-[130px] sm:max-w-[200px]">
                   <select
                     value={reviewListFilter}
                     onChange={(e) => setReviewListFilter(e.target.value)}
-                    className="bg-transparent border-none text-xs font-bold text-[var(--lt-text)] px-2 py-1 outline-none focus:ring-0 cursor-pointer w-full min-w-0 truncate"
+                    className="bg-transparent border-none text-xs font-bold text-gray-300 px-2 py-1 outline-none focus:ring-0 cursor-pointer w-full min-w-0 truncate"
                   >
-                    <option value="all" className="bg-[var(--lt-card-strong)] text-[var(--lt-text)]">Listas</option>
+                    <option value="all" className="bg-[var(--lt-card-strong)] text-white">Listas</option>
                     {availableListsForFilter.map(list => (
-                      <option key={list.id} value={list.id} className="bg-[var(--lt-card-strong)] text-[var(--lt-text)]">
+                      <option key={list.id} value={list.id} className="bg-[var(--lt-card-strong)] text-white">
                         {list.count !== null ? `${list.name} (${list.count})` : list.name}
                       </option>
                     ))}
@@ -3076,14 +3096,14 @@ export const ProfilePage: React.FC = () => {
 
               <div className="flex items-center gap-2 shrink-0">
 
-                <div className="inline-flex rounded-full border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] p-0.5">
+                <div className="inline-flex rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-1">
                   <button
                     type="button"
                     title="Vista completa"
                     onClick={() => setReviewViewMode("full")}
-                    className={`px-2.5 py-1.5 rounded-full transition-colors flex items-center justify-center ${reviewViewMode === "full"
-                      ? "lt-on-accent bg-[var(--lt-accent)] shadow-sm"
-                      : "text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewViewMode === "full"
+                      ? "bg-[var(--lt-accent)] text-white"
+                      : "text-gray-300 hover:text-white"
                       }`}
                   >
                     <ListIcon className="w-4 h-4" />
@@ -3092,9 +3112,9 @@ export const ProfilePage: React.FC = () => {
                     type="button"
                     title="Vista galería"
                     onClick={() => setReviewViewMode("gallery")}
-                    className={`px-2.5 py-1.5 rounded-full transition-colors flex items-center justify-center ${reviewViewMode === "gallery"
-                      ? "lt-on-accent bg-[var(--lt-accent)] shadow-sm"
-                      : "text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewViewMode === "gallery"
+                      ? "bg-[var(--lt-accent)] text-white"
+                      : "text-gray-300 hover:text-white"
                       }`}
                   >
                     <Grid3X3 className="w-4 h-4" />
@@ -3103,9 +3123,9 @@ export const ProfilePage: React.FC = () => {
                     type="button"
                     title="Vista mapa"
                     onClick={() => setReviewViewMode("map")}
-                    className={`px-2.5 py-1.5 rounded-full transition-colors flex items-center justify-center ${reviewViewMode === "map"
-                      ? "lt-on-accent bg-[var(--lt-accent)] shadow-sm"
-                      : "text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewViewMode === "map"
+                      ? "bg-[var(--lt-accent)] text-white"
+                      : "text-gray-300 hover:text-white"
                       }`}
                   >
                     <MapPinIcon className="w-4 h-4" />
@@ -3143,12 +3163,8 @@ export const ProfilePage: React.FC = () => {
               </div>
             )
           ) : sortedProfileReviews.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 rounded-3xl border border-dashed border-[var(--lt-border-strong)] bg-[var(--lt-card-strong-alpha)] px-6 py-14 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
-                <Star className="h-6 w-6" />
-              </span>
-              <p className="text-sm font-bold text-[var(--lt-text)]">No hay valoraciones recientes.</p>
-              <p className="text-xs text-[var(--lt-text-muted)]">El tenedor está limpio... de momento.</p>
+            <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-xl">
+              <p className="text-gray-500">No hay valoraciones recientes.</p>
             </div>
           ) : (
             <>
@@ -3212,21 +3228,14 @@ export const ProfilePage: React.FC = () => {
             onClick={() => setIsDetailsModalOpen(false)}
           >
             <div
-              className="w-full h-full md:h-[88vh] md:max-h-[88vh] md:max-w-2xl rounded-none md:rounded-3xl border-0 md:border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-none md:shadow-2xl overflow-hidden flex flex-col"
+              className="w-full h-full md:h-[88vh] md:max-h-[88vh] md:max-w-2xl rounded-none md:rounded-3xl border-0 md:border border-white/10 bg-[var(--lt-card-strong)] shadow-none md:shadow-2xl overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="sticky top-0 z-50 px-4 md:px-5 py-3 md:py-4 border-b border-[var(--lt-border)] bg-[var(--lt-card-strong)] flex items-center justify-between" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <img src={profileAvatarSrc} alt="" className="h-8 w-8 shrink-0 rounded-full border border-[var(--lt-border)] object-cover" />
-                  <div className="min-w-0">
-                    <h3 className="text-[var(--lt-text)] font-bold text-base leading-tight">Detalle del perfil</h3>
-                    <MarqueeText text={profileShareTitle} className="text-xs font-medium text-[var(--lt-text-muted)]" />
-                  </div>
-                </div>
+              <div className="sticky top-0 z-50 px-4 md:px-5 py-3 md:py-4 border-b border-white/10 bg-[var(--lt-card-strong)] flex items-center justify-between shadow-lg" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
+                <h3 className="text-white font-bold text-lg">Detalle del perfil</h3>
                 <button
                   onClick={() => setIsDetailsModalOpen(false)}
-                  aria-label="Cerrar"
-                  className="p-2 rounded-full bg-[var(--lt-card)] border border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors"
+                  className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -3234,36 +3243,36 @@ export const ProfilePage: React.FC = () => {
 
               {/* Modal Tabs */}
               <div
-                className="sticky z-40 flex overflow-x-auto hide-scrollbar border-b border-[var(--lt-border)] bg-[var(--lt-card-strong)] px-2"
+                className="sticky z-40 flex overflow-x-auto hide-scrollbar border-b border-white/10 bg-[var(--lt-card-strong)] shadow-lg"
                 style={{ top: 'calc(max(0.75rem, env(safe-area-inset-top)) + 3.25rem)' }}
               >
                 <button
                   onClick={() => setDetailsModalTab("stats")}
-                  className={`px-3 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "stats" ? "border-[var(--lt-accent)] text-[var(--lt-accent)]" : "border-transparent text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"}`}
+                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "stats" ? "border-[var(--lt-accent-border)] text-[var(--lt-accent)]" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
                   <BarChart3 className="w-4 h-4" /> Valoraciones
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("followers")}
-                  className={`px-3 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "followers" ? "border-[var(--lt-accent)] text-[var(--lt-accent)]" : "border-transparent text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"}`}
+                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "followers" ? "border-[var(--lt-accent-border)] text-[var(--lt-accent)]" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
                   Seguidores
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("level")}
-                  className={`px-3 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "level" ? "border-[var(--lt-warning)] text-[var(--lt-warning)]" : "border-transparent text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"}`}
+                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "level" ? "border-amber-500 text-amber-300" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
                   Nivel
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("following")}
-                  className={`px-3 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "following" ? "border-[var(--lt-accent)] text-[var(--lt-accent)]" : "border-transparent text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"}`}
+                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "following" ? "border-[var(--lt-accent-border)] text-[var(--lt-accent)]" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
                   Siguiendo
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("lists")}
-                  className={`px-3 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "lists" ? "border-[var(--lt-accent)] text-[var(--lt-accent)]" : "border-transparent text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"}`}
+                  className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 ${detailsModalTab === "lists" ? "border-[var(--lt-accent-border)] text-[var(--lt-accent)]" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
                   Listas
                 </button>
@@ -3378,42 +3387,39 @@ export const ProfilePage: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 md:gap-3">
-                      <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] p-3 md:p-4">
-                        <div className="text-[10px] md:text-[11px] font-bold uppercase leading-tight tracking-wide text-[var(--lt-text-muted)]">
-                          Valoraciones
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                      <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
+                        <div className="text-[11px] uppercase tracking-wide text-gray-400">
+                          Valoraciones que cuentan
                         </div>
-                        <div className="mt-1.5 text-2xl md:text-3xl font-black text-[var(--lt-text)]">
+                        <div className="mt-2 text-3xl font-black text-white">
                           {gamificationMetrics.reviewsCount}
                         </div>
                       </div>
-                      <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] p-3 md:p-4">
-                        <div className="text-[10px] md:text-[11px] font-bold uppercase leading-tight tracking-wide text-[var(--lt-text-muted)]">
-                          Con foto
+                      <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
+                        <div className="text-[11px] uppercase tracking-wide text-gray-400">
+                          Valoraciones con foto
                         </div>
-                        <div className="mt-1.5 text-2xl md:text-3xl font-black text-[var(--lt-text)]">
+                        <div className="mt-2 text-3xl font-black text-white">
                           {gamificationMetrics.photosCount}
                         </div>
                       </div>
-                      <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] p-3 md:p-4">
-                        <div className="text-[10px] md:text-[11px] font-bold uppercase leading-tight tracking-wide text-[var(--lt-text-muted)]">
+                      <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
+                        <div className="text-[11px] uppercase tracking-wide text-gray-400">
                           Sitios valorados
                         </div>
-                        <div className="mt-1.5 text-2xl md:text-3xl font-black text-[var(--lt-text)]">
+                        <div className="mt-2 text-3xl font-black text-white">
                           {gamificationMetrics.placeCount}
                         </div>
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] p-4 md:p-5">
+                    <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4 md:p-5">
                       <div className="mb-4 flex items-center justify-between gap-3">
-                        <h4 className="flex items-center gap-2 text-base md:text-lg font-bold text-[var(--lt-text)]">
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[var(--lt-warning-soft)] text-[var(--lt-warning)]">
-                            <Trophy className="h-3.5 w-3.5" />
-                          </span>
+                        <h4 className="text-lg font-black text-white">
                           Medallas y requisitos
                         </h4>
-                        <div className="shrink-0 rounded-full bg-[var(--lt-warning-soft)] px-2.5 py-1 text-xs font-bold text-[var(--lt-warning)]">
+                        <div className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-100">
                           {earnedBadgeIds.length} ganadas
                         </div>
                       </div>
@@ -3449,42 +3455,49 @@ export const ProfilePage: React.FC = () => {
                             type="button"
                             onClick={() => setListSubTab("followed_lists")}
                             className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${listSubTab === "followed_lists"
-                              ? "lt-on-accent bg-[var(--lt-accent)] border-[var(--lt-accent-border)]"
-                              : "bg-[var(--lt-card-strong-alpha)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                              ? "bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white"
+                              : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
                               }`}
                           >
-                            Listas seguidas ({mainFollowedLists.length})
+                            Listas seguidas{user ? ` (${mainFollowedLists.length})` : ""}
                           </button>
                           <button
                             type="button"
                             onClick={() => setListSubTab("followed_sublists")}
                             className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${listSubTab === "followed_sublists"
-                              ? "lt-on-accent bg-[var(--lt-accent)] border-[var(--lt-accent-border)]"
-                              : "bg-[var(--lt-card-strong-alpha)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                              ? "bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white"
+                              : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
                               }`}
                           >
-                            Minilistas seguidas ({subFollowedLists.length})
+                            Minilistas seguidas{user ? ` (${subFollowedLists.length})` : ""}
                           </button>
                           <button
                             type="button"
                             onClick={() => setListSubTab("created_sublists")}
                             className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${listSubTab === "created_sublists"
-                              ? "lt-on-accent bg-[var(--lt-accent)] border-[var(--lt-accent-border)]"
-                              : "bg-[var(--lt-card-strong-alpha)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                              ? "bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white"
+                              : "bg-white/5 border-white/10 text-gray-400 hover:text-white"
                               }`}
                           >
                             Minilistas creadas ({subCreatedLists.length})
                           </button>
                         </div>
 
-                        {listSubTab === "followed_lists" &&
+                        {!user && listSubTab !== "created_sublists" && (
+                          <SignInToSee
+                            what="las Listas que sigue"
+                            onSignIn={() => promptSignInFromDetails("ver las Listas que sigue")}
+                          />
+                        )}
+
+                        {user && listSubTab === "followed_lists" &&
                           renderMinimalListRows(
                             mainFollowedLists,
                             "No sigues listas principales.",
                             false,
                           )}
 
-                        {listSubTab === "followed_sublists" &&
+                        {user && listSubTab === "followed_sublists" &&
                           renderMinimalListRows(
                             subFollowedLists,
                             "No sigues minilistas.",
@@ -3502,7 +3515,14 @@ export const ProfilePage: React.FC = () => {
                   </>
                 )}
 
-                {detailsModalTab === "following" && (
+                {detailsModalTab === "following" && !user && (
+                  <SignInToSee
+                    what="a quién sigue"
+                    onSignIn={() => promptSignInFromDetails("ver a quién sigue")}
+                  />
+                )}
+
+                {detailsModalTab === "following" && user && (
                   <FollowingSection
                     targetUserId={targetUserId}
                     onNavigateToProfile={() => {
@@ -3512,7 +3532,14 @@ export const ProfilePage: React.FC = () => {
                   />
                 )}
 
-                {detailsModalTab === "followers" && (
+                {detailsModalTab === "followers" && !user && (
+                  <SignInToSee
+                    what="sus seguidores"
+                    onSignIn={() => promptSignInFromDetails("ver sus seguidores")}
+                  />
+                )}
+
+                {detailsModalTab === "followers" && user && (
                   <FollowersSection
                     targetUserId={targetUserId}
                     onNavigateToProfile={() => {

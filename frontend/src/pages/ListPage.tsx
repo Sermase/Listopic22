@@ -32,6 +32,7 @@ import { useStoredChoice } from '../hooks/useStoredChoice';
 import { AREA_STORAGE_KEY, buildAreaOptions, contextualRanks, decodeArea, distanceLabel, encodeArea, geoAreaLabel, inferUserGeo, localAreaOptions, matchesArea, primaryContextRank, type GeoFields, type ListArea } from '../lib/geoAreas';
 import { exploreSearchUrl } from '../lib/searchZones';
 import { AreaSelect } from '../components/AreaSelect';
+import { recordListVisit } from '../lib/searchLandingStorage';
 
 export interface FilterState {
     minRating: number;
@@ -198,6 +199,13 @@ export const ListPage: React.FC = () => {
         if (img) setMeta('og:image', img);
         return () => { document.title = 'Listopic'; };
     }, [list]);
+    // «Tus listas de siempre» en Buscar: solo en este navegador, una vez por lista abierta.
+    const visitedListId = list?.id;
+    useEffect(() => {
+        if (!list || !visitedListId) return;
+        recordListVisit({ id: visitedListId, name: list.name, coverUrl: list.thumbnailUrl || list.mainImageUrl || list.photoUrl || list.coverUrl || list.imageUrl });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visitedListId]);
     const { profile: currentUserProfile } = useUserProfile(user?.uid);
     const isJefe = Boolean(currentUserProfile && (
         (Array.isArray(currentUserProfile.userType) && currentUserProfile.userType.includes('jefe')) ||

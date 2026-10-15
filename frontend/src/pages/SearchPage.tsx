@@ -2,6 +2,9 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom';
 import { ZonePicker } from '../components/search/ZonePicker';
 import { HIDE_BOT_ONLY, useBotOnlyFilter } from '../components/search/botOnlyFilter';
+import { FILTER_SECTIONS, NUMERIC_FILTER_ATTRIBUTES, formatNumericRefinementLabel, visibleFacetItems, type FilterSectionConfig } from '../components/search/FilterConfig';
+import { hitPhoto, usePlaceHitPhotos } from '../components/search/SearchResultPhotos';
+import { SearchLanding } from '../components/search/SearchLanding';
 import { elementKey } from '../lib/listElements';
 import { parseZones, zoneKey, zonesFilter, zonesLabel, type Zone } from '../lib/searchZones';
 import {
@@ -10,6 +13,7 @@ import {
     useSearchBox,
     useInfiniteHits,
     useRefinementList,
+    useNumericMenu,
     useCurrentRefinements,
     useClearRefinements,
     useStats,
@@ -19,9 +23,9 @@ import {
 import { Link } from 'react-router-dom';
 import {
     Search, Map as MapIcon, Users, List as ListIcon, MessageCircle,
-    X, Clock, ChevronRight, Star, LocateFixed, Loader2,
+    X, Clock, ChevronLeft, ChevronRight, Star, LocateFixed, Loader2,
     ArrowUpDown, ChevronDown, SlidersHorizontal, ShieldCheck, Bot, Utensils,
-    Coffee, Wine, Accessibility, Tags, MapPin, CircleDollarSign, Camera, EyeOff, PawPrint, AlertTriangle
+    Coffee, Wine, EyeOff, AlertTriangle
 } from 'lucide-react';
 
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
@@ -53,6 +57,7 @@ const FILTER_LABELS: Record<string, string> = {
     accessibilityOptions: 'Accesibilidad', petOptions: 'Mascotas', userType: 'Tipo', badges: 'Insignia',
     listCategoryId: 'Categoría', authorUserType: 'Tipo de usuario', placeCity: 'Ciudad', listName: 'Lista', groupTags: 'Tag', residence: 'Ciudad',
     itemTags: 'Etiqueta', hasPhoto: 'Fotos', isGlutenFree: 'Sin gluten', closedStatus: 'Estado', placeClosedStatus: 'Estado',
+    averageRating: 'Nota', avgGeneralScore: 'Nota', publicHumanReviewsCount: 'Opiniones', reviewCount: 'Opiniones',
 };
 
 const USER_TYPE_LABELS: Record<string, string> = {
@@ -63,13 +68,6 @@ const USER_TYPE_LABELS: Record<string, string> = {
     jefe: 'Equipo',
     admin: 'Admin',
     user: 'Usuarios',
-};
-
-const FACET_VALUE_ALLOWLIST: Record<string, string[]> = {
-    userType: ['bot', 'jefe', 'critico', 'critic'],
-    authorUserType: ['bot', 'jefe', 'critico', 'critic', 'experto'],
-    hasPhoto: ['true'],
-    isGlutenFree: ['true'],
 };
 
 const FACET_VALUE_LABELS: Record<string, Record<string, string>> = {
@@ -172,62 +170,7 @@ type SearchHit = {
     placeBusinessStatus?: string | null;
     level?: number;
     xp?: number;
-};
-
-interface FilterSectionConfig {
-    attribute: string;
-    label: string;
-    icon: React.ElementType;
-    limit?: number;
-    defaultOpen?: boolean;
-    dependsOn?: string;
-}
-
-const FILTER_SECTIONS: Record<string, FilterSectionConfig[]> = {
-    lists: [
-        { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
-        { attribute: 'categoryName', label: 'Categoría', icon: ListIcon, defaultOpen: true },
-        { attribute: 'availableTags', label: 'Etiquetas', icon: Tags, defaultOpen: true },
-    ],
-    places: [
-        { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
-        { attribute: 'isGlutenFree', label: 'Sin gluten', icon: Utensils, defaultOpen: true },
-        { attribute: 'petOptions', label: 'Mascotas', icon: PawPrint, defaultOpen: true },
-        { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
-        { attribute: 'types', label: 'Tipo', icon: Utensils, defaultOpen: true },
-        { attribute: 'itemTags', label: 'Etiquetas de items', icon: Tags },
-        { attribute: 'closedStatus', label: 'Estado del sitio', icon: EyeOff },
-        { attribute: 'priceLevel', label: 'Precio', icon: CircleDollarSign },
-        { attribute: 'serviceOptions', label: 'Servicios', icon: Coffee },
-    ],
-    users: [
-        { attribute: 'userType', label: 'Tipo', icon: ShieldCheck, defaultOpen: true },
-        { attribute: 'residence', label: 'Ciudad', icon: MapPin },
-    ],
-    items: [
-        { attribute: 'listCategoryName', label: 'Categoría', icon: Tags, defaultOpen: true },
-        { attribute: 'listName', label: 'Lista', icon: ListIcon, dependsOn: 'listCategoryName' },
-        { attribute: 'authorUserType', label: 'Tipo de usuario', icon: ShieldCheck, defaultOpen: true },
-        { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
-        { attribute: 'isGlutenFree', label: 'Sin gluten', icon: Utensils, defaultOpen: true },
-        { attribute: 'petOptions', label: 'Mascotas', icon: PawPrint, defaultOpen: true },
-        { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
-        { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
-        { attribute: 'itemTags', label: 'Todas las etiquetas', icon: Tags },
-        { attribute: 'placeClosedStatus', label: 'Estado del sitio', icon: EyeOff },
-    ],
-    grouped_items: [
-        { attribute: 'listCategoryName', label: 'Categoría', icon: Tags, defaultOpen: true },
-        { attribute: 'listName', label: 'Lista', icon: ListIcon, dependsOn: 'listCategoryName' },
-        { attribute: 'authorUserType', label: 'Tipo de usuario', icon: ShieldCheck, defaultOpen: true },
-        { attribute: 'hasPhoto', label: 'Fotos', icon: Camera, defaultOpen: true },
-        { attribute: 'isGlutenFree', label: 'Sin gluten', icon: Utensils, defaultOpen: true },
-        { attribute: 'petOptions', label: 'Mascotas', icon: PawPrint, defaultOpen: true },
-        { attribute: 'accessibilityOptions', label: 'Accesibilidad', icon: Accessibility, defaultOpen: true },
-        { attribute: 'groupTags', label: 'Etiquetas', icon: Tags },
-        { attribute: 'itemTags', label: 'Todas las etiquetas', icon: Tags },
-        { attribute: 'placeClosedStatus', label: 'Estado del sitio', icon: EyeOff },
-    ],
+    hasPhoto?: boolean;
 };
 
 // Opciones de ordenación por pestaña
@@ -359,9 +302,11 @@ const saveRecentSearch = (term: string) => {
 type CustomSearchBoxProps = Record<string, unknown> & {
     rawQuery?: string;
     onQueryChange?: (query: string) => void;
+    /** Con la caja vacía, las búsquedas recientes ya las enseña la portada de Buscar. */
+    hideEmptyRecents?: boolean;
 };
 
-const CustomSearchBox = ({ rawQuery = '', onQueryChange, ...props }: CustomSearchBoxProps) => {
+const CustomSearchBox = ({ rawQuery = '', onQueryChange, hideEmptyRecents = false, ...props }: CustomSearchBoxProps) => {
     const { refine } = useSearchBox(props);
     const [val, setVal] = useState(rawQuery);
     const [focused, setFocused] = useState(false);
@@ -389,7 +334,7 @@ const CustomSearchBox = ({ rawQuery = '', onQueryChange, ...props }: CustomSearc
         refine(SearchQueryParser.parse(term).cleanedQuery);
         onQueryChange?.(term);
     };
-    const showRecent = focused && !val && recents.length > 0;
+    const showRecent = !hideEmptyRecents && focused && !val && recents.length > 0;
     const matchRecent = focused && val ? recents.filter(s => s.toLowerCase().includes(val.toLowerCase())) : [];
 
     return (
@@ -508,6 +453,9 @@ const ResultsCount = () => {
 // ─── Refinement List ──────────────────────────────────────────────────────────
 
 function formatFacetLabel(attribute: string, label: string) {
+    if (NUMERIC_FILTER_ATTRIBUTES.has(attribute)) {
+        return formatNumericRefinementLabel(label);
+    }
     if (attribute === 'authorUserType' || attribute === 'userType') {
         return USER_TYPE_LABELS[label] || label;
     }
@@ -569,10 +517,7 @@ const CustomRefinementList = ({ attribute, label, icon: Icon, limit = 8, default
     const [isOpen, setIsOpen] = useState(defaultOpen);
     if (dependsOn && !hasActiveRefinement(currentRefinements, dependsOn)) return null;
 
-    const allowlist = FACET_VALUE_ALLOWLIST[attribute];
-    const visibleItems = allowlist
-        ? items.filter(item => allowlist.includes(String(item.value)))
-        : items;
+    const visibleItems = visibleFacetItems(attribute, items);
 
     if (visibleItems.length === 0) return null;
     const selectedCount = visibleItems.filter(item => item.isRefined).length;
@@ -617,6 +562,57 @@ const CustomRefinementList = ({ attribute, label, icon: Icon, limit = 8, default
                         </span>
                     </button>
                 ))}
+                </div>
+            )}
+        </section>
+    );
+};
+
+// Filtro numérico (nota mínima, nº de opiniones): una opción a la vez; pulsarla otra vez la quita.
+const NumericFilterSection = ({ attribute, label, icon: Icon, defaultOpen = false, numeric = [] }: FilterSectionConfig) => {
+    const { items, refine } = useNumericMenu({ attribute, items: [{ label: 'Cualquiera' }, ...numeric] });
+    const [isOpen, setIsOpen] = useState(defaultOpen);
+    const anyValue = items[0]?.value;
+    const options = items.slice(1);
+    const selected = options.find(item => item.isRefined);
+    if (options.length === 0) return null;
+    return (
+        <section className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] overflow-hidden">
+            <button
+                type="button"
+                onClick={() => setIsOpen(open => !open)}
+                aria-expanded={isOpen}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left"
+            >
+                <span className="w-6 h-6 rounded-md bg-[var(--lt-accent-soft)] flex items-center justify-center text-[var(--lt-accent)] shrink-0">
+                    <Icon className="w-3.5 h-3.5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-bold text-[var(--lt-text)] leading-tight">{label}</span>
+                    <span className={`block text-[11px] ${selected ? 'font-bold text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)]'}`}>
+                        {selected ? `Desde ${selected.label}` : 'Cualquiera'}
+                    </span>
+                </span>
+                <ChevronDown className={`w-4 h-4 text-[var(--lt-text-muted)] transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {isOpen && (
+                <div className="px-3 pb-3 flex flex-wrap gap-1.5">
+                    {options.map(item => (
+                        <button
+                            type="button"
+                            key={item.label}
+                            onClick={() => refine(item.isRefined && anyValue !== undefined ? anyValue : item.value)}
+                            aria-pressed={item.isRefined}
+                            className={`min-h-8 rounded-full border px-3 py-1.5 text-xs font-bold leading-none transition-colors active:scale-95 ${
+                                item.isRefined
+                                    ? 'border-transparent lt-on-accent shadow-md shadow-[var(--lt-accent-shadow)]'
+                                    : 'bg-[var(--lt-card-strong)] border-[var(--lt-border)] text-[var(--lt-text)] hover:border-[var(--lt-accent-border)]'
+                            }`}
+                            style={item.isRefined ? { backgroundImage: 'var(--lt-accent-grad)' } : undefined}
+                        >
+                            {item.label}
+                        </button>
+                    ))}
                 </div>
             )}
         </section>
@@ -674,7 +670,9 @@ const FilterContent = ({
     return (
         <div className="space-y-2">
             {sections.map(section => (
-                <CustomRefinementList key={section.attribute} {...section} />
+                section.numeric
+                    ? <NumericFilterSection key={section.attribute} {...section} />
+                    : <CustomRefinementList key={section.attribute} {...section} />
             ))}
             <ClosedPlacesToggle activeTab={activeTab} includeClosed={includeClosed} onIncludeClosedChange={onIncludeClosedChange} />
         </div>
@@ -705,9 +703,12 @@ const SearchResultsSkeleton = ({ listLayout }: { listLayout: boolean }) => (
     </div>
 );
 
+/** Resultados por sección en «Todo»: un carrusel que llena el ancho de escritorio. */
+const FEDERATED_HITS = 8;
+
 const CarouselSkeleton = () => (
     <div className="-mx-4 flex gap-2 overflow-hidden px-4 pb-2 lg:mx-0 lg:px-0" aria-busy="true" aria-label="Cargando resultados">
-        {Array.from({ length: 3 }).map((_, i) => (
+        {Array.from({ length: FEDERATED_HITS }).map((_, i) => (
             <div key={i} className="lt-skeleton-card h-[170px] w-[220px] shrink-0 rounded-3xl md:h-[190px] md:w-[260px]" aria-hidden="true" />
         ))}
     </div>
@@ -852,8 +853,8 @@ const UserMiniCard = ({ hit }: { hit: SearchHit }) => {
 };
 
 /** Resultado de Algolia → tarjeta con foto de la Home (carruseles de «Todo»). */
-function hitToFeedCard(activeTab: string, hit: SearchHit): HomeFeedCardData {
-    const photoUrl = hit.thumbnailUrl ?? hit.mainImageUrl ?? hit.photoUrl ?? hit.coverUrl ?? hit.imageUrl ?? null;
+function hitToFeedCard(activeTab: string, hit: SearchHit, fallbackPhoto?: string | null): HomeFeedCardData {
+    const photoUrl = hitPhoto(hit) ?? fallbackPhoto ?? null;
     const closed = isClosedStatus(getHitClosedStatus(activeTab, hit));
     const city = hit.city || hit.placeCity;
     if (activeTab === 'places') {
@@ -926,6 +927,8 @@ const ResultsConfigure = ({ tab, query, filters, geo }: { tab: string; query: st
     return <Configure query={query} filters={joinAlgoliaFilters([filters, botFilter])} hitsPerPage={20} {...geo} />;
 };
 
+const NO_HITS: SearchHit[] = [];
+
 const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId, onHoverHit, onSelectHit, listLayout = false, noInfiniteScroll = false, carousel = false, includeClosed = false, rankEligible = false, zoneLabel: selectedZoneLabel = null, onClearZone }) => {
     const { hits, isLastPage, showMore } = useInfiniteHits();
     const { status, results } = useInstantSearch();
@@ -974,6 +977,13 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
             });
         return openHits;
     }, [activeTab, closedPlaceIds, includeClosed, typedHits]);
+    // Sitios sin foto propia: la de un plato valorado (pocas lecturas, solo lo visible).
+    const placePhotos = usePlaceHitPhotos(activeTab === 'places' ? visibleHits : NO_HITS);
+    const carouselRef = useRef<HTMLDivElement>(null);
+    const scrollCarousel = (direction: 1 | -1) => {
+        const el = carouselRef.current;
+        if (el) el.scrollBy({ left: direction * Math.max(280, el.clientWidth * 0.8), behavior: 'smooth' });
+    };
 
     useEffect(() => {
         if (noInfiniteScroll) return;
@@ -995,17 +1005,30 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
     }
 
     if (carousel) {
+        const arrowClass = 'absolute top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--lt-border)] bg-[var(--lt-card-strong)] text-[var(--lt-text)] shadow-xl opacity-0 transition-opacity hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-accent)] focus-visible:opacity-100 group-hover:opacity-100 md:flex';
         return (
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 scroll-px-4 pb-3 pt-0.5 snap-x snap-mandatory hide-scrollbar scroll-smooth lg:mx-0 lg:px-0 lg:scroll-px-0">
-                {visibleHits.map(hit => (
-                    activeTab === 'users'
-                        ? <UserMiniCard key={hit.objectID} hit={hit} />
-                        : (
-                            <div key={hit.objectID} id={`hit-${hit.objectID}`} className="shrink-0 snap-start">
-                                <HomeFeedCard card={hitToFeedCard(activeTab, hit)} />
-                            </div>
-                        )
-                ))}
+            <div className="group relative">
+                {visibleHits.length > 3 && (
+                    <>
+                        <button type="button" aria-label="Anteriores" onClick={() => scrollCarousel(-1)} className={`${arrowClass} -left-3`}>
+                            <ChevronLeft className="h-5 w-5" />
+                        </button>
+                        <button type="button" aria-label="Siguientes" onClick={() => scrollCarousel(1)} className={`${arrowClass} -right-3`}>
+                            <ChevronRight className="h-5 w-5" />
+                        </button>
+                    </>
+                )}
+                <div ref={carouselRef} className="-mx-4 flex gap-2 overflow-x-auto px-4 scroll-px-4 pb-3 pt-0.5 snap-x snap-mandatory hide-scrollbar scroll-smooth lg:mx-0 lg:px-0 lg:scroll-px-0">
+                    {visibleHits.map(hit => (
+                        activeTab === 'users'
+                            ? <UserMiniCard key={hit.objectID} hit={hit} />
+                            : (
+                                <div key={hit.objectID} id={`hit-${hit.objectID}`} className="shrink-0 snap-start">
+                                    <HomeFeedCard card={hitToFeedCard(activeTab, hit, placePhotos[hit.objectID])} />
+                                </div>
+                            )
+                    ))}
+                </div>
             </div>
         );
     }
@@ -1031,7 +1054,7 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                                 item={{
                                     id: hit.objectID,
                                     name: hit.name ?? hit.itemName ?? 'Resultado',
-                                    photoUrl: hit.thumbnailUrl ?? hit.mainImageUrl ?? hit.photoUrl ?? hit.coverUrl ?? hit.imageUrl,
+                                    photoUrl: hitPhoto(hit) ?? (activeTab === 'places' ? placePhotos[hit.objectID] : undefined) ?? undefined,
                                     ...(activeTab === 'places'
                                         ? placeCardScore(hit, showBots)
                                         : {
@@ -1125,7 +1148,7 @@ const FederatedSection = ({
     query?: string;
 }) => (
     <Index indexName={indexName}>
-        <Configure hitsPerPage={3} filters={filters} query={query} />
+        <Configure hitsPerPage={FEDERATED_HITS} filters={filters} query={query} />
         <FedSectionContent title={title} subtitle={subtitle} type={type} icon={icon} onViewAll={onViewAll} />
     </Index>
 );
@@ -1375,6 +1398,16 @@ export const SearchPage: React.FC = () => {
         setSearchParams(buildSearchParams({ query: nextQuery }), { replace: true });
     }, [buildSearchParams, setSearchParams]);
 
+    // Portada (caja vacía): lo que se pulsa en ella se busca igual que si se escribiera y se enviara.
+    const showLanding = activeTab === 'all' && !queryParam.trim();
+    const handleLandingSearch = useCallback((nextQuery: string) => {
+        const term = nextQuery.trim();
+        if (!term) return;
+        saveRecentSearch(term);
+        handleQueryChange(term);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, [handleQueryChange]);
+
     const handleMarkerClick = useCallback((id: string) => {
         setSelectedHitId(prev => prev === id ? null : id);
         const el = document.getElementById(`hit-${id}`);
@@ -1540,7 +1573,7 @@ export const SearchPage: React.FC = () => {
                     <div className="pointer-events-none absolute -top-20 right-0 -z-10 h-64 w-64 rounded-full opacity-80 blur-[90px]" style={{ backgroundColor: 'var(--lt-accent-soft)' }} aria-hidden="true" />
                     <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-[var(--lt-text)]">Buscar</h1>
                     <p className="mt-0.5 mb-3 text-xs md:text-sm font-medium text-[var(--lt-text-muted)]">Listas, sitios, platos y gente con buen criterio.</p>
-                    <CustomSearchBox rawQuery={queryParam} onQueryChange={handleQueryChange} />
+                    <CustomSearchBox rawQuery={queryParam} onQueryChange={handleQueryChange} hideEmptyRecents={showLanding} />
 
                     {/* Tabs */}
                     <div role="tablist" aria-label="Qué buscar" className="-mx-4 mt-3 flex items-center gap-1.5 overflow-x-auto hide-scrollbar px-4 lg:mx-0 lg:px-0">
@@ -1561,7 +1594,12 @@ export const SearchPage: React.FC = () => {
                 <SearchErrorNotice />
 
                 {/* ── Federated: "Todo" ─────────────────────────────────────── */}
-                {activeTab === 'all' ? (
+                {showLanding ? (
+                    // SearchLanding ya trae su margen (container px-4); lg:px-4 lo alinea con la cabecera.
+                    <div className="lg:px-4">
+                        <SearchLanding onSearch={handleLandingSearch} />
+                    </div>
+                ) : activeTab === 'all' ? (
                     <div className="px-4 lg:px-8">
                         <AllTabEmptyState hasQuery={parsedQuery.cleanedQuery.trim().length > 0} />
                         <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" subtitle="Rankings con opinión propia" type="lists" icon={ListIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('lists')} />

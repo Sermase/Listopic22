@@ -51,6 +51,7 @@ import { reviewItemId } from '../lib/placeItems';
 import { compareByRank } from '../lib/scoring';
 import { PlaceStatsPanel } from '../components/place/PlaceStatsPanel';
 import { PlaceSectionHeader } from '../components/place/PlaceSectionHeader';
+import { DishRateButton } from '../components/place/DishRateButton';
 import { MarqueeText } from '../components/ui/MarqueeText';
 import { PlaceOfferCard } from '../components/business/sponsored/PlaceOfferCard';
 import { heroStyleOf } from '../components/business/visual/heroStyles';
@@ -469,6 +470,17 @@ export const PlacePage: React.FC = () => {
             };
         }).sort((a, b) => compareByRank({ average: a.avg, count: a.count }, { average: b.avg, count: b.count }));
     }, [place?.reviews, officialItemsById]);
+
+    // Lista de cada plato (por id canónico y por nombre) para fijarla al valorar desde la carta.
+    const dishListIdByKey = useMemo(() => {
+        const map = new Map<string, string>();
+        dishes.forEach((dish) => {
+            if (!dish.listId) return;
+            map.set(dish.itemId, dish.listId);
+            map.set(dish.name.trim().toLowerCase(), dish.listId);
+        });
+        return map;
+    }, [dishes]);
 
 
     // Carta por secciones (Business Pro): items oficiales agrupados por las
@@ -962,11 +974,11 @@ export const PlacePage: React.FC = () => {
                 {/* Order-1 on Mobile -> Renders FIRST. lg:order-last -> Renders RIGHT. */}
                 <div className="order-1 lg:col-span-4 lg:order-last flex flex-col gap-4 sm:gap-6">
 
-                    {/* 1. Actions Row */}
-                    <div className="glass-card p-3 rounded-2xl grid grid-cols-5 gap-2 sm:gap-3 shadow-lg">
+                    {/* 1. Acciones (compactas y sin recuadro exterior, como en la ficha del plato) */}
+                    <div className="grid grid-cols-5 gap-2 sm:gap-3">
                         <button
                             onClick={handleOpenSave}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all"
                         >
                             <Bookmark className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
                             <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Guardar</span>
@@ -974,30 +986,30 @@ export const PlacePage: React.FC = () => {
                         <button
                             onClick={handleFollowToggle}
                             disabled={followLoading}
-                            className={`lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border transition-all ${isFollowed ? 'bg-pink-500/20 border-pink-500 text-pink-400' : 'bg-white/5 border-white/5 text-gray-400 hover:bg-white/10 hover:text-white'} ${followLoading ? 'opacity-50 cursor-wait' : ''}`}
+                            className={`lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border transition-all ${isFollowed ? 'bg-pink-500/15 border-pink-500/60 text-pink-500' : 'border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)]'} ${followLoading ? 'opacity-50 cursor-wait' : ''}`}
                         >
                             <Heart className={`w-5 h-5 mb-1 ${isFollowed ? 'fill-current' : ''}`} />
                             <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">{isFollowed ? 'Seguido' : 'Seguir'}</span>
                         </button>
                         <button
                             onClick={handleShareClick}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all active:scale-95 active:bg-[var(--lt-accent-soft)] active:border-[var(--lt-accent-border)]"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all active:scale-95"
                         >
                             <Share2 className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
                             <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Compartir</span>
                         </button>
                         <button
                             onClick={handleOpenPhotoUpload}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white transition-all"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all"
                         >
                             <ImageIcon className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
                             <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Fotos</span>
                         </button>
                         <button
                             onClick={handleOpenReport}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2 rounded-xl border border-white/5 bg-white/5 text-gray-400 hover:bg-red-500/10 hover:text-red-500 transition-all group/report"
+                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:bg-[var(--lt-danger-soft)] hover:text-[var(--lt-danger)] transition-all"
                         >
-                            <AlertTriangle className="w-5 h-5 mb-1 text-red-500/50 group-hover/report:text-red-500 transition-colors" />
+                            <AlertTriangle className="w-5 h-5 mb-1 text-[var(--lt-danger)] opacity-70" />
                             <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Reportar</span>
                         </button>
                     </div>
@@ -1883,17 +1895,25 @@ export const PlacePage: React.FC = () => {
                                                         )}
                                                     </>
                                                 );
-                                                return item.reviewCount > 0 ? (
-                                                    <Link
-                                                        key={item.id}
-                                                        to={`/group/${placeId}/${encodeURIComponent(item.name)}`}
-                                                        className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 hover:bg-[var(--lt-card)] transition-colors"
-                                                    >
-                                                        {content}
-                                                    </Link>
-                                                ) : (
-                                                    <div key={item.id} className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3">
-                                                        {content}
+                                                const itemListId = dishListIdByKey.get(item.id)
+                                                    ?? item.keys.map((key) => dishListIdByKey.get(key)).find(Boolean);
+                                                return (
+                                                    <div key={item.id} className={`flex items-center transition-colors ${item.reviewCount > 0 ? 'hover:bg-[var(--lt-card)]' : ''}`}>
+                                                        {item.reviewCount > 0 ? (
+                                                            <Link
+                                                                to={`/group/${placeId}/${encodeURIComponent(item.name)}`}
+                                                                className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3"
+                                                            >
+                                                                {content}
+                                                            </Link>
+                                                        ) : (
+                                                            <div className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3">
+                                                                {content}
+                                                            </div>
+                                                        )}
+                                                        {placeId && (
+                                                            <DishRateButton placeId={placeId} itemName={item.name} listId={itemListId} className="mr-4 sm:mr-5" />
+                                                        )}
                                                     </div>
                                                 );
                                             })}
@@ -1927,10 +1947,10 @@ export const PlacePage: React.FC = () => {
                                                 ? (officialItemsById.get(dish.itemId) ?? place.officialItemData?.[dish.name.trim().toLowerCase()])
                                                 : undefined;
                                             return (
+                                                <div key={idx} className="flex items-center hover:bg-[var(--lt-card)] transition-colors">
                                                 <Link
-                                                    key={idx}
                                                     to={`/group/${placeId}/${encodeURIComponent(dish.name)}`}
-                                                    className="flex items-center gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 hover:bg-[var(--lt-card)] transition-colors group"
+                                                    className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3 sm:py-4 group"
                                                 >
                                                     {/* Rank */}
                                                     <span className={`w-5 shrink-0 text-center font-display text-sm font-bold tabular-nums ${idx < 3 ? 'text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)]'}`}>{idx + 1}</span>
@@ -1961,7 +1981,7 @@ export const PlacePage: React.FC = () => {
                                                         <div className="flex min-w-0 items-center gap-2">
                                                             <MarqueeText text={dish.name} className="flex-1 font-semibold text-[var(--lt-text)] group-hover:text-[var(--lt-accent)] transition-colors text-sm sm:text-base" />
                                                             {isTop && (
-                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--lt-warning-soft)] text-[var(--lt-warning)] shrink-0">★ Top</span>
+                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">★ Top</span>
                                                             )}
                                                             {official && official.available === false && (
                                                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/25 shrink-0">No disponible</span>
@@ -1994,6 +2014,10 @@ export const PlacePage: React.FC = () => {
                                                         {dish.avg.toFixed(1)}
                                                     </span>
                                                 </Link>
+                                                {placeId && (
+                                                    <DishRateButton placeId={placeId} itemName={dish.name} listId={dish.listId} className="mr-4 sm:mr-5" />
+                                                )}
+                                                </div>
                                             );
                                         })}
                                     </div>

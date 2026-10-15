@@ -896,15 +896,7 @@ export const GroupPage: React.FC = () => {
                 {/* Main Content (Left) */}
                 <div className="order-2 lg:col-span-8 lg:order-first">
 
-                    {/* Cabecera de sección: título compacto + pestañas y vista en una fila */}
-                    <div className="mb-3">
-                        <h2 className="flex items-center gap-2 text-base md:text-xl font-display font-bold leading-tight text-[var(--lt-text)]">
-                            <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
-                                <MessageSquare className="w-3.5 h-3.5" />
-                            </span>
-                            <span className="truncate">Lo que dice la gente</span>
-                        </h2>
-                    </div>
+                    {/* Cabecera de sección: pestañas y vista en una fila (las pestañas ya titulan la sección) */}
                     <div className="flex items-center justify-between gap-2 mb-4">
                         <div className="flex min-w-0 gap-1 p-1 rounded-full bg-[var(--lt-card)] border border-[var(--lt-border)] overflow-x-auto hide-scrollbar">
                             <button

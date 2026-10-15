@@ -4,10 +4,10 @@ import { useInfiniteHits } from 'react-instantsearch';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { Maximize2, Minimize2, LocateFixed, Loader2, Layers } from 'lucide-react';
-import { MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
+import { MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY, createMapPinIcon, createUserLocationIcon } from '../utils/mapUtils';
+import { MapPopupCard } from './map/MapPopupCard';
 import type { MapLayerId, MapLayerConfig } from '../utils/mapUtils';
 import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/placeStatus';
-import { scoreBadge } from '../lib/scoreScale';
 import { NO_PUBLIC_RATING_LABEL, placeCardScore } from '../lib/placeRating';
 import { whenMapSized } from '../lib/mapMotion';
 
@@ -50,59 +50,7 @@ function isClosedStatus(value?: string | null) {
     return isClosedPlaceStatus(value);
 }
 
-// Icono de marcador para búsqueda — normal y resaltado
-function createSearchMarker(score: number, highlighted = false): L.DivIcon {
-    const s = isNaN(score) ? 0 : score;
-    const scoreText = s === 0 ? '?' : (s % 1 === 0 ? s.toFixed(0) : s.toFixed(1));
-    const fontSize = scoreText.length >= 3 ? 10 : 12;
-
-    // Sin nota pública («?»): gris neutro, no el rojo de una nota baja.
-    const bg = s === 0 ? '#64748b' : s >= 9 ? '#10b981' : s >= 7 ? '#6366f1' : s >= 5 ? '#f59e0b' : '#ef4444';
-    const r = highlighted ? 17 : 14;
-    const cx = highlighted ? 18 : 15;
-    const cy = highlighted ? 18 : 15;
-    const stemTop = cy + r + 1;
-    const stemBot = stemTop + 13;
-    const dotCy = stemBot + 2.5;
-    const totalW = highlighted ? 36 : 30;
-    const totalH = Math.ceil(dotCy + 3);
-
-    const ringHtml = highlighted
-        ? `<circle cx="${cx}" cy="${cy}" r="${r + 5}" fill="none" stroke="${bg}" stroke-width="2" opacity="0.4"/>`
-        : '';
-
-    const svgHtml = `
-<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}" overflow="visible">
-  <defs>
-    <filter id="sh-${scoreText}" x="-60%" y="-60%" width="220%" height="220%">
-      <feDropShadow dx="0" dy="2" stdDeviation="${highlighted ? 5 : 3}" flood-color="${bg}" flood-opacity="${highlighted ? 0.6 : 0.35}"/>
-    </filter>
-  </defs>
-  ${ringHtml}
-  <line x1="${cx}" y1="${stemTop}" x2="${cx}" y2="${stemBot}" stroke="${bg}" stroke-width="2" stroke-linecap="round" opacity="0.85"/>
-  <circle cx="${cx}" cy="${dotCy}" r="2.5" fill="${bg}" opacity="0.85"/>
-  <circle cx="${cx}" cy="${cy}" r="${r}" fill="white" stroke="${bg}" stroke-width="${highlighted ? 3 : 2.5}" filter="url(#sh-${scoreText})"/>
-  <text x="${cx}" y="${cy + 1}" dominant-baseline="middle" text-anchor="middle"
-    font-family="'Poppins','Inter',system-ui,sans-serif"
-    font-size="${fontSize}" font-weight="800" fill="${bg}">${scoreText}</text>
-</svg>`;
-
-    return L.divIcon({
-        html: svgHtml,
-        className: 'rating-marker',
-        iconSize: [totalW, totalH],
-        iconAnchor: [cx, totalH],
-        popupAnchor: [0, -(totalH + 4)],
-    });
-}
-
-// Icono de posición del usuario
-const userLocationIcon = L.divIcon({
-    html: `<div style="width:14px;height:14px;border-radius:50%;background:#6366f1;border:2.5px solid white;box-shadow:0 0 0 5px rgba(99,102,241,0.25)"></div>`,
-    className: '',
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-});
+const userLocationIcon = createUserLocationIcon();
 
 // Ajusta el encuadre del mapa cuando cambian los resultados
 function MapFitBounds({ items }: { items: { lat: number; lng: number; id: string }[] }) {
@@ -349,13 +297,12 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                         const href = isPlace
                             ? `/place/${hit.objectID}`
                             : `/group/${hit.placeId}/${encodeURIComponent(hit.itemName || hit.name || '')}`;
-                        const ratingBadge = scoreBadge(rating);
 
                         return (
                             <Marker
                                 key={hit.objectID}
                                 position={[hit._geoloc.lat, hit._geoloc.lng]}
-                                icon={createSearchMarker(rating, isHighlighted)}
+                                icon={createMapPinIcon({ score: rating, highlighted: isHighlighted })}
                                 zIndexOffset={isHighlighted ? 1000 : 0}
                                 eventHandlers={{
                                     click: () => onMarkerClick?.(hit.objectID),
@@ -363,46 +310,14 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                             >
                                 {/* Popup solo en modo full */}
                                 {mode === 'full' && (
-                                    <Popup closeButton={false} maxWidth={210} minWidth={200} className="listopic-popup">
-                                        <div style={{
-                                            width: 200, borderRadius: 14, overflow: 'hidden',
-                                            background: '#0f1629', border: '1px solid rgba(255,255,255,0.1)',
-                                            boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                                            fontFamily: "'Poppins', system-ui, sans-serif"
-                                        }}>
-                                            <div style={{ width: '100%', height: photo ? 90 : 70, background: '#1e2a45', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-                                                <span style={{ color: '#4b5563', fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase' }}>Sin foto</span>
-                                                {photo && (
-                                                    <img
-                                                        src={photo}
-                                                        alt={name}
-                                                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                                    />
-                                                )}
-                                            </div>
-                                            <div style={{ padding: '10px 12px 12px' }}>
-                                                <div style={{ fontWeight: 700, fontSize: 13, color: '#f9fafb', marginBottom: 5, lineHeight: 1.3 }}>{name}</div>
-                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                                                    <span style={{ fontSize: 11, color: '#9ca3af' }}>
-                                                        {reviewCount > 0 ? `${reviewCount} valoraciones` : placeScore ? NO_PUBLIC_RATING_LABEL : 'Sin valoraciones'}
-                                                    </span>
-                                                    {rating > 0 && (
-                                                        <span style={{ background: ratingBadge.bg, color: ratingBadge.fg, borderRadius: 6, padding: '2px 8px', fontWeight: 800, fontSize: 12 }}>
-                                                            ★ {rating.toFixed(1)}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <a href={href} style={{
-                                                    display: 'block', width: '100%', padding: '7px 0',
-                                                    background: '#4f46e5', color: '#fff', textAlign: 'center',
-                                                    fontWeight: 700, fontSize: 12, borderRadius: 8,
-                                                    textDecoration: 'none', boxSizing: 'border-box'
-                                                }}>
-                                                    Ver detalles →
-                                                </a>
-                                            </div>
-                                        </div>
+                                    <Popup closeButton={false} maxWidth={240} minWidth={230} className="listopic-popup">
+                                        <MapPopupCard
+                                            title={name}
+                                            to={href}
+                                            photoUrl={photo}
+                                            score={rating}
+                                            subtitle={reviewCount > 0 ? `${reviewCount} ${reviewCount === 1 ? 'valoración' : 'valoraciones'}` : placeScore ? NO_PUBLIC_RATING_LABEL : 'Sin valoraciones'}
+                                        />
                                     </Popup>
                                 )}
                             </Marker>
