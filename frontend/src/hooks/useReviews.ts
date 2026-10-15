@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useMemo } from 'react';
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { collection, collectionGroup, query, orderBy, limit, getDocs, where, startAfter, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
@@ -329,4 +329,43 @@ export const useReviews = (options: UseReviewsOptions | 'recent' | 'trending' | 
         hasMore: !!q.hasNextPage,
         loadingMore: q.isFetchingNextPage,
     };
+};
+
+// ---------------------------------------------------------------------------
+// «Recuerdos» de la Home: reseñas propias de hace un tiempo
+// ---------------------------------------------------------------------------
+
+const MEMORY_DAY_MS = 24 * 60 * 60 * 1000;
+const NO_MEMORIES: ReviewEntity[] = [];
+
+/**
+ * Reseñas del usuario con 3+ semanas (también las privadas: solo las ve él).
+ * Dos consultas acotadas: las 40 más recientes de esas y las de hace un año
+ * (±3 semanas), para que el aniversario salga aunque haya muchas reseñas.
+ */
+async function fetchMemoryReviews(uid: string): Promise<ReviewEntity[]> {
+    const now = Date.now();
+    const at = (daysAgo: number) => Timestamp.fromMillis(now - daysAgo * MEMORY_DAY_MS);
+    const base = collectionGroup(db, 'reviews');
+    const [older, yearAgo] = await Promise.all([
+        getDocs(query(base, where('userId', '==', uid), where('createdAt', '<=', at(21)), orderBy('createdAt', 'desc'), limit(40))),
+        getDocs(query(base, where('userId', '==', uid), where('createdAt', '>=', at(386)), where('createdAt', '<=', at(344)), orderBy('createdAt', 'desc'), limit(20))),
+    ]);
+    const byId = new Map<string, ReviewEntity>();
+    [...older.docs, ...yearAgo.docs].forEach((d) => {
+        const data = d.data() as any;
+        byId.set(d.id, { id: d.id, ...data, listId: data.listId || d.ref.parent.parent?.id } as ReviewEntity);
+    });
+    return enrichRawReviews(Array.from(byId.values()));
+}
+
+export const useMemoryReviews = (uid?: string | null): ReviewEntity[] => {
+    const q = useQuery({
+        queryKey: ['reviews', 'memories', uid ?? null],
+        enabled: !!uid,
+        staleTime: 60 * 60 * 1000,
+        gcTime: 2 * 60 * 60 * 1000,
+        queryFn: () => fetchMemoryReviews(uid!),
+    });
+    return q.data ?? NO_MEMORIES;
 };

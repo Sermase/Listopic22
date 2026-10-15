@@ -8,6 +8,14 @@ import { MarqueeText } from '../ui/MarqueeText';
 
 const FALLBACK_ICON = { dish: Utensils, place: MapPin, list: ListIcon, review: Utensils } as const;
 
+// Podio: oro, plata y bronce; del cuarto en adelante, neutro.
+const RANK_STYLE: Record<number, React.CSSProperties> = {
+    0: { background: 'rgba(0,0,0,0.55)', color: '#fff', backdropFilter: 'blur(8px)' },
+    1: { backgroundImage: 'linear-gradient(135deg, #fde68a, #f59e0b)', color: '#451a03' },
+    2: { backgroundImage: 'linear-gradient(135deg, #f1f5f9, #94a3b8)', color: '#0f172a' },
+    3: { backgroundImage: 'linear-gradient(135deg, #fdba74, #c2410c)', color: '#431407' },
+};
+
 /** Tarjeta de los carruseles de la Home (platos, sitios, listas y reseñas). */
 export const HomeFeedCard: React.FC<{ card: HomeFeedCardData }> = ({ card }) => {
     const Fallback = FALLBACK_ICON[card.kind];
@@ -35,7 +43,15 @@ export const HomeFeedCard: React.FC<{ card: HomeFeedCardData }> = ({ card }) => 
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-transparent" />
 
             <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
-                {isReview && card.authorName ? (
+                {card.rank ? (
+                    <span
+                        className="flex h-9 min-w-9 items-center justify-center rounded-full border border-white/15 px-2 font-display text-lg font-black leading-none shadow-lg"
+                        style={RANK_STYLE[card.rank] ?? RANK_STYLE[0]}
+                        aria-label={`Puesto ${card.rank}`}
+                    >
+                        #{card.rank}
+                    </span>
+                ) : isReview && card.authorName ? (
                     <span className="flex min-w-0 items-center gap-1.5 rounded-full border border-white/10 bg-black/45 py-0.5 pl-0.5 pr-2.5 backdrop-blur-md">
                         {card.authorPhoto ? (
                             <img src={card.authorPhoto} alt="" className="h-5 w-5 shrink-0 rounded-full object-cover" />

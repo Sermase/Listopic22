@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { getExpandedRangeValue, useFilters } from '../context/FilterContext';
 import { useLists } from '../hooks/useLists';
 import { useUsers } from '../hooks/useUsers';
-import { useReviews } from '../hooks/useReviews';
+import { useMemoryReviews, useReviews } from '../hooks/useReviews';
 import { ReviewCard } from '../components/ReviewCard';
 import { ReviewCardList } from '../components/ReviewCardList';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -15,7 +15,7 @@ import { computeTasteMatch } from '../utils/tasteMatch';
 import { WeeklyDuelBanner } from '../components/WeeklyDuelBanner';
 import { LazyMapView as MapView } from '../components/lazy';
 import { UserAvatar } from '../components/UserAvatar';
-import { Map as MapIcon, ChevronDown, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, TrendingUp, Gem, HeartHandshake, Rows3, Search, Utensils, Sparkles, Camera } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, TrendingUp, Gem, HeartHandshake, Rows3, Search, Utensils, Sparkles, Camera, Trophy, History } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, collectionGroup, query, getDocs, limit, doc, getDoc, getDocFromServer, onSnapshot, where } from 'firebase/firestore';
@@ -161,6 +161,8 @@ const HOME_FEED_LOOK: Record<string, { icon: React.ReactNode; accentClass: strin
     listas: { icon: <ListIcon className="w-5 h-5 text-blue-400" />, accentClass: 'bg-blue-500/20', searchType: 'lists', searchSort: 'most_reviewed' },
     novedades: { icon: <Sparkles className="w-5 h-5 text-cyan-300" />, accentClass: 'bg-cyan-500/20', searchType: 'places', searchSort: 'latest' },
     resenas: { icon: <Camera className="w-5 h-5 text-rose-400" />, accentClass: 'bg-rose-500/20', searchType: 'items', searchSort: 'latest' },
+    recuerdos: { icon: <History className="w-5 h-5 text-purple-300" />, accentClass: 'bg-purple-500/20', searchType: 'items' },
+    ranking: { icon: <Trophy className="w-5 h-5 text-yellow-400" />, accentClass: 'bg-yellow-500/20', searchType: 'items', searchSort: 'top_rated' },
     default: { icon: <Star className="w-5 h-5 text-amber-400" />, accentClass: 'bg-amber-500/20', searchType: 'items' },
 };
 const FAVORITE_REVIEW_MIN_RATING = 7.5;
@@ -668,6 +670,15 @@ export const HomePage: React.FC = () => {
             return matchesCategory && matchesDist;
         });
     }, [reviews, activeFilter, range, location, botUserIds, checkDistance]);
+
+    // «Recuerdos»: tus reseñas de hace un tiempo, con la misma zona y categoría.
+    const myMemories = useMemoryReviews(activeTab === 'explore' ? user?.uid : null);
+    const memoriesInRange = useMemo(() => myMemories.filter((r) => {
+        const geo = r as { placeLat?: number; lat?: number; placeLng?: number; lng?: number };
+        return checkCategory(r) && checkDistance(geo.placeLat || geo.lat, geo.placeLng || geo.lng, {
+            city: r.placeCity, province: r.placeProvince, region: r.placeRegion, country: r.placeCountry,
+        });
+    }), [myMemories, checkCategory, checkDistance]);
 
     const filteredItems = useMemo(() => {
         const base = [...reviewsInRange];
@@ -1256,12 +1267,13 @@ export const HomePage: React.FC = () => {
         seed: feedSeed,
         areaKey: homeFeedAreaKey(areaFilter, range),
         userId: user?.uid ?? null,
+        memories: memoriesInRange as unknown as HomeFeedReview[],
         // Lo que ya enseña el ranking (top 5 de cada pestaña) no se repite abajo.
         exclude: {
             placeIds: rankedPlaces.slice(0, 5).map((row) => row.key),
             dishKeys: rankedDishes.slice(0, 5).map((row) => row.key),
         },
-    }), [reviewsInRange, filteredPlaces, lists, topUsers, botUserIds, feedSeed, areaFilter, range, user?.uid, rankedPlaces, rankedDishes]);
+    }), [reviewsInRange, filteredPlaces, lists, topUsers, botUserIds, feedSeed, areaFilter, range, user?.uid, memoriesInRange, rankedPlaces, rankedDishes]);
     const firstName = (user?.displayName || '').trim().split(/\s+/)[0];
     const greeting = user ? `Hola${firstName ? `, ${firstName}` : ''}` : 'Bienvenido a Listopic';
 
@@ -1448,7 +1460,7 @@ export const HomePage: React.FC = () => {
                                         key={feed.id}
                                         title={feed.title}
                                         subtitle={feed.subtitle}
-                                        viewAllLink={buildCarouselSearchLink(look.searchType, look.searchSort)}
+                                        viewAllLink={feed.viewAllTo ?? buildCarouselSearchLink(look.searchType, look.searchSort)}
                                         items={feed.items}
                                         itemClassName="w-auto"
                                         icon={look.icon}

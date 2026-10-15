@@ -24,7 +24,7 @@
  *   seededWeightedOrder(items, idOf, weightOf, seed): T[]
  *   previousDaySeed(seed: string): string | null  '2026-10-15' → '2026-10-14'
  */
-import { rankPosition } from './scoring';
+import { compareByRank, rankPosition } from './scoring';
 import { encodeArea, type ListArea } from './geoAreas';
 import { DAY_MS, toMillis } from '../utils/adminTime';
 
@@ -113,6 +113,8 @@ export interface HomeFeedsInput {
     exclude?: { placeIds?: Iterable<string>; dishKeys?: Iterable<string>; listIds?: Iterable<string> };
     /** Tarjetas mínimas para mostrar un carrusel (por defecto 3; listas 2). */
     minItems?: number;
+    /** Reseñas antiguas del propio usuario (también privadas), ya filtradas por zona: «Recuerdos». */
+    memories?: ReadonlyArray<HomeFeedReview>;
 }
 
 // --- Tipos de salida ----------------------------------------------------------
@@ -145,6 +147,8 @@ export interface HomeFeedCard {
     authorPhoto?: string | null;
     comment?: string;
     createdAt?: number;
+    /** Puesto en un ranking (1, 2, 3…). */
+    rank?: number;
 }
 
 export interface HomeFeed {
@@ -153,6 +157,8 @@ export interface HomeFeed {
     subtitle?: string;
     kind: HomeFeedKind;
     items: HomeFeedCard[];
+    /** Destino de «Ver todo» cuando no es una búsqueda (la lista, tu perfil). */
+    viewAllTo?: string;
 }
 
 export interface FeaturedListCard extends HomeFeedCard {
@@ -324,14 +330,14 @@ interface CleanReview {
     placePublicCount: number;
 }
 
-function cleanReviews(reviews: ReadonlyArray<HomeFeedReview>, bots: Set<string>): CleanReview[] {
+function cleanReviews(reviews: ReadonlyArray<HomeFeedReview>, bots: Set<string>, allowPrivate = false): CleanReview[] {
     const out: CleanReview[] = [];
     const seen = new Set<string>();
     reviews.forEach((review) => {
         const id = str(review.id);
         const placeId = str(review.placeId);
         if (!id || !placeId || seen.has(id)) return;
-        if (review.visibility && review.visibility !== 'public') return;
+        if (!allowPrivate && review.visibility && review.visibility !== 'public') return;
         if (isPermanentlyClosed(review.placeClosedStatus)) return;
         const authorId = str(review.userId) || str(review.authorId);
         if (authorId && bots.has(authorId)) return;
@@ -529,7 +535,23 @@ export const FEED_TITLES = {
     listas: { title: 'Listas con sabor local', subtitle: 'Donde más se cuece por aquí' },
     novedades: { title: 'Recién llegados', subtitle: 'Acaban de aterrizar en Listopic' },
     resenas: { title: 'Reseñas que dan hambre', subtitle: 'Con foto, con chicha y con nota' },
+    recuerdos: { title: 'Recuerdos', subtitle: 'Lo que probaste hace un tiempo. ¿Repetimos?' },
+    ranking: { title: 'El top de una lista', subtitle: 'Lo mejor de una lista, en tu zona' },
 } as const;
+
+/** Orden en que se pintan los carruseles (se calculan en otro orden). */
+const FEED_ORDER = ['platos', 'recuerdos', 'ranking', 'joyas', 'listas', 'novedades', 'resenas'];
+
+/** Aniversarios de «Recuerdos» (días atrás) y su margen. */
+const MEMORY_MIN_AGE_DAYS = 21;
+const MEMORY_ANNIVERSARIES: ReadonlyArray<[number, number]> = [[30, 5], [91, 10], [182, 14], [365, 21], [730, 30]];
+
+/** «Hace 3 semanas», «Hace 4 meses», «Hace 1 año». */
+export function memoryAgoLabel(days: number): string {
+    if (days < 60) return `Hace ${plural(Math.max(1, Math.round(days / 7)), 'semana', 'semanas')}`;
+    if (days < 335) return `Hace ${plural(Math.round(days / 30.4), 'mes', 'meses')}`;
+    return `Hace ${plural(Math.max(1, Math.round(days / 365)), 'año', 'años')}`;
+}
 
 export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
     const minItems = Math.max(1, input.minItems ?? 3);
@@ -649,17 +671,114 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
     }
 
     const feeds: HomeFeed[] = [];
-    const pushFeed = (id: keyof typeof FEED_TITLES, kind: HomeFeedKind, items: HomeFeedCard[], min = minItems) => {
+    const pushFeed = (
+        id: keyof typeof FEED_TITLES,
+        kind: HomeFeedKind,
+        items: HomeFeedCard[],
+        min = minItems,
+        extra: { title?: string; subtitle?: string; viewAllTo?: string; claimPlaces?: boolean } = {},
+    ) => {
         if (items.length < min) return;
         const meta = FEED_TITLES[id];
         if (typeof meta === 'string') return;
         items.forEach((item) => {
             used.add(item.key);
-            if (item.placeId) used.add(`place:${item.placeId}`);
-            if (item.kind === 'review' && item.placeId && item.itemName) used.add(`dish:${dishKeyOf(item.placeId, item.itemName)}`);
+            if (item.placeId && extra.claimPlaces !== false) used.add(`place:${item.placeId}`);
+            if (item.placeId && item.itemName) used.add(`dish:${dishKeyOf(item.placeId, item.itemName)}`);
         });
-        feeds.push({ id, title: meta.title, subtitle: meta.subtitle, kind, items });
+        feeds.push({
+            id,
+            title: extra.title ?? meta.title,
+            subtitle: extra.subtitle ?? meta.subtitle,
+            kind,
+            items,
+            ...(extra.viewAllTo ? { viewAllTo: extra.viewAllTo } : {}),
+        });
     };
+
+    let rankingList: ListAreaStats | null = null;
+
+    // --- 0. El top 5 de una lista (ranking fiel: va primero y sus platos no se repiten
+    // abajo; sus sitios sí pueden salir con otro plato, que con pocos datos no hay para todos).
+    {
+        type RankGroup = DishGroup & { sum: number; photoRating: number };
+        const byList = new Map<string, Map<string, RankGroup>>();
+        clean.forEach((review) => {
+            if (!review.listId) return;
+            const placeName = review.placeName || placeAgg.get(review.placeId)?.name || '';
+            if (!placeName) return;
+            const groups = byList.get(review.listId) ?? new Map<string, RankGroup>();
+            const group: RankGroup = groups.get(review.dishKey) ?? {
+                key: review.dishKey, placeId: review.placeId, placeName, itemName: review.itemName,
+                listId: review.listId, listName: review.listName, count: 0, avg: 0, sum: 0,
+                authors: new Set<string>(), photo: null, triedByMe: false, photoRating: -1,
+            };
+            group.count += 1;
+            group.sum += review.rating;
+            group.avg = group.sum / group.count;
+            if (review.authorId) group.authors.add(review.authorId);
+            if (review.photo && review.rating > group.photoRating) {
+                group.photo = review.photo;
+                group.photoRating = review.rating;
+            }
+            groups.set(review.dishKey, group);
+            byList.set(review.listId, groups);
+        });
+        const related = (list: ListAreaStats) => !!featuredList
+            && (list.id === featuredList.id || list.parentListId === featuredList.id || list.id === featuredList.parentListId);
+        const candidates = listStats
+            .filter((list) => !related(list))
+            .map((list) => {
+                const ranked = Array.from(byList.get(list.id)?.values() ?? [])
+                    .sort((a, b) => compareByRank({ average: a.avg, count: a.count }, { average: b.avg, count: b.count })
+                        || (a.key < b.key ? -1 : 1));
+                const rows = takeWithCaps(ranked, 5, [{ keyOf: (g) => g.placeId, max: 1 }]);
+                return { list, rows };
+            })
+            .filter((c) => c.rows.length >= Math.max(3, minItems));
+        // Mejor una lista cuyo podio no esté ya a la vista (ranking de arriba, portada).
+        const overlap = (c: (typeof candidates)[number]) => c.rows.slice(0, 3)
+            .filter((g) => used.has(`dish:${g.key}`) || used.has(`place:${g.placeId}`)).length;
+        const weight = (c: (typeof candidates)[number]) =>
+            (scoreOf.get(c.list.id) ?? 0.1) ** 2
+            * (1 + 0.2 * c.rows.length)
+            * (c.rows.filter((g) => g.photo).length >= 2 ? 1 : 0.5)
+            * 0.35 ** overlap(c);
+        let pool = candidates;
+        const prevRanking = prevSeedFor('ranking');
+        if (prevRanking && candidates.length >= 2) {
+            const yesterday = seededWeightedOrder(candidates, (c) => c.list.id, weight, prevRanking)[0];
+            pool = candidates.filter((c) => c.list.id !== yesterday.list.id);
+        }
+        const chosen = seededWeightedOrder(pool, (c) => c.list.id, weight, seedFor('ranking'))[0];
+        if (chosen) {
+            rankingList = chosen.list;
+            used.add(`list:${chosen.list.id}`);
+            const reviewsInList = chosen.rows.reduce((total, g) => total + g.count, 0);
+            pushFeed('ranking', 'dish', chosen.rows.map((g, index) => ({
+                key: `dish:${g.key}`,
+                kind: 'dish' as const,
+                id: g.key,
+                title: g.itemName,
+                subtitle: g.placeName,
+                photoUrl: g.photo || placeAgg.get(g.placeId)?.photo || null,
+                rating: round1(g.avg),
+                count: g.count,
+                to: groupPath(g.placeId, g.itemName),
+                placeId: g.placeId,
+                placeName: g.placeName,
+                itemName: g.itemName,
+                listId: chosen.list.id,
+                listName: chosen.list.name,
+                rank: index + 1,
+            })), Math.max(3, minItems), {
+                title: `El top: ${chosen.list.name}`,
+                subtitle: `Según ${plural(reviewsInList, 'valoración', 'valoraciones')} de tu zona`,
+                viewAllTo: `/list/${chosen.list.id}`,
+                claimPlaces: false,
+            });
+        }
+    }
 
     // --- 1. Hoy te toca probar… (platos con foto y buena nota) ---------------
     {
@@ -721,6 +840,46 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
         })));
     }
 
+    // --- 1b. Recuerdos (tus reseñas de hace un tiempo, también las privadas) --
+    if (me && now > 0 && input.memories?.length) {
+        const mine = cleanReviews(input.memories, new Set(), true).filter((review) =>
+            review.authorId === me
+            && review.placeName
+            && review.createdAt > 0
+            && now - review.createdAt >= MEMORY_MIN_AGE_DAYS * DAY_MS
+            && !used.has(`dish:${review.dishKey}`));
+        const ageDays = (review: CleanReview) => (now - review.createdAt) / DAY_MS;
+        const isAnniversary = (review: CleanReview) =>
+            MEMORY_ANNIVERSARIES.some(([days, margin]) => Math.abs(ageDays(review) - days) <= margin);
+        const base = (review: CleanReview) =>
+            (review.rating >= 8 ? 2 : review.rating >= 6.5 ? 1 : 0.3)
+            * (isAnniversary(review) ? 3 : 1)
+            * (review.photo ? 1.3 : 1);
+        const yesterday = yesterdayTop(mine, (r) => r.id, base, prevSeedFor('recuerdos'), 3);
+        const ordered = seededWeightedOrder(mine, (r) => r.id, (r) => base(r) * (yesterday.has(r.id) ? 0.3 : 1), seedFor('recuerdos'));
+        const picked = takeWithCaps(ordered, 8, [{ keyOf: (r) => r.placeId, max: 1 }]);
+        // Tus recuerdos no le quitan sitios a los demás carruseles: solo ese plato.
+        pushFeed('recuerdos', 'review', picked.map((r) => ({
+            key: `review:${r.id}`,
+            kind: 'review' as const,
+            id: r.id,
+            title: r.itemName,
+            subtitle: r.placeName,
+            badge: memoryAgoLabel(Math.floor(ageDays(r))),
+            photoUrl: r.photo || r.placeImage,
+            rating: round1(r.rating),
+            count: 1,
+            to: groupPath(r.placeId, r.itemName),
+            placeId: r.placeId,
+            placeName: r.placeName,
+            itemName: r.itemName,
+            listId: r.listId || undefined,
+            listName: r.listName || undefined,
+            comment: r.comment || undefined,
+            createdAt: r.createdAt,
+        })), minItems, { viewAllTo: '/profile', claimPlaces: false });
+    }
+
     // --- 2. Joyas por descubrir (nota alta, pocas reseñas reales) ------------
     {
         const all = Array.from(placeAgg.values()).filter((p) => p.rating > 0 && p.realCount >= 1);
@@ -765,7 +924,8 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
         const picked = takeWithCaps(ordered, 8, [
             { keyOf: (l) => l.parentListId || l.id, max: 1 },
             { keyOf: (l) => l.categoryId, max: 3 },
-        ], (l) => !(featuredList && (l.parentListId === featuredList.id || l.id === featuredList.parentListId)));
+        ], (l) => ![featuredList, rankingList].some((shown) => shown
+            && (l.parentListId === shown.id || l.id === shown.parentListId)));
         pushFeed('listas', 'list', picked.map((l) => ({
             key: `list:${l.id}`,
             kind: 'list' as const,
@@ -872,5 +1032,6 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
         }));
     }
 
+    feeds.sort((a, b) => FEED_ORDER.indexOf(a.id) - FEED_ORDER.indexOf(b.id));
     return { featuredList, feeds };
 }
