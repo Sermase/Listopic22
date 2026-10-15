@@ -15,7 +15,7 @@ import { computeTasteMatch } from '../utils/tasteMatch';
 import { WeeklyDuelBanner } from '../components/WeeklyDuelBanner';
 import { LazyMapView as MapView } from '../components/lazy';
 import { UserAvatar } from '../components/UserAvatar';
-import { Map as MapIcon, ChevronDown, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, TrendingUp, Gem, HeartHandshake, Rows3, Search } from 'lucide-react';
+import { Map as MapIcon, ChevronDown, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, TrendingUp, Gem, HeartHandshake, Rows3, Search, Utensils, Sparkles, Camera } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, collectionGroup, query, getDocs, limit, doc, getDoc, getDocFromServer, onSnapshot, where } from 'firebase/firestore';
@@ -27,6 +27,8 @@ import { Footer } from '../components/Footer';
 import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import { FeaturedListCard } from '../components/home/FeaturedListCard';
 import { HomeRanking, type RankingRow } from '../components/home/HomeRanking';
+import { HomeFeedCard } from '../components/home/HomeFeedCard';
+import { buildHomeFeeds, homeFeedAreaKey, isJunkName, isPermanentlyClosed, type HomeFeedCard as HomeFeedCardData, type HomeFeedReview } from '../lib/homeFeeds';
 import {
     completeUserProfileSetup,
     getUsernameGateStatus,
@@ -148,6 +150,19 @@ const getErrorCode = (error: unknown): string | null => {
 
 const clampScore = (value: number): number => Math.max(0, Math.min(100, Math.round(value)));
 const HIDDEN_GEM_MIN_RATING = 8.4;
+// Carruseles antiguos de la Home (listas, joyas, recientes, usuarios, que gustan).
+// Apagados desde que llegaron los de lib/homeFeeds; poner a true para recuperarlos.
+const SHOW_LEGACY_HOME_CAROUSELS = false;
+
+// Aspecto y enlace «Ver todo» de cada carrusel de lib/homeFeeds.
+const HOME_FEED_LOOK: Record<string, { icon: React.ReactNode; accentClass: string; searchType: 'lists' | 'places' | 'items'; searchSort?: string }> = {
+    platos: { icon: <Utensils className="w-5 h-5 text-amber-400" />, accentClass: 'bg-amber-500/20', searchType: 'items', searchSort: 'top_rated' },
+    joyas: { icon: <Gem className="w-5 h-5 text-emerald-300" />, accentClass: 'bg-emerald-500/20', searchType: 'places', searchSort: 'rating' },
+    listas: { icon: <ListIcon className="w-5 h-5 text-blue-400" />, accentClass: 'bg-blue-500/20', searchType: 'lists', searchSort: 'most_reviewed' },
+    novedades: { icon: <Sparkles className="w-5 h-5 text-cyan-300" />, accentClass: 'bg-cyan-500/20', searchType: 'places', searchSort: 'latest' },
+    resenas: { icon: <Camera className="w-5 h-5 text-rose-400" />, accentClass: 'bg-rose-500/20', searchType: 'items', searchSort: 'latest' },
+    default: { icon: <Star className="w-5 h-5 text-amber-400" />, accentClass: 'bg-amber-500/20', searchType: 'items' },
+};
 const FAVORITE_REVIEW_MIN_RATING = 7.5;
 
 export const HomePage: React.FC = () => {
@@ -193,6 +208,12 @@ export const HomePage: React.FC = () => {
         bio: '',
     });
     const [heroSubtitle] = useState<string>(() => pickRandomHeroSubtitle());
+    const [homeSearch, setHomeSearch] = useState('');
+    // Semilla del día (fecha local): los carruseles rotan cada día, no en cada render.
+    const [feedSeed] = useState(() => {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    });
     const [loadingMessageIndex, setLoadingMessageIndex] = useState<number>(() => Math.floor(Math.random() * HOME_LOADING_MESSAGES.length));
 
     const parsedHeroSubtitle = useMemo(() => {
@@ -673,7 +694,7 @@ export const HomePage: React.FC = () => {
     // 4b. Carousel Reviews (Specific Logic: Last 2 Months + Top Liked + Filtered by Range/Cat)
     const carouselReviews = useMemo(() => {
         // "Reseñas que gustan" (Trending/Liked in range)
-        return reviewsInRange
+        return [...reviewsInRange]
             .sort((a, b) => (b.reactionCounts?.like || 0) - (a.reactionCounts?.like || 0))
             .slice(0, 15);
     }, [reviewsInRange]);
@@ -770,7 +791,9 @@ export const HomePage: React.FC = () => {
                         reviewsCount: 1,
                         closedStatus: (r as any).placeClosedStatus || null,
                         lat, lng,
-                        items: [] // Can populate if needed
+                        items: [], // Can populate if needed
+                        // Sacado de una reseña: su nota puede ser la de esa reseña, no la media pública.
+                        fromReviews: true
                     });
                 }
             }
@@ -1182,8 +1205,10 @@ export const HomePage: React.FC = () => {
         const groups = new Map<string, { row: RankingRow; sum: number; count: number }>();
         reviewsInRange.forEach((r: any) => {
             if (!r.placeId || typeof r.overallRating !== 'number' || !Number.isFinite(r.overallRating)) return;
-            const name = String(r.itemName || r.placeName || '').trim();
-            if (!name) return;
+            if (r.visibility && r.visibility !== 'public') return;
+            if (isPermanentlyClosed(r.placeClosedStatus)) return;
+            const name = String(r.itemName || '').trim();
+            if (!name || isJunkName(name)) return;
             const key = `${r.placeId}::${name.toLowerCase()}`;
             const existing = groups.get(key);
             if (existing) {
@@ -1221,45 +1246,78 @@ export const HomePage: React.FC = () => {
         score: typeof place.rating === 'number' ? place.rating : null,
     })), [filteredPlaces]);
 
-    const featuredList = listCarouselItems[0] as any;
+    const homeFeeds = useMemo(() => buildHomeFeeds({
+        reviews: reviewsInRange as unknown as HomeFeedReview[],
+        // Los sitios sacados de reseñas los reconstruye homeFeeds con reseñas ya limpias.
+        places: filteredPlaces.filter((place: { fromReviews?: boolean }) => !place.fromReviews),
+        lists,
+        users: topUsers,
+        botUserIds,
+        seed: feedSeed,
+        areaKey: homeFeedAreaKey(areaFilter, range),
+        userId: user?.uid ?? null,
+        // Lo que ya enseña el ranking (top 5 de cada pestaña) no se repite abajo.
+        exclude: {
+            placeIds: rankedPlaces.slice(0, 5).map((row) => row.key),
+            dishKeys: rankedDishes.slice(0, 5).map((row) => row.key),
+        },
+    }), [reviewsInRange, filteredPlaces, lists, topUsers, botUserIds, feedSeed, areaFilter, range, user?.uid, rankedPlaces, rankedDishes]);
     const firstName = (user?.displayName || '').trim().split(/\s+/)[0];
     const greeting = user ? `Hola${firstName ? `, ${firstName}` : ''}` : 'Bienvenido a Listopic';
-    const heroTitle = areaFilter.kind === 'near' ? 'Lo mejor cerca de ti' : 'Lo mejor de tu zona';
 
     return (
         <>
             <div className="min-h-screen bg-[var(--lt-bg)] pb-20 font-sans">
                 <div className="pt-safe-24 px-4 pb-6">
 
-                    {/* Cabecera: saludo, titular con gancho y buscador */}
+                    {/* Cabecera: saludo, frase con gancho y buscador */}
                     <div className="max-w-4xl mx-auto pt-2 sm:pt-6 relative z-10">
                         <div className="absolute -top-16 right-0 w-72 h-72 rounded-full blur-[90px] pointer-events-none -z-10 opacity-80" style={{ backgroundColor: 'var(--lt-accent-soft)' }} />
                         <p className="text-sm font-semibold text-[var(--lt-text-muted)]">{greeting}</p>
-                        <h1 className="mt-1 text-[2.25rem] leading-[1.05] md:text-6xl font-bold tracking-tight text-[var(--lt-text)] [text-wrap:balance]">
-                            {heroTitle}
-                        </h1>
-                        <p className="mt-3 max-w-2xl text-base md:text-lg text-[var(--lt-text-muted)] leading-relaxed">
+                        <h1 className="mt-1 text-[1.9rem] leading-[1.12] md:text-5xl font-bold tracking-tight text-[var(--lt-text)] [text-wrap:balance]">
                             {parsedHeroSubtitle.map((segment) => (
                                 segment.isHighlight ? (
-                                    <span key={segment.key} className={`${segment.className} font-bold`}>
+                                    <span key={segment.key} className={segment.className}>
                                         {segment.text}
                                     </span>
                                 ) : (
                                     <React.Fragment key={segment.key}>{segment.text}</React.Fragment>
                                 )
                             ))}
-                        </p>
-                        <Link
-                            to="/search"
-                            className="mt-5 flex items-center gap-3 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] px-4 py-3.5 text-[var(--lt-text-muted)] backdrop-blur-xl transition-colors hover:border-[var(--lt-border-strong)] hover:text-[var(--lt-text)]"
+                        </h1>
+                        <form
+                            role="search"
+                            onSubmit={(event) => {
+                                event.preventDefault();
+                                const q = homeSearch.trim();
+                                navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search');
+                            }}
+                            className="mt-5 flex items-center gap-2 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] pl-4 pr-1.5 py-1.5 backdrop-blur-xl transition-colors focus-within:border-[var(--lt-accent-border)]"
                         >
-                            <Search className="w-5 h-5 shrink-0 text-[var(--lt-accent)]" />
-                            <span className="truncate text-sm sm:text-base">Busca platos, sitios o listas</span>
-                        </Link>
+                            <Search className="w-5 h-5 shrink-0 text-[var(--lt-accent)]" aria-hidden="true" />
+                            <label htmlFor="home-search" className="sr-only">Buscar en Listopic</label>
+                            <input
+                                id="home-search"
+                                type="search"
+                                enterKeyHint="search"
+                                autoComplete="off"
+                                value={homeSearch}
+                                onChange={(event) => setHomeSearch(event.target.value)}
+                                placeholder="Busca platos, sitios o listas"
+                                className="min-w-0 flex-1 bg-transparent py-2 text-sm sm:text-base text-[var(--lt-text)] placeholder:text-[var(--lt-text-muted)] outline-none"
+                            />
+                            <button
+                                type="submit"
+                                className="shrink-0 rounded-xl px-3.5 py-2 text-sm font-bold lt-on-accent transition-opacity hover:opacity-90"
+                                style={{ backgroundImage: 'var(--lt-accent-grad)' }}
+                            >
+                                Buscar
+                            </button>
+                        </form>
                     </div>
 
                     {/* Navigation Pills */}
-                    <div className="max-w-4xl mx-auto flex flex-col items-start mt-6 gap-3">
+                    <div className="max-w-4xl mx-auto flex flex-col items-center mt-6 gap-3">
                         <div className="inline-flex bg-white/5 backdrop-blur-xl p-1.5 rounded-full border border-white/10 shadow-inner">
                             <button
                                 onClick={() => setActiveTab('explore')}
@@ -1367,7 +1425,7 @@ export const HomePage: React.FC = () => {
                     {/* Portada y ranking: lo primero que se ve al bajar */}
                     {activeTab === 'explore' && (
                         <div className="max-w-4xl mx-auto mt-8 mb-8 space-y-8">
-                            {featuredList && <FeaturedListCard list={featuredList} />}
+                            {homeFeeds.featuredList && <FeaturedListCard list={homeFeeds.featuredList} />}
                             <HomeRanking
                                 dishes={rankedDishes}
                                 places={rankedPlaces}
@@ -1382,8 +1440,26 @@ export const HomePage: React.FC = () => {
 
 
                         {activeTab === 'explore' && (<>
+                            {/* Carruseles nuevos (lib/homeFeeds): en tu zona y rotando cada día. */}
+                            {homeFeeds.feeds.map((feed) => {
+                                const look = HOME_FEED_LOOK[feed.id] ?? HOME_FEED_LOOK.default;
+                                return (
+                                    <CardCarousel
+                                        key={feed.id}
+                                        title={feed.title}
+                                        subtitle={feed.subtitle}
+                                        viewAllLink={buildCarouselSearchLink(look.searchType, look.searchSort)}
+                                        items={feed.items}
+                                        itemClassName="w-auto"
+                                        icon={look.icon}
+                                        accentClass={look.accentClass}
+                                        renderItem={(card: HomeFeedCardData) => <HomeFeedCard card={card} />}
+                                    />
+                                );
+                            })}
+
                             {/* 1. Listas */}
-                            <CardCarousel
+                            {SHOW_LEGACY_HOME_CAROUSELS && <CardCarousel
                                 title={activeTab === 'explore' ? "Más listas con movimiento" : "Listas recientes"}
                                 viewAllLink={buildCarouselSearchLink('lists', activeTab === 'explore' ? 'most_reviewed' : 'latest')}
                                 items={activeTab === 'explore'
@@ -1427,10 +1503,10 @@ export const HomePage: React.FC = () => {
                                         </div>
                                     </Link>
                                 )}
-                            />
+                            />}
 
                             {/* 2b. Joyas ocultas */}
-                            <CardCarousel
+                            {SHOW_LEGACY_HOME_CAROUSELS && <CardCarousel
                                 title="Joyas ocultas"
                                 subtitle="Buena nota y pocas valoraciones."
                                 viewAllLink={buildCarouselSearchLink('places', 'rating')}
@@ -1490,10 +1566,10 @@ export const HomePage: React.FC = () => {
                                         </Link>
                                     );
                                 }}
-                            />
+                            />}
 
                             {/* 3. Reseñas Recientes */}
-                            <CardCarousel
+                            {SHOW_LEGACY_HOME_CAROUSELS && <CardCarousel
                                 title="Valoraciones recientes"
                                 viewAllLink={buildCarouselSearchLink('items', 'latest')}
                                 items={recentReviewsInRange}
@@ -1503,7 +1579,7 @@ export const HomePage: React.FC = () => {
                                 renderItem={(item: any) => (
                                     <ReviewCarouselItem review={item} variant="review" />
                                 )}
-                            />
+                            />}
 
                             {appConfig.showAffinityCarousel && (
                                 <CardCarousel
@@ -1551,7 +1627,7 @@ export const HomePage: React.FC = () => {
                             )}
 
                             {/* 5. Usuarios activos */}
-                            <CardCarousel
+                            {SHOW_LEGACY_HOME_CAROUSELS && <CardCarousel
                                 title="Usuarios activos"
                                 viewAllLink={buildCarouselSearchLink('users')}
                                 items={activeUsersInRange}
@@ -1576,7 +1652,7 @@ export const HomePage: React.FC = () => {
                                         </div>
                                     </Link>
                                 )}
-                            />
+                            />}
 
                         </>)}
 
@@ -1646,7 +1722,7 @@ export const HomePage: React.FC = () => {
                                     </div>
                                 )}
                             </div>
-                        ) : (
+                        ) : SHOW_LEGACY_HOME_CAROUSELS ? (
 
                             <CardCarousel
                                 title="Valoraciones que gustan"
@@ -1660,7 +1736,7 @@ export const HomePage: React.FC = () => {
                                     <ReviewCarouselItem review={review} />
                                 )}
                             />
-                        )}
+                        ) : null}
 
                     </div>
                 </div>

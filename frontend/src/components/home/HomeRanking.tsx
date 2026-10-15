@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronRight, MapPin, Utensils } from 'lucide-react';
 import { ProgressiveImage } from '../ProgressiveImage';
 import { scoreBadgeStyle } from '../../lib/scoreScale';
+import { MarqueeText } from '../ui/MarqueeText';
 
 export interface RankingRow {
     key: string;
@@ -34,7 +35,13 @@ const Row: React.FC<{ row: RankingRow; position: number; fallbackIcon: React.Ele
             </span>
             <span className="relative h-12 w-12 overflow-hidden rounded-xl bg-[var(--lt-glass)]">
                 {row.imageUrl ? (
-                    <ProgressiveImage src={row.imageUrl} alt="" containerClassName="h-full w-full" className="h-full w-full object-cover" />
+                    <ProgressiveImage
+                        src={row.imageUrl}
+                        alt=""
+                        containerClassName="h-full w-full"
+                        className="h-full w-full object-cover"
+                        fallback={<span className="flex h-full w-full items-center justify-center text-[var(--lt-text-muted)]"><Fallback className="h-5 w-5" /></span>}
+                    />
                 ) : (
                     <span className="flex h-full w-full items-center justify-center text-[var(--lt-text-muted)]">
                         <Fallback className="h-5 w-5" />
@@ -42,9 +49,9 @@ const Row: React.FC<{ row: RankingRow; position: number; fallbackIcon: React.Ele
                 )}
             </span>
             <span className="min-w-0">
-                <span className="block truncate text-sm font-bold text-[var(--lt-text)]">{row.title}</span>
+                <MarqueeText text={row.title} className="text-sm font-bold text-[var(--lt-text)]" />
                 {row.subtitle && (
-                    <span className="block truncate text-xs text-[var(--lt-text-muted)]">{row.subtitle}</span>
+                    <MarqueeText text={row.subtitle} className="text-xs text-[var(--lt-text-muted)]" />
                 )}
             </span>
             <span
@@ -67,10 +74,10 @@ export const HomeRanking: React.FC<HomeRankingProps> = ({ dishes, places, dishes
 
     return (
         <section className="w-full">
-            <div className="mb-3 flex items-end justify-between gap-3">
-                <div>
-                    <h2 className="font-display text-xl font-bold text-[var(--lt-text)] md:text-2xl">Lo mejor valorado</h2>
-                    <p className="text-sm text-[var(--lt-text-muted)]">En tu zona, según la comunidad.</p>
+            <div className="mb-2.5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                    <h2 className="truncate font-display text-base font-bold leading-tight text-[var(--lt-text)] md:text-xl">Lo mejor valorado</h2>
+                    <p className="mt-0.5 truncate text-xs font-medium text-[var(--lt-text-muted)]">En tu zona, según la comunidad.</p>
                 </div>
                 <div role="tablist" aria-label="Tipo de ranking" className="flex shrink-0 rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] p-1">
                     {([['dishes', 'Platos'], ['places', 'Sitios']] as const).map(([id, label]) => (

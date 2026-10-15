@@ -1380,3 +1380,26 @@ html.theme-light .lt-media-card .bg-black\/60 { background-color: rgba(0, 0, 0, 
 html.theme-light .lt-on-accent {
     color: #ffffff !important;
 }
+
+/* MarqueeText: títulos que no caben se desplazan para leerse enteros. */
+.lt-marquee-on {
+    -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 6px, #000 calc(100% - 14px), transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0, #000 6px, #000 calc(100% - 14px), transparent 100%);
+}
+
+.lt-marquee-track {
+    display: inline-flex;
+    will-change: transform;
+    animation: lt-marquee var(--lt-marquee-duration, 8s) linear infinite;
+}
+
+@keyframes lt-marquee {
+    0%, 18% { transform: translateX(0); }
+    100% { transform: translateX(var(--lt-marquee-shift, 0)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lt-marquee-track { animation: none; display: inline; }
+    .lt-marquee-dup { display: none; }
+    .lt-marquee-on { -webkit-mask-image: none; mask-image: none; text-overflow: ellipsis; }
+}

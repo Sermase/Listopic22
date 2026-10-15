@@ -8,6 +8,7 @@ import { firstUsablePlaceImage } from '../utils/placeImages';
 import { getCachedDocs } from '../lib/queryCache';
 import { fetchUserReviewsFromAccessibleLists } from '../lib/reviewFallbacks';
 import { normalizeCcaa } from '../lib/geoAreas';
+import { resolveClosedStatus } from '../utils/placeStatus';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -50,6 +51,8 @@ const enrichRawReviews = async (rawReviews: ReviewEntity[]): Promise<ReviewEntit
             placeMainImage: firstUsablePlaceImage(place?.userPhotoUrl, place?.mainImageUrl, place?.photos),
             placeAverageRating: place?.averageRating,
             placeReviewsCount: place?.reviewsCount,
+            // Solo estados de cierre reales (no «OPERATIONAL» de Google).
+            placeClosedStatus: resolveClosedStatus(place?.closedStatus, place?.googleBusinessStatus, place?.businessStatus),
             placeAddress: place?.address,
             authorName: user?.username || user?.displayName || user?.name || reviewAny.authorName,
             authorPhoto: user?.photoUrl || user?.photoURL || reviewAny.authorPhoto,

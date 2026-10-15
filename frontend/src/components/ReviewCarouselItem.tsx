@@ -4,6 +4,7 @@ import { MapPin } from 'lucide-react';
 import { type ReviewEntity } from '../hooks/useListDetails';
 import { getUserTypeGradient } from './UserAvatar';
 import { ProgressiveImage } from './ProgressiveImage';
+import { MarqueeText } from './ui/MarqueeText';
 
 import { scoreBadgeStyle } from '../lib/scoreScale';
 interface ReviewCarouselItemProps {
@@ -94,15 +95,15 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
 
             {/* Bottom Content */}
             <div className="absolute bottom-3 left-3 right-3 z-10 text-left">
-                <h3 className="text-white font-bold text-sm leading-tight mb-0.5 line-clamp-1 group-hover:text-[var(--lt-accent)] transition-colors">
-                    {review.itemName}
-                </h3>
+                <MarqueeText
+                    as="h3"
+                    text={review.itemName || ''}
+                    className="text-white font-bold text-sm leading-tight mb-0.5 group-hover:text-[var(--lt-accent)] transition-colors"
+                />
 
                 <div className="flex items-center gap-1 text-[10px] text-gray-400 mb-1">
                     <MapPin className="w-3 h-3 flex-shrink-0" />
-                    <span className="truncate">
-                        {review.placeName}
-                    </span>
+                    <MarqueeText text={review.placeName || ''} className="flex-1" />
                 </div>
 
                 {/* Tags */}

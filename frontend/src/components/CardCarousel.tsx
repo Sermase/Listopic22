@@ -31,42 +31,40 @@ export function CardCarousel<T>({
 
     return (
         <section className="py-2">
-            <div className="container mx-auto px-4 mb-3 flex items-end justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                    {icon && (
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 [&>svg]:w-4 [&>svg]:h-4 ${accentClass}`}>
-                            {icon}
-                        </div>
-                    )}
-                    <div className="min-w-0">
-                        <h2 className="text-lg md:text-2xl font-display font-bold leading-tight text-[var(--lt-text)]">
-                            {title}
-                        </h2>
-                        {subtitle && (
-                            <p className="text-sm text-[var(--lt-text-muted)] font-medium">
-                                {subtitle}
-                            </p>
+            <div className="container mx-auto px-4 mb-2.5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                    <h2 className="flex items-center gap-2 text-base md:text-xl font-display font-bold leading-tight text-[var(--lt-text)]">
+                        {icon && (
+                            <span className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 [&>svg]:w-3.5 [&>svg]:h-3.5 ${accentClass}`}>
+                                {icon}
+                            </span>
                         )}
-                    </div>
+                        <span className="truncate">{title}</span>
+                    </h2>
+                    {subtitle && (
+                        <p className="mt-0.5 truncate text-xs text-[var(--lt-text-muted)] font-medium">
+                            {subtitle}
+                        </p>
+                    )}
                 </div>
                 {viewAllLink && (
                     <Link
                         to={viewAllLink}
-                        className="text-sm font-bold text-[var(--lt-accent)] hover:text-[var(--lt-accent)] flex items-center gap-1 transition-colors shrink-0"
+                        className="shrink-0 inline-flex items-center gap-0.5 rounded-full px-2.5 py-1 text-xs font-bold text-[var(--lt-accent)] bg-[var(--lt-accent-soft)] hover:opacity-80 transition-opacity"
                     >
-                        Ver todo <ChevronRight className="w-4 h-4" />
+                        Ver todo <ChevronRight className="w-3.5 h-3.5" />
                     </Link>
                 )}
             </div>
 
-            <div className="relative group">
+            <div className="relative group isolate">
                 {/* Scroll Buttons (Glassmorphism) */}
                 <button
                     aria-label="Anterior"
                     onClick={() => {
                         document.getElementById(`carousel-${title.replace(/\s+/g, '-')}`)?.scrollBy({ left: -320, behavior: 'smooth' });
                     }}
-                    className="absolute -left-5 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-[var(--lt-accent)] hover:scale-110 shadow-xl"
+                    className="absolute -left-5 top-1/2 -translate-y-1/2 z-50 w-12 h-12 hidden md:flex bg-black/40 backdrop-blur-xl border border-white/10 rounded-full items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-[var(--lt-accent)] hover:scale-110 shadow-xl"
                 >
                     <ChevronRight className="w-6 h-6 rotate-180" />
                 </button>
@@ -75,7 +73,7 @@ export function CardCarousel<T>({
                     onClick={() => {
                         document.getElementById(`carousel-${title.replace(/\s+/g, '-')}`)?.scrollBy({ left: 320, behavior: 'smooth' });
                     }}
-                    className="absolute -right-5 top-1/2 -translate-y-1/2 z-50 w-12 h-12 bg-black/40 backdrop-blur-xl border border-white/10 rounded-full flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-[var(--lt-accent)] hover:scale-110 shadow-xl"
+                    className="absolute -right-5 top-1/2 -translate-y-1/2 z-50 w-12 h-12 hidden md:flex bg-black/40 backdrop-blur-xl border border-white/10 rounded-full items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all hover:bg-[var(--lt-accent)] hover:scale-110 shadow-xl"
                 >
                     <ChevronRight className="w-6 h-6" />
                 </button>

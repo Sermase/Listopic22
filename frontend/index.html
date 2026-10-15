@@ -80,13 +80,13 @@
     (function () {
       try {
         var t = localStorage.getItem('listopic-theme');
-        var valid = ['dark', 'light', 'warm', 'cool'];
+        var valid = ['dark', 'light', 'warm', 'cool', 'neon', 'graphite'];
         if (t && valid.indexOf(t) !== -1) {
           var html = document.documentElement;
-          html.classList.remove('theme-dark', 'theme-light', 'theme-warm', 'theme-cool');
+          html.classList.remove('theme-dark', 'theme-light', 'theme-warm', 'theme-cool', 'theme-neon', 'theme-graphite');
           html.classList.add('theme-' + t);
           html.setAttribute('data-theme', t);
-          var bg = { dark: '#0b1021', light: '#faf8f4', warm: '#1a0f0c', cool: '#031a20' }[t];
+          var bg = { dark: '#0b1021', light: '#faf8f4', warm: '#1a0f0c', cool: '#031a20', neon: '#12081a', graphite: '#050506' }[t];
           var meta = document.querySelector('meta[name="theme-color"]');
           if (meta && bg) meta.setAttribute('content', bg);
           document.documentElement.style.backgroundColor = bg;
@@ -100,6 +100,8 @@
     html.theme-light, html.theme-light body { background-color: #faf8f4; }
     html.theme-warm, html.theme-warm body { background-color: #1a0f0c; }
     html.theme-cool, html.theme-cool body { background-color: #031a20; }
+    html.theme-neon, html.theme-neon body { background-color: #12081a; }
+    html.theme-graphite, html.theme-graphite body { background-color: #050506; }
     @keyframes lp-spin { to { transform: rotate(360deg); } }
     #lp-boot {
       position: fixed; inset: 0;
@@ -109,6 +111,8 @@
     html.theme-light #lp-boot { background: #faf8f4; }
     html.theme-warm #lp-boot { background: #1a0f0c; }
     html.theme-cool #lp-boot { background: #031a20; }
+    html.theme-neon #lp-boot { background: #12081a; }
+    html.theme-graphite #lp-boot { background: #050506; }
     #lp-boot-spinner {
       width: 32px; height: 32px; border-radius: 50%;
       border: 3px solid rgba(99,102,241,0.2);
@@ -117,6 +121,8 @@
     }
     html.theme-warm #lp-boot-spinner { border-color: rgba(249,115,22,0.2); border-top-color: #f97316; }
     html.theme-cool #lp-boot-spinner { border-color: rgba(20,184,166,0.2); border-top-color: #14b8a6; }
+    html.theme-neon #lp-boot-spinner { border-color: rgba(236,72,153,0.2); border-top-color: #ec4899; }
+    html.theme-graphite #lp-boot-spinner { border-color: rgba(56,189,248,0.2); border-top-color: #38bdf8; }
   </style>
   <!-- Default Open Graph Tags (Will be updated by SeoManager) -->
   <meta property="og:title" content="Listopic" />
