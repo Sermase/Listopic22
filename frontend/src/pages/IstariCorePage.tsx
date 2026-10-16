@@ -122,6 +122,31 @@ export const IstariCorePage: React.FC = () => {
                             <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-[var(--lt-accent)] transition-colors shrink-0" />
                         </Link>
 
+                        {/* Pachote: app independiente (su propio proyecto de Firebase). Solo se enlaza.
+                            De momento, visible solo con el laboratorio activado (beta). */}
+                        {config.showLab && (
+                            <a
+                                href="https://pachote-78042.web.app"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-between group hover:opacity-80 transition-opacity pt-4 border-t border-white/5"
+                            >
+                                <div className="flex items-center gap-4">
+                                    <div className="relative w-12 h-12 rounded-2xl overflow-hidden shadow-lg shrink-0 bg-[var(--lt-bg-deep)]">
+                                        <img src="/images/pachote-icon.png" alt="" className="w-full h-full object-cover" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-white">
+                                            Pachote
+                                            <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wider text-amber-300 bg-amber-400/10 border border-amber-400/20 rounded-md px-1.5 py-0.5">Beta</span>
+                                        </p>
+                                        <p className="text-xs text-gray-500">Cuentas claras, a pachas · Gastos de grupo y familia</p>
+                                    </div>
+                                </div>
+                                <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-[var(--lt-accent)] transition-colors shrink-0" />
+                            </a>
+                        )}
+
                         {config.showLab && (
                             <Link
                                 to="/lab"
