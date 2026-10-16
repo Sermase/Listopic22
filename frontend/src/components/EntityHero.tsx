@@ -16,6 +16,9 @@ interface EntityHeroProps {
   imageClassName?: string;
 }
 
+// Foto (o fondo) que se desvanece hacia abajo.
+const HERO_FADE = 'absolute inset-0 [mask-image:linear-gradient(to_bottom,black_50%,transparent)]';
+
 export const EntityHero: React.FC<EntityHeroProps> = ({
   imageUrl,
   alt,
@@ -34,10 +37,15 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
     ready || !imageUrl ? 'animate-hero-from-right' : '',
     className,
   )}>
-    <div className="absolute inset-0 z-10 bg-gradient-to-t from-[var(--lt-bg)] via-[var(--lt-bg)]/60 to-[var(--lt-hero-top,rgba(0,0,0,0.4))]" />
+    {/* El borde de abajo es transparente (foto y velos se desvanecen): debajo asoma
+        el mismo fondo que el resto de la página y no queda una raya al final. */}
+    <div
+      className="absolute inset-0 z-10"
+      style={{ background: 'linear-gradient(to top, transparent 0%, color-mix(in srgb, var(--lt-bg) 55%, transparent) 30%, var(--lt-hero-top, rgba(0,0,0,0.4)) 100%)' }}
+    />
 
     {imageUrl ? (
-      <>
+      <div className={HERO_FADE}>
         {/* Pantallas anchas: la foto nítida va centrada (no se amplía a todo el
             ancho) y, detrás, la misma desenfocada rellena los lados. En móvil
             ocupa toda la cabecera recortando los laterales. */}
@@ -60,14 +68,16 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
             fallback={fallback}
           />
         </div>
-      </>
+      </div>
     ) : (
-      fallback || (
-        <div
-          className="absolute inset-0"
-          style={{ background: 'radial-gradient(120% 90% at 15% 0%, var(--lt-accent-soft), transparent 60%), linear-gradient(160deg, var(--lt-bg-deep, var(--lt-bg)) 0%, var(--lt-bg) 100%)' }}
-        />
-      )
+      <div className={HERO_FADE}>
+        {fallback || (
+          <div
+            className="absolute inset-0"
+            style={{ background: 'radial-gradient(120% 90% at 15% 0%, var(--lt-accent-soft), transparent 60%), linear-gradient(160deg, var(--lt-bg-deep, var(--lt-bg)) 0%, var(--lt-bg) 100%)' }}
+          />
+        )}
+      </div>
     )}
 
     {topSlot && (
@@ -82,7 +92,7 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
         // Degradado en línea (no con bg-gradient-to-*): en el tema claro hay reglas
         // que fuerzan texto blanco dentro de cualquier bg-gradient-to-* y aquí el
         // fondo acaba siendo claro.
-        style={{ background: 'linear-gradient(to top, var(--lt-bg) 0%, color-mix(in srgb, var(--lt-bg) 60%, transparent) 50%, transparent 100%)' }}
+        style={{ background: 'linear-gradient(to top, transparent 0%, color-mix(in srgb, var(--lt-bg) 45%, transparent) 35%, transparent 100%)' }}
       >
         <div className="relative z-30 mx-auto flex max-w-7xl flex-col gap-6 md:flex-row md:items-end md:justify-between">
           {children}
