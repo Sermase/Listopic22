@@ -1102,6 +1102,41 @@ export const DeveloperPage: React.FC = () => {
                                             </span>
                                         </div>
                                     </div>
+
+                                    {/* Pachote */}
+                                    <div className="mt-4 rounded-xl border border-orange-500/30 bg-orange-500/5 overflow-hidden">
+                                        <div className="p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                                            <img src="/images/pachote-icon.png" alt="" className="w-14 h-14 rounded-xl shrink-0 shadow-lg shadow-orange-900/30" />
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="text-lg font-bold text-white">Pachote</h3>
+                                                <p className="text-sm text-gray-400 mt-1">
+                                                    Gastos compartidos para viajes y casas con familias, peques con peso, cuentas conjuntas y saldos por familia. App independiente con su propio Firebase.
+                                                </p>
+                                                <div className="flex flex-wrap gap-2 mt-3">
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-300 border border-orange-500/20">PWA</span>
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/20">Firestore</span>
+                                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/20">Beta</span>
+                                                </div>
+                                            </div>
+                                            <a
+                                                href="https://pachote-78042.web.app"
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="shrink-0 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-colors shadow-lg shadow-orange-900/30 flex items-center gap-2"
+                                            >
+                                                <span>Abrir</span>
+                                                <span className="text-base">↗</span>
+                                            </a>
+                                        </div>
+                                        <div className="border-t border-orange-500/20 px-5 py-3 flex items-center justify-between">
+                                            <span className="text-xs text-gray-500">
+                                                URL: <code className="text-orange-300">pachote-78042.web.app</code> · Repo: <code className="text-gray-400">Sermase/Pachote</code>
+                                            </span>
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${otherSettings.showLab ? 'bg-orange-500/20 text-orange-300' : 'bg-gray-500/20 text-gray-400'}`}>
+                                                {otherSettings.showLab ? '🌐 Público' : '🔒 Solo admin'}
+                                            </span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
