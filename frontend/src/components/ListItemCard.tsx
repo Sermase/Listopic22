@@ -6,6 +6,7 @@ import { PlacePhotoPlaceholder } from './PlacePhotoPlaceholder';
 import { ProgressiveImage } from './ProgressiveImage';
 import { compareCriteria } from '../lib/criteria';
 import { scoreBadge, scoreBadgeStyle } from '../lib/scoreScale';
+import { closedStatusKind } from '../utils/placeStatus';
 import { MarqueeText } from './ui/MarqueeText';
 
 type CriteriaDefinitionEntry = {
@@ -110,12 +111,12 @@ const CHIP_NEUTRAL = `${CHIP} bg-[var(--lt-card)] text-[var(--lt-text-muted)] bo
 export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextRankLabel, isGrid, groupingMode = 'place', listId, disableLift = false, elementKey, placeFirst = false }) => {
     // Una misma etiqueta puede llegar repetida (varias valoraciones del elemento).
     const tags = Array.from(new Set(item.tags || []));
-    const normalizedClosedStatus = String(item.placeClosedStatus || '').trim().toLowerCase();
+    const closedKind = closedStatusKind(item.placeClosedStatus);
     // Elemento en una Lista: con placeFirst el título es el sitio y debajo va el elemento.
     const swapTitle = Boolean(placeFirst && groupingMode === 'dish' && item.placeName && item.placeName !== item.name);
     const dishTitle = swapTitle ? item.placeName : item.name;
     const dishSubtitle = swapTitle ? item.name : item.placeName;
-    const isPermanentlyClosed = normalizedClosedStatus === 'permanently_closed' || normalizedClosedStatus === 'closed_permanently';
+    const isPermanentlyClosed = closedKind === 'permanent';
     const photoPlaceholderVariant = groupingMode === 'dish' ? 'group' : 'place';
 
 
@@ -203,7 +204,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
     const listModeTitle = groupingMode === 'dish' ? (dishTitle || item.name) : item.name;
     const showSubtitle = Boolean(item.placeName && item.placeName !== item.name && dishSubtitle);
     const cityLabel = item.placeCity || item.placeAddress;
-    const closedChip = item.placeClosedStatus ? (
+    const closedChip = closedKind ? (
         <span title={isPermanentlyClosed ? 'Google lo da por cerrado' : 'Google lo marca como cerrado temporalmente'} className={`inline-flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${isPermanentlyClosed
             ? 'bg-[var(--lt-danger-soft)] border-[var(--lt-danger)]/30 text-[var(--lt-danger)]'
             : 'bg-[var(--lt-warning-soft)] border-[var(--lt-warning)]/30 text-[var(--lt-warning)]'

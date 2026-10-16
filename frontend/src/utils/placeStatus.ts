@@ -9,6 +9,12 @@ export function isClosedPlaceStatus(value?: string | null) {
         || status === 'closed_temporarily';
 }
 
+/** Tipo de cierre, solo con estados reales: Google pone «OPERATIONAL» a los abiertos. */
+export function closedStatusKind(value?: string | null): 'permanent' | 'temporary' | null {
+    if (!isClosedPlaceStatus(value)) return null;
+    return String(value).toLowerCase().includes('perman') ? 'permanent' : 'temporary';
+}
+
 export function resolveClosedStatus(...values: Array<string | null | undefined>) {
     return values.find(value => isClosedPlaceStatus(value)) || null;
 }

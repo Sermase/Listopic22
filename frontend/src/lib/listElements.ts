@@ -5,7 +5,7 @@
  * Espejo en functions/modules/lib/list-elements.js; los dos pasan los mismos
  * vectores (listElements.vectors.json).
  */
-import { isClosedPlaceStatus } from '../utils/placeStatus';
+import { isClosedPlaceStatus, resolveClosedStatus } from '../utils/placeStatus';
 import { contextualRanks, normalizeCcaa, normalizeCountry, type ContextRank, type GeoFields } from './geoAreas';
 import { compareElementsByRank, reviewScoreForList, type CriteriaInput, type ReviewLike } from './scoring';
 
@@ -72,10 +72,10 @@ export function placeGeoFields(place: PlaceDocLike | null | undefined): { city: 
     return { city, province: text(place?.province), region: normalizeCcaa(place?.region), country: normalizeCountry(place?.country) };
 }
 
-/** Estado de cierre de un sitio (el primero que haya). */
+/** Estado de cierre de un sitio, solo si está cerrado (Google pone «OPERATIONAL» a los abiertos). */
 export function placeClosedStatus(place: PlaceDocLike | null | undefined): string | null {
-    const status = place?.closedStatus || place?.googleBusinessStatus || place?.businessStatus;
-    return typeof status === 'string' && status ? status : null;
+    const text = (value: unknown) => (typeof value === 'string' ? value : null);
+    return resolveClosedStatus(text(place?.closedStatus), text(place?.googleBusinessStatus), text(place?.businessStatus));
 }
 
 export interface RankedElement extends GeoFields {

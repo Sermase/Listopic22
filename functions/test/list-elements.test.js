@@ -7,7 +7,7 @@ const vectors = require('../../frontend/src/lib/listElements.vectors.json');
 const { aggregateGroups } = require('../modules/grouped-aggregator');
 const { filterPublicReviews } = require('../modules/lib/list-visibility');
 const { computeListMetrics } = require('../modules/lib/list-metrics');
-const { normalizeItemName, placeGeoFields } = require('../modules/lib/list-elements');
+const { normalizeItemName, placeGeoFields, placeClosedStatus } = require('../modules/lib/list-elements');
 const { rankingIndexScore } = require('../modules/lib/scoring');
 
 const groups = aggregateGroups(
@@ -87,4 +87,10 @@ test('la Minilista privada conserva sus valoraciones en su propio contexto', () 
   const metrics = computeListMetrics(secret, vectors.reviews.filter((r) => r.sublistId === 'secreta'));
   assert.equal(metrics.reviewCount, 1);
   assert.equal(metrics.averageRating, 10);
+});
+
+test('placeClosedStatus: «OPERATIONAL» de Google no es un cierre', () => {
+  assert.equal(placeClosedStatus({ closedStatus: null, googleBusinessStatus: 'OPERATIONAL' }), null);
+  assert.equal(placeClosedStatus({ googleBusinessStatus: 'CLOSED_TEMPORARILY' }), 'CLOSED_TEMPORARILY');
+  assert.equal(placeClosedStatus({ closedStatus: 'permanently_closed', googleBusinessStatus: 'OPERATIONAL' }), 'permanently_closed');
 });

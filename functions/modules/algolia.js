@@ -302,7 +302,8 @@ function normalizeClosedStatus(value) {
     const status = value.trim();
     if (status === "CLOSED_PERMANENTLY") return "permanently_closed";
     if (status === "CLOSED_TEMPORARILY") return "temporarily_closed";
-    return status;
+    // «OPERATIONAL» y similares: abierto, sin estado de cierre.
+    return status === "permanently_closed" || status === "temporarily_closed" ? status : null;
 }
 
 function collectTagsFromData(...values) {

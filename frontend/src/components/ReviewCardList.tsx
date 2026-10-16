@@ -24,6 +24,7 @@ import { useAuthPrompt } from '../context/AuthPromptContext';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { scoreBadgeStyle, scoreTextColor } from '../lib/scoreScale';
+import { closedStatusKind } from '../utils/placeStatus';
 import { MarqueeText } from './ui/MarqueeText';
 
 interface ReviewCardListProps {
@@ -31,7 +32,7 @@ interface ReviewCardListProps {
     onDelete?: (id: string) => void;
     onEdit?: (review: ReviewEntity) => void;
     reactionConfig?: { like?: string; dislike?: string };
-    placeClosedStatus?: string;
+    placeClosedStatus?: string | null;
     /** Cuando la lista ya muestra el contexto del lugar (PlacePage), oculta nombre del lugar */
     hidePlaceName?: boolean;
 }
@@ -47,7 +48,8 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
         && review.listName.trim().toLowerCase() === review.itemName.trim().toLowerCase());
     const { showToast } = useToast();
     const confirm = useConfirm();
-    const placeClosedStatus = placeClosedStatusProp || (review as any).placeClosedStatus || undefined;
+    // El estado del sitio en vivo manda sobre la copia guardada en la reseña.
+    const closedKind = closedStatusKind(placeClosedStatusProp !== undefined ? placeClosedStatusProp : (review as any).placeClosedStatus);
     const { user } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
     const queryClient = useQueryClient();
@@ -265,12 +267,12 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                                 <MarqueeText text={review.authorName || 'Anónimo'} />
                             </Link>
                             <span className="shrink-0 text-[11px] text-[var(--lt-text-muted)]">· hace {formattedDate}</span>
-                            {placeClosedStatus && (
-                                <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${placeClosedStatus === 'permanently_closed'
+                            {closedKind && (
+                                <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${closedKind === 'permanent'
                                     ? 'bg-[var(--lt-danger-soft)] border-[var(--lt-danger)]/30 text-[var(--lt-danger)]'
                                     : 'bg-[var(--lt-warning-soft)] border-[var(--lt-warning)]/30 text-[var(--lt-warning)]'
                                     }`}>
-                                    {placeClosedStatus === 'permanently_closed' ? 'Cerrado' : 'Cerrado temp.'}
+                                    {closedKind === 'permanent' ? 'Cerrado' : 'Cerrado temp.'}
                                 </span>
                             )}
                         </div>
