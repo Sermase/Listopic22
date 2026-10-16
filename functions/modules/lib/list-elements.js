@@ -39,9 +39,14 @@ function placeGeoFields(place) {
   };
 }
 
-/** Estado de cierre de un sitio (el primero que haya), como la web. */
+const CLOSED_STATUSES = new Set(['permanently_closed', 'temporarily_closed', 'closed_permanently', 'closed_temporarily']);
+
+/** Estado de cierre de un sitio, solo si está cerrado (Google pone «OPERATIONAL» a los abiertos), como la web. */
 function placeClosedStatus(place) {
-  return (place && (place.closedStatus || place.googleBusinessStatus || place.businessStatus)) || null;
+  if (!place) return null;
+  const status = [place.closedStatus, place.googleBusinessStatus, place.businessStatus]
+    .find((value) => typeof value === 'string' && CLOSED_STATUSES.has(value.trim().toLowerCase()));
+  return status || null;
 }
 
 /** userType de un perfil (texto o lista) incluye «bot». */

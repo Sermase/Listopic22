@@ -25,6 +25,7 @@ import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
 import { compareCriteria } from '../lib/criteria';
 import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
+import { closedStatusKind } from '../utils/placeStatus';
 import { MarqueeText } from './ui/MarqueeText';
 
 interface ReviewCardProps {
@@ -32,14 +33,15 @@ interface ReviewCardProps {
     onDelete?: (id: string) => void;
     onEdit?: (review: ReviewEntity) => void;
     reactionConfig?: { like?: string; dislike?: string }; // Text for animation (e.g. "ñam!")
-    placeClosedStatus?: string;
+    placeClosedStatus?: string | null;
 }
 
 
 export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp }) => {
     const { showToast } = useToast();
     const confirm = useConfirm();
-    const placeClosedStatus = placeClosedStatusProp || (review as any).placeClosedStatus || undefined;
+    // El estado del sitio en vivo manda sobre la copia guardada en la reseña.
+    const closedKind = closedStatusKind(placeClosedStatusProp !== undefined ? placeClosedStatusProp : (review as any).placeClosedStatus);
     const { user } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
     const queryClient = useQueryClient();
@@ -373,12 +375,12 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                 >
                                     <MarqueeText text={review.placeName} />
                                 </Link>
-                                {placeClosedStatus && (
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${placeClosedStatus === 'permanently_closed'
+                                {closedKind && (
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${closedKind === 'permanent'
                                         ? 'bg-[var(--lt-danger-soft)] border-[var(--lt-danger)]/30 text-[var(--lt-danger)]'
                                         : 'bg-[var(--lt-warning-soft)] border-[var(--lt-warning)]/30 text-[var(--lt-warning)]'
                                         }`}>
-                                        {placeClosedStatus === 'permanently_closed' ? '🔒 Cerrado' : '⏰ Cerrado temp.'}
+                                        {closedKind === 'permanent' ? '🔒 Cerrado' : '⏰ Cerrado temp.'}
                                     </span>
                                 )}
                             </div>

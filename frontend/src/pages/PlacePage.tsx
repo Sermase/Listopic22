@@ -59,6 +59,7 @@ import { cn } from '../lib/utils';
 import { scoreBadgeStyle, scoreTextColor } from '../lib/scoreScale';
 import { todayHours } from '../lib/openingHours';
 import { NO_PUBLIC_RATING_LABEL } from '../lib/placeRating';
+import { closedStatusKind } from '../utils/placeStatus';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
@@ -886,13 +887,13 @@ export const PlacePage: React.FC = () => {
                             <h1 className={cn('text-3xl sm:text-4xl md:text-6xl font-display font-bold text-[var(--lt-hero-title)] mb-2 leading-tight line-clamp-2', heroStyle.title)}>
                                 {place.name}
                             </h1>
-                            {place.closedStatus && (
-                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold mb-2 border ${place.closedStatus === 'permanently_closed'
+                            {closedStatusKind(place.closedStatus) && (
+                                <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold mb-2 border ${closedStatusKind(place.closedStatus) === 'permanent'
                                         ? 'bg-red-500/20 border-red-500/40 text-red-300'
                                         : 'bg-amber-500/20 border-amber-500/40 text-amber-300'
                                     }`}>
                                     <AlertTriangle className="w-4 h-4" />
-                                    {place.closedStatus === 'permanently_closed' ? 'Cerrado permanentemente' : 'Cerrado temporalmente'}
+                                    {closedStatusKind(place.closedStatus) === 'permanent' ? 'Cerrado permanentemente' : 'Cerrado temporalmente'}
                                 </div>
                             )}
                             {place.address && (
