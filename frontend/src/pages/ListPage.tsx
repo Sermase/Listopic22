@@ -1033,6 +1033,16 @@ export const ListPage: React.FC = () => {
         ]),
     ].filter((value): value is string => Boolean(value))));
     const listShareCriteria = buildShareCriteriaGroups(list.criteriaAverages, list.criteriaDefinition);
+    // El top 3 de la tarjeta va siempre por nota, aunque la lista se vea en otro orden.
+    const listShareTop = [...groupedItems]
+        .sort((a, b) => compareElementsByRank({ id: a.id, average: a.avgRating, count: a.reviewCount }, { id: b.id, average: b.avgRating, count: b.reviewCount }))
+        .slice(0, 3)
+        .map((item) => ({
+            title: item.name,
+            subtitle: groupingMode === 'dish' ? [item.placeName, item.placeCity].filter(Boolean).join(' · ') : item.placeCity,
+            score: item.avgRating,
+            imageUrl: item.reviewPhotoUrl || item.photoUrl || item.placeMainImage,
+        }));
 
     return (
         <div className="min-h-screen bg-[var(--lt-bg)] pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-20 transition-colors duration-300">
@@ -1595,6 +1605,8 @@ export const ListPage: React.FC = () => {
                     authorName: list.authorName,
                     criteriaStats: listShareCriteria.ponderable,
                     nonPonderableStats: listShareCriteria.nonPonderable,
+                    rankItems: listShareTop,
+                    elementCount: groupedItems.length,
                 }}
             />
 

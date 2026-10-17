@@ -40,13 +40,14 @@ export const buildPublicUrl = (pathOrUrl: string | undefined, fallbackPath = '/'
 
 export const buildPublicRouteUrl = (route: string): string => buildPublicUrl(route);
 
-// URL de compartir: para lugares, listas y platos usa /s/... — una Cloud
-// Function (ssrMeta) que sirve Open Graph real (título, foto, nota) a los bots
-// de WhatsApp/Twitter y redirige al instante a la ruta normal para humanos.
+// URL de compartir: para lugares, listas, platos, perfiles y valoraciones usa
+// /s/... — una Cloud Function (ssrMeta) que sirve Open Graph real (título y una
+// imagen con foto, nota y marca) a los bots de WhatsApp/Twitter y redirige al
+// instante a la ruta normal para humanos.
 export const buildShareRouteUrl = (route: string | undefined): string | null => {
     if (!route) return null;
     const normalized = route.startsWith('/') ? route : `/${route}`;
-    if (/^\/(place|list|group)\//.test(normalized)) {
+    if (/^\/(place|list|group|profile|review)\//.test(normalized)) {
         return `${PUBLIC_ORIGIN}/s${normalized}`;
     }
     return buildPublicUrl(normalized);

@@ -468,6 +468,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                     subtitle: review.placeName || 'Lugar',
                     description: review.comment,
                     route: review.placeId && review.itemName ? reviewRoute : undefined,
+                    shareRoute: review.listId && review.id ? `/review/${review.listId}/${review.id}` : undefined,
                     url: reviewShareUrl,
                     imageUrl: review.photoUrl || review.placeMainImage,
                     imageUrls: [...(review.photoUrls || []), review.photoUrl, review.placeMainImage]
@@ -477,6 +478,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                     authorId: review.userId || review.authorId,
                     authorName: review.authorName,
                     authorPhoto: review.authorPhoto,
+                    city: review.placeCity,
                     criteriaStats: shareCriteria.ponderable,
                     nonPonderableStats: shareCriteria.nonPonderable,
                     tags: review.userTags || review.tags,

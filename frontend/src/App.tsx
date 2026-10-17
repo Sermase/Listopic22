@@ -55,7 +55,9 @@ const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage').then(m => (
 // aquí dentro de la web, basta con quitar el prefijo /s.
 const SharedLinkRedirect = () => {
   const location = useRouterLocation();
-  const target = location.pathname.replace(/^\/s(?=\/)/, '') || '/';
+  // /s/review/{listId}/{id} no tiene página propia: se abre su lista.
+  const review = location.pathname.match(/^\/s\/review\/([^/]+)/);
+  const target = review ? `/list/${review[1]}` : (location.pathname.replace(/^\/s(?=\/)/, '') || '/');
   return <Navigate to={`${target}${location.search}`} replace />;
 };
 

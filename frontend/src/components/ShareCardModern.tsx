@@ -3,10 +3,10 @@ import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Check, Download, Share2, X } from 'lucide-react';
-import { getShareEntityLabel, type ShareCriteriaStat, type ShareEntityPayload, type ShareProfileStat } from '../types/share';
+import { getShareEntityLabel, type ShareCriteriaStat, type ShareEntityPayload, type ShareProfileStat, type ShareRankItem } from '../types/share';
 import { buildShareText } from '../utils/shareTexts';
 import { buildShareRouteUrl } from '../utils/publicUrl';
-import { SCORE_TEXT_ON_DARK, scoreBand } from '../lib/scoreScale';
+import { SCORE_BADGE, SCORE_BAND_LABEL, SCORE_TEXT_ON_DARK, scoreBand } from '../lib/scoreScale';
 
 export type ModernCardVariant = 'story' | 'portrait' | 'square' | 'landscape';
 
@@ -94,8 +94,8 @@ const drawCircularImage = (
         drawCover(ctx, image, centerX - radius, centerY - radius, radius * 2, radius * 2);
     } else {
         const gradient = ctx.createLinearGradient(centerX - radius, centerY - radius, centerX + radius, centerY + radius);
-        gradient.addColorStop(0, '#2563eb');
-        gradient.addColorStop(1, '#9333ea');
+        gradient.addColorStop(0, '#6366f1');
+        gradient.addColorStop(1, '#a855f7');
         ctx.fillStyle = gradient;
         ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
         ctx.fillStyle = '#ffffff';
@@ -110,25 +110,6 @@ const drawCircularImage = (
     ctx.strokeStyle = 'rgba(255,255,255,0.76)';
     ctx.lineWidth = Math.max(3, radius * 0.035);
     ctx.stroke();
-};
-
-const drawFallbackBackground = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
-    const gradient = ctx.createLinearGradient(0, 0, w, h);
-    gradient.addColorStop(0, '#0f766e');
-    gradient.addColorStop(0.46, '#312e81');
-    gradient.addColorStop(1, '#7e22ce');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, w, h);
-    [
-        [0.12, 0.18, 250, 'rgba(103,232,249,0.12)'],
-        [0.88, 0.14, 220, 'rgba(255,255,255,0.08)'],
-        [0.72, 0.88, 340, 'rgba(240,171,252,0.11)'],
-    ].forEach(([fx, fy, r, color]) => {
-        ctx.beginPath();
-        ctx.arc(w * (fx as number), h * (fy as number), r as number, 0, Math.PI * 2);
-        ctx.fillStyle = color as string;
-        ctx.fill();
-    });
 };
 
 const fitText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number) => {
@@ -173,115 +154,218 @@ const layoutTitle = (
     maxLines: number,
 ): { lines: string[]; fontSize: number } => {
     for (let size = startSize; size >= minSize; size -= 5) {
-        ctx.font = `900 ${size}px ${FONT}`;
+        ctx.font = `800 ${size}px ${FONT}`;
         const lines = wrapText(ctx, text, maxWidth, maxLines);
         if (lines.length <= maxLines && lines.every((line) => ctx.measureText(line).width <= maxWidth)) {
             return { lines, fontSize: size };
         }
     }
-    ctx.font = `900 ${minSize}px ${FONT}`;
+    ctx.font = `800 ${minSize}px ${FONT}`;
     return { lines: wrapText(ctx, text, maxWidth, maxLines), fontSize: minSize };
+};
+
+// --- Estilo «B · Noche»: fondo marino, foto que se funde, chapas de nota con
+// el color de lib/scoreScale y barra de degradado de la marca abajo. ---------
+
+const BG = '#0b1021';
+const TEXT = '#f8fafc';
+const MUTED = '#94a3b8';
+const SOFT = '#cbd5e1';
+const CYAN = '#67e8f9';
+const INDIGO_SOFT = '#a5b4fc';
+
+const setFont = (ctx: CanvasRenderingContext2D, weight: number, size: number, italic = false) => {
+    ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px ${FONT}`;
 };
 
 const drawGlassPanel = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius = 28) => {
     roundRect(ctx, x, y, w, h, radius);
-    ctx.fillStyle = 'rgba(5,8,20,0.68)';
+    ctx.fillStyle = 'rgba(21,27,46,0.82)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
     ctx.lineWidth = 2;
     ctx.stroke();
 };
 
-const drawBrand = (
-    ctx: CanvasRenderingContext2D,
-    logo: HTMLImageElement | null,
-    right: number,
-    top: number,
-    compact = false,
-) => {
-    const logoSize = compact ? 48 : 58;
-    const fontSize = compact ? 27 : 32;
-    ctx.font = `900 ${fontSize}px ${FONT}`;
-    const brandWidth = ctx.measureText('Listopic').width;
-    const x = right - logoSize - 14 - brandWidth;
+const drawGlow = (ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string, w: number, h: number) => {
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, r);
+    glow.addColorStop(0, color);
+    glow.addColorStop(1, 'rgba(11,16,33,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, h);
+};
+
+const drawBrand = (ctx: CanvasRenderingContext2D, logo: HTMLImageElement | null, x: number, y: number, size: number) => {
     if (logo) {
-        drawContain(ctx, logo, x, top, logoSize, logoSize);
-    } else {
-        roundRect(ctx, x, top, logoSize, logoSize, 14);
-        const fallback = ctx.createLinearGradient(x, top, x + logoSize, top + logoSize);
-        fallback.addColorStop(0, '#14b8a6');
-        fallback.addColorStop(1, '#7e22ce');
-        ctx.fillStyle = fallback;
-        ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `900 ${fontSize}px ${FONT}`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('L', x + logoSize / 2, top + logoSize / 2 + 1);
+        ctx.save();
+        roundRect(ctx, x, y, size, size, size * 0.26);
+        ctx.clip();
+        drawContain(ctx, logo, x, y, size, size);
+        ctx.restore();
     }
-    ctx.font = `900 ${fontSize}px ${FONT}`;
-    ctx.fillStyle = '#ffffff';
+    setFont(ctx, 800, Math.round(size * 0.56));
+    ctx.fillStyle = TEXT;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText('Listopic', x + logoSize + 14, top + logoSize / 2 + 1);
+    ctx.fillText('Listopic', x + (logo ? size * 1.26 : 0), y + size / 2 + 1);
 };
 
-const drawTypeChip = (ctx: CanvasRenderingContext2D, entity: ShareEntityPayload, x: number, y: number, compact = false) => {
-    const label = getShareEntityLabel(entity.type).toUpperCase();
-    const fontSize = compact ? 24 : 28;
-    const height = compact ? 50 : 58;
-    ctx.font = `900 ${fontSize}px ${FONT}`;
-    const width = ctx.measureText(label).width + 44;
+const drawBottomBar = (ctx: CanvasRenderingContext2D, w: number, h: number, thickness = 12) => {
+    const bar = ctx.createLinearGradient(0, 0, w, 0);
+    bar.addColorStop(0, '#22d3ee');
+    bar.addColorStop(0.5, '#6366f1');
+    bar.addColorStop(1, '#a855f7');
+    ctx.fillStyle = bar;
+    ctx.fillRect(0, h - thickness, w, thickness);
+};
+
+/** Chip índigo («Sitio», «Lista · 24 sitios»…). Devuelve su ancho. */
+const drawChip = (ctx: CanvasRenderingContext2D, text: string, x: number, y: number, fontSize: number) => {
+    setFont(ctx, 800, fontSize);
+    const height = Math.round(fontSize * 1.85);
+    const width = ctx.measureText(text).width + fontSize * 1.7;
     roundRect(ctx, x, y, width, height, height / 2);
-    ctx.fillStyle = 'rgba(3,6,18,0.64)';
+    ctx.fillStyle = 'rgba(99,102,241,0.24)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+    ctx.strokeStyle = 'rgba(129,140,248,0.6)';
     ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = '#c7d2fe';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label, x + 22, y + height / 2 + 1);
+    ctx.fillText(text, x + fontSize * 0.85, y + height / 2 + 1);
+    return width;
 };
 
-const drawAuthor = (
+/** Chapa «8.4 /10» con el color de su tramo. Devuelve el ancho. */
+const drawScorePill = (ctx: CanvasRenderingContext2D, score: number, x: number, y: number, size: number, withScale = true) => {
+    const { bg, fg } = SCORE_BADGE[scoreBand(score)];
+    const value = score.toFixed(1);
+    setFont(ctx, 800, size);
+    const valueWidth = ctx.measureText(value).width;
+    setFont(ctx, 700, Math.round(size * 0.36));
+    const scaleWidth = withScale ? ctx.measureText('/10').width + 8 : 0;
+    const padX = Math.round(size * 0.3);
+    const height = Math.round(size * 1.3);
+    const width = padX * 2 + valueWidth + scaleWidth;
+    roundRect(ctx, x, y, width, height, Math.round(size * 0.31));
+    ctx.fillStyle = bg;
+    ctx.fill();
+    ctx.fillStyle = fg;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    const baseline = y + height / 2 + size * 0.36;
+    setFont(ctx, 800, size);
+    ctx.fillText(value, x + padX, baseline);
+    if (withScale) {
+        setFont(ctx, 700, Math.round(size * 0.36));
+        ctx.globalAlpha = 0.85;
+        ctx.fillText('/10', x + padX + valueWidth + 8, baseline);
+        ctx.globalAlpha = 1;
+    }
+    return width;
+};
+
+/** Chincheta de mapa. */
+const drawPin = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) => {
+    const r = size * 0.36;
+    const cx = x + size / 2;
+    const cy = y + r + size * 0.04;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, Math.PI * 0.85, Math.PI * 2.15);
+    ctx.lineTo(cx, y + size);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.42, 0, Math.PI * 2);
+    ctx.fillStyle = BG;
+    ctx.fill();
+};
+
+/** «📍 Sitio · Ciudad» con el sitio en blanco y la ciudad en cian. */
+const drawPlaceLine = (
+    ctx: CanvasRenderingContext2D,
+    place: string | undefined,
+    city: string | undefined,
+    x: number,
+    y: number,
+    maxWidth: number,
+    size: number,
+) => {
+    if (!place && !city) return 0;
+    const pin = Math.round(size * 0.95);
+    drawPin(ctx, x, y + (size - pin) / 2 + 2, pin, '#22d3ee');
+    const textX = x + pin + size * 0.35;
+    const room = maxWidth - (textX - x);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    const middle = y + size / 2 + 2;
+    if (place) {
+        setFont(ctx, 800, size);
+        ctx.fillStyle = TEXT;
+        const placeText = fitText(ctx, place, city ? room * 0.66 : room);
+        ctx.fillText(placeText, textX, middle);
+        if (city) {
+            const placeWidth = ctx.measureText(placeText).width;
+            setFont(ctx, 800, Math.round(size * 0.92));
+            ctx.fillStyle = CYAN;
+            ctx.fillText(fitText(ctx, `· ${city}`, room - placeWidth - size * 0.35), textX + placeWidth + size * 0.35, middle);
+        }
+    } else if (city) {
+        setFont(ctx, 800, size);
+        ctx.fillStyle = CYAN;
+        ctx.fillText(fitText(ctx, city, room), textX, middle);
+    }
+    return size + 4;
+};
+
+const drawTitleBlock = (
+    ctx: CanvasRenderingContext2D,
+    text: string,
+    x: number,
+    top: number,
+    maxWidth: number,
+    startSize: number,
+    minSize: number,
+    maxLines: number,
+) => {
+    const { lines, fontSize } = layoutTitle(ctx, text || 'Listopic', maxWidth, startSize, minSize, maxLines);
+    setFont(ctx, 800, fontSize);
+    ctx.fillStyle = TEXT;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    const lineHeight = fontSize * 1.04;
+    lines.forEach((line, index) => ctx.fillText(line, x, top + index * lineHeight));
+    return lines.length * lineHeight;
+};
+
+const titleHeightFor = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, startSize: number, minSize: number, maxLines: number) => {
+    const { lines, fontSize } = layoutTitle(ctx, text || 'Listopic', maxWidth, startSize, minSize, maxLines);
+    return lines.length * fontSize * 1.04;
+};
+
+const drawAuthorRow = (
     ctx: CanvasRenderingContext2D,
     entity: ShareEntityPayload,
     avatar: HTMLImageElement | null,
     x: number,
-    centerY: number,
+    y: number,
     maxWidth: number,
-    compact = false,
+    size: number,
 ) => {
-    if (!entity.authorName) return;
-    const radius = compact ? 26 : 32;
-    drawCircularImage(ctx, avatar, x + radius, centerY, radius, entity.authorName);
-    ctx.font = `800 ${compact ? 25 : 29}px ${FONT}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    const radius = Math.round(size * 0.9);
+    drawCircularImage(ctx, avatar, x + radius, y + radius, radius, entity.authorName || 'L');
+    const textX = x + radius * 2 + size * 0.45;
+    setFont(ctx, 800, size);
+    ctx.fillStyle = TEXT;
     ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(fitText(ctx, entity.authorName, maxWidth - radius * 2 - 18), x + radius * 2 + 18, centerY);
-};
-
-const drawScorePill = (ctx: CanvasRenderingContext2D, score: number, x: number, y: number, compact = false) => {
-    const height = compact ? 82 : 112;
-    const width = compact ? 195 : 250;
-    const valueSize = compact ? 56 : 78;
-    const color = scoreColor(score);
-    roundRect(ctx, x, y, width, height, compact ? 25 : 32);
-    ctx.fillStyle = 'rgba(3,6,18,0.7)';
-    ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = compact ? 3 : 4;
-    ctx.stroke();
-    ctx.font = `900 ${valueSize}px ${FONT}`;
-    ctx.fillStyle = color;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(score.toFixed(1), x + (compact ? 24 : 30), y + height / 2);
-    ctx.font = `800 ${compact ? 25 : 31}px ${FONT}`;
-    ctx.fillStyle = 'rgba(255,255,255,0.62)';
-    ctx.fillText('/10', x + (compact ? 126 : 164), y + height / 2 + (compact ? 8 : 11));
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(fitText(ctx, entity.authorName || 'Alguien', maxWidth - (textX - x)), textX, y + radius + size * 0.1);
+    setFont(ctx, 700, Math.round(size * 0.55));
+    ctx.fillStyle = INDIGO_SOFT;
+    ctx.fillText('ha valorado', textX, y + radius + size * 0.8);
+    return radius * 2;
 };
 
 const drawCriteriaBars = (
@@ -292,31 +376,33 @@ const drawCriteriaBars = (
     width: number,
     rowHeight: number,
 ) => {
-    const panelHeight = criteria.length * rowHeight + 34;
-    drawGlassPanel(ctx, x, y, width, panelHeight, 25);
+    const fontSize = Math.round(rowHeight * 0.46);
     criteria.forEach((stat, index) => {
-        const rowY = y + 30 + index * rowHeight;
-        const labelWidth = width * 0.38;
-        ctx.font = `700 ${rowHeight >= 64 ? 27 : 23}px ${FONT}`;
-        ctx.fillStyle = 'rgba(255,255,255,0.84)';
+        const rowY = y + index * rowHeight + rowHeight / 2;
+        setFont(ctx, 700, fontSize);
+        ctx.fillStyle = SOFT;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(fitText(ctx, stat.label || stat.key, labelWidth), x + 24, rowY);
-        const barX = x + width * 0.43;
-        const barW = width * 0.39;
-        roundRect(ctx, barX, rowY - 8, barW, 16, 8);
-        ctx.fillStyle = 'rgba(255,255,255,0.16)';
+        ctx.fillText(fitText(ctx, stat.label || stat.key, width * 0.3), x, rowY);
+        const barX = x + width * 0.33;
+        const barW = width * 0.55;
+        const barH = Math.max(12, Math.round(rowHeight * 0.26));
+        roundRect(ctx, barX, rowY - barH / 2, barW, barH, barH / 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.1)';
         ctx.fill();
-        const ratio = Math.max(0.025, Math.min(1, stat.score / 10));
-        roundRect(ctx, barX, rowY - 8, barW * ratio, 16, 8);
+        const ratio = Math.max(0.03, Math.min(1, stat.score / 10));
+        const fill = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+        fill.addColorStop(0, '#6366f1');
+        fill.addColorStop(1, '#a855f7');
+        roundRect(ctx, barX, rowY - barH / 2, barW * ratio, barH, barH / 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        setFont(ctx, 800, fontSize);
         ctx.fillStyle = scoreColor(stat.score);
-        ctx.fill();
-        ctx.font = `900 ${rowHeight >= 64 ? 27 : 23}px ${FONT}`;
-        ctx.fillStyle = '#ffffff';
         ctx.textAlign = 'right';
-        ctx.fillText(stat.score.toFixed(1), x + width - 24, rowY);
+        ctx.fillText(stat.score.toFixed(1), x + width, rowY);
     });
-    return panelHeight;
+    return criteria.length * rowHeight;
 };
 
 const drawNonPonderable = (
@@ -336,7 +422,7 @@ const drawNonPonderable = (
         const color = scoreColor(stat.score);
         ctx.beginPath();
         ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)';
         ctx.lineWidth = 8;
         ctx.stroke();
         ctx.beginPath();
@@ -345,16 +431,15 @@ const drawNonPonderable = (
         ctx.lineCap = 'round';
         ctx.stroke();
         ctx.lineCap = 'butt';
-        ctx.font = `900 ${Math.round(radius * 0.72)}px ${FONT}`;
+        setFont(ctx, 800, Math.round(radius * 0.72));
         ctx.fillStyle = color;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(stat.score.toFixed(stat.score % 1 === 0 ? 0 : 1), centerX, centerY + 1);
-        ctx.font = `700 ${Math.min(21, Math.max(16, cellWidth * 0.08))}px ${FONT}`;
-        ctx.fillStyle = 'rgba(255,255,255,0.82)';
+        setFont(ctx, 700, Math.min(21, Math.max(16, cellWidth * 0.08)));
+        ctx.fillStyle = SOFT;
         ctx.textBaseline = 'top';
-        const label = fitText(ctx, stat.label || stat.key, Math.max(70, cellWidth - 18));
-        ctx.fillText(label, centerX, centerY + radius + 13);
+        ctx.fillText(fitText(ctx, stat.label || stat.key, Math.max(70, cellWidth - 18)), centerX, centerY + radius + 13);
     });
 };
 
@@ -376,26 +461,75 @@ const drawProfileStats = (
     const gap = 14;
     const cellWidth = (width - gap * (columns - 1)) / columns;
     stats.forEach((stat, index) => {
-        const column = index % columns;
-        const row = Math.floor(index / columns);
-        const cellX = x + column * (cellWidth + gap);
-        const cellY = y + row * (cellHeight + gap);
+        const cellX = x + (index % columns) * (cellWidth + gap);
+        const cellY = y + Math.floor(index / columns) * (cellHeight + gap);
+        const isLevel = stat.key === 'level';
         roundRect(ctx, cellX, cellY, cellWidth, cellHeight, 24);
-        ctx.fillStyle = stat.key === 'level' ? 'rgba(245,158,11,0.24)' : 'rgba(4,8,22,0.62)';
+        ctx.fillStyle = isLevel ? 'rgba(99,102,241,0.24)' : 'rgba(21,27,46,0.82)';
         ctx.fill();
-        ctx.strokeStyle = stat.key === 'level' ? 'rgba(251,191,36,0.62)' : 'rgba(255,255,255,0.14)';
+        ctx.strokeStyle = isLevel ? 'rgba(129,140,248,0.6)' : 'rgba(255,255,255,0.1)';
         ctx.lineWidth = 2;
         ctx.stroke();
-        ctx.font = `900 ${Math.round(cellHeight * 0.38)}px ${FONT}`;
-        ctx.fillStyle = stat.key === 'level' ? '#fbbf24' : '#ffffff';
+        setFont(ctx, 800, Math.round(cellHeight * 0.38));
+        ctx.fillStyle = isLevel ? '#c7d2fe' : TEXT;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(formatMetricValue(stat.value), cellX + cellWidth / 2, cellY + cellHeight * 0.4);
-        ctx.font = `800 ${Math.round(cellHeight * 0.16)}px ${FONT}`;
-        ctx.fillStyle = 'rgba(255,255,255,0.68)';
+        setFont(ctx, 700, Math.round(cellHeight * 0.16));
+        ctx.fillStyle = MUTED;
         ctx.fillText(fitText(ctx, stat.label, cellWidth - 18), cellX + cellWidth / 2, cellY + cellHeight * 0.76);
     });
     return rows * cellHeight + Math.max(0, rows - 1) * gap;
+};
+
+/** Pie con la dirección y una flecha: invita a abrir el enlace. */
+const drawFooter = (ctx: CanvasRenderingContext2D, entity: ShareEntityPayload, x: number, bottom: number, width: number, compact: boolean) => {
+    const height = compact ? 92 : 124;
+    const y = bottom - height;
+    drawGlassPanel(ctx, x, y, width, height, compact ? 24 : 30);
+    const lead = entity.type === 'list' || entity.type === 'sublist' ? 'Ver la lista entera' : 'listopic.es';
+    const sub = entity.type === 'list' || entity.type === 'sublist' ? 'listopic.es' : 'Opiniones reales con nota';
+    setFont(ctx, 800, compact ? 28 : 34);
+    ctx.fillStyle = TEXT;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(lead, x + 34, y + height / 2 - 2);
+    setFont(ctx, 700, compact ? 22 : 26);
+    ctx.fillStyle = MUTED;
+    ctx.fillText(sub, x + 34, y + height / 2 + (compact ? 28 : 34));
+    // Flecha ↗
+    const ax = x + width - (compact ? 62 : 74);
+    const ay = y + height / 2;
+    const s = compact ? 16 : 20;
+    ctx.strokeStyle = TEXT;
+    ctx.lineWidth = compact ? 5 : 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(ax - s, ay + s);
+    ctx.lineTo(ax + s, ay - s);
+    ctx.moveTo(ax - s * 0.4, ay - s);
+    ctx.lineTo(ax + s, ay - s);
+    ctx.lineTo(ax + s, ay + s * 0.4);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+    return height;
+};
+
+const isList = (entity: ShareEntityPayload) => entity.type === 'list' || entity.type === 'sublist';
+const hasScore = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value > 0;
+
+const elementCountLabel = (entity: ShareEntityPayload) => {
+    const count = entity.elementCount || 0;
+    return count > 0 ? `${count} ${count === 1 ? 'elemento' : 'elementos'}` : '';
+};
+
+const typeChipLabel = (entity: ShareEntityPayload) => {
+    if (isList(entity)) {
+        const base = entity.type === 'sublist' ? 'Minilista' : 'Lista';
+        const count = elementCountLabel(entity);
+        return count ? `${base} · ${count}` : base;
+    }
+    return getShareEntityLabel(entity.type);
 };
 
 const paintBackground = (
@@ -404,23 +538,88 @@ const paintBackground = (
     entity: ShareEntityPayload,
     width: number,
     height: number,
+    photoRatio: number,
 ) => {
-    if (hero && entity.type !== 'profile') {
-        drawCover(ctx, hero, 0, 0, width, height);
-    } else {
-        drawFallbackBackground(ctx, width, height);
-    }
-    const top = ctx.createLinearGradient(0, 0, 0, height * 0.36);
-    top.addColorStop(0, 'rgba(3,6,18,0.72)');
-    top.addColorStop(1, 'rgba(3,6,18,0)');
-    ctx.fillStyle = top;
-    ctx.fillRect(0, 0, width, height * 0.42);
-    const bottom = ctx.createLinearGradient(0, height * 0.24, 0, height);
-    bottom.addColorStop(0, 'rgba(3,6,18,0)');
-    bottom.addColorStop(0.52, 'rgba(3,6,18,0.64)');
-    bottom.addColorStop(1, 'rgba(3,6,18,0.97)');
-    ctx.fillStyle = bottom;
+    ctx.fillStyle = BG;
     ctx.fillRect(0, 0, width, height);
+    const usePhoto = hero && entity.type !== 'profile' && !(isList(entity) && entity.rankItems?.length);
+    if (!usePhoto) {
+        drawGlow(ctx, width * 0.85, height * 0.12, Math.max(width, height) * 0.7, 'rgba(49,46,129,0.95)', width, height);
+        drawGlow(ctx, width * 0.05, height * 0.9, Math.max(width, height) * 0.45, 'rgba(14,116,144,0.28)', width, height);
+        return;
+    }
+    const photoHeight = Math.round(height * photoRatio);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, width, photoHeight);
+    ctx.clip();
+    drawCover(ctx, hero, 0, 0, width, photoHeight);
+    ctx.restore();
+    const top = ctx.createLinearGradient(0, 0, 0, height * 0.22);
+    top.addColorStop(0, 'rgba(11,16,33,0.6)');
+    top.addColorStop(1, 'rgba(11,16,33,0)');
+    ctx.fillStyle = top;
+    ctx.fillRect(0, 0, width, height * 0.22);
+    const fade = ctx.createLinearGradient(0, photoHeight * 0.45, 0, photoHeight);
+    fade.addColorStop(0, 'rgba(11,16,33,0)');
+    fade.addColorStop(0.6, 'rgba(11,16,33,0.7)');
+    fade.addColorStop(1, BG);
+    ctx.fillStyle = fade;
+    ctx.fillRect(0, 0, width, photoHeight + 1);
+};
+
+const drawRankRows = (
+    ctx: CanvasRenderingContext2D,
+    items: ShareRankItem[],
+    images: (HTMLImageElement | null)[],
+    x: number,
+    y: number,
+    width: number,
+    rowHeight: number,
+    gap: number,
+) => {
+    items.forEach((item, index) => {
+        const rowY = y + index * (rowHeight + gap);
+        drawGlassPanel(ctx, x, rowY, width, rowHeight, rowHeight * 0.2);
+        const pad = Math.round(rowHeight * 0.13);
+        setFont(ctx, 800, Math.round(Math.min(rowHeight * 0.36, 64)));
+        ctx.fillStyle = INDIGO_SOFT;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(index + 1), x + pad + rowHeight * 0.2, rowY + rowHeight / 2);
+        const photoX = x + pad + rowHeight * 0.45;
+        const photoSize = rowHeight - pad * 2;
+        ctx.save();
+        roundRect(ctx, photoX, rowY + pad, photoSize, photoSize, photoSize * 0.18);
+        ctx.clip();
+        if (images[index]) drawCover(ctx, images[index] as HTMLImageElement, photoX, rowY + pad, photoSize, photoSize);
+        else {
+            ctx.fillStyle = 'rgba(99,102,241,0.3)';
+            ctx.fillRect(photoX, rowY + pad, photoSize, photoSize);
+        }
+        ctx.restore();
+        let right = x + width - pad;
+        if (hasScore(item.score)) {
+            const size = Math.round(Math.min(rowHeight * 0.3, 54));
+            setFont(ctx, 800, size);
+            const pillWidth = ctx.measureText(item.score.toFixed(1)).width + Math.round(size * 0.6);
+            drawScorePill(ctx, item.score, right - pillWidth, rowY + rowHeight / 2 - size * 0.65, size, false);
+            right -= pillWidth + pad;
+        }
+        const textX = photoX + photoSize + pad;
+        const textWidth = right - textX;
+        setFont(ctx, 800, Math.round(Math.min(rowHeight * 0.24, 44)));
+        ctx.fillStyle = TEXT;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(fitText(ctx, item.title, textWidth), textX, rowY + rowHeight / 2 - (item.subtitle ? 2 : -rowHeight * 0.08));
+        if (item.subtitle) {
+            setFont(ctx, 700, Math.round(Math.min(rowHeight * 0.17, 30)));
+            ctx.fillStyle = MUTED;
+            ctx.fillText(fitText(ctx, item.subtitle, textWidth), textX, rowY + rowHeight / 2 + rowHeight * 0.22);
+        }
+    });
+    return items.length * rowHeight + Math.max(0, items.length - 1) * gap;
 };
 
 const drawVerticalProfile = (
@@ -432,196 +631,322 @@ const drawVerticalProfile = (
 ) => {
     const margin = 64;
     const isStory = variant === 'story';
-    const radius = isStory ? 205 : variant === 'portrait' ? 158 : 132;
-    const centerY = isStory ? 420 : variant === 'portrait' ? 300 : 255;
+    const radius = isStory ? 240 : variant === 'portrait' ? 158 : 132;
+    const centerY = isStory ? 600 : variant === 'portrait' ? 330 : 285;
     ctx.beginPath();
     ctx.arc(width / 2, centerY, radius + 28, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.11)';
+    ctx.fillStyle = 'rgba(129,140,248,0.16)';
     ctx.fill();
     drawCircularImage(ctx, portrait, width / 2, centerY, radius, entity.title);
 
     const titleTop = centerY + radius + (isStory ? 58 : 38);
     const { lines, fontSize } = layoutTitle(ctx, entity.title, width - margin * 2, isStory ? 88 : 70, 48, 2);
-    ctx.font = `900 ${fontSize}px ${FONT}`;
-    ctx.fillStyle = '#ffffff';
+    setFont(ctx, 800, fontSize);
+    ctx.fillStyle = TEXT;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     lines.forEach((line, index) => ctx.fillText(line, width / 2, titleTop + index * fontSize * 1.08));
     let cursorY = titleTop + lines.length * fontSize * 1.08 + 16;
     if (entity.subtitle) {
-        ctx.font = `700 ${isStory ? 36 : 29}px ${FONT}`;
-        ctx.fillStyle = 'rgba(255,255,255,0.68)';
+        setFont(ctx, 700, isStory ? 36 : 29);
+        ctx.fillStyle = SOFT;
         ctx.fillText(fitText(ctx, entity.subtitle, width - margin * 2), width / 2, cursorY);
         cursorY += isStory ? 78 : 58;
     } else {
         cursorY += isStory ? 38 : 24;
     }
-
-    const stats = (entity.profileStats || []).slice(0, 6);
-    if (stats.length) {
-        drawProfileStats(ctx, stats, margin, cursorY, width - margin * 2, isStory ? 132 : 104);
-    }
+    const stats = (entity.profileStats || []).slice(0, variant === 'square' ? 3 : 6);
+    if (stats.length) drawProfileStats(ctx, stats, margin, cursorY, width - margin * 2, isStory ? 150 : 104);
 };
 
+/** Lista con top 3: de arriba abajo, título y filas del ranking. */
+const drawVerticalList = (
+    ctx: CanvasRenderingContext2D,
+    entity: ShareEntityPayload,
+    images: (HTMLImageElement | null)[],
+    variant: Exclude<ModernCardVariant, 'landscape'>,
+    width: number,
+    bottomLimit: number,
+) => {
+    const margin = 64;
+    const isStory = variant === 'story';
+    const contentWidth = width - margin * 2;
+    let y = isStory ? 230 : 170;
+    const chip = entity.authorName && !isStory ? typeChipLabel(entity) : (entity.authorName ? `El top de ${entity.authorName}` : typeChipLabel(entity));
+    drawChip(ctx, chip, margin, y, isStory ? 32 : 26);
+    y += (isStory ? 32 : 26) * 1.85 + (isStory ? 30 : 22);
+    y += drawTitleBlock(ctx, entity.title, margin, y, contentWidth, isStory ? 100 : variant === 'portrait' ? 80 : 68, 48, 2);
+    const meta = [
+        isStory && entity.authorName ? elementCountLabel(entity) : (entity.authorName ? `por ${entity.authorName}` : ''),
+        hasScore(entity.score) ? `media ${entity.score.toFixed(1)}` : '',
+    ].filter(Boolean);
+    if (meta.length) {
+        setFont(ctx, 700, isStory ? 36 : 30);
+        ctx.fillStyle = SOFT;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        ctx.fillText(fitText(ctx, meta.join(' · '), contentWidth), margin, y + 14);
+        y += (isStory ? 36 : 30) + 14;
+    }
+    y += isStory ? 60 : 36;
+    const items = (entity.rankItems || []).slice(0, 3);
+    const gap = isStory ? 24 : 16;
+    const available = bottomLimit - y;
+    const rowHeight = Math.min(isStory ? 240 : 150, Math.floor((available - gap * (items.length - 1)) / Math.max(1, items.length)));
+    if (rowHeight >= 80) drawRankRows(ctx, items, images, margin, y, contentWidth, rowHeight, gap);
+};
+
+/** Sitio, plato o valoración: se apila de abajo arriba, encima del pie. */
 const drawVerticalContent = (
     ctx: CanvasRenderingContext2D,
     entity: ShareEntityPayload,
     avatar: HTMLImageElement | null,
     variant: Exclude<ModernCardVariant, 'landscape'>,
     width: number,
-    height: number,
+    bottom: number,
 ) => {
     const margin = 64;
     const contentWidth = width - margin * 2;
     const isStory = variant === 'story';
     const isSquare = variant === 'square';
-    let cursorY = height - margin;
-
-    if (entity.authorName) {
-        drawAuthor(ctx, entity, avatar, margin, cursorY - 32, contentWidth * 0.68, false);
-        cursorY -= 96;
-    }
+    const isReview = entity.type === 'review';
+    let cursorY = bottom;
 
     const extras = (entity.nonPonderableStats || []).filter((item) => Number.isFinite(item.score))
-        .slice(0, isSquare ? 3 : 4);
-    if (extras.length) {
-        const panelHeight = isStory ? 162 : 140;
+        .slice(0, isSquare ? 0 : 4);
+    if (extras.length && isStory) {
+        const panelHeight = 150;
         cursorY -= panelHeight;
         drawNonPonderable(ctx, extras, margin, cursorY, contentWidth, panelHeight);
-        cursorY -= 22;
+        cursorY -= 30;
+    }
+
+    if (isReview && entity.description && !isSquare) {
+        const fontSize = isStory ? 38 : 30;
+        setFont(ctx, 500, fontSize, true);
+        const lines = wrapText(ctx, `«${entity.description}»`, contentWidth, 2);
+        const blockHeight = lines.length * fontSize * 1.3;
+        cursorY -= blockHeight;
+        ctx.fillStyle = '#e2e8f0';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+        lines.forEach((line, index) => ctx.fillText(line, margin, cursorY + index * fontSize * 1.3));
+        cursorY -= isStory ? 40 : 28;
     }
 
     const criteria = (entity.criteriaStats || []).filter((item) => Number.isFinite(item.score))
-        .slice(0, isStory ? 4 : isSquare ? 2 : 3);
+        .slice(0, isStory ? 4 : isSquare ? 0 : 3);
     if (criteria.length) {
-        const rowHeight = isStory ? 64 : 55;
-        const panelHeight = criteria.length * rowHeight + 34;
-        cursorY -= panelHeight;
+        const rowHeight = isStory ? 62 : 52;
+        cursorY -= criteria.length * rowHeight;
         drawCriteriaBars(ctx, criteria, margin, cursorY, contentWidth, rowHeight);
-        cursorY -= 22;
+        cursorY -= isStory ? 34 : 24;
     }
 
-    if (entity.description && !isSquare) {
-        const panelHeight = isStory ? 124 : 100;
-        cursorY -= panelHeight;
-        drawGlassPanel(ctx, margin, cursorY, contentWidth, panelHeight, 24);
-        const fontSize = isStory ? 28 : 23;
-        ctx.font = `600 italic ${fontSize}px ${FONT}`;
-        ctx.fillStyle = 'rgba(255,255,255,0.78)';
+    if (hasScore(entity.score)) {
+        const size = isStory ? 120 : isSquare ? 84 : 96;
+        const pillHeight = Math.round(size * 1.3);
+        cursorY -= pillHeight;
+        const pillWidth = drawScorePill(ctx, entity.score, margin, cursorY, size);
+        const band = scoreBand(entity.score);
+        const side = isReview ? SCORE_BAND_LABEL[band] : (entity.reviewCount ? `${entity.reviewCount} ${entity.reviewCount === 1 ? 'valoración' : 'valoraciones'}` : SCORE_BAND_LABEL[band]);
+        const sideSub = isReview ? '' : SCORE_BAND_LABEL[band];
+        setFont(ctx, 800, isStory ? 40 : 32);
+        ctx.fillStyle = isReview ? SCORE_TEXT_ON_DARK[band] : SOFT;
         ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        const lines = wrapText(ctx, `“${entity.description}”`, contentWidth - 48, 2);
-        lines.forEach((line, index) => ctx.fillText(line, margin + 24, cursorY + 22 + index * fontSize * 1.35));
-        cursorY -= 22;
+        ctx.textBaseline = 'middle';
+        const sideX = margin + pillWidth + 28;
+        if (sideSub && sideSub !== side) {
+            ctx.fillText(fitText(ctx, side, contentWidth - pillWidth - 28), sideX, cursorY + pillHeight / 2 - (isStory ? 24 : 19));
+            ctx.fillStyle = SCORE_TEXT_ON_DARK[band];
+            ctx.fillText(sideSub, sideX, cursorY + pillHeight / 2 + (isStory ? 24 : 19));
+        } else {
+            ctx.fillText(fitText(ctx, side, contentWidth - pillWidth - 28), sideX, cursorY + pillHeight / 2);
+        }
+        cursorY -= isStory ? 40 : 28;
     }
 
-    const metaParts = [
-        entity.reviewCount ? `${entity.reviewCount} ${entity.reviewCount === 1 ? 'valoración' : 'valoraciones'}` : '',
-        entity.city || '',
-    ].filter(Boolean);
-    if (metaParts.length) {
-        ctx.font = `800 ${isStory ? 28 : 23}px ${FONT}`;
-        ctx.fillStyle = 'rgba(255,255,255,0.68)';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(fitText(ctx, metaParts.join('  •  '), contentWidth), margin, cursorY);
-        cursorY -= isStory ? 52 : 42;
+    // Sitio y ciudad: en la valoración, bien grandes.
+    const placeSize = isReview ? (isStory ? 54 : isSquare ? 38 : 44) : (isStory ? 40 : 32);
+    const placeName = isReview ? entity.subtitle : undefined;
+    const city = entity.city || (!isReview ? entity.subtitle : undefined);
+    if (placeName || city) {
+        cursorY -= placeSize + 4;
+        drawPlaceLine(ctx, placeName, city, margin, cursorY, contentWidth, placeSize);
+        cursorY -= isStory ? 26 : 18;
     }
 
-    if (entity.subtitle) {
-        ctx.font = `700 ${isStory ? 38 : 31}px ${FONT}`;
-        ctx.fillStyle = 'rgba(255,255,255,0.76)';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(fitText(ctx, entity.subtitle, contentWidth), margin, cursorY);
-        cursorY -= isStory ? 61 : 50;
-    }
-
-    const { lines, fontSize } = layoutTitle(ctx, entity.title || 'Listopic', contentWidth, isStory ? 94 : 76, 48, isStory ? 3 : 2);
-    const titleHeight = lines.length * fontSize * 1.06;
+    const titleStart = isReview ? (isStory ? 86 : isSquare ? 60 : 68) : (isStory ? 116 : isSquare ? 80 : 92);
+    const titleLines = isStory ? 3 : 2;
+    const titleHeight = titleHeightFor(ctx, entity.title, contentWidth, titleStart, 44, titleLines);
     cursorY -= titleHeight;
-    ctx.font = `900 ${fontSize}px ${FONT}`;
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    ctx.shadowColor = 'rgba(0,0,0,0.48)';
-    ctx.shadowBlur = 22;
-    lines.forEach((line, index) => ctx.fillText(line, margin, cursorY + index * fontSize * 1.06));
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = 20;
+    drawTitleBlock(ctx, entity.title, margin, cursorY, contentWidth, titleStart, 44, titleLines);
     ctx.shadowBlur = 0;
-    cursorY -= isStory ? 34 : 24;
+    cursorY -= isStory ? 30 : 20;
 
-    if (Number.isFinite(entity.score as number)) {
-        const compact = !isStory;
-        const scoreHeight = compact ? 82 : 112;
-        cursorY -= scoreHeight;
-        drawScorePill(ctx, entity.score as number, margin, cursorY, compact);
+    if (isReview && entity.authorName) {
+        const size = isStory ? 62 : isSquare ? 42 : 50;
+        const rowHeight = Math.round(size * 1.8);
+        cursorY -= rowHeight;
+        drawAuthorRow(ctx, entity, avatar, margin, cursorY, contentWidth, size);
+    } else if (!isReview) {
+        const fontSize = isStory ? 32 : 26;
+        cursorY -= fontSize * 1.85;
+        drawChip(ctx, typeChipLabel(entity), margin, cursorY, fontSize);
     }
 };
 
+const drawSidePhoto = (ctx: CanvasRenderingContext2D, image: HTMLImageElement | null, width: number, height: number, ratio: number) => {
+    ctx.fillStyle = BG;
+    ctx.fillRect(0, 0, width, height);
+    const photoWidth = Math.round(width * ratio);
+    if (image) drawCover(ctx, image, width - photoWidth, 0, photoWidth, height);
+    const fade = ctx.createLinearGradient(0, 0, width, 0);
+    fade.addColorStop(0, 'rgba(11,16,33,1)');
+    fade.addColorStop(0.42, 'rgba(11,16,33,0.92)');
+    fade.addColorStop(0.7, 'rgba(11,16,33,0.25)');
+    fade.addColorStop(1, 'rgba(11,16,33,0.05)');
+    ctx.fillStyle = fade;
+    ctx.fillRect(0, 0, width, height);
+};
+
+/** Banner 1200×630: misma composición que la vista previa de WhatsApp. */
 const drawLandscape = (
     ctx: CanvasRenderingContext2D,
     entity: ShareEntityPayload,
     hero: HTMLImageElement | null,
     avatar: HTMLImageElement | null,
     logo: HTMLImageElement | null,
+    rankImages: (HTMLImageElement | null)[],
     width: number,
     height: number,
 ) => {
-    const margin = 48;
-    drawTypeChip(ctx, entity, margin, margin, true);
-    drawBrand(ctx, logo, width - margin, margin, true);
+    const x = 60;
+    const isReview = entity.type === 'review';
+    const listWithTop = isList(entity) && (entity.rankItems?.length || 0) > 0;
 
     if (entity.type === 'profile') {
-        drawCircularImage(ctx, hero, 174, 302, 112, entity.title);
-        const titleLayout = layoutTitle(ctx, entity.title, 785, 68, 48, 2);
-        ctx.font = `900 ${titleLayout.fontSize}px ${FONT}`;
-        ctx.fillStyle = '#ffffff';
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-        titleLayout.lines.forEach((line, index) => ctx.fillText(line, 330, 157 + index * titleLayout.fontSize * 1.05));
-        const titleBottom = 157 + titleLayout.lines.length * titleLayout.fontSize * 1.05;
+        ctx.fillStyle = BG;
+        ctx.fillRect(0, 0, width, height);
+        drawGlow(ctx, 900, 200, 650, 'rgba(49,46,129,0.95)', width, height);
+        drawBrand(ctx, logo, x, 50, 52);
+        drawCircularImage(ctx, hero, 900, 300, 170, entity.title);
+        drawChip(ctx, 'Perfil', x, 150, 24);
+        const titleHeight = drawTitleBlock(ctx, entity.title, x, 214, 600, 76, 48, 2);
         if (entity.subtitle) {
-            ctx.font = `700 28px ${FONT}`;
-            ctx.fillStyle = 'rgba(255,255,255,0.68)';
-            ctx.fillText(fitText(ctx, entity.subtitle, 785), 330, titleBottom + 8);
+            setFont(ctx, 700, 30);
+            ctx.fillStyle = SOFT;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(fitText(ctx, entity.subtitle, 600), x, 214 + titleHeight + 10);
         }
-        const stats = (entity.profileStats || []).slice(0, 6);
-        if (stats.length) drawProfileStats(ctx, stats, 330, Math.max(320, titleBottom + 58), 820, 92, 3);
+        const stats = (entity.profileStats || []).slice(0, 3);
+        if (stats.length) drawProfileStats(ctx, stats, x, Math.max(214 + titleHeight + 70, 410), 620, 120, 3);
+        drawBottomBar(ctx, width, height, 10);
         return;
     }
 
-    const leftX = margin;
-    const leftWidth = 670;
-    const titleLayout = layoutTitle(ctx, entity.title, leftWidth, 66, 46, 2);
-    ctx.font = `900 ${titleLayout.fontSize}px ${FONT}`;
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    titleLayout.lines.forEach((line, index) => ctx.fillText(line, leftX, 150 + index * titleLayout.fontSize * 1.04));
-    let cursorY = 150 + titleLayout.lines.length * titleLayout.fontSize * 1.04 + 10;
-    if (entity.subtitle) {
-        ctx.font = `700 28px ${FONT}`;
-        ctx.fillStyle = 'rgba(255,255,255,0.74)';
-        ctx.fillText(fitText(ctx, entity.subtitle, leftWidth), leftX, cursorY);
-        cursorY += 47;
+    if (listWithTop) {
+        ctx.fillStyle = BG;
+        ctx.fillRect(0, 0, width, height);
+        drawGlow(ctx, 980, 120, 700, 'rgba(49,46,129,0.9)', width, height);
+    } else {
+        drawSidePhoto(ctx, hero, width, height, isReview ? 0.56 : 0.6);
     }
-    if (Number.isFinite(entity.score as number)) {
-        drawScorePill(ctx, entity.score as number, leftX, cursorY, true);
-    }
-    if (entity.authorName) drawAuthor(ctx, entity, avatar, leftX, height - 54, 500, true);
+    drawBrand(ctx, logo, x, 50, 52);
+    const maxWidth = listWithTop ? 560 : 660;
 
-    const panelX = 780;
-    const panelWidth = width - margin - panelX;
-    const criteria = (entity.criteriaStats || []).filter((item) => Number.isFinite(item.score)).slice(0, 4);
-    const extras = (entity.nonPonderableStats || []).filter((item) => Number.isFinite(item.score)).slice(0, 3);
-    let panelY = 143;
-    if (criteria.length) {
-        const panelHeight = drawCriteriaBars(ctx, criteria, panelX, panelY, panelWidth, 52);
-        panelY += panelHeight + 16;
+    if (isReview) {
+        drawAuthorRow(ctx, entity, avatar, x, 128, maxWidth, 46);
+        const titleHeight = drawTitleBlock(ctx, entity.title, x, 248, maxWidth, 54, 40, 2);
+        const placeY = 248 + titleHeight + 18;
+        drawPlaceLine(ctx, entity.subtitle, entity.city, x, placeY, maxWidth, 38);
+        if (hasScore(entity.score)) {
+            const pillY = Math.min(Math.max(placeY + 70, 450), height - 130);
+            const pillWidth = drawScorePill(ctx, entity.score, x, pillY, 72);
+            if (entity.description) {
+                setFont(ctx, 500, 26, true);
+                ctx.fillStyle = '#e2e8f0';
+                ctx.textBaseline = 'middle';
+                const room = maxWidth - pillWidth - 22;
+                if (room > 160) ctx.fillText(fitText(ctx, `«${entity.description}»`, room), x + pillWidth + 22, pillY + 47);
+            }
+        }
+        drawBottomBar(ctx, width, height, 10);
+        return;
     }
-    if (extras.length && panelY + 126 < height - 18) {
-        drawNonPonderable(ctx, extras, panelX, panelY, panelWidth, 126);
+
+    drawChip(ctx, typeChipLabel(entity), x, 150, 24);
+    const titleHeight = drawTitleBlock(ctx, entity.title, x, 214, maxWidth, listWithTop ? 68 : 76, 46, listWithTop ? 3 : 2);
+    let y = 214 + titleHeight + 18;
+    if (listWithTop) {
+        const meta = [entity.authorName ? `por ${entity.authorName}` : '', hasScore(entity.score) ? `media ${entity.score.toFixed(1)}` : '']
+            .filter(Boolean).join(' · ');
+        if (meta) {
+            setFont(ctx, 700, 30);
+            ctx.fillStyle = SOFT;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'top';
+            ctx.fillText(fitText(ctx, meta, maxWidth), x, y);
+        }
+        const items = (entity.rankItems || []).slice(0, 3);
+        const size = 240;
+        const gap = 18;
+        const ox = width - 50 - size * 2 - gap;
+        for (let i = 0; i < 4; i += 1) {
+            const cx = ox + (i % 2) * (size + gap);
+            const cy = 60 + Math.floor(i / 2) * (size + gap);
+            ctx.save();
+            roundRect(ctx, cx, cy, size, size, 26);
+            ctx.clip();
+            if (i < items.length && rankImages[i]) drawCover(ctx, rankImages[i] as HTMLImageElement, cx, cy, size, size);
+            else {
+                ctx.fillStyle = 'rgba(255,255,255,0.06)';
+                ctx.fillRect(cx, cy, size, size);
+            }
+            ctx.restore();
+            if (i < items.length) {
+                if (!rankImages[i]) {
+                    setFont(ctx, 800, 28);
+                    ctx.fillStyle = '#e2e8f0';
+                    ctx.textAlign = 'left';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(fitText(ctx, items[i].title, size - 30), cx + 16, cy + size / 2 - 20);
+                }
+                const score = items[i].score;
+                if (hasScore(score)) drawScorePill(ctx, score, cx + 14, cy + size - 70, 40);
+            } else {
+                const rest = Math.max(0, (entity.elementCount || 0) - items.length);
+                setFont(ctx, 800, rest > 0 ? 52 : 34);
+                ctx.fillStyle = INDIGO_SOFT;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(rest > 0 ? `+${rest}` : 'Ver lista', cx + size / 2, cy + size / 2);
+            }
+        }
+        drawBottomBar(ctx, width, height, 10);
+        return;
     }
+
+    const city = entity.city || entity.subtitle;
+    if (city) {
+        drawPlaceLine(ctx, undefined, city, x, y, maxWidth, 32);
+        y += 50;
+    }
+    if (hasScore(entity.score)) {
+        const pillY = Math.max(y + 30, 420);
+        const pillWidth = drawScorePill(ctx, entity.score, x, pillY, 84);
+        if (entity.reviewCount) {
+            setFont(ctx, 700, 30);
+            ctx.fillStyle = '#e2e8f0';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(`${entity.reviewCount} ${entity.reviewCount === 1 ? 'valoración' : 'valoraciones'}`, x + pillWidth + 24, pillY + 55);
+        }
+    }
+    drawBottomBar(ctx, width, height, 10);
 };
 
 async function renderCard(entity: ShareEntityPayload, variant: ModernCardVariant): Promise<string> {
@@ -636,26 +961,38 @@ async function renderCard(entity: ShareEntityPayload, variant: ModernCardVariant
         try { await document.fonts.ready; } catch { /* La fuente del sistema mantiene el layout. */ }
     }
 
-    const [hero, avatar, logo] = await Promise.all([
+    const rankItems = isList(entity) ? (entity.rankItems || []).slice(0, 3) : [];
+    const [hero, avatar, logo, ...rankImages] = await Promise.all([
         loadImage(entity.imageUrl),
         loadImage(entity.authorPhoto),
         loadImage(BRAND_LOGO_URL),
+        ...rankItems.map((item) => loadImage(item.imageUrl)),
     ]);
 
-    paintBackground(ctx, hero, entity, width, height);
-
     if (variant === 'landscape') {
-        drawLandscape(ctx, entity, hero, avatar, logo, width, height);
-    } else {
-        const margin = 64;
-        drawTypeChip(ctx, entity, margin, margin);
-        drawBrand(ctx, logo, width - margin, margin);
-        if (entity.type === 'profile') {
-            drawVerticalProfile(ctx, entity, hero, variant, width);
-        } else {
-            drawVerticalContent(ctx, entity, avatar, variant, width, height);
-        }
+        drawLandscape(ctx, entity, hero, avatar, logo, rankImages, width, height);
+        return canvas.toDataURL('image/png', 1.0);
     }
+
+    const isStory = variant === 'story';
+    const margin = 64;
+    paintBackground(ctx, hero, entity, width, height, isStory ? 0.62 : variant === 'portrait' ? 0.6 : 0.64);
+    drawBrand(ctx, logo, margin, margin, isStory ? 70 : 56);
+
+    const showFooter = variant !== 'square';
+    const barHeight = 12;
+    const footerBottom = height - barHeight - (isStory ? 70 : 48);
+    const footerHeight = showFooter ? drawFooter(ctx, entity, margin, footerBottom, width - margin * 2, !isStory) : 0;
+    const contentBottom = showFooter ? footerBottom - footerHeight - (isStory ? 48 : 32) : height - barHeight - 52;
+
+    if (entity.type === 'profile') {
+        drawVerticalProfile(ctx, entity, hero, variant, width);
+    } else if (rankItems.length) {
+        drawVerticalList(ctx, entity, rankImages, variant, width, contentBottom);
+    } else {
+        drawVerticalContent(ctx, entity, avatar, variant, width, contentBottom);
+    }
+    drawBottomBar(ctx, width, height, barHeight);
 
     return canvas.toDataURL('image/png', 1.0);
 }
@@ -699,7 +1036,7 @@ export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, varian
 
     const share = async () => {
         if (!previewImage) return;
-        const shareUrl = buildShareRouteUrl(entity.route) || entity.url || '';
+        const shareUrl = buildShareRouteUrl(entity.shareRoute || entity.route) || entity.url || '';
         const text = `${buildShareText(entity)} ${shareUrl}`.trim();
         try {
             if (Capacitor.isNativePlatform()) {
