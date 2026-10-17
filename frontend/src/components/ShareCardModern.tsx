@@ -71,6 +71,16 @@ const loadImage = async (url?: string): Promise<HTMLImageElement | null> => {
     }
 };
 
+/** La primera foto que cargue: si la elegida falla, mejor otra que ninguna. */
+const loadFirstImage = async (urls: (string | undefined)[]): Promise<HTMLImageElement | null> => {
+    const unique = Array.from(new Set(urls.filter((url): url is string => Boolean(url)))).slice(0, 4);
+    for (const url of unique) {
+        const image = await loadImage(url);
+        if (image) return image;
+    }
+    return null;
+};
+
 const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) => {
     const radius = Math.min(r, w / 2, h / 2);
     ctx.beginPath();
@@ -981,7 +991,7 @@ async function renderCard(entity: ShareEntityPayload, variant: ModernCardVariant
 
     const rankItems = isList(entity) ? (entity.rankItems || []).slice(0, 3) : [];
     const [hero, avatar, logo, ...rankImages] = await Promise.all([
-        loadImage(entity.imageUrl),
+        loadFirstImage([entity.imageUrl, ...(entity.imageUrls || [])]),
         loadImage(entity.authorPhoto),
         loadImage(BRAND_LOGO_URL),
         ...rankItems.map((item) => loadImage(item.imageUrl)),
