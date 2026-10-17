@@ -7,17 +7,33 @@ const { FakeFirestore } = require('./helpers/fake-firestore');
 const db = new FakeFirestore();
 firestoreAdmin.getFirestore = () => db;
 
+// node-fetch falso: solo «existe» una foto de Firebase Storage.
+const Module = require('node:module');
+const fetchPath = require.resolve('node-fetch');
+const fakeFetch = new Module(fetchPath);
+fakeFetch.filename = fetchPath;
+fakeFetch.loaded = true;
+fakeFetch.exports = async (url) => {
+  const found = url.startsWith('https://firebasestorage.googleapis.com/v0/b/x/o/foto.jpg');
+  return {
+    ok: found,
+    headers: { get: () => (found ? 'image/jpeg' : 'text/html') },
+    buffer: async () => Buffer.from([0xff, 0xd8, 0xff]),
+  };
+};
+require.cache[fetchPath] = fakeFetch;
+
 const { ssrMeta } = require('../modules/ssr-meta');
 const { renderShareImage, isAllowedImageUrl } = require('../modules/share-image');
 
-const call = (path) => new Promise((resolve) => {
+const call = (path, query = {}) => new Promise((resolve) => {
   const res = {
     headers: {},
     set(key, value) { this.headers[key] = value; return this; },
     status(code) { this.statusCode = code; return this; },
     send(body) { resolve({ status: this.statusCode, headers: this.headers, body }); },
   };
-  ssrMeta({ path, method: 'GET', headers: {}, get: () => undefined }, res);
+  ssrMeta({ path, query, method: 'GET', headers: {}, get: () => undefined }, res);
 });
 
 const ogImage = (html) => (html.match(/property="og:image" content="([^"]+)"/) || [])[1];
@@ -84,4 +100,14 @@ test('solo descarga fotos de hosts permitidos (nada de la API de Places)', async
   assert.equal(isAllowedImageUrl('https://169.254.169.254/'), false);
   const jpeg = await renderShareImage('list', { title: 'Sin fotos', top: [{ name: 'A', score: 8 }] });
   assert.ok(jpeg.length > 1000);
+});
+
+test('/s/img: proxy con CORS solo para fotos permitidas', async () => {
+  const ok = await call('/s/img', { u: 'https://firebasestorage.googleapis.com/v0/b/x/o/foto.jpg?alt=media' });
+  assert.equal(ok.status, 200);
+  assert.equal(ok.headers['Access-Control-Allow-Origin'], '*');
+  assert.equal(ok.headers['Content-Type'], 'image/jpeg');
+  assert.equal((await call('/s/img', { u: 'https://maps.googleapis.com/maps/api/place/photo?key=x' })).status, 404);
+  assert.equal((await call('/s/img', { u: 'https://evil.example/a.jpg' })).status, 404);
+  assert.equal((await call('/s/img')).status, 404);
 });

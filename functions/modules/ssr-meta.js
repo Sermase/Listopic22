@@ -14,6 +14,7 @@
 //   /s/group/{placeId}/{itemName}
 //   /s/profile/{userId}
 //   /s/review/{listId}/{reviewId}
+// /s/img?u={foto} (proxy con CORS para las tarjetas de la app)
 // y la imagen de la vista previa de cada una en /s/og/{misma ruta}: un JPEG
 // 1200×630 con foto, nota y marca (modules/share-image.js).
 
@@ -21,7 +22,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { getFirestore } = require("firebase-admin/firestore");
 const crypto = require("crypto");
-const { renderShareImage } = require("./share-image");
+const { renderShareImage, fetchImageBytes } = require("./share-image");
 
 const db = getFirestore();
 
@@ -308,6 +309,22 @@ const cardVersion = (card) => crypto.createHash("sha1").update(JSON.stringify(ca
 
 const ssrMeta = onRequest({ invoker: "public", memory: "512MiB", timeoutSeconds: 30 }, async (req, res) => {
   const segments = req.path.split("/").filter(Boolean); // ['s', 'place', id, ...]
+
+  // Proxy de fotos para las tarjetas que dibuja la app en el navegador: las de
+  // Firebase Storage no traen CORS y el canvas no podría leerlas.
+  if (segments[0] === "s" && segments[1] === "img") {
+    const image = await fetchImageBytes(typeof req.query?.u === "string" ? req.query.u : "");
+    if (!image) {
+      res.set("Cache-Control", "public, max-age=60");
+      res.status(404).send("");
+      return;
+    }
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Content-Type", image.contentType);
+    res.set("Cache-Control", "public, max-age=86400, s-maxage=604800");
+    res.status(200).send(image.buffer);
+    return;
+  }
 
   if (segments[0] === "s" && segments[1] === "og") {
     let ogMeta = null;

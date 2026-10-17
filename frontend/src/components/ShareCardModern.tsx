@@ -5,7 +5,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Check, Download, Share2, X } from 'lucide-react';
 import { getShareEntityLabel, type ShareCriteriaStat, type ShareEntityPayload, type ShareProfileStat, type ShareRankItem } from '../types/share';
 import { buildShareText } from '../utils/shareTexts';
-import { buildShareRouteUrl } from '../utils/publicUrl';
+import { buildShareRouteUrl, PUBLIC_ORIGIN } from '../utils/publicUrl';
 import { SCORE_BADGE, SCORE_BAND_LABEL, SCORE_TEXT_ON_DARK, scoreBand } from '../lib/scoreScale';
 
 export type ModernCardVariant = 'story' | 'portrait' | 'square' | 'landscape';
@@ -30,12 +30,30 @@ const BRAND_LOGO_URL = '/images/listopic-app-icon.png';
 // Escala única de notas (lib/scoreScale), variante para fondo oscuro.
 const scoreColor = (score?: number): string => SCORE_TEXT_ON_DARK[scoreBand(score)];
 
+// Firebase Storage no manda CORS: sin él, el canvas no puede leer la foto. Si la
+// descarga directa falla, se pide a nuestro proxy /s/img (ssrMeta), que sí lo manda.
+const fetchImageBlob = async (url: string): Promise<Blob | null> => {
+    const attempts = url.startsWith('/') || url.startsWith('data:') || url.startsWith('blob:')
+        ? [url]
+        : [url, `${PUBLIC_ORIGIN}/s/img?u=${encodeURIComponent(url)}`];
+    for (const attempt of attempts) {
+        try {
+            const response = await fetch(attempt);
+            const type = response.headers.get('content-type') || '';
+            if (response.ok && (type.startsWith('image/') || !type)) return await response.blob();
+        } catch {
+            // Siguiente intento.
+        }
+    }
+    return null;
+};
+
 const loadImage = async (url?: string): Promise<HTMLImageElement | null> => {
     if (!url) return null;
     try {
-        const response = await fetch(url);
-        if (!response.ok) return null;
-        const objectUrl = URL.createObjectURL(await response.blob());
+        const blob = await fetchImageBlob(url);
+        if (!blob) return null;
+        const objectUrl = URL.createObjectURL(blob);
         return await new Promise((resolve) => {
             const image = new Image();
             image.onload = () => {
