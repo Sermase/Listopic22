@@ -15,6 +15,13 @@ export interface ShareCriteriaStat {
     count?: number;
 }
 
+export interface ShareRankItem {
+    title: string;
+    subtitle?: string;
+    score?: number;
+    imageUrl?: string;
+}
+
 export interface ShareProfileStat {
     key: string;
     label: string;
@@ -28,6 +35,8 @@ export interface ShareEntityPayload {
     subtitle?: string;
     description?: string;
     route?: string;
+    /** Ruta de la vista previa (/s/...) si no es la de `route`; p. ej. /review/{listId}/{id}. */
+    shareRoute?: string;
     url: string;
     imageUrl?: string;
     /** Galería de imágenes entre las que se puede elegir al crear la tarjeta. */
@@ -47,6 +56,10 @@ export interface ShareEntityPayload {
     referenceLabel?: string;
     profileStats?: ShareProfileStat[];
     tags?: string[];
+    /** Listas: las 3 mejores, por nota, para la tarjeta. */
+    rankItems?: ShareRankItem[];
+    /** Listas: nº de elementos (sitios o platos) de la lista. */
+    elementCount?: number;
 }
 
 const SHARE_ENTITY_LABELS: Record<ShareEntityType, string> = {

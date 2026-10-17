@@ -129,6 +129,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 subtitle: placeLabel,
                 description: review.comment,
                 route,
+                shareRoute: review.listId && review.id ? `/review/${review.listId}/${review.id}` : undefined,
                 url: fallbackUrl,
                 imageUrl: review.photoUrl || review.placeMainImage,
                 imageUrls: [...(review.photoUrls || []), review.photoUrl, review.placeMainImage]
@@ -138,6 +139,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 authorId: review.userId || review.authorId,
                 authorName: review.authorName,
                 authorPhoto: review.authorPhoto,
+                city: review.placeCity,
                 criteriaStats: shareCriteria.ponderable,
                 nonPonderableStats: shareCriteria.nonPonderable,
                 tags: review.userTags || review.tags,
@@ -386,7 +388,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     if (!isOpen) return null;
 
     // URL /s/... con Open Graph real para bots + texto con gancho por entidad.
-    const externalShareUrl = buildShareRouteUrl(resolvedShareEntity.route) || fallbackUrl;
+    const externalShareUrl = buildShareRouteUrl(resolvedShareEntity.shareRoute || resolvedShareEntity.route) || fallbackUrl;
     const shareTextForExternal = `${text || buildShareText(resolvedShareEntity)} ${externalShareUrl}`.trim();
 
     const trackSuccessfulShare = (channel: AnalyticsShareChannel, count = 1) => {
