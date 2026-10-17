@@ -73,6 +73,22 @@ async function fetchImage(url) {
   }
 }
 
+/**
+ * Descarga una foto permitida tal cual (para el proxy /s/img que usan las
+ * tarjetas de la app: Firebase Storage no manda cabeceras CORS).
+ */
+async function fetchImageBytes(url) {
+  if (!url || !isAllowedImageUrl(url)) return null;
+  try {
+    const response = await fetch(url, { timeout: 6000, size: MAX_IMAGE_BYTES });
+    const contentType = response.headers.get("content-type") || "";
+    if (!response.ok || !contentType.startsWith("image/")) return null;
+    return { contentType, buffer: await response.buffer() };
+  } catch (_) {
+    return null;
+  }
+}
+
 let iconPromise = null;
 const loadIcon = () => {
   if (!iconPromise) iconPromise = loadImage(path.join(ASSETS, "listopic-icon.png")).catch(() => null);
@@ -515,4 +531,4 @@ async function renderShareImage(kind, data = {}) {
   return canvas.encode("jpeg", 86);
 }
 
-module.exports = { renderShareImage, isAllowedImageUrl, SHARE_IMAGE_WIDTH: W, SHARE_IMAGE_HEIGHT: H };
+module.exports = { renderShareImage, isAllowedImageUrl, fetchImageBytes, SHARE_IMAGE_WIDTH: W, SHARE_IMAGE_HEIGHT: H };
