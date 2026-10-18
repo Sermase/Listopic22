@@ -6,747 +6,607 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#020617">
+    <meta name="theme-color" content="#070912">
     <title>El baile de los apegos</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: #ffffff; cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.5); transition: transform 0.1s; }
-        input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
-        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: #4b5563; border-radius: 2px; }
-        input[type=range]:focus { outline: none; }
-        
-        .panel-a { border-top: 4px solid #3b82f6; transition: border-color 1s; } 
-        .panel-e { border-top: 4px solid #a855f7; transition: border-color 1s; } 
-        
-        #canvas-container { position: relative; width: 100%; height: 60vh; min-height: 480px; max-height: 650px; background-color: #0f172a; border-radius: 0.75rem; overflow: hidden; border: 1px solid #334155; transition: background-color 1s; }
-        canvas { display: block; width: 100%; height: 100%; }
-
-        #time-hud { transition: all 0.5s ease; backdrop-filter: blur(4px); z-index: 20;}
-
-        .avatar-label { position: absolute; font-weight: bold; font-size: 1rem; padding: 4px 15px; border-radius: 20px; color: white; backdrop-filter: blur(4px); z-index: 10; transition: background-color 1s; top: 50%; transform: translateY(-50%);}
-        .label-a { left: 5%; background: rgba(59, 130, 246, 0.3); border: 1px solid #3b82f6; }
-        .label-e { right: 5%; background: rgba(168, 85, 247, 0.3); border: 1px solid #a855f7; }
-        
-        .bar-container { position: absolute; width: 10px; height: 140px; background: rgba(0,0,0,0.4); border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); z-index: 10; top: 50%; transform: translateY(-50%);}
-        .bar-a { left: 18%; }
-        .bar-e { right: 18%; }
-        .bar-fill { width: 100%; position: absolute; bottom: 0; transition: height 0.4s ease, background-color 1s; }
-        .fill-a { background-color: #3b82f6; }
-        .fill-e { background-color: #a855f7; }
-        
-        .prob-indicator { position: absolute; font-size: 9px; font-weight: bold; color: #cbd5e1; width: 100px; text-align: center; left: -45px; z-index: 12;}
-
-        .health-bar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); width: 280px; text-align: center; z-index: 10;}
-        .health-fill { height: 12px; background: #10b981; border-radius: 6px; transition: width 0.3s, background-color 0.3s; margin-top: 4px; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
-        
-        .resent-bar-container { width: 200px; margin: 4px auto 0 auto; }
-        .resent-fill { height: 4px; background: #ef4444; border-radius: 2px; transition: width 0.5s; box-shadow: 0 0 8px rgba(239, 68, 68, 0.6); }
-
-        .legend { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 15px; font-size: 0.7rem; color: #cbd5e1; background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 20px; z-index: 10; backdrop-filter: blur(2px);}
-        .legend-item { display: flex; align-items: center; gap: 5px; }
-        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-
-        #expl-overlay { backdrop-filter: blur(6px); transition: opacity 0.3s ease; }
-        .expl-box { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        
-        .toggle-active { background-color: #10b981 !important; }
-        .toggle-dot-active { transform: translateX(16px); }
-        
-        .secure-glow { box-shadow: 0 0 20px rgba(16, 185, 129, 0.6); border-color: #10b981 !important; }
-        
-        /* Chat Scrollbar */
-        #chat-log::-webkit-scrollbar { width: 6px; }
-        #chat-log::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
-        #chat-log::-webkit-scrollbar-track { background: #1e293b; border-radius: 4px; }
-
-        .param-group { padding: 2px 8px; margin: -2px -8px; border-radius: 6px; }
-
-        .mini-card { background: rgba(15,23,42,0.55); border: 1px solid rgba(148,163,184,0.18); border-radius: 0.75rem; padding: 0.7rem; }
-        .mini-select { width: 100%; background: rgba(15,23,42,0.95); border: 1px solid #475569; border-radius: 0.55rem; color: #e2e8f0; padding: 0.45rem 0.6rem; font-size: 0.78rem; }
-        .mini-select:focus { outline: 1px solid #10b981; }
-        .sound-btn-on { background: linear-gradient(135deg, rgba(16,185,129,0.28), rgba(59,130,246,0.20)); border-color: rgba(16,185,129,0.55); }
-        .sound-btn-off { background: rgba(30,41,59,0.8); border-color: rgba(148,163,184,0.24); }
-        .soft-note { font-size: 10px; line-height: 1.3; color: #94a3b8; }
-        .mobile-action-dock { display: none; }
-        .mobile-modal { display: none; }
-        .mobile-modal.is-open { display: flex; }
-        .mobile-modal-body #controls-panel { display: grid !important; }
-        .mobile-modal-body #history-panel, .mobile-modal-body #diag-panel { display: flex !important; height: auto !important; max-height: none; margin-bottom: 0 !important; }
-        button, [role="button"] { touch-action: manipulation; }
-
-        @media (max-width: 900px) {
-            body { padding: 0 !important; overflow-x: hidden; }
-            input, select, textarea { font-size: 16px !important; }
-            .max-w-6xl { max-width: 100% !important; width: 100% !important; }
-            header { display: none; }
-            #canvas-container { height: 100dvh; min-height: 420px; max-height: none; border-radius: 0; margin-bottom: 0 !important; border-left: 0; border-right: 0; }
-            #controls-panel, #history-panel, #diag-panel { display: none; }
-            .health-bar { top: 8px; width: min(64vw, 290px); }
-            #time-hud { top: 64px !important; transform: translateX(-50%) scale(0.92); }
-            .legend { bottom: 72px; font-size: 0.54rem; width: 96%; gap: 7px; }
-            /* ── Dock container ── */
-            .mobile-action-dock {
-                position: fixed;
-                left: 50%;
-                bottom: max(env(safe-area-inset-bottom, 0px), 6px);
-                transform: translateX(-50%);
-                z-index: 60;
-                width: min(97vw, 480px);
-                display: flex;
-                flex-direction: column;
-                gap: 6px;
-                padding: 8px;
-                background: rgba(3, 6, 18, 0.97);
-                border: 1px solid rgba(148,163,184,0.14);
-                border-radius: 20px;
-                backdrop-filter: blur(24px) saturate(1.5);
-                box-shadow: 0 -10px 36px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
-            }
-
-            /* ── Play button ── */
-            .dock-play {
-                width: 100%; padding: 11px 14px;
-                border-radius: 14px;
-                border: 1px solid rgba(56,189,248,0.2);
-                background: linear-gradient(135deg, #1e3a8a 0%, #0e7490 100%);
-                color: white; font-weight: 900; font-size: 13px; letter-spacing: 0.04em;
-                display: flex; align-items: center; justify-content: center; gap: 10px;
-                cursor: pointer;
-                box-shadow: 0 3px 16px rgba(14,116,144,0.38), inset 0 1px 0 rgba(255,255,255,0.08);
-                transition: transform 0.1s, box-shadow 0.12s;
-            }
-            .dock-play.is-running {
-                background: linear-gradient(135deg, #581c87 0%, #4338ca 100%);
-                border-color: rgba(167,139,250,0.26);
-                box-shadow: 0 3px 16px rgba(109,40,217,0.32), inset 0 1px 0 rgba(255,255,255,0.08);
-            }
-            .dock-play:active { transform: scale(0.98); }
-            .dock-play .ico { font-size: 19px; line-height: 1; }
-            .dock-play .txt { font-size: 13px; }
-
-            /* ── Middle: two zones side by side ── */
-            .dock-mid { display: flex; gap: 6px; }
-            .dock-zone { display: flex; flex-direction: column; gap: 4px; }
-            .dock-zone-act { flex: 2; }
-            .dock-zone-obs { flex: 3; }
-            .dock-zone-label {
-                font-size: 7px; font-weight: 900; letter-spacing: 0.22em; text-align: center;
-            }
-            .dock-zone-act .dock-zone-label { color: rgba(52,211,153,0.55); }
-            .dock-zone-obs .dock-zone-label { color: rgba(148,163,184,0.4); }
-            .dock-zone-btns { display: flex; gap: 5px; }
-
-            /* ── Middle buttons base ── */
-            .dock-act, .dock-obs {
-                flex: 1; min-height: 50px;
-                border-radius: 13px; border: 1px solid rgba(255,255,255,0.07);
-                color: white; background: rgba(7,12,30,0.92);
-                display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
-                cursor: pointer; padding: 7px 4px;
-                transition: transform 0.1s; position: relative;
-            }
-            .dock-act:active, .dock-obs:active { transform: scale(0.94); }
-            .dock-ico { font-size: 17px; line-height: 1; }
-            .dock-lbl { font-size: 8.5px; font-weight: 800; white-space: nowrap; }
-
-            /* ACTUAR personalities */
-            .act-wisdom {
-                background: linear-gradient(155deg, rgba(4,96,72,0.9), rgba(2,50,36,0.96));
-                border-color: rgba(16,185,129,0.48);
-                box-shadow: 0 3px 12px rgba(16,185,129,0.16), inset 0 1px 0 rgba(255,255,255,0.06);
-            }
-            .act-wisdom .dock-lbl { color: rgba(110,231,183,0.88); }
-            .act-therapy {
-                background: linear-gradient(155deg, rgba(88,22,135,0.9), rgba(52,14,90,0.96));
-                border-color: rgba(167,139,250,0.48);
-                box-shadow: 0 3px 12px rgba(139,92,246,0.16), inset 0 1px 0 rgba(255,255,255,0.06);
-            }
-            .act-therapy .dock-lbl { color: rgba(196,181,253,0.88); }
-            .therapy-badge {
-                position: absolute; top: 4px; right: 5px;
-                background: rgba(139,92,246,0.9); color: white;
-                font-size: 8px; font-weight: 900;
-                width: 14px; height: 14px; border-radius: 50%;
-                display: flex; align-items: center; justify-content: center;
-                box-shadow: 0 0 6px rgba(139,92,246,0.45);
-            }
-
-            /* EXPLORAR personalities */
-            .obs-chat { border-color: rgba(59,130,246,0.28); }
-            .obs-chat .dock-lbl { color: rgba(147,197,253,0.75); }
-            .obs-status { border-color: rgba(245,158,11,0.28); }
-            .obs-status .dock-lbl { color: rgba(252,211,77,0.75); }
-            .obs-theory { border-color: rgba(99,102,241,0.28); }
-            .obs-theory .dock-lbl { color: rgba(165,180,252,0.75); }
-
-            /* ── Tool strip ── */
-            .dock-strip { display: flex; gap: 5px; }
-            .dock-util {
-                flex: 1; min-height: 36px;
-                border-radius: 11px; border: 1px solid rgba(255,255,255,0.06);
-                background: rgba(5, 8, 22, 0.94); color: white;
-                display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
-                cursor: pointer; transition: transform 0.1s;
-            }
-            .dock-util:active { transform: scale(0.93); }
-            .util-ico { font-size: 12px; line-height: 1; }
-            .util-lbl { font-size: 7px; font-weight: 700; color: rgba(100,116,139,0.8); white-space: nowrap; }
-            /* m-btn-speed uses .ico/.txt classes (set by JS) */
-            .dock-util .ico { font-size: 12px; line-height: 1; }
-            .dock-util .txt { font-size: 7px; font-weight: 700; color: rgba(103,232,249,0.72); white-space: nowrap; }
-            .util-speed { border-color: rgba(6,182,212,0.26); background: rgba(3,8,22,0.96); }
-            .util-reset { border-color: rgba(239,68,68,0.26); background: rgba(12,3,3,0.96); }
-            .util-reset .util-lbl { color: rgba(252,165,165,0.7); }
-            .mobile-modal {
-                position: fixed; inset: 0; z-index: 90;
-                align-items: center; justify-content: center;
-                background: rgba(2,6,23,0.76);
-                backdrop-filter: blur(10px);
-                padding: 12px;
-            }
-            .mobile-modal-card {
-                width: min(96vw, 820px);
-                max-height: 92dvh;
-                overflow: auto;
-                border-radius: 18px;
-                background: rgba(15,23,42,0.96);
-                border: 1px solid rgba(148,163,184,0.28);
-                box-shadow: 0 30px 90px rgba(0,0,0,0.55);
-            }
-            .mobile-modal-head {
-                position: sticky; top: 0; z-index: 2;
-                display:flex; justify-content:space-between; align-items:center;
-                padding: 12px 14px;
-                background: rgba(15,23,42,0.98);
-                border-bottom: 1px solid rgba(148,163,184,0.2);
-            }
-            .mobile-modal-title { font-weight: 900; color: #e2e8f0; font-size: 14px; }
-            .mobile-modal-close { background:#334155; color:white; border-radius:999px; padding:6px 10px; font-size:12px; font-weight:900; }
-            .mobile-modal-body { padding: 12px; }
-            .theory-card { background: rgba(30,41,59,0.62); border: 1px solid rgba(148,163,184,0.22); border-radius: 14px; padding: 12px; margin-bottom: 10px; }
-            .theory-card h4 { color: #fbbf24; font-size: 13px; font-weight: 900; margin-bottom: 6px; }
-            .theory-card p, .theory-card li { color:#cbd5e1; font-size:12px; line-height:1.45; }
-            .theory-card ul { margin-left: 18px; list-style: disc; }
+        :root {
+            --bg: #070912;
+            --panel: #0e1222;
+            --panel-2: #141a2e;
+            --glass: rgba(10, 13, 26, 0.62);
+            --line: rgba(148, 163, 184, 0.14);
+            --line-2: rgba(148, 163, 184, 0.24);
+            --text: #e8ecf6;
+            --muted: #8d95ae;
+            --dim: #5d6580;
+            --a: #3b82f6;
+            --e: #a855f7;
+            --heal: #10b981;
+            --tox: #ef4444;
+            --pos: #f59e0b;
+            --alq: #818cf8;
+            --ease: cubic-bezier(.2, .8, .2, 1);
+            --safe-t: env(safe-area-inset-top, 0px);
+            --safe-b: env(safe-area-inset-bottom, 0px);
         }
+        * { box-sizing: border-box; }
+        html, body { height: 100%; margin: 0; }
+        body {
+            background: var(--bg); color: var(--text);
+            font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased; overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; touch-action: manipulation; }
+        button:disabled { cursor: default; }
+        .i { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+        .i.fill { fill: currentColor; stroke: none; }
+        [hidden] { display: none !important; }
 
-        @media (orientation: landscape) and (max-width: 900px) {
-            #canvas-container { height: 100dvh; }
-            .avatar-label { font-size: 0.64rem; padding: 2px 8px; }
-            .bar-container { height: 112px; }
-            .legend { display: none; }
-            /* Landscape: right sidebar, not a bubble */
-            .mobile-action-dock {
-                left: auto; right: 0; top: 0; bottom: 0;
-                transform: none;
-                width: 156px;
-                border-radius: 14px 0 0 14px;
-                max-height: 100dvh;
-                overflow-y: auto; overflow-x: hidden;
-                padding: 8px 7px;
-                gap: 5px;
-                justify-content: center;
-            }
-            .dock-play { padding: 9px 8px; border-radius: 11px; }
-            .dock-play .ico { font-size: 16px; }
-            .dock-play .txt { font-size: 11px; }
-            .dock-mid { flex-direction: column; gap: 5px; }
-            .dock-zone-act, .dock-zone-obs { flex: none; }
-            .dock-zone-btns { gap: 4px; }
-            .dock-act { min-height: 42px; }
-            .dock-obs { min-height: 38px; }
-            .dock-ico { font-size: 14px; }
-            .dock-lbl { font-size: 7.5px; }
-            .dock-strip { gap: 4px; flex-wrap: wrap; }
-            .dock-util { min-height: 30px; flex: 1 1 calc(33% - 4px); }
-            .util-ico { font-size: 11px; }
-            .util-lbl { font-size: 6.5px; }
-            .dock-util .ico { font-size: 11px; }
-            .dock-util .txt { font-size: 6.5px; }
-            .health-bar { width: 260px; }
-            #time-hud { top: 58px !important; }
+        /* ── Estructura ── */
+        #app {
+            height: 100dvh; display: grid; gap: 12px; padding: 12px;
+            grid-template-columns: minmax(0, 1fr) 380px;
+            grid-template-rows: minmax(0, 1fr) auto;
         }
+        #stage {
+            grid-column: 1; grid-row: 1; position: relative; overflow: hidden;
+            border-radius: 24px; border: 1px solid var(--line); background: #0b1020;
+            box-shadow: 0 30px 80px rgba(0,0,0,.45);
+        }
+        #sim-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
-
-
-        /* Reservar hueco para el dock en portrait */
-        @media (max-width: 900px) {
-            :root { --dock-h: 172px; --dock-gap: 8px; }
-            body { min-height: 100dvh; background: #020617; }
-            #canvas-container {
-                height: calc(100dvh - var(--dock-h) - var(--dock-gap));
-                min-height: 300px;
-                width: 100vw;
-                margin-bottom: calc(var(--dock-h) + var(--dock-gap)) !important;
-            }
-            .legend { bottom: 10px; }
-        }
-
-        /* Landscape: el canvas cede espacio al sidebar */
-        @media (orientation: landscape) and (max-width: 900px) {
-            :root { --side-dock-w: 158px; }
-            body { align-items: flex-start !important; }
-            .max-w-6xl { width: calc(100vw - var(--side-dock-w)) !important; }
-            #canvas-container {
-                width: calc(100vw - var(--side-dock-w));
-                height: 100dvh; min-height: 0;
-                margin-bottom: 0 !important;
-            }
-            .health-bar { left: calc(50% - 40px); width: min(46vw, 240px); }
-            #time-hud { top: 58px !important; }
-        }
-
-        @media (max-width: 768px) {
-            .avatar-label { font-size: 0.7rem; padding: 2px 8px; writing-mode: vertical-rl; transform: translateY(-50%) rotate(180deg);}
-            .label-a { left: 2%; } .label-e { right: 2%; }
-            .bar-container { width: 6px; }
-            .bar-a { left: 10%; } .bar-e { right: 10%; }
-            .health-bar { width: 220px; }
-            .resent-bar-container { width: 160px; }
-            .legend { font-size: 0.55rem; width: 95%; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 4px 10px; }
-            #time-hud { top: 75px !important; padding: 4px 10px; }
-            .expl-box { padding: 15px; margin: 10px; max-height: 90vh; overflow-y: auto;}
-            #expl-title { font-size: 1.2rem; }
-            #expl-text { font-size: 0.8rem; }
-        }
-    
-
-        /* Welcome overlay */
-        #welcome-overlay {
-            position: fixed; inset: 0; z-index: 200;
-            display: flex; align-items: center; justify-content: center;
-            background: rgba(2,6,23,0.97);
-            backdrop-filter: blur(16px);
-            padding: 1.5rem;
-        }
-        .welcome-card {
-            text-align: center;
-            max-width: 340px;
-            width: 100%;
-            animation: popIn 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .welcome-emoji {
-            font-size: 4.5rem;
-            line-height: 1;
-            margin-bottom: 1.25rem;
-            filter: drop-shadow(0 0 32px rgba(99,102,241,0.55));
-        }
-        .welcome-title {
-            font-size: 2rem; font-weight: 900; color: white;
-            margin-bottom: 0.5rem; line-height: 1.1;
-            background: linear-gradient(135deg, #818cf8, #34d399);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        .welcome-subtitle {
-            color: #94a3b8; font-size: 0.84rem; line-height: 1.6;
-            margin-bottom: 2rem;
-        }
-        .welcome-btn {
-            display: block; width: 100%;
-            padding: 1rem 1.5rem;
-            background: linear-gradient(135deg, #4f46e5, #059669);
-            border: 0; border-radius: 18px; cursor: pointer;
-            color: white; font-size: 1rem; font-weight: 900;
-            letter-spacing: 0.03em;
-            box-shadow: 0 8px 32px rgba(79,70,229,0.35), 0 2px 8px rgba(0,0,0,0.4);
-            transition: transform 0.12s, box-shadow 0.12s;
-        }
-        .welcome-btn:active { transform: scale(0.97); box-shadow: 0 4px 16px rgba(79,70,229,0.3); }
-        .welcome-note {
-            color: #475569; font-size: 0.7rem; margin-top: 1rem;
-        }
-        .names-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 1.4rem; }
-        .name-input-group {
-            display: flex; align-items: center; gap: 10px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 13px; padding: 9px 14px;
-            transition: border-color 0.2s;
-        }
-        .name-input-group:focus-within { border-color: rgba(255,255,255,0.25); }
-        .name-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-        .name-input {
-            background: none; border: none; color: white;
-            font-size: 0.92rem; font-weight: 700; flex: 1; outline: none;
-        }
-        .name-input::placeholder { color: rgba(148,163,184,0.35); font-weight: 400; font-size: 0.85rem; }
-        .name-label-tiny { font-size: 0.65rem; font-weight: 900; letter-spacing: 0.1em; color: rgba(148,163,184,0.4); text-transform: uppercase; white-space: nowrap; }
-
-        /* Modo pantalla completa
-           NOTA: NO usar position:fixed en body — rompe los hijos position:fixed (modals, overlays).
-           En su lugar ponemos el canvas-wrapper en fixed y dejamos body con overflow:hidden. */
-        body.app-fullscreen-mode {
-            overflow: hidden !important;
-            background: #020617 !important;
-        }
-        body.app-fullscreen-mode .max-w-6xl {
-            position: fixed !important;
-            inset: 0 !important;
-            width: 100vw !important;
-            max-width: none !important;
-            height: 100dvh !important;
-            margin: 0 !important;
-            z-index: 10;
-        }
-        body.app-fullscreen-mode header,
-        body.app-fullscreen-mode #controls-panel,
-        body.app-fullscreen-mode #history-panel,
-        body.app-fullscreen-mode #diag-panel {
-            display: none !important;
-        }
-        body.app-fullscreen-mode .mobile-action-dock {
-            display: flex !important;
-        }
-        body.app-fullscreen-mode #canvas-container {
-            border-radius: 0 !important;
-            margin: 0 !important;
-            max-height: none !important;
-            border: 0 !important;
-            height: 100dvh !important;
-            width: 100vw !important;
-        }
-        body.app-fullscreen-mode .legend {
-            bottom: calc(170px + env(safe-area-inset-bottom, 0px));
-        }
-        /* Overlays y modales siempre por encima del fullscreen canvas */
-        #expl-overlay { z-index: 50; }
-        #mobile-modal { z-index: 100; }
-        #welcome-overlay { z-index: 200; }
-        .fullscreen-hint {
-            position: fixed;
-            left: 50%;
-            bottom: calc(160px + env(safe-area-inset-bottom, 0px));
-            transform: translateX(-50%);
-            z-index: 120;
-            background: rgba(15,23,42,0.94);
-            color: #e2e8f0;
-            border: 1px solid rgba(148,163,184,0.35);
-            border-radius: 999px;
-            padding: 8px 12px;
-            font-size: 11px;
-            font-weight: 800;
-            box-shadow: 0 12px 35px rgba(0,0,0,0.35);
-            opacity: 0;
+        /* ── HUD superior ── */
+        .vitals {
+            position: absolute; z-index: 5; top: calc(14px + var(--safe-t)); left: 50%; transform: translateX(-50%);
+            width: min(380px, calc(100% - 150px));
+            display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+            background: var(--glass); border: 1px solid var(--line); border-radius: 18px;
+            backdrop-filter: blur(14px) saturate(1.3); -webkit-backdrop-filter: blur(14px) saturate(1.3);
             pointer-events: none;
-            transition: opacity .25s ease;
         }
-        .fullscreen-hint.show { opacity: 1; }
-        @media (orientation: landscape) and (max-width: 900px) {
-            .fullscreen-hint {
-                left: calc(50% - 56px);
-                bottom: 14px;
-            }
+        .day { display: flex; flex-direction: column; align-items: center; min-width: 44px; padding-right: 12px; border-right: 1px solid var(--line); }
+        .day span { font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+        .day b { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+        .meters { flex: 1; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+        .meter-head { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-weight: 600; margin-bottom: 4px; white-space: nowrap; }
+        .meter-head b { color: var(--text); font-variant-numeric: tabular-nums; }
+        .bar { height: 7px; border-radius: 99px; background: rgba(148,163,184,.16); overflow: hidden; }
+        .bar i { display: block; height: 100%; width: 100%; border-radius: inherit; transform-origin: left; background: var(--heal); transition: background-color .6s; will-change: transform; }
+        .bar i[data-level="mid"] { background: var(--pos); }
+        .bar i[data-level="low"] { background: var(--tox); }
+        .meter.thin .bar { height: 4px; }
+        .meter.thin .bar i { background: linear-gradient(90deg, #f87171, #ef4444); transform: scaleX(0); }
+        .meter.thin .meter-head { margin-bottom: 3px; font-size: 10px; }
+
+        .tools { position: absolute; z-index: 6; top: calc(14px + var(--safe-t)); right: 14px; display: flex; gap: 8px; }
+        .tool {
+            height: 42px; min-width: 42px; padding: 0 12px; border-radius: 999px;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            background: var(--glass); border: 1px solid var(--line); color: var(--text);
+            backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+            font-size: 13px; font-weight: 800; font-variant-numeric: tabular-nums;
+            transition: transform .15s var(--ease), background .2s;
+        }
+        .tool:hover { background: rgba(30,36,60,.75); }
+        .tool:active { transform: scale(.94); }
+        .tool .i { width: 18px; height: 18px; }
+
+        .legend {
+            position: absolute; z-index: 4; left: 14px; bottom: 14px; display: flex; flex-wrap: wrap; gap: 6px;
+            pointer-events: none; max-width: calc(100% - 28px);
+        }
+        .legend span {
+            display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 99px;
+            font-size: 11px; font-weight: 600; color: #c4cadb; background: var(--glass); border: 1px solid var(--line);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+        }
+        .legend i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); }
+
+        .toast {
+            position: absolute; z-index: 40; left: 50%; bottom: 20px; transform: translate(-50%, 10px);
+            padding: 9px 14px; border-radius: 99px; font-size: 12px; font-weight: 700;
+            background: rgba(14,18,34,.95); border: 1px solid var(--line-2);
+            opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s var(--ease);
+        }
+        .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+        /* ── Explicación (modo paso a paso) ── */
+        #expl-overlay {
+            position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px;
+            background: rgba(5,7,15,.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            animation: fade .25s ease;
+        }
+        .expl-box {
+            --accent: #f59e0b;
+            width: min(540px, 100%); max-height: calc(100% - 16px); overflow-y: auto; overscroll-behavior: contain;
+            background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--panel)) 0%, var(--panel) 40%);
+            border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+            border-radius: 22px; padding: 22px; box-shadow: 0 30px 90px rgba(0,0,0,.6);
+            animation: pop .35s var(--ease);
+        }
+        .expl-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        #expl-icon {
+            width: 46px; height: 46px; border-radius: 14px; flex-shrink: 0; display: grid; place-items: center; font-size: 24px;
+            background: color-mix(in srgb, var(--accent) 18%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+        }
+        #expl-title { margin: 0; font-size: 19px; font-weight: 800; line-height: 1.2; }
+        #expl-text { font-size: 14px; line-height: 1.55; color: #c9cfdf; }
+        #expl-text p { margin: 0 0 10px; }
+        #expl-text strong { color: var(--text); }
+        .btn-accent {
+            width: 100%; margin-top: 16px; padding: 14px; border-radius: 14px; font-weight: 800; font-size: 14px;
+            background: var(--accent); color: #0b0e1a; transition: transform .15s var(--ease), filter .2s;
+        }
+        .btn-accent:hover { filter: brightness(1.08); }
+        .btn-accent:active { transform: scale(.98); }
+        .chain { margin-top: 14px; padding: 12px 14px; border-radius: 14px; background: rgba(0,0,0,.28); border: 1px solid var(--line); }
+        .chain h5 { margin: 0 0 8px; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+        .chain ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+        .chain .k { font-weight: 800; margin-right: 4px; }
+        .chain em { display: block; font-size: 11px; opacity: .6; margin-top: 2px; }
+
+        /* ── Dock de mandos ── */
+        #dock {
+            grid-column: 1; grid-row: 2; display: flex; flex-direction: column; gap: 8px;
+            padding: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 24px;
+        }
+        .dock-actions { display: flex; align-items: center; justify-content: center; gap: 12px; }
+        .act {
+            flex: 1; max-width: 260px; min-height: 58px; position: relative; overflow: hidden;
+            display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 18px; text-align: left;
+            --c: var(--heal);
+            background: color-mix(in srgb, var(--c) 14%, var(--panel-2));
+            border: 1px solid color-mix(in srgb, var(--c) 40%, transparent);
+            transition: transform .15s var(--ease), opacity .3s, filter .2s;
+        }
+        .act:hover:not(:disabled) { filter: brightness(1.12); }
+        .act:active:not(:disabled) { transform: scale(.97); }
+        .act:disabled { opacity: .45; filter: saturate(.4); }
+        .act .ico { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 28%, transparent); color: color-mix(in srgb, var(--c) 70%, #fff); flex-shrink: 0; }
+        .act .txt { display: flex; flex-direction: column; min-width: 0; }
+        .act .txt b { font-size: 14px; font-weight: 800; }
+        .act .txt small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .act .cd { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--c); transform-origin: left; transform: scaleX(0); transition: transform .4s linear; }
+        .act-therapy { --c: var(--alq); }
+        .badge {
+            position: absolute; top: 8px; right: 10px; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 99px;
+            display: grid; place-items: center; font-size: 11px; font-weight: 900; background: var(--alq); color: #0b0e1a;
+        }
+        .play {
+            width: 64px; height: 64px; border-radius: 50%; flex-shrink: 0; display: grid; place-items: center; color: #fff;
+            background: radial-gradient(circle at 30% 25%, #60a5fa, #2563eb 55%, #7c3aed);
+            box-shadow: 0 10px 30px rgba(59,130,246,.45), inset 0 1px 0 rgba(255,255,255,.25);
+            transition: transform .15s var(--ease), box-shadow .3s;
+        }
+        .play:active { transform: scale(.93); }
+        .play .i { width: 26px; height: 26px; }
+        .play.is-running { background: radial-gradient(circle at 30% 25%, #a78bfa, #6d28d9 60%, #4338ca); box-shadow: 0 10px 30px rgba(124,58,237,.4), inset 0 1px 0 rgba(255,255,255,.25); }
+        .dock-tabs { display: none; }
+
+        /* ── Panel lateral / hoja ── */
+        #sheet {
+            grid-column: 2; grid-row: 1 / 3; display: flex; flex-direction: column; min-height: 0;
+            background: var(--panel); border: 1px solid var(--line); border-radius: 24px; overflow: hidden;
+        }
+        .sheet-head { padding: 16px 16px 12px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+        .grabber { display: none; width: 40px; height: 5px; border-radius: 9px; background: var(--line-2); margin: -6px auto 10px; }
+        .brand { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+        .brand h1 {
+            margin: 0; font-size: 19px; font-weight: 900; letter-spacing: -.01em;
+            background: linear-gradient(90deg, #7aa7ff, #4ade80 55%, #c084fc); -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        .brand p { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+        .sheet-close { display: none; width: 36px; height: 36px; border-radius: 50%; place-items: center; background: var(--panel-2); border: 1px solid var(--line); }
+        .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 4px; border-radius: 14px; background: var(--panel-2); }
+        .tab { display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 4px; border-radius: 10px; font-size: 12px; font-weight: 700; color: var(--muted); transition: background .2s, color .2s; }
+        .tab .i { width: 15px; height: 15px; }
+        .tab[aria-selected="true"] { background: #232b47; color: var(--text); box-shadow: 0 1px 0 rgba(255,255,255,.05) inset; }
+        .panel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 20px; }
+        .panel::-webkit-scrollbar { width: 6px; } .panel::-webkit-scrollbar-thumb { background: #2a324c; border-radius: 9px; }
+
+        .group { padding: 14px; border-radius: 18px; background: var(--panel-2); border: 1px solid var(--line); margin-bottom: 12px; }
+        .group-title { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 13px; font-weight: 800; }
+        .group-title .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); }
+        .group-title small { margin-left: auto; font-size: 11px; color: var(--muted); font-weight: 600; }
+        .param { padding: 4px 8px 2px; margin: 0 -8px 4px; border-radius: 10px; transition: background-color .4s; }
+        .param.flash-good { background: rgba(16,185,129,.2); }
+        .param.flash-bad { background: rgba(239,68,68,.2); }
+        .param-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; color: #c4cadb; }
+        .param-row output { font-size: 12px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+        .param.key { margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--line); border-radius: 0 0 10px 10px; }
+        .param.key .param-row label { font-weight: 700; color: color-mix(in srgb, var(--c) 55%, #fff); }
+
+        .range { -webkit-appearance: none; appearance: none; width: 100%; height: 30px; margin: 0; background: transparent; --p: 50%; cursor: pointer; }
+        .range:focus { outline: none; }
+        .range::-webkit-slider-runnable-track { height: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--c) var(--p), rgba(148,163,184,.18) var(--p)); }
+        .range::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; margin-top: -8px; border-radius: 50%; background: #fff; border: 0; box-shadow: 0 0 0 5px color-mix(in srgb, var(--c) 30%, transparent), 0 2px 8px rgba(0,0,0,.5); transition: transform .15s; }
+        .range:active::-webkit-slider-thumb { transform: scale(1.12); }
+        .range::-moz-range-track { height: 6px; border-radius: 99px; background: rgba(148,163,184,.18); }
+        .range::-moz-range-progress { height: 6px; border-radius: 99px; background: var(--c); }
+        .range::-moz-range-thumb { width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 0; box-shadow: 0 0 0 5px color-mix(in srgb, var(--c) 30%, transparent); }
+
+        .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; }
+        .row + .row { border-top: 1px solid var(--line); }
+        .row-text b { display: block; font-size: 13px; font-weight: 700; }
+        .row-text small { font-size: 11.5px; color: var(--muted); }
+        .switch { width: 46px; height: 28px; border-radius: 99px; background: #2a324c; position: relative; flex-shrink: 0; transition: background .25s; }
+        .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .25s var(--ease); box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+        .switch[aria-checked="true"] { background: var(--heal); }
+        .switch[aria-checked="true"]::after { transform: translateX(18px); }
+        .seg { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 4px; border-radius: 12px; background: #0b0f1d; width: 100%; }
+        .seg button { padding: 8px 2px; border-radius: 9px; font-size: 11px; font-weight: 700; color: var(--muted); }
+        .seg button[aria-pressed="true"] { background: #2b3557; color: var(--text); }
+        .btn-ghost { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; border-radius: 14px; font-size: 13px; font-weight: 700; color: #fca5a5; background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.25); }
+        .btn-ghost .i { width: 16px; height: 16px; }
+
+        /* Chat */
+        #chat-log { display: flex; flex-direction: column; gap: 8px; padding-bottom: 6px; }
+        .chat-empty { margin: 40px auto; text-align: center; color: var(--dim); font-size: 13px; }
+        .msg { max-width: 86%; padding: 8px 12px; border-radius: 16px; font-size: 12.5px; line-height: 1.42; background: #182037; border: 1px solid var(--line); animation: rise .3s var(--ease); }
+        .msg .d { font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--dim); margin-right: 6px; }
+        .msg-a { align-self: flex-start; border-bottom-left-radius: 5px; box-shadow: inset 3px 0 0 var(--a); }
+        .msg-e { align-self: flex-end; border-bottom-right-radius: 5px; box-shadow: inset -3px 0 0 var(--e); text-align: right; }
+        .msg-sys { align-self: center; text-align: center; font-size: 11.5px; color: var(--muted); background: transparent; border-style: dashed; }
+        .msg.v-heal { background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.3); color: #c8f5e3; }
+        .msg.v-fail { background: rgba(249,115,22,.08); border-color: rgba(249,115,22,.28); color: #e9c8b1; }
+        .msg-sys.v-pos { background: rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.35); color: #fde3a7; }
+        .msg-sys.v-boom { background: rgba(239,68,68,.14); border: 1px solid rgba(239,68,68,.45); color: #fecaca; font-weight: 700; }
+        .msg-sys.v-edu { background: rgba(129,140,248,.12); border: 1px solid rgba(129,140,248,.4); color: #dfe2ff; }
+
+        /* Estado */
+        .grade { display: flex; align-items: center; gap: 16px; }
+        .grade-num { font-size: 52px; font-weight: 900; line-height: 1; letter-spacing: -.03em; font-variant-numeric: tabular-nums; transition: color .6s; }
+        .grade-side small { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+        #diag-pronostico { display: inline-block; margin-top: 6px; padding: 5px 11px; border-radius: 99px; font-size: 11.5px; font-weight: 800; border: 1px solid; transition: all .6s; }
+        #diag-card { --g: var(--muted); }
+        #diag-card .grade-num { color: var(--g); text-shadow: 0 0 24px color-mix(in srgb, var(--g) 45%, transparent); }
+        #diag-card #diag-pronostico { color: var(--g); border-color: color-mix(in srgb, var(--g) 50%, transparent); background: color-mix(in srgb, var(--g) 14%, transparent); }
+        #diag-card[data-level="low"] { --g: #f87171; }
+        #diag-card[data-level="mid"] { --g: #fbbf24; }
+        #diag-card[data-level="good"] { --g: #60a5fa; }
+        #diag-card[data-level="great"], #diag-card[data-level="secure"] { --g: #34d399; }
+        .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .duo .group { margin: 0; }
+        .stat { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); padding: 3px 0; }
+        .stat b { font-variant-numeric: tabular-nums; }
+        .group h4 { margin: 0 0 6px; font-size: 13px; font-weight: 800; }
+        .group p { margin: 0; font-size: 13px; line-height: 1.55; color: #b9c0d3; }
+        .text-red-400 { color: #f87171; } .text-blue-400 { color: #60a5fa; } .text-purple-400 { color: #c084fc; }
+        .text-indigo-400 { color: #a5b4fc; } .text-emerald-400 { color: #34d399; } .font-bold { font-weight: 700; } .mt-2 { margin-top: 8px; } .block { display: block; }
+
+        /* Teoría */
+        .theory-card { padding: 14px; border-radius: 18px; background: var(--panel-2); border: 1px solid var(--line); margin-bottom: 10px; }
+        .theory-card h4 { margin: 0 0 6px; color: #fbbf24; font-size: 13.5px; font-weight: 800; line-height: 1.35; }
+        .theory-card p, .theory-card li { color: #c4cadb; font-size: 13px; line-height: 1.55; margin: 0; }
+        .theory-card ul { margin: 0; padding-left: 18px; }
+
+        /* ── Modo compacto (móvil y pantalla completa) ── */
+        body.is-compact #app { grid-template-columns: minmax(0, 1fr); padding: 0; gap: 0; }
+        body.is-compact #stage { border-radius: 0; border: 0; box-shadow: none; }
+        body.is-compact #dock { border-radius: 0; border-width: 1px 0 0; padding: 10px 12px calc(8px + var(--safe-b)); background: rgba(9,12,24,.98); }
+        body.is-compact .dock-actions { gap: 10px; }
+        body.is-compact .act { min-height: 54px; padding: 8px 10px; gap: 8px; }
+        body.is-compact .act .ico { width: 32px; height: 32px; border-radius: 10px; }
+        body.is-compact .act .txt b { font-size: 13px; }
+        body.is-compact .dock-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+        .dtab { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 2px 2px; border-radius: 12px; font-size: 10.5px; font-weight: 700; color: var(--muted); }
+        .dtab .i { width: 20px; height: 20px; }
+        .dtab[aria-selected="true"] { color: var(--text); }
+        body.is-compact .vitals { width: auto; left: 68px; right: 64px; transform: none; padding: 8px 12px; top: calc(12px + var(--safe-t)); }
+        body.is-compact .tools { flex-direction: column; top: calc(12px + var(--safe-t)); right: 12px; }
+        body.is-compact .tool { height: 40px; min-width: 40px; padding: 0 10px; }
+        body.is-compact .legend { left: 50%; transform: translateX(-50%); justify-content: center; bottom: 10px; gap: 4px; width: max-content; }
+        body.is-compact .legend span { padding: 3px 8px; font-size: 10px; gap: 5px; }
+        body.is-compact #sheet {
+            position: fixed; z-index: 90; left: 0; right: 0; bottom: 0; max-height: 86dvh; height: 86dvh;
+            border-radius: 24px 24px 0 0; border-width: 1px 0 0; box-shadow: 0 -20px 60px rgba(0,0,0,.55);
+            transform: translateY(105%); transition: transform .38s var(--ease); visibility: hidden;
+        }
+        body.is-compact #sheet.open { transform: none; visibility: visible; }
+        body.is-compact .grabber { display: block; }
+        body.is-compact .sheet-close { display: grid; }
+        body.is-compact .brand p { display: none; }
+        body.is-compact .panel { padding-bottom: calc(20px + var(--safe-b)); }
+        #sheet-backdrop { position: fixed; inset: 0; z-index: 80; background: rgba(3,5,12,.55); opacity: 0; pointer-events: none; transition: opacity .3s; }
+        body.is-compact #sheet-backdrop.show { opacity: 1; pointer-events: auto; }
+
+        /* Móvil apaisado: mandos en columna a la derecha */
+        body.is-landscape #app { grid-template-columns: minmax(0, 1fr) 132px; grid-template-rows: minmax(0, 1fr); }
+        body.is-landscape #dock { grid-column: 2; grid-row: 1; border-width: 0 0 0 1px; padding: 8px 8px calc(8px + var(--safe-b)); justify-content: center; }
+        body.is-landscape .dock-actions { flex-direction: column; gap: 8px; }
+        body.is-landscape .act { width: 100%; min-height: 44px; flex: none; }
+        body.is-landscape .act .ico { display: none; }
+        body.is-landscape .play { width: 52px; height: 52px; }
+        body.is-landscape .dock-tabs { grid-template-columns: 1fr 1fr; }
+        body.is-landscape .legend { display: none; }
+        body.is-landscape .vitals { left: 64px; right: 60px; top: 8px; padding: 6px 12px; }
+        body.is-landscape .meter-head { display: none; }
+        body.is-landscape .meters { gap: 5px; }
+        body.is-landscape .day { flex-direction: row; gap: 6px; align-items: baseline; }
+        body.is-landscape .day b { font-size: 16px; }
+        body.is-landscape .tools { flex-direction: row; top: 8px; }
+        body.is-landscape .tool { height: 36px; min-width: 36px; }
+        body.is-landscape .vitals { right: 152px; }
+        body.is-landscape #sheet { left: auto; width: min(420px, 70vw); height: 100dvh; max-height: 100dvh; border-radius: 24px 0 0 24px; transform: translateX(105%); }
+
+        @media (max-width: 380px) {
+            .act .txt small { display: none; }
+            body.is-compact .act .ico { display: none; }
         }
 
+        /* Aviso de girar el móvil */
+        #rotate-hint {
+            position: fixed; inset: 0; z-index: 150; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+            padding: 32px; text-align: center; background: rgba(5,7,15,.94); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+        }
+        body.ask-rotate #rotate-hint { display: flex; animation: fade .3s ease; }
+        #rotate-hint .phone { width: 64px; height: 108px; border-radius: 14px; border: 3px solid #c7d2fe; position: relative; animation: turn 2.2s var(--ease) infinite; }
+        #rotate-hint .phone::after { content: ""; position: absolute; left: 50%; bottom: 7px; width: 16px; height: 3px; margin-left: -8px; border-radius: 3px; background: #c7d2fe; }
+        #rotate-hint h2 { margin: 0; font-size: 21px; font-weight: 900; }
+        #rotate-hint p { margin: 0; color: var(--muted); font-size: 14px; max-width: 280px; line-height: 1.5; }
+        #rotate-hint button { margin-top: 6px; padding: 12px 18px; border-radius: 14px; font-size: 13px; font-weight: 700; color: var(--muted); background: var(--panel-2); border: 1px solid var(--line); }
+        @keyframes turn { 0%, 20% { transform: rotate(0); } 55%, 80% { transform: rotate(-90deg); } 100% { transform: rotate(0); } }
+
+        /* Bienvenida */
+        #welcome-overlay {
+            position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px;
+            background: radial-gradient(120% 80% at 50% 0%, rgba(59,130,246,.18), transparent 60%), radial-gradient(100% 70% at 50% 100%, rgba(168,85,247,.16), transparent 60%), rgba(5,7,15,.96);
+            backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); transition: opacity .4s ease;
+            overflow-y: auto;
+        }
+        .welcome-card { width: 100%; max-width: 360px; text-align: center; animation: pop .5s var(--ease); }
+        .welcome-orbs { position: relative; height: 92px; margin-bottom: 18px; }
+        .welcome-orbs i { position: absolute; top: 18px; width: 56px; height: 56px; border-radius: 50%; filter: blur(.3px); animation: orbit 3.2s ease-in-out infinite; }
+        .welcome-orbs i:first-child { left: calc(50% - 64px); background: radial-gradient(circle at 30% 30%, #93c5fd, var(--a)); box-shadow: 0 0 40px rgba(59,130,246,.6); }
+        .welcome-orbs i:last-child { left: calc(50% + 8px); background: radial-gradient(circle at 30% 30%, #e9d5ff, var(--e)); box-shadow: 0 0 40px rgba(168,85,247,.6); animation-delay: -1.6s; }
+        .welcome-title { margin: 0 0 6px; font-size: 30px; font-weight: 900; letter-spacing: -.02em; background: linear-gradient(90deg, #7aa7ff, #4ade80 55%, #c084fc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .welcome-subtitle { margin: 0 0 24px; color: var(--muted); font-size: 14px; }
+        .names-form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+        .name-input-group { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid var(--line-2); transition: border-color .2s, background .2s; }
+        .name-input-group:focus-within { border-color: var(--c); background: rgba(255,255,255,.06); }
+        .name-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--c); box-shadow: 0 0 10px var(--c); flex-shrink: 0; }
+        .name-label-tiny { font-size: 10.5px; font-weight: 800; letter-spacing: .1em; color: var(--muted); text-transform: uppercase; min-width: 70px; text-align: left; }
+        .name-input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font: 700 16px inherit; font-family: inherit; }
+        .name-input::placeholder { color: var(--dim); font-weight: 500; }
+        .welcome-btn { width: 100%; padding: 16px; border-radius: 18px; font-weight: 900; font-size: 16px; color: #fff; background: linear-gradient(90deg, #2563eb, #7c3aed); box-shadow: 0 12px 34px rgba(79,70,229,.4); display: flex; align-items: center; justify-content: center; gap: 10px; transition: transform .15s var(--ease); }
+        .welcome-btn:active { transform: scale(.97); }
+        .welcome-note { margin: 14px 0 0; color: var(--dim); font-size: 12px; }
+
+        @media (max-height: 520px) {
+            #welcome-overlay { align-items: flex-start; padding: 16px; }
+            .welcome-orbs { height: 60px; margin-bottom: 6px; }
+            .welcome-orbs i { top: 6px; width: 44px; height: 44px; }
+            .welcome-subtitle { margin-bottom: 12px; }
+            .names-form { flex-direction: row; }
+            .name-label-tiny { display: none; }
+            .name-input-group { flex: 1; min-width: 0; }
+        }
+        @keyframes pop { from { transform: scale(.94) translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+        @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes rise { from { transform: translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+        @keyframes orbit { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+        @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-2 md:p-6 font-sans flex flex-col items-center">
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12.5-7.5a1 1 0 0 0 0-1.72L8.5 3.64A1 1 0 0 0 7 4.5z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1.2"/><rect x="14" y="4" width="4" height="16" rx="1.2"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></symbol>
+    <symbol id="i-vol" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></symbol>
+    <symbol id="i-max" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></symbol>
+    <symbol id="i-min" viewBox="0 0 24 24"><path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/><path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/></symbol>
+    <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+    <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+</svg>
 
-    <div class="max-w-6xl w-full">
-        <header class="mb-4 text-center">
-            <h1 class="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-emerald-400 to-purple-400 mb-1">El baile de los apegos</h1>
-            <p class="text-slate-400 text-xs md:text-sm">¿Cómo bailan el ansioso y el evitativo? Ajusta sus parámetros y observa qué ocurre.</p>
-        </header>
+<div id="app">
+    <main id="stage">
+        <canvas id="sim-canvas"></canvas>
 
-        <!-- ZONA VISUAL -->
-        <div id="canvas-container" class="mb-6 shadow-2xl shadow-black/50">
-            
-            <div class="health-bar">
-                <span class="text-[10px] md:text-[11px] font-bold text-slate-200 tracking-wider block">SALUD DE LA RELACIÓN (RESERVA EMOCIONAL)</span>
-                <div class="w-full bg-slate-800 rounded-full h-2 md:h-3 mt-1 border border-slate-700">
-                    <div id="health-bar-fill" class="health-fill" style="width: 100%"></div>
+        <div class="vitals">
+            <div class="day"><span>Día</span><b id="hud-dias">0</b></div>
+            <div class="meters">
+                <div class="meter">
+                    <div class="meter-head"><span>Salud del vínculo</span><b id="health-val">100</b></div>
+                    <div class="bar"><i id="health-bar-fill"></i></div>
                 </div>
-                <div class="resent-bar-container">
-                    <span class="text-[8px] md:text-[9px] font-bold text-red-400 tracking-wide block mb-0.5">🎒 CARGA ALOSTÁTICA (RESENTIMIENTO)</span>
-                    <div class="w-full bg-slate-800 rounded-full h-1 border border-slate-700">
-                        <div id="resent-bar-fill" class="resent-fill" style="width: 0%"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="time-hud" class="absolute top-[75px] left-1/2 -translate-x-1/2 bg-slate-800/80 border border-slate-600 rounded-lg px-4 py-1.5 z-20 flex items-center gap-3 shadow-lg pointer-events-none">
-                <span class="text-xs font-bold text-slate-300">Día <span id="hud-dias" class="text-white text-sm font-mono">0</span></span>
-            </div>
-
-            <div id="expl-overlay" class="hidden absolute inset-0 bg-slate-900/80 z-30 flex flex-col justify-center items-center p-4 md:p-6">
-                <div id="expl-box" class="expl-box bg-slate-800 border-2 border-amber-500 rounded-xl p-4 md:p-6 max-w-2xl w-full shadow-2xl text-center flex flex-col items-center max-h-[90vh] overflow-y-auto">
-                    <div id="expl-icon" class="text-3xl md:text-4xl mb-2 md:mb-3">🔍</div>
-                    <h3 id="expl-title" class="text-xl md:text-2xl font-bold mb-2 md:mb-3 text-white">Título</h3>
-                    <div id="expl-text" class="text-slate-300 mb-4 md:mb-6 text-xs md:text-sm leading-relaxed text-left w-full space-y-3">Explicación...</div>
-                    <button onclick="resumeFromExplanation()" class="bg-amber-600 hover:bg-amber-500 text-white font-bold py-3 px-8 rounded-lg shadow-lg w-full text-sm uppercase tracking-widest transition-colors mt-auto">Comprendido, Continuar</button>
-                </div>
-            </div>
-
-            <div id="label-a" class="avatar-label label-a">Ansioso (A)</div>
-            <div class="bar-container bar-a">
-                <div id="tension-a" class="bar-fill fill-a" style="height: 0%"></div>
-                <div id="prob-a-reac" class="prob-indicator" style="bottom: 5%">Freno Consciente: 50%</div>
-            </div>
-
-            <div id="label-e" class="avatar-label label-e">Evitativo (E)</div>
-            <div class="bar-container bar-e">
-                <div id="tension-e" class="bar-fill fill-e" style="height: 0%"></div>
-                <div id="prob-e-reac" class="prob-indicator" style="bottom: 5%">Freno Consciente: 50%</div>
-            </div>
-
-            <canvas id="sim-canvas"></canvas>
-
-            <div class="legend">
-                <span class="legend-item"><span class="dot bg-red-500"></span> Amenaza (Relato Tóxico)</span>
-                <span class="legend-item"><span class="dot bg-blue-400"></span> Relato Sano</span>
-                <span class="legend-item"><span class="dot bg-emerald-500"></span> Corregulación</span>
-                <span class="legend-item"><span class="dot bg-indigo-400"></span> Alquimia Emocional</span>
-            </div>
-
-            <div class="mobile-action-dock" aria-label="Panel de mandos">
-
-                <!-- Acción principal -->
-                <button id="m-btn-play" class="dock-play" onclick="toggleSim()">
-                    <span class="ico">▶</span>
-                    <span class="txt">Iniciar el baile</span>
-                </button>
-
-                <!-- Zona media: ACTUAR + EXPLORAR -->
-                <div class="dock-mid">
-                    <div class="dock-zone dock-zone-act">
-                        <div class="dock-zone-label">ACTUAR</div>
-                        <div class="dock-zone-btns">
-                            <button class="dock-act act-wisdom" onclick="useWisdom()">
-                                <span class="dock-ico">🛡️</span>
-                                <span class="dock-lbl">Sabiduría</span>
-                            </button>
-                            <button class="dock-act act-therapy" onclick="useTherapy()">
-                                <span class="dock-ico">🛋️</span>
-                                <span class="dock-lbl">Terapia</span>
-                                <span class="therapy-badge" id="therapy-mobile-badge">2</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div class="dock-zone dock-zone-obs">
-                        <div class="dock-zone-label">EXPLORAR</div>
-                        <div class="dock-zone-btns">
-                            <button class="dock-obs obs-chat" onclick="openMobileModal('history')">
-                                <span class="dock-ico">💬</span>
-                                <span class="dock-lbl">Chat</span>
-                            </button>
-                            <button class="dock-obs obs-status" onclick="openMobileModal('status')">
-                                <span class="dock-ico">📊</span>
-                                <span class="dock-lbl">Estado</span>
-                            </button>
-                            <button class="dock-obs obs-theory" onclick="openMobileModal('theory')">
-                                <span class="dock-ico">📚</span>
-                                <span class="dock-lbl">Teoría</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tira de herramientas -->
-                <div class="dock-strip">
-                    <button class="dock-util" onclick="openMobileModal('config')">
-                        <span class="util-ico">⚙️</span><span class="util-lbl">Config</span>
-                    </button>
-                    <button class="dock-util" onclick="toggleSound()">
-                        <span class="util-ico">🔊</span><span class="util-lbl">Sonido</span>
-                    </button>
-                    <button id="m-btn-speed" class="dock-util util-speed" onclick="cycleSpeed()">
-                        <span class="ico">⏱️</span><span class="txt">x1</span>
-                    </button>
-                    <button class="dock-util util-reset" onclick="resetSim()">
-                        <span class="util-ico">↺</span><span class="util-lbl">Reset</span>
-                    </button>
-                    <button id="m-btn-fullscreen" class="dock-util" onclick="toggleFullscreenMode()">
-                        <span class="util-ico">⤢</span><span class="util-lbl">Pantalla</span>
-                    </button>
+                <div class="meter thin">
+                    <div class="meter-head"><span>🎒 Mochila de resentimiento</span><b id="res-val">0</b></div>
+                    <div class="bar"><i id="resent-bar-fill"></i></div>
                 </div>
             </div>
         </div>
 
-        <!-- PANELES DE CONTROL -->
-        <div id="controls-panel" class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-6">
-            <!-- Ansioso -->
-            <div id="panel-a" class="bg-slate-800 rounded-xl p-4 panel-a shadow-lg flex flex-col justify-between">
-                <div>
-                    <h3 class="text-blue-400 font-bold mb-2 flex items-center text-sm"><span class="bg-blue-500/20 p-1 rounded mr-2">🧍</span> Ansioso</h3>
-                    <div class="mb-2 param-group" id="grp-a-sens">
-                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Sensibilidad a la Herida</label><span id="val-a-sens">7/10</span></div>
-                        <input type="range" id="a-sens" min="1" max="10" value="7">
-                    </div>
-                    <div class="mb-2 param-group" id="grp-a-int">
-                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Intensidad del Ataque/Reclamo</label><span id="val-a-int">6/10</span></div>
-                        <input type="range" id="a-int" min="1" max="10" value="6">
-                    </div>
-                    <div class="mb-2 param-group" id="grp-a-res">
-                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Paz Interna (Resiliencia)</label><span id="val-a-res">4/10</span></div>
-                        <input type="range" id="a-res" min="1" max="10" value="4">
-                    </div>
-                </div>
-                <div>
-                    <div class="p-2 bg-blue-900/20 rounded border border-blue-500/30 mt-1 param-group" id="grp-a-sab">
-                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-blue-300 font-bold"><label>🛡️ Sabiduría Pasada (Freno)</label><span id="val-a-sab">5/10</span></div>
-                        <input type="range" id="a-sab" min="1" max="10" value="5">
-                    </div>
-                    <div class="mt-2 flex justify-between text-[10px] bg-slate-900/50 p-2 rounded border border-slate-700 shadow-inner">
-                        <span>⚔️ Daño: <span id="stat-a-dmg" class="text-red-400 font-bold">0</span></span>
-                        <span>💖 Sanó: <span id="stat-a-heal" class="text-emerald-400 font-bold">0</span></span>
-                    </div>
-                </div>
-            </div>
+        <div class="tools">
+            <button id="m-btn-speed" class="tool" onclick="cycleSpeed()" aria-label="Cambiar ritmo">x1</button>
+            <button id="btn-sound" class="tool" onclick="toggleSound()" aria-label="Sonido"><svg class="i"><use href="#i-vol"/></svg></button>
+            <button id="m-btn-fullscreen" class="tool" onclick="toggleFullscreenMode()" aria-label="Pantalla completa"><svg class="i"><use href="#i-max"/></svg></button>
+        </div>
 
-            <!-- Entorno y Botones -->
-            <div class="bg-slate-800 rounded-xl p-4 panel-c shadow-lg flex flex-col border-t-4 border-emerald-500">
-                <h3 class="text-emerald-400 font-bold mb-2 flex items-center justify-center text-sm"><span class="bg-emerald-500/20 p-1 rounded mr-2">🌱</span> Dinámica de Pareja</h3>
-                <div class="mb-2 param-group" id="grp-c-estres">
-                    <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Frecuencia de Estresores</label><span id="val-c-estres">5/10</span></div>
-                    <input type="range" id="c-estres" min="1" max="10" value="5">
-                </div>
-                <div class="mb-2 param-group" id="grp-c-com">
-                    <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-emerald-300 font-bold"><label>Capacidad de Corregulación</label><span id="val-c-com">5/10</span></div>
-                    <input type="range" id="c-com" min="1" max="10" value="5">
-                </div>
-                
-                <div class="flex flex-col gap-2 mb-3 mt-2">
-                    <div class="p-2 bg-slate-900/50 rounded border border-slate-600 flex items-center justify-between cursor-pointer hover:bg-slate-800 transition-colors" onclick="toggleModoExplicativo()">
-                        <div>
-                            <span class="text-[10px] font-bold text-amber-400 block">Modo Paso a Paso (Educativo)</span>
-                            <span class="text-[8px] text-slate-400">Pausa para leer el historial</span>
-                        </div>
-                        <div id="toggle-explicativo" class="w-8 h-4 bg-slate-600 rounded-full relative transition-colors"><div id="toggle-dot" class="w-4 h-4 bg-white rounded-full absolute left-0 transition-transform"></div></div>
-                    </div>
+        <div class="legend">
+            <span style="--c:#ef4444"><i></i>Amenaza</span>
+            <span style="--c:#60a5fa"><i></i>Relato sano</span>
+            <span style="--c:#10b981"><i></i>Corregulación</span>
+            <span style="--c:#818cf8"><i></i>Alquimia</span>
+        </div>
 
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="mini-card">
-                            <label class="text-[10px] font-bold text-cyan-300 block mb-1">⏱️ Ritmo</label>
-                            <select id="speed-select" class="mini-select">
-                                <option value="0.75">Lento</option>
-                                <option value="1" selected>Normal</option>
-                                <option value="1.6">Rápido</option>
-                                <option value="2.4">Muy rápido</option>
-                            </select>
-                        </div>
-                        <div class="mini-card">
-                            <div class="text-[10px] font-bold text-emerald-300 mb-1">🔊 Sonido</div>
-                            <button id="btn-sound" onclick="toggleSound()" class="px-2 py-1.5 text-[10px] rounded border text-slate-100 sound-btn-on w-full">ON</button>
-                        </div>
-                    </div>
+        <div id="expl-overlay" hidden>
+            <div id="expl-box" class="expl-box">
+                <div class="expl-head">
+                    <div id="expl-icon">🔍</div>
+                    <h3 id="expl-title">Título</h3>
                 </div>
-
-                <div class="mt-auto flex flex-col gap-2">
-                    <button id="btn-wisdom" onclick="useWisdom()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] md:text-[11px] font-bold py-2 rounded transition-colors shadow flex items-center justify-center gap-2">
-                        🛡️ Usar Sabiduría para Frenar (T. Fuera)
-                    </button>
-                    <button id="btn-therapy" onclick="useTherapy()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] md:text-[11px] font-bold py-2 rounded transition-colors shadow flex items-center justify-center gap-2">
-                        <span>🆘 Asistir a Terapia de Pareja</span> <span id="therapy-count" class="bg-indigo-900/50 px-1.5 py-0.5 rounded">2</span>
-                    </button>
-                    
-                    <button id="btn-play" onclick="toggleSim()" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 rounded transition-colors shadow-lg mt-1">▶ Iniciar Simulador</button>
-                    <button onclick="resetSim()" class="w-full bg-slate-700 hover:bg-slate-600 py-1.5 rounded text-slate-300 text-[9px] font-bold shadow uppercase tracking-wider">Reiniciar desde Cero</button>
-                </div>
-            </div>
-
-            <!-- Evitativo -->
-            <div id="panel-e" class="bg-slate-800 rounded-xl p-4 panel-e shadow-lg flex flex-col justify-between">
-                <div>
-                    <h3 class="text-purple-400 font-bold mb-2 flex items-center justify-end text-sm"><span class="bg-purple-500/20 p-1 rounded mr-2">🧍‍♂️</span> Evitativo</h3>
-                    <div class="mb-2 param-group" id="grp-e-sens">
-                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Sensibilidad a la Herida</label><span id="val-e-sens">7/10</span></div>
-                        <input type="range" id="e-sens" min="1" max="10" value="7" dir="rtl">
-                    </div>
-                    <div class="mb-2 param-group" id="grp-e-int">
-                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Intensidad de la Huida/Apagón</label><span id="val-e-int">6/10</span></div>
-                        <input type="range" id="e-int" min="1" max="10" value="6" dir="rtl">
-                    </div>
-                    <div class="mb-2 param-group" id="grp-e-res">
-                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-slate-300"><label>Paz Interna (Resiliencia)</label><span id="val-e-res">4/10</span></div>
-                        <input type="range" id="e-res" min="1" max="10" value="4" dir="rtl">
-                    </div>
-                </div>
-                <div>
-                    <div class="p-2 bg-purple-900/20 rounded border border-purple-500/30 mt-1 param-group" id="grp-e-sab">
-                        <div class="flex justify-between text-[10px] md:text-[11px] mb-1 text-purple-300 font-bold"><label>🛡️ Sabiduría Pasada (Freno)</label><span id="val-e-sab">5/10</span></div>
-                        <input type="range" id="e-sab" min="1" max="10" value="5" dir="rtl">
-                    </div>
-                    <div class="mt-2 flex justify-between text-[10px] bg-slate-900/50 p-2 rounded border border-slate-700 shadow-inner">
-                        <span>⚔️ Daño: <span id="stat-e-dmg" class="text-red-400 font-bold">0</span></span>
-                        <span>💖 Sanó: <span id="stat-e-heal" class="text-emerald-400 font-bold">0</span></span>
-                    </div>
-                </div>
+                <div id="expl-text">Explicación...</div>
+                <button class="btn-accent" onclick="resumeFromExplanation()">Entendido, continuar</button>
             </div>
         </div>
 
-        <!-- NUEVO: CHAT DE HISTORIAL COMPLETO (COMPACTO) -->
-        <div id="history-panel" class="bg-slate-800/80 rounded-xl p-4 md:p-6 shadow-xl border border-slate-700 w-full mb-6 backdrop-blur-sm h-[350px] flex flex-col">
-            <h2 class="text-lg md:text-xl font-bold text-slate-200 mb-3 border-b border-slate-600 pb-2 flex items-center">
-                <span class="bg-slate-700 p-1.5 rounded mr-2">💬</span> Chat de Interacciones
-            </h2>
-            <div id="chat-log" class="flex-1 overflow-y-auto pr-2 space-y-2 flex flex-col p-2">
-                <div class="text-slate-500 italic text-center mt-auto mb-auto text-sm">El chat se llenará cuando inicie la simulación...</div>
+        <div id="fullscreen-hint" class="toast">Pantalla completa activada</div>
+    </main>
+
+    <nav id="dock" aria-label="Panel de mandos">
+        <div class="dock-actions">
+            <button id="btn-wisdom" class="act act-wisdom" onclick="useWisdom()">
+                <span class="ico"><svg class="i"><use href="#i-shield"/></svg></span>
+                <span class="txt"><b>Sabiduría</b><small id="wisdom-sub">Tiempo fuera</small></span>
+                <span class="cd" id="wisdom-cd"></span>
+            </button>
+            <button id="btn-play" class="play" onclick="toggleSim()" aria-label="Iniciar el baile"><svg class="i fill"><use href="#i-play"/></svg></button>
+            <button id="btn-therapy" class="act act-therapy" onclick="useTherapy()">
+                <span class="ico"><svg class="i"><use href="#i-heart"/></svg></span>
+                <span class="txt"><b>Terapia</b><small>De pareja</small></span>
+                <span class="badge" id="therapy-count">2</span>
+            </button>
+        </div>
+        <div class="dock-tabs" role="tablist">
+            <button class="dtab" data-tab="ajustes" onclick="toggleSheet('ajustes')"><svg class="i"><use href="#i-sliders"/></svg>Ajustes</button>
+            <button class="dtab" data-tab="chat" onclick="toggleSheet('chat')"><svg class="i"><use href="#i-chat"/></svg>Chat</button>
+            <button class="dtab" data-tab="estado" onclick="toggleSheet('estado')"><svg class="i"><use href="#i-pulse"/></svg>Estado</button>
+            <button class="dtab" data-tab="teoria" onclick="toggleSheet('teoria')"><svg class="i"><use href="#i-book"/></svg>Teoría</button>
+        </div>
+    </nav>
+
+    <aside id="sheet" aria-label="Paneles">
+        <div class="sheet-head">
+            <div class="grabber"></div>
+            <div class="brand">
+                <div>
+                    <h1>El baile de los apegos</h1>
+                    <p>¿Cómo bailan el ansioso y el evitativo? Ajusta y observa.</p>
+                </div>
+                <button class="sheet-close" onclick="closeSheet()" aria-label="Cerrar"><svg class="i"><use href="#i-x"/></svg></button>
+            </div>
+            <div class="tabs" role="tablist">
+                <button class="tab" data-tab="ajustes" onclick="setTab('ajustes')"><svg class="i"><use href="#i-sliders"/></svg>Ajustes</button>
+                <button class="tab" data-tab="chat" onclick="setTab('chat')"><svg class="i"><use href="#i-chat"/></svg>Chat</button>
+                <button class="tab" data-tab="estado" onclick="setTab('estado')"><svg class="i"><use href="#i-pulse"/></svg>Estado</button>
+                <button class="tab" data-tab="teoria" onclick="setTab('teoria')"><svg class="i"><use href="#i-book"/></svg>Teoría</button>
             </div>
         </div>
 
-        <!-- ANÁLISIS Y DIAGNÓSTICO -->
-        <div id="diag-panel" class="bg-slate-800/80 rounded-xl p-4 md:p-6 shadow-xl border border-slate-700 w-full mb-6 backdrop-blur-sm transition-colors duration-1000">
-            <h2 class="text-lg md:text-xl font-bold text-amber-500 mb-4 flex items-center"><span class="bg-amber-500/20 p-1 rounded mr-2">📊</span> Análisis Clínico y Empático</h2>
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6">
-                <!-- Nota -->
-                <div class="lg:col-span-3 flex flex-col justify-center items-center p-4 bg-slate-900/80 rounded-xl border border-slate-700 shadow-inner">
-                    <div class="text-[10px] md:text-xs text-slate-400 mb-1 text-center">Salud del Vínculo</div>
-                    <div id="diag-nota" class="text-4xl md:text-5xl font-black text-white mb-3 transition-colors">0.0</div>
-                    <div id="diag-pronostico" class="text-[8px] md:text-[10px] text-center font-bold px-3 py-1.5 rounded-full uppercase tracking-wider transition-colors">Cargando...</div>
+        <section class="panel" data-panel="ajustes">
+            <div class="group" style="--c:var(--a)">
+                <h3 class="group-title"><span class="dot"></span><span id="title-a">Ansioso</span><small>Perfil ansioso</small></h3>
+                <div class="param" id="grp-a-sens"><div class="param-row"><label for="a-sens">Sensibilidad a la herida</label><output id="val-a-sens">7/10</output></div><input class="range" type="range" id="a-sens" min="1" max="10" value="7"></div>
+                <div class="param" id="grp-a-int"><div class="param-row"><label for="a-int">Intensidad del ataque o reclamo</label><output id="val-a-int">6/10</output></div><input class="range" type="range" id="a-int" min="1" max="10" value="6"></div>
+                <div class="param" id="grp-a-res"><div class="param-row"><label for="a-res">Paz interna (resiliencia)</label><output id="val-a-res">4/10</output></div><input class="range" type="range" id="a-res" min="1" max="10" value="4"></div>
+                <div class="param key" id="grp-a-sab"><div class="param-row"><label for="a-sab">🛡️ Sabiduría pasada (freno)</label><output id="val-a-sab">5/10</output></div><input class="range" type="range" id="a-sab" min="1" max="10" value="5"></div>
+            </div>
+
+            <div class="group" style="--c:var(--heal)">
+                <h3 class="group-title"><span class="dot"></span>Dinámica de pareja</h3>
+                <div class="param" id="grp-c-estres"><div class="param-row"><label for="c-estres">Frecuencia de estresores</label><output id="val-c-estres">5/10</output></div><input class="range" type="range" id="c-estres" min="1" max="10" value="5"></div>
+                <div class="param key" id="grp-c-com"><div class="param-row"><label for="c-com">Capacidad de corregulación</label><output id="val-c-com">5/10</output></div><input class="range" type="range" id="c-com" min="1" max="10" value="5"></div>
+            </div>
+
+            <div class="group" style="--c:var(--e)">
+                <h3 class="group-title"><span class="dot"></span><span id="title-e">Evitativo</span><small>Perfil evitativo</small></h3>
+                <div class="param" id="grp-e-sens"><div class="param-row"><label for="e-sens">Sensibilidad a la herida</label><output id="val-e-sens">7/10</output></div><input class="range" type="range" id="e-sens" min="1" max="10" value="7"></div>
+                <div class="param" id="grp-e-int"><div class="param-row"><label for="e-int">Intensidad de la huida o apagón</label><output id="val-e-int">6/10</output></div><input class="range" type="range" id="e-int" min="1" max="10" value="6"></div>
+                <div class="param" id="grp-e-res"><div class="param-row"><label for="e-res">Paz interna (resiliencia)</label><output id="val-e-res">4/10</output></div><input class="range" type="range" id="e-res" min="1" max="10" value="4"></div>
+                <div class="param key" id="grp-e-sab"><div class="param-row"><label for="e-sab">🛡️ Sabiduría pasada (freno)</label><output id="val-e-sab">5/10</output></div><input class="range" type="range" id="e-sab" min="1" max="10" value="5"></div>
+            </div>
+
+            <div class="group">
+                <h3 class="group-title">Simulación</h3>
+                <div class="row">
+                    <div class="row-text"><b>Modo paso a paso</b><small>Pausa en cada momento clave para explicarlo</small></div>
+                    <button id="toggle-explicativo" class="switch" role="switch" aria-checked="false" onclick="toggleModoExplicativo()" aria-label="Modo paso a paso"></button>
                 </div>
-                <!-- Explicaciones -->
-                <div class="lg:col-span-9 space-y-4">
-                    <div class="p-4 bg-slate-900/50 rounded-lg border border-slate-700 h-full flex flex-col justify-center">
-                        <h4 class="text-sm font-bold text-slate-300 mb-2 flex items-center">🔍 Estado del Sistema Nervioso Relacional</h4>
-                        <p id="diag-explicacion" class="text-[11px] md:text-sm text-slate-400 leading-relaxed mb-3">...</p>
-                        <h4 class="text-sm font-bold text-amber-400 mb-1 flex items-center">💡 Empatía y Solución</h4>
-                        <p id="diag-aprendizaje" class="text-[11px] md:text-sm text-amber-200/80 leading-relaxed">...</p>
-                    </div>
+                <div class="row">
+                    <div class="row-text"><b>Sonido</b><small>Efectos suaves y vibración</small></div>
+                    <button id="set-sound" class="switch" role="switch" aria-checked="true" onclick="toggleSound()" aria-label="Sonido"></button>
+                </div>
+                <div class="row" style="flex-direction:column;align-items:stretch">
+                    <div class="row-text"><b>Ritmo</b></div>
+                    <div class="seg" id="speed-seg"></div>
+                </div>
+                <div class="row">
+                    <button class="btn-ghost" onclick="resetSim()"><svg class="i"><use href="#i-reset"/></svg>Reiniciar desde cero</button>
                 </div>
             </div>
+        </section>
+
+        <section class="panel" data-panel="chat" hidden>
+            <div id="chat-log"><div class="chat-empty">El chat se llenará cuando empiece el baile…</div></div>
+        </section>
+
+        <section class="panel" data-panel="estado" hidden>
+            <div class="group" id="diag-card">
+                <div class="grade">
+                    <div id="diag-nota" class="grade-num">0.0</div>
+                    <div class="grade-side"><small>Salud del vínculo</small><br><span id="diag-pronostico">Cargando…</span></div>
+                </div>
+            </div>
+            <div class="duo">
+                <div class="group" style="--c:var(--a)">
+                    <h4 class="group-title" style="margin-bottom:6px"><span class="dot"></span><span id="stat-title-a">Ansioso</span></h4>
+                    <div class="stat"><span>⚔️ Daño causado</span><b id="stat-a-dmg" class="text-red-400">0</b></div>
+                    <div class="stat"><span>💖 Sanación dada</span><b id="stat-a-heal" class="text-emerald-400">0</b></div>
+                </div>
+                <div class="group" style="--c:var(--e)">
+                    <h4 class="group-title" style="margin-bottom:6px"><span class="dot"></span><span id="stat-title-e">Evitativo</span></h4>
+                    <div class="stat"><span>⚔️ Daño causado</span><b id="stat-e-dmg" class="text-red-400">0</b></div>
+                    <div class="stat"><span>💖 Sanación dada</span><b id="stat-e-heal" class="text-emerald-400">0</b></div>
+                </div>
+            </div>
+            <div class="group">
+                <h4>🔍 Sistema nervioso relacional</h4>
+                <p id="diag-explicacion">…</p>
+            </div>
+            <div class="group" style="border-color:rgba(245,158,11,.25)">
+                <h4 style="color:#fbbf24">💡 Empatía y solución</h4>
+                <p id="diag-aprendizaje">…</p>
+            </div>
+        </section>
+
+        <section class="panel" data-panel="teoria" hidden>
+            <div class="theory-card"><h4>1. La clave: no peleas contra tu pareja, peleas contra el sistema nervioso</h4><p>El ansioso suele sentir abandono donde quizá solo hay distancia. El evitativo suele sentir invasión donde quizá solo hay necesidad de conexión. El trabajo consiste en traducir el ataque visible a la herida invisible.</p></div>
+            <div class="theory-card"><h4>2. Para el perfil ansioso</h4><ul><li>Pedir claridad sin perseguir.</li><li>Separar dato de interpretación: “ha tardado” no significa “no me quiere”.</li><li>Regular el cuerpo antes de enviar el mensaje número doce, ese pequeño ejército de WhatsApp.</li></ul></div>
+            <div class="theory-card"><h4>3. Para el perfil evitativo</h4><ul><li>Pedir espacio con hora de vuelta: “necesito 40 minutos y vuelvo”.</li><li>Dar una señal de vínculo antes de retirarse.</li><li>No confundir calma con hielo. La distancia sin explicación se vive como castigo.</li></ul></div>
+            <div class="theory-card"><h4>4. Reparación práctica</h4><p>La fórmula útil es: “Cuando pasa X, mi cuerpo interpreta Y, me dan ganas de Z, pero en realidad necesito W”. Es sencilla, antigua y eficaz: nombrar, no disparar.</p></div>
+            <div class="theory-card"><h4>5. Cómo leer el escenario</h4><p>Cada bola viaja de la <strong>mente</strong> (arriba, donde nace el relato) al <strong>cuerpo</strong> (el círculo grande, cuyo anillo marca la tensión) y de ahí a la <strong>reacción</strong> (abajo), que dispara a la otra persona. <strong>Sabiduría</strong> es un tiempo fuera consciente; <strong>Terapia</strong> aumenta la capacidad de ver la herida del otro.</p></div>
+        </section>
+    </aside>
+</div>
+<div id="sheet-backdrop" onclick="closeSheet()"></div>
+
+<div id="rotate-hint" role="dialog" aria-label="Gira el móvil">
+    <div class="phone"></div>
+    <h2>Gira el móvil</h2>
+    <p>El baile se ve mejor en horizontal, como un juego. En cuanto lo gires, seguimos.</p>
+    <button onclick="dismissRotateHint()">Seguir en vertical</button>
+</div>
+
+<div id="welcome-overlay">
+    <div class="welcome-card">
+        <div class="welcome-orbs"><i></i><i></i></div>
+        <h1 class="welcome-title">El baile de los apegos</h1>
+        <p class="welcome-subtitle">Ponles nombre. Observa cómo bailan.</p>
+        <div class="names-form">
+            <label class="name-input-group" style="--c:var(--a)">
+                <span class="name-dot"></span><span class="name-label-tiny">Ansioso</span>
+                <input id="name-a" class="name-input" type="text" maxlength="12" placeholder="¿Cómo se llama?" autocomplete="off" spellcheck="false">
+            </label>
+            <label class="name-input-group" style="--c:var(--e)">
+                <span class="name-dot"></span><span class="name-label-tiny">Evitativo</span>
+                <input id="name-e" class="name-input" type="text" maxlength="12" placeholder="¿Y esta persona?" autocomplete="off" spellcheck="false">
+            </label>
         </div>
+        <button class="welcome-btn" onclick="startFromWelcome()"><svg class="i fill"><use href="#i-play"/></svg>Comenzar el baile</button>
+        <p class="welcome-note">Simula días de convivencia · Intervén cuando quieras</p>
     </div>
+</div>
 
-        <div id="welcome-overlay">
-            <div class="welcome-card">
-                <div class="welcome-emoji">💃🕺</div>
-                <h1 class="welcome-title">El baile de los apegos</h1>
-                <p class="welcome-subtitle">
-                    Ponles nombre. Observa cómo bailan.
-                </p>
-                <div class="names-form">
-                    <div class="name-input-group">
-                        <span class="name-dot" style="background:#3b82f6"></span>
-                        <span class="name-label-tiny">Ansioso</span>
-                        <input id="name-a" class="name-input" type="text" maxlength="12" placeholder="¿Cómo se llama?" autocomplete="off" spellcheck="false">
-                    </div>
-                    <div class="name-input-group">
-                        <span class="name-dot" style="background:#a855f7"></span>
-                        <span class="name-label-tiny">Evitativo</span>
-                        <input id="name-e" class="name-input" type="text" maxlength="12" placeholder="¿Y éste?" autocomplete="off" spellcheck="false">
-                    </div>
-                </div>
-                <button class="welcome-btn" onclick="startFromWelcome()">
-                    ▶ Comenzar el baile
-                </button>
-                <p class="welcome-note">Simula días de convivencia · Intervén cuando quieras</p>
-            </div>
-        </div>
-
-        <div id="mobile-modal" class="mobile-modal" onclick="if(event.target.id==='mobile-modal') closeMobileModal()">
-            <div class="mobile-modal-card">
-                <div class="mobile-modal-head">
-                    <div id="mobile-modal-title" class="mobile-modal-title">Panel</div>
-                    <button class="mobile-modal-close" onclick="closeMobileModal()">Cerrar</button>
-                </div>
-                <div id="mobile-modal-body" class="mobile-modal-body"></div>
-            </div>
-        </div>
-    <div id="fullscreen-hint" class="fullscreen-hint">Pantalla completa activada</div>
-
-    <script>
+<script>
         // --- BASE DE DATOS CLÍNICA (AMPLIADA AL MÁXIMO) ---
         const CLINICA = {
           A: {
@@ -943,6 +803,10 @@
             "Se eligen conscientemente después de una dificultad."
         ];
 
+        const SPEEDS = [0.75, 1, 1.6, 2.4, 3.2];
+        const SPEED_LABELS = { 0.75: 'Lento', 1: 'Normal', 1.6: 'Rápido', 2.4: 'Muy rápido', 3.2: 'Turbo' };
+        const SLIDER_IDS = ['a-sens','a-sab','a-int','a-res','c-estres','c-com','e-sens','e-sab','e-int','e-res'];
+
         const state = {
             running: false, health: 100, dias: 0,
             resentment: 0, secureMode: false, corregulations: 0,
@@ -954,6 +818,7 @@
             flash: 0,
             ambientClock: 0,
             toxEventsCount: 0,
+            tint: null,
             a: { tension: 0, color: CLINICA.A.color, pendingReaction: null, timer: 0, lastRelato: "", nodes: { disp: 0, center: 0, reac: 0 }, stats: {dmg: 0, heal: 0} },
             e: { tension: 0, color: CLINICA.E.color, pendingReaction: null, timer: 0, lastRelato: "", nodes: { disp: 0, center: 0, reac: 0 }, stats: {dmg: 0, heal: 0} },
             particles: [], floatingTexts: [], ripples: [],
@@ -961,35 +826,92 @@
             nameA: 'Ansioso', nameE: 'Evitativo'
         };
 
+        // Valores suavizados solo para dibujar: la lógica sigue usando los reales.
+        const view = { ta: 0, te: 0, health: 100, res: 0, storm: 0, secure: 0, frenoA: 50, frenoE: 50 };
+
         const canvas = document.getElementById('sim-canvas');
         const ctx = canvas.getContext('2d');
-        let width, height;
+        let width = 0, height = 0, dpr = 1;
         let pos = { a: {x:0,y:0}, dispA: {x:0,y:0}, reacA: {x:0,y:0}, e: {x:0,y:0}, dispE: {x:0,y:0}, reacE: {x:0,y:0}, center: {x:0,y:0} };
+        const glowCache = new Map();
+        const stars = Array.from({ length: 46 }, () => ({ x: Math.random(), y: Math.random() * 0.55, r: Math.random() * 1.2 + 0.3, ph: Math.random() * 6.28 }));
+
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+                this.moveTo(x + r, y); this.arcTo(x + w, y, x + w, y + h, r); this.arcTo(x + w, y + h, x, y + h, r);
+                this.arcTo(x, y + h, x, y, r); this.arcTo(x, y, x + w, y, r); this.closePath();
+            };
+        }
 
         function resizeCanvas() {
-            const dpr = window.devicePixelRatio || 1;
-            width = canvas.parentElement.clientWidth; height = canvas.parentElement.clientHeight;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+            width = rect.width; height = rect.height;
             canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             const gapX = width * 0.25;
-            const gapY = height * 0.3; 
+            const gapY = height * 0.3;
             pos.center = { x: width / 2, y: height * 0.2 };
             pos.a = { x: gapX, y: height * 0.5 };
             pos.dispA = { x: gapX, y: height * 0.5 - gapY };
             pos.reacA = { x: gapX, y: height * 0.5 + gapY };
-            
+
             pos.e = { x: width - gapX, y: height * 0.5 };
             pos.dispE = { x: width - gapX, y: height * 0.5 - gapY };
             pos.reacE = { x: width - gapX, y: height * 0.5 + gapY };
         }
-        window.addEventListener('resize', resizeCanvas); resizeCanvas();
+        window.addEventListener('resize', () => { updateLayoutMode(); resizeCanvas(); });
+        if (window.ResizeObserver) new ResizeObserver(() => resizeCanvas()).observe(document.getElementById('stage'));
 
         const getVal = (id) => parseFloat(document.getElementById(id).value);
         const baseLogicDelay = 1500;
         let audioCtx = null;
-        let activeMobilePanel = null;
         let simulatorBackGuardDisabled = false;
+        let logicInterval;
 
+        // --- DISPOSICIÓN (escritorio / compacto / apaisado) ---
+        const mqCompact = window.matchMedia('(max-width: 900px)');
+        const mqLandscape = window.matchMedia('(orientation: landscape) and (max-height: 540px)');
+        function updateLayoutMode() {
+            const landscape = mqLandscape.matches;
+            const compact = mqCompact.matches || landscape || document.body.classList.contains('app-fullscreen-mode');
+            document.body.classList.toggle('is-compact', compact);
+            document.body.classList.toggle('is-landscape', landscape);
+            if (!compact) closeSheet();
+        }
+        [mqCompact, mqLandscape].forEach(mq => mq.addEventListener && mq.addEventListener('change', () => { updateLayoutMode(); resizeCanvas(); }));
+
+        let activeTab = 'ajustes';
+        function setTab(name) {
+            activeTab = name;
+            document.querySelectorAll('[data-panel]').forEach(p => { p.hidden = p.dataset.panel !== name; });
+            document.querySelectorAll('.tab, .dtab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === name && (t.classList.contains('tab') || isSheetOpen()))));
+            if (name === 'chat') { const log = document.querySelector('[data-panel="chat"]'); log.scrollTop = log.scrollHeight; }
+            if (name === 'estado') updateStats(true);
+        }
+        function isSheetOpen() {
+            return document.body.classList.contains('is-compact') && document.getElementById('sheet').classList.contains('open');
+        }
+        function openSheet(name) {
+            document.getElementById('sheet').classList.add('open');
+            document.getElementById('sheet-backdrop').classList.add('show');
+            setTab(name || activeTab);
+        }
+        function closeSheet() {
+            document.getElementById('sheet').classList.remove('open');
+            document.getElementById('sheet-backdrop').classList.remove('show');
+            document.querySelectorAll('.dtab').forEach(t => t.setAttribute('aria-selected', 'false'));
+        }
+        function toggleSheet(name) {
+            if (isSheetOpen() && activeTab === name) closeSheet(); else openSheet(name);
+        }
+        // Compatibilidad con los nombres antiguos
+        function openMobileModal(kind) { openSheet({ config: 'ajustes', history: 'chat', status: 'estado', theory: 'teoria' }[kind] || 'ajustes'); }
+        function closeMobileModal() { closeSheet(); }
+        function isMobileModalOpen() { return isSheetOpen(); }
+
+        // --- PANTALLA COMPLETA ---
         function isSimulatorFullscreenActive() {
             return !!document.fullscreenElement || document.body.classList.contains('app-fullscreen-mode');
         }
@@ -1007,9 +929,8 @@
             const btn = document.getElementById('m-btn-fullscreen');
             if (!btn) return;
             const active = isSimulatorFullscreenActive();
-            btn.innerHTML = active
-                ? '<span class="util-ico">⤡</span><span class="util-lbl">Salir</span>'
-                : '<span class="util-ico">⤢</span><span class="util-lbl">Pantalla</span>';
+            btn.innerHTML = `<svg class="i"><use href="#${active ? 'i-min' : 'i-max'}"/></svg>`;
+            btn.setAttribute('aria-label', active ? 'Salir de pantalla completa' : 'Pantalla completa');
         }
 
         async function setFullscreenMode(active) {
@@ -1027,6 +948,8 @@
                         await document.exitFullscreen();
                     }
                     document.body.classList.remove('app-fullscreen-mode');
+                    unlockOrientation();
+                    gameModeOn = false; updateRotateHint();
                     showFullscreenHint('Pantalla completa desactivada');
                 }
             } catch (err) {
@@ -1034,35 +957,61 @@
                 showFullscreenHint(active ? 'Modo pantalla ampliada' : 'Modo normal');
             }
             refreshFullscreenButton();
-            setTimeout(() => { resizeCanvas(); if (!state.running) resetSim(); }, 120);
+            updateLayoutMode();
+            setTimeout(resizeCanvas, 120);
         }
+
+        // --- MODO JUEGO: pantalla completa y horizontal en el móvil ---
+        const mqTouch = window.matchMedia('(pointer: coarse)');
+        const mqPortrait = window.matchMedia('(orientation: portrait)');
+        let rotateDismissed = false;
+        let gameModeOn = false;
+
+        async function lockLandscape() {
+            try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (e) {}
+            updateRotateHint();
+        }
+        function unlockOrientation() {
+            try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (e) {}
+        }
+        function updateRotateHint() {
+            const ask = gameModeOn && !rotateDismissed && mqTouch.matches && mqPortrait.matches;
+            document.body.classList.toggle('ask-rotate', ask);
+        }
+        function dismissRotateHint() { rotateDismissed = true; updateRotateHint(); }
+        async function enterGameMode() {
+            if (!mqTouch.matches) return;
+            gameModeOn = true;
+            if (!isSimulatorFullscreenActive()) await setFullscreenMode(true);
+            await lockLandscape();
+        }
+        mqPortrait.addEventListener && mqPortrait.addEventListener('change', () => { updateRotateHint(); setTimeout(resizeCanvas, 150); });
 
         function exitFullscreenMode() {
             return setFullscreenMode(false);
         }
 
         async function toggleFullscreenMode() {
-            await setFullscreenMode(!isSimulatorFullscreenActive());
+            const on = !isSimulatorFullscreenActive();
+            await setFullscreenMode(on);
+            if (on && mqTouch.matches) { gameModeOn = true; await lockLandscape(); }
         }
 
         document.addEventListener('fullscreenchange', () => {
-            if (!document.fullscreenElement) document.body.classList.remove('app-fullscreen-mode');
+            if (!document.fullscreenElement) { document.body.classList.remove('app-fullscreen-mode'); unlockOrientation(); gameModeOn = false; updateRotateHint(); }
             refreshFullscreenButton();
-            setTimeout(() => { resizeCanvas(); }, 120);
+            updateLayoutMode();
+            setTimeout(resizeCanvas, 120);
         });
 
-        function isMobileModalOpen() {
-            const modal = document.getElementById('mobile-modal');
-            return !!modal && modal.classList.contains('is-open');
-        }
-
+        // --- BOTÓN ATRÁS ---
         function handleSimulatorBackIntent() {
             if (isSimulatorFullscreenActive()) {
                 exitFullscreenMode();
                 return true;
             }
-            if (isMobileModalOpen()) {
-                closeMobileModal();
+            if (isSheetOpen()) {
+                closeSheet();
                 return true;
             }
 
@@ -1124,18 +1073,34 @@
             }
         }
 
-
+        // --- RITMO ---
         function currentLogicDelay() {
             return Math.max(260, Math.round(baseLogicDelay / state.speed));
         }
 
-        function rescheduleLogicInterval() {
-            if (state.running) {
-                clearInterval(logicInterval);
-                logicInterval = setInterval(logicTick, currentLogicDelay());
-            }
+        // Un único intervalo vivo: antes, reanudar tras una explicación podía duplicarlo y el ritmo daba saltos.
+        function startLogic() {
+            clearInterval(logicInterval);
+            logicInterval = setInterval(logicTick, currentLogicDelay());
         }
 
+        function rescheduleLogicInterval() {
+            if (state.running && !state.esperandoUsuario) startLogic();
+        }
+
+        function setSpeed(v) {
+            state.speed = v;
+            rescheduleLogicInterval();
+            syncControls();
+            saveSettings();
+        }
+
+        function cycleSpeed() {
+            const idx = SPEEDS.findIndex(v => Math.abs(v - state.speed) < 0.01);
+            setSpeed(SPEEDS[(idx + 1) % SPEEDS.length]);
+        }
+
+        // --- SONIDO ---
         function ensureAudio() {
             if (!audioCtx) {
                 const AC = window.AudioContext || window.webkitAudioContext;
@@ -1174,11 +1139,7 @@
 
         function toggleSound() {
             state.soundEnabled = !state.soundEnabled;
-            const btn = document.getElementById('btn-sound');
-            if (btn) {
-                btn.innerText = state.soundEnabled ? 'ON' : 'OFF';
-                btn.className = 'px-2 py-1.5 text-[10px] rounded border text-slate-100 w-full ' + (state.soundEnabled ? 'sound-btn-on' : 'sound-btn-off');
-            }
+            syncControls();
             if (state.soundEnabled) { ensureAudio(); playSfx('birds'); }
             saveSettings();
         }
@@ -1187,9 +1148,22 @@
             try { if (navigator.vibrate) navigator.vibrate(pattern); } catch(e) {}
         }
 
+        // --- AJUSTES ---
+        function paintSlider(el) {
+            el.style.setProperty('--p', ((el.value - el.min) / (el.max - el.min) * 100) + '%');
+        }
+
+        function setSlider(id, val) {
+            const el = document.getElementById(id); const valEl = document.getElementById('val-' + id);
+            if (!el) return;
+            el.value = val;
+            if (valEl) valEl.textContent = el.value + '/10';
+            paintSlider(el);
+        }
+
         function saveSettings() {
             const settings = { sound: state.soundEnabled, speed: state.speed, sliders: {} };
-            ['a-sens','a-sab','a-int','a-res','c-estres','c-com','e-sens','e-sab','e-int','e-res'].forEach(id => {
+            SLIDER_IDS.forEach(id => {
                 const el = document.getElementById(id); if (el) settings.sliders[id] = el.value;
             });
             try { localStorage.setItem('elbaile_settings', JSON.stringify(settings)); } catch(e) {}
@@ -1200,20 +1174,12 @@
                 const raw = localStorage.getItem('elbaile_settings');
                 if (!raw) return;
                 const s = JSON.parse(raw);
-                if (typeof s.sound === 'boolean') {
-                    state.soundEnabled = s.sound;
-                    const btn = document.getElementById('btn-sound');
-                    if (btn) { btn.innerText = state.soundEnabled ? 'ON' : 'OFF'; btn.className = 'px-2 py-1.5 text-[10px] rounded border text-slate-100 w-full ' + (state.soundEnabled ? 'sound-btn-on' : 'sound-btn-off'); }
-                }
-                if (s.speed && [0.75, 1, 1.6, 2.4].includes(s.speed)) {
-                    state.speed = s.speed;
-                    const sel = document.getElementById('speed-select'); if (sel) sel.value = String(state.speed);
+                if (typeof s.sound === 'boolean') state.soundEnabled = s.sound;
+                if (typeof s.speed === 'number' && s.speed > 0) {
+                    state.speed = SPEEDS.reduce((best, v) => Math.abs(v - s.speed) < Math.abs(best - s.speed) ? v : best, 1);
                 }
                 if (s.sliders) {
-                    Object.entries(s.sliders).forEach(([id, val]) => {
-                        const el = document.getElementById(id); const valEl = document.getElementById('val-' + id);
-                        if (el && valEl) { el.value = val; valEl.innerText = val + '/10'; }
-                    });
+                    Object.entries(s.sliders).forEach(([id, val]) => { if (SLIDER_IDS.includes(id)) setSlider(id, val); });
                     updateDiagnosis();
                 }
             } catch(e) {}
@@ -1228,283 +1194,183 @@
             }
         }
 
-        function syncMobileControls() {
-            const p = document.getElementById('m-btn-play');
-            const sp = document.getElementById('m-btn-speed');
-            if (p) {
-                p.innerHTML = state.running
-                    ? '<span class="ico">⏸</span><span class="txt">Pausar</span>'
-                    : '<span class="ico">▶</span><span class="txt">Iniciar el baile</span>';
-                p.classList.toggle('is-running', state.running);
-            }
-            if (sp) sp.innerHTML = '<span class="ico">⏱️</span><span class="txt">x' + (Math.round(state.speed * 10) / 10) + '</span>';
+        // Pinta todos los mandos a partir del estado (un solo juego de botones para móvil y escritorio).
+        function syncControls() {
+            const play = document.getElementById('btn-play');
+            play.innerHTML = `<svg class="i fill"><use href="#${state.running ? 'i-pause' : 'i-play'}"/></svg>`;
+            play.classList.toggle('is-running', state.running);
+            play.setAttribute('aria-label', state.running ? 'Pausar' : (state.dias > 0 ? 'Reanudar' : 'Iniciar el baile'));
+
+            const w = document.getElementById('btn-wisdom');
+            w.disabled = state.wisdomCooldown > 0 || state.secureMode;
+            document.getElementById('wisdom-sub').textContent = state.wisdomCooldown > 0 ? `Refractario · ${state.wisdomCooldown}d` : 'Tiempo fuera';
+            document.getElementById('wisdom-cd').style.transform = `scaleX(${state.wisdomCooldown / 20})`;
+
+            document.getElementById('btn-therapy').disabled = state.therapyUses <= 0 || state.secureMode;
+            document.getElementById('therapy-count').textContent = state.therapyUses;
+
+            document.getElementById('m-btn-speed').textContent = 'x' + state.speed;
+            document.querySelectorAll('#speed-seg button').forEach(b => b.setAttribute('aria-pressed', String(parseFloat(b.dataset.speed) === state.speed)));
+
+            document.getElementById('btn-sound').innerHTML = `<svg class="i"><use href="#${state.soundEnabled ? 'i-vol' : 'i-mute'}"/></svg>`;
+            document.getElementById('set-sound').setAttribute('aria-checked', String(state.soundEnabled));
+            document.getElementById('toggle-explicativo').setAttribute('aria-checked', String(state.modoExplicativo));
         }
+        const syncMobileControls = syncControls;
+        const syncMobileBadges = syncControls;
 
-        function syncMobileBadges() {
-            const mb = document.getElementById('therapy-mobile-badge');
-            if (mb) mb.textContent = state.therapyUses;
-            const wBtn = document.querySelector('.act-wisdom');
-            if (wBtn) wBtn.style.opacity = state.wisdomCooldown > 0 ? '0.42' : '1';
-        }
-
-        function cycleSpeed() {
-            const speeds = [0.8, 1, 1.5, 2.2, 3.2];
-            const idx = speeds.findIndex(v => Math.abs(v - state.speed) < 0.01);
-            state.speed = speeds[(idx + 1) % speeds.length];
-            const sel = document.getElementById('speed-select');
-            if (sel) sel.value = String(state.speed);
-            rescheduleLogicInterval();
-            syncMobileControls();
-        }
-
-        function openMobileModal(kind) {
-            const modal = document.getElementById('mobile-modal');
-            const body = document.getElementById('mobile-modal-body');
-            const title = document.getElementById('mobile-modal-title');
-            if (!modal || !body || !title) return;
-
-            closeMobileModal(false);
-            modal.classList.add('is-open');
-
-            const theory = `
-                <div class="theory-card"><h4>1. La clave: no peleas contra tu pareja, peleas contra el sistema nervioso</h4><p>El ansioso suele sentir abandono donde quizá solo hay distancia. El evitativo suele sentir invasión donde quizá solo hay necesidad de conexión. El trabajo consiste en traducir el ataque visible a la herida invisible.</p></div>
-                <div class="theory-card"><h4>2. Para el perfil ansioso</h4><ul><li>Pedir claridad sin perseguir.</li><li>Separar dato de interpretación: “ha tardado” no significa “no me quiere”.</li><li>Regular el cuerpo antes de enviar el mensaje número doce, ese pequeño ejército de WhatsApp.</li></ul></div>
-                <div class="theory-card"><h4>3. Para el perfil evitativo</h4><ul><li>Pedir espacio con hora de vuelta: “necesito 40 minutos y vuelvo”.</li><li>Dar una señal de vínculo antes de retirarse.</li><li>No confundir calma con hielo. La distancia sin explicación se vive como castigo.</li></ul></div>
-                <div class="theory-card"><h4>4. Reparación práctica</h4><p>La fórmula útil es: “Cuando pasa X, mi cuerpo interpreta Y, me dan ganas de Z, pero en realidad necesito W”. Es sencilla, antigua y eficaz: nombrar, no disparar.</p></div>
-                <div class="theory-card"><h4>5. Botones del simulador</h4><p><strong>Sabiduría</strong> representa un tiempo fuera consciente. <strong>Terapia</strong> aumenta la capacidad de ver la herida del otro. <strong>Ritmo</strong> acelera tanto los días como las bolas: ahora sí corren cuando toca.</p></div>
-            `;
-
-            const map = {
-                config: ['Configuración', 'controls-panel'],
-                history: ['Historial de interacciones', 'history-panel'],
-                status: ['Estado de la relación', 'diag-panel']
-            };
-
-            if (kind === 'theory') {
-                title.innerText = 'Teoría aplicable a los apegos';
-                body.innerHTML = theory;
-                activeMobilePanel = null;
-                return;
-            }
-
-            const item = map[kind];
-            if (!item) return;
-            title.innerText = item[0];
-            const el = document.getElementById(item[1]);
-            if (!el) return;
-            if (!el.dataset.homeId) {
-                const ph = document.createElement('div');
-                ph.id = 'home-' + item[1];
-                el.parentNode.insertBefore(ph, el);
-                el.dataset.homeId = ph.id;
-            }
-            body.innerHTML = '';
-            body.appendChild(el);
-            activeMobilePanel = el;
-        }
-
-        function closeMobileModal(hide = true) {
-            if (activeMobilePanel && activeMobilePanel.dataset.homeId) {
-                const ph = document.getElementById(activeMobilePanel.dataset.homeId);
-                if (ph && ph.parentNode) ph.parentNode.insertBefore(activeMobilePanel, ph.nextSibling);
-                activeMobilePanel = null;
-            }
-            if (hide) {
-                const modal = document.getElementById('mobile-modal');
-                if (modal) modal.classList.remove('is-open');
-            }
-        }
-        
-        ['a-sens','a-sab','a-int','a-res','c-estres','c-com','e-sens','e-sab','e-int','e-res'].forEach(id => {
-            document.getElementById(id).addEventListener('input', (e) => {
-                let val = e.target.value;
-                document.getElementById(`val-${id}`).innerText = val + '/10';
+        SLIDER_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            paintSlider(el);
+            el.addEventListener('input', (e) => {
+                document.getElementById(`val-${id}`).textContent = e.target.value + '/10';
+                paintSlider(el);
                 updateDiagnosis();
                 saveSettings();
             });
         });
 
-        document.getElementById('speed-select').addEventListener('change', (e) => {
-            state.speed = parseFloat(e.target.value) || 1;
-            rescheduleLogicInterval();
-            syncMobileControls();
-            saveSettings();
-        });
+        document.getElementById('speed-seg').innerHTML = SPEEDS.map(v => `<button type="button" data-speed="${v}" onclick="setSpeed(${v})">${SPEED_LABELS[v]}</button>`).join('');
 
         function autoUpgradeParam(id, delta, isGood = true) {
             const el = document.getElementById(id);
             let val = parseFloat(el.value) + delta; val = Math.max(1, Math.min(10, val));
             if(parseFloat(el.value) !== val) {
-                el.value = val; 
-                document.getElementById(`val-${id}`).innerText = val + '/10';
+                setSlider(id, val);
                 const grp = document.getElementById(`grp-${id}`);
-                const colorClass = isGood ? 'bg-emerald-600/40' : 'bg-red-600/40';
-                grp.classList.add(colorClass, 'transition-colors', 'duration-300');
-                setTimeout(() => grp.classList.remove(colorClass), 1500);
+                const cls = isGood ? 'flash-good' : 'flash-bad';
+                grp.classList.add(cls);
+                setTimeout(() => grp.classList.remove(cls), 1500);
             }
         }
 
         function toggleModoExplicativo() {
             state.modoExplicativo = !state.modoExplicativo;
-            const bg = document.getElementById('toggle-explicativo'); const dot = document.getElementById('toggle-dot');
-            if(state.modoExplicativo) { bg.classList.add('toggle-active'); dot.classList.add('toggle-dot-active'); } 
-            else { bg.classList.remove('toggle-active'); dot.classList.remove('toggle-dot-active'); if(state.esperandoUsuario) resumeFromExplanation(); }
+            if (!state.modoExplicativo && state.esperandoUsuario) resumeFromExplanation();
+            syncControls();
         }
 
-        // --- SISTEMA DE CHAT (COMPACTO Y EN UNA LÍNEA) ---
+        // --- CHAT ---
         function logEvent(msg, type, role = 'SYS') {
             const chatEl = document.getElementById('chat-log');
-            if(chatEl.children[0] && chatEl.children[0].classList.contains('italic')) chatEl.innerHTML = '';
-            
+            const empty = chatEl.querySelector('.chat-empty');
+            if (empty) empty.remove();
+
             const entry = document.createElement('div');
-            let bubbleClass = "px-3 py-1.5 shadow-sm text-[11px] md:text-xs animate-fade-in w-fit max-w-[85%] md:max-w-[75%] ";
-            
-            if (role === 'A' || role === 'a') {
-                bubbleClass += "self-start rounded-br-xl rounded-tr-xl rounded-tl-xl border-l-4 ";
-                if (type.includes('tox') || type.includes('est_a')) bubbleClass += "bg-slate-800/90 border-blue-500 text-slate-200";
-                else if (type.includes('correg') || type.includes('transform') || type === 'pos') bubbleClass += "bg-emerald-900/30 border-emerald-500 text-emerald-100";
-                else if (type.includes('autoreg_fail')) bubbleClass += "bg-slate-800/90 border-orange-500 text-slate-300 opacity-80";
-                else bubbleClass += "bg-slate-800/90 border-blue-500 text-slate-300";
-            } else if (role === 'E' || role === 'e') {
-                bubbleClass += "self-end rounded-bl-xl rounded-tl-xl rounded-tr-xl border-r-4 text-right ";
-                if (type.includes('tox') || type.includes('est_e')) bubbleClass += "bg-slate-800/90 border-purple-500 text-slate-200";
-                else if (type.includes('correg') || type.includes('transform') || type === 'pos') bubbleClass += "bg-emerald-900/30 border-emerald-500 text-emerald-100";
-                else if (type.includes('autoreg_fail')) bubbleClass += "bg-slate-800/90 border-orange-500 text-slate-300 opacity-80";
-                else bubbleClass += "bg-slate-800/90 border-purple-500 text-slate-300";
+            let cls = 'msg ';
+            if (role === 'A' || role === 'a' || role === 'E' || role === 'e') {
+                cls += (role === 'A' || role === 'a') ? 'msg-a' : 'msg-e';
+                if (type.includes('correg') || type.includes('transform') || type === 'pos') cls += ' v-heal';
+                else if (type.includes('autoreg_fail')) cls += ' v-fail';
             } else {
-                bubbleClass += "self-center rounded-xl text-center border ";
-                if (type === 'pos') bubbleClass += "bg-amber-900/20 border-amber-500 text-amber-200";
-                else if (type === 'boom') bubbleClass += "bg-red-900/40 border-red-600 text-red-200 font-bold";
-                else if (type === 'edu') bubbleClass += "bg-indigo-900/30 border-indigo-500 text-indigo-200";
-                else bubbleClass += "bg-slate-800/90 border-slate-600 text-slate-400";
+                cls += 'msg-sys';
+                if (type === 'pos' || type === 'boom' || type === 'edu') cls += ' v-' + type;
             }
 
-            entry.className = bubbleClass;
-            entry.innerHTML = `<span class="opacity-50 font-mono text-[9px] mr-1">[Día ${state.dias}]</span> <span>${msg}</span>`;
-            
+            entry.className = cls;
+            entry.innerHTML = `<span class="d">Día ${state.dias}</span><span>${msg.replace(/(✨\s*)+/g, '✨ ')}</span>`;
+
+            const scroller = chatEl.parentElement;
+            const atBottom = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 60;
             chatEl.appendChild(entry);
-            chatEl.scrollTop = chatEl.scrollHeight; 
-            
             if(chatEl.children.length > 50) chatEl.removeChild(chatEl.firstChild);
+            if (atBottom) scroller.scrollTop = scroller.scrollHeight;
         }
 
         function buildHistoryHTML(chain) {
             if (!chain || !chain.eventoExterno) return "";
-            let html = `<div class="mt-5 bg-slate-900/80 p-4 rounded-lg text-left border border-slate-700 shadow-inner">
-                <h5 class="text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wide border-b border-slate-700 pb-1">📜 Historial de la Bola:</h5>
-                <ul class="text-xs space-y-2">
-                    <li><span class="text-amber-500 font-bold">1. Evento Entrante:</span> <span class="text-slate-300">${chain.eventoExterno}</span></li>`;
-            
+            let html = `<div class="chain"><h5>📜 Historial de la bola</h5><ol>
+                    <li><span class="k" style="color:#fbbf24">1. Evento entrante:</span> ${chain.eventoExterno}</li>`;
+
             if (chain.relato) {
-                const relColor = chain.tipoRelato === 'toxico' ? 'text-red-400' : 'text-blue-400';
-                html += `<li><span class="${relColor} font-bold">2. En la Mente (Autorrelato):</span> <span class="text-slate-300">${chain.relato}</span> <br><em class="text-[9px] opacity-60">(Prob. de Relato Tóxico era: ${chain.probToxico}%)</em></li>`;
+                const relColor = chain.tipoRelato === 'toxico' ? '#f87171' : '#60a5fa';
+                html += `<li><span class="k" style="color:${relColor}">2. En la mente (autorrelato):</span> ${chain.relato}<em>Probabilidad de relato tóxico: ${chain.probToxico}%</em></li>`;
             }
             if (chain.mensajeReaccion) {
                 let reacColor = "";
-                if (chain.decision === 'toxica') reacColor = chain.targetRole === 'a' ? 'text-blue-400' : 'text-purple-400';
-                else if (chain.decisionType === 'autoreg_fallida') reacColor = 'text-red-400';
-                else reacColor = 'text-emerald-400'; 
-                
+                if (chain.decision === 'toxica') reacColor = chain.targetRole === 'a' ? '#60a5fa' : '#c084fc';
+                else if (chain.decisionType === 'autoreg_fallida') reacColor = '#f87171';
+                else reacColor = '#34d399';
+
                 let probText = chain.decision === 'toxica' ? "Sabiduría no logró frenarlo." : "Sabiduría frenó el ataque.";
                 if (chain.decisionType === 'autoreg') probText = "Logró autorregularse en silencio.";
                 if (chain.decisionType === 'autoreg_fallida') probText = "Se tragó la emoción. La tensión sube.";
-                
-                html += `<li><span class="${reacColor} font-bold">3. Reacción (Cuerpo):</span> <span class="text-slate-300">${chain.mensajeReaccion}</span> <br><em class="text-[9px] opacity-60">(${probText})</em></li>`;
+
+                html += `<li><span class="k" style="color:${reacColor}">3. Reacción (cuerpo):</span> ${chain.mensajeReaccion}<em>${probText}</em></li>`;
             }
-            html += `</ul></div>`;
+            html += `</ol></div>`;
             return html;
         }
 
+        // --- ACCIONES ---
         function useWisdom() {
             if(state.wisdomCooldown <= 0 && !state.secureMode) {
-                state.wisdomCooldown = 20; 
+                state.wisdomCooldown = 20;
                 state.a.tension = Math.max(0, state.a.tension - 50); state.e.tension = Math.max(0, state.e.tension - 50);
                 state.a.pendingReaction = null; state.e.pendingReaction = null;
                 state.resentment = Math.max(0, state.resentment - 10);
-                
-                ctx.fillStyle = "rgba(16, 185, 129, 0.2)"; ctx.fillRect(0,0,width,height);
+
+                state.tint = { rgb: '16,185,129', a: 0.22 };
                 spawnText(width/2, height/2, "🛡️ CORTAFUEGOS CONSCIENTE", 'AutoReg');
                 vibrate([10, 8, 20, 8, 10]);
-                syncMobileBadges();
+                syncControls();
                 logEvent("Habéis usado vuestra experiencia: Tiempo Fuera para no destruiros.", "edu", "SYS");
 
                 triggerExplanation(`🛡️ Consciencia y Autorregulación Aplicada`, `<p><strong>Has frenado el bucle reactivo justo a tiempo.</strong></p><p>Has utilizado todo lo que sabes de tus relaciones anteriores. Te has dado cuenta de que seguir exigiendo (o seguir huyendo) estando tan tensos solo iba a terminar en dolor.</p><p>Has impuesto un <em>"Tiempo Fuera"</em> saludable. Vuestros cuerpos se han relajado de golpe y habéis evitado sumar más resentimiento a la mochila.</p>`, 'border-emerald-400', '🛡️');
-                
-                const btnW = document.getElementById('btn-wisdom');
-                btnW.classList.replace('bg-emerald-600', 'bg-slate-600'); btnW.classList.replace('hover:bg-emerald-500', 'hover:bg-slate-600'); btnW.disabled = true;
             }
         }
 
         function useTherapy() {
             if(state.therapyUses > 0 && !state.secureMode) {
-                state.therapyUses--; document.getElementById('therapy-count').innerText = state.therapyUses;
-                if(state.therapyUses === 0) document.getElementById('btn-therapy').classList.replace('bg-indigo-600', 'bg-slate-600');
-                
+                state.therapyUses--;
+
                 state.therapyBuffTicks = 15; state.a.tension = 0; state.e.tension = 0;
                 autoUpgradeParam('c-com', +2, true); autoUpgradeParam('a-sab', +1, true); autoUpgradeParam('e-sab', +1, true);
                 updateDiagnosis();
+                saveSettings();
 
-                ctx.fillStyle = "rgba(99, 102, 241, 0.4)"; ctx.fillRect(0,0,width,height);
+                state.tint = { rgb: '99,102,241', a: 0.4 };
                 spawnText(width/2, height/2, "🧠 TERAPIA: APRENDIZAJE EMPÁTICO", 'Correg');
                 vibrate([8, 5, 15, 5, 8, 5, 30]);
-                syncMobileBadges();
+                syncControls();
                 logEvent("Terapia de Pareja. Habéis aprendido a ver la herida del otro en lugar de su ataque.", "edu", "SYS");
 
                 triggerExplanation(`🆘 Intervención Terapéutica`, `<p><strong>Un profesional os ha ayudado a ver lo que hay debajo del enfado.</strong></p><p>El terapeuta ha creado un espacio seguro. El Evitativo ha podido explicar que se aleja porque se siente insuficiente (no porque no ame al Ansioso), y el Ansioso ha explicado que persigue por puro terror a quedarse solo (no para asfixiar al Evitativo).</p><p>Esta comprensión profunda ha subido vuestros parámetros de Comunicación y Sabiduría <strong>permanentemente</strong>.</p>`, 'border-indigo-500', '🛋️');
             }
         }
 
+        // --- DIAGNÓSTICO ---
         function updateDiagnosis() {
             const p_asab = getVal('a-sab'); const p_esab = getVal('e-sab'); const p_ccom = getVal('c-com');
             const n_asens = getVal('a-sens'); const n_esens = getVal('e-sens');
             const n_aint = getVal('a-int'); const n_eint = getVal('e-int'); const n_cestres = getVal('c-estres');
-            
-            document.getElementById('prob-a-reac').innerText = `Freno Consciente: ${p_asab * 10}%`;
-            document.getElementById('prob-e-reac').innerText = `Freno Consciente: ${p_esab * 10}%`;
+
+            view.frenoA = p_asab * 10; view.frenoE = p_esab * 10;
 
             let puntos = p_asab + p_esab + p_ccom + (11 - n_asens) + (11 - n_esens) + (11 - n_aint) + (11 - n_eint) + (11 - n_cestres);
             let nota = ((puntos - 8) / 72) * 10;
 
-            const canvasContainer = document.getElementById('canvas-container');
-            if(state.secureMode) {
-                canvasContainer.style.backgroundColor = '#064e3b'; 
-            } else {
-                const redFactor = Math.floor(15 + (state.resentment * 0.4));
-                canvasContainer.style.backgroundColor = `rgb(${redFactor}, 23, 42)`; 
-            }
-
             nota = Math.max(0, Math.min(10, nota - (state.resentment * 0.02)));
-            
-            const elNota = document.getElementById('diag-nota'); const elPro = document.getElementById('diag-pronostico');
-            elNota.innerText = state.secureMode ? "10.0" : nota.toFixed(1);
 
-            if(state.secureMode) {
-                elNota.className = "text-4xl md:text-5xl font-black text-emerald-400 mb-3 drop-shadow-[0_0_12px_rgba(16,185,129,0.8)]";
-                elPro.innerText = "APEGO SEGURO 🏆"; elPro.className = "text-[9px] md:text-[10px] font-bold px-3 py-1.5 rounded-full bg-emerald-900/80 text-emerald-300 border border-emerald-500";
-            } else if(nota < 4) {
-                elNota.className = "text-4xl md:text-5xl font-black text-red-500 mb-3 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]";
-                elPro.innerText = "Alta Reactividad 💥"; elPro.className = "text-[9px] md:text-[10px] font-bold px-3 py-1.5 rounded-full bg-red-900/60 text-red-300 border border-red-700";
-            } else if(nota < 6.5) {
-                elNota.className = "text-4xl md:text-5xl font-black text-amber-500 mb-3 drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]";
-                elPro.innerText = "Vínculo Inestable ⚠️"; elPro.className = "text-[9px] md:text-[10px] font-bold px-3 py-1.5 rounded-full bg-amber-900/60 text-amber-300 border border-amber-700";
-            } else if(nota < 8.5) {
-                elNota.className = "text-4xl md:text-5xl font-black text-blue-400 mb-3 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]";
-                elPro.innerText = "Regulación Funcional 🌱"; elPro.className = "text-[9px] md:text-[10px] font-bold px-3 py-1.5 rounded-full bg-blue-900/60 text-blue-300 border border-blue-700";
-            } else {
-                elNota.className = "text-4xl md:text-5xl font-black text-emerald-400 mb-3 drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]";
-                elPro.innerText = "Conexión Excelente 🌟"; elPro.className = "text-[9px] md:text-[10px] font-bold px-3 py-1.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-500";
-            }
+            const card = document.getElementById('diag-card');
+            const elNota = document.getElementById('diag-nota'); const elPro = document.getElementById('diag-pronostico');
+            elNota.textContent = state.secureMode ? "10.0" : nota.toFixed(1);
+
+            if(state.secureMode) { card.dataset.level = 'secure'; elPro.textContent = "Apego seguro 🏆"; }
+            else if(nota < 4) { card.dataset.level = 'low'; elPro.textContent = "Alta reactividad 💥"; }
+            else if(nota < 6.5) { card.dataset.level = 'mid'; elPro.textContent = "Vínculo inestable ⚠️"; }
+            else if(nota < 8.5) { card.dataset.level = 'good'; elPro.textContent = "Regulación funcional 🌱"; }
+            else { card.dataset.level = 'great'; elPro.textContent = "Conexión excelente 🌟"; }
 
             let exp = "";
             if (state.resentment > 60) exp += "La <strong>Mochila de Resentimiento</strong> está pesadísima. Estais en un estado de alerta donde cualquier cosa inofensiva se malinterpreta como un ataque. ";
             else if (state.resentment > 20) exp += "Hay heridas no reparadas. El dolor se está acumulando en silencio. ";
             else exp += "El ambiente emocional está limpio y libre de rencores pasados. ";
 
-            // Añadir feedback de tensiones actuales
             if (state.a.tension > 80 && state.e.tension > 80) exp += "<br><br><span class='text-red-400 font-bold'>¡Alerta! Ambos sistemas nerviosos están colapsados. La relación está perdiendo salud rápidamente por el desgaste mutuo.</span>";
             else if (state.a.tension > 80) exp += "<br><br><span class='text-blue-400'>El Ansioso está en pánico total. Necesita señales de seguridad, no frialdad.</span>";
             else if (state.e.tension > 80) exp += "<br><br><span class='text-purple-400'>El Evitativo está absolutamente saturado. Necesita espacio y calma sin sentirse juzgado.</span>";
-            
+
             if(state.therapyBuffTicks > 0) exp += "<br><br><span class='text-indigo-400 font-bold'>¡Tenéis herramientas de Terapia activas! Aprovechad para hablar de vulnerabilidades.</span>";
 
             document.getElementById('diag-explicacion').innerHTML = state.secureMode ? "Habéis superado el bucle. Ahora el sistema nervioso de ambos entiende que el otro es su hogar, no un enemigo a batir." : exp;
@@ -1515,39 +1381,71 @@
             document.getElementById('diag-aprendizaje').innerHTML = apr;
         } updateDiagnosis();
 
+        // --- EXPLICACIONES (modo paso a paso) ---
+        const ACCENTS = {
+            'border-red-500': '#f87171', 'border-emerald-400': '#34d399', 'border-emerald-500': '#10b981',
+            'border-blue-400': '#60a5fa', 'border-blue-500': '#3b82f6', 'border-purple-500': '#c084fc',
+            'border-indigo-400': '#818cf8', 'border-indigo-500': '#818cf8'
+        };
+
         function triggerExplanation(title, text, typeColorClass, icon) {
             if(!state.modoExplicativo || state.esperandoUsuario) return false;
             state.esperandoUsuario = true; clearInterval(logicInterval);
-            document.getElementById('expl-title').innerText = title; document.getElementById('expl-text').innerHTML = text; document.getElementById('expl-icon').innerText = icon;
-            document.getElementById('expl-box').className = `expl-box bg-slate-800 border-2 rounded-xl p-6 max-w-lg w-full shadow-2xl text-center flex flex-col items-center ${typeColorClass}`;
-            document.getElementById('expl-overlay').classList.remove('hidden');
+            document.getElementById('expl-title').textContent = title.replace(/^\S+\s/, '');
+            document.getElementById('expl-text').innerHTML = text;
+            document.getElementById('expl-icon').textContent = icon;
+            document.getElementById('expl-box').style.setProperty('--accent', ACCENTS[typeColorClass] || '#f59e0b');
+            document.getElementById('expl-overlay').hidden = false;
             return true;
         }
 
         function resumeFromExplanation() {
-            document.getElementById('expl-overlay').classList.add('hidden'); 
+            document.getElementById('expl-overlay').hidden = true;
             state.esperandoUsuario = false;
-            if(state.running) logicInterval = setInterval(logicTick, currentLogicDelay());
+            if(state.running) startLogic();
+        }
+
+        // --- TEXTOS FLOTANTES Y BOLAS ---
+        const TEXT_STYLES = {
+            A_tox: '#3b82f6', E_tox: '#a855f7', Correg: '#10b981', Transform: '#818cf8',
+            Estres: '#ef4444', Positivo: '#f59e0b', Edu: '#fbbf24', AutoReg: '#10b981'
+        };
+        const TEXT_FONT = '600 12px Inter, system-ui, -apple-system, "Segoe UI", sans-serif';
+
+        function wrapLines(text, maxW) {
+            ctx.font = TEXT_FONT;
+            const words = text.split(' '); const lines = []; let line = '';
+            for (const w of words) {
+                const test = line ? line + ' ' + w : w;
+                if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; } else line = test;
+            }
+            if (line) lines.push(line);
+            return lines.slice(0, 4);
         }
 
         function spawnText(x, y, text, type) {
-            let color = "#ffffff", bg = "rgba(30,41,59,0.8)", border = "#334155";
-            if(type === 'A_tox') { border = "#3b82f6"; bg = "rgba(59,130,246,0.2)"; }
-            if(type === 'E_tox') { border = "#a855f7"; bg = "rgba(168,85,247,0.2)"; }
-            if(type === 'Correg') { border = "#10b981"; bg = "rgba(16,185,129,0.2)"; }
-            if(type === 'Transform') { border = "#818cf8"; bg = "rgba(79,70,229,0.3)"; color = "#e0e7ff"; text = "✨ " + text;}
-            if(type === 'Estres') { border = "#ef4444"; bg = "rgba(239,68,68,0.2)"; }
-            if(type === 'Positivo') { border = "#f59e0b"; bg = "rgba(245,158,11,0.2)"; }
-            if(type === 'Edu') { border = "#fbbf24"; bg = "rgba(251,191,36,0.3)"; color = "#fef3c7";}
-            if(type === 'AutoReg') { border = "#10b981"; bg = "rgba(16,185,129,0.2)"; } 
-            state.floatingTexts.push({ x, y: y-10, text, type, life: 180, maxLife: 180, bg, border, color, offsetY: 0 }); 
+            if (type === 'Transform') text = "✨ " + text;
+            text = text.replace(/(✨\s*)+/g, '✨ ');
+            const accent = TEXT_STYLES[type] || '#94a3b8';
+            const maxW = Math.max(140, Math.min(300, width * 0.62));
+            const lines = wrapLines(text, maxW);
+            ctx.font = TEXT_FONT;
+            const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 22;
+            const h = lines.length * 16 + 12;
+            // Tiempo de lectura según la longitud (en fotogramas a 60 fps): de ~3,5 s a 8 s.
+            const life = Math.round(Math.max(210, Math.min(480, 120 + text.length * 4.5)));
+            // Con demasiados globos a la vez, los más antiguos se despiden antes.
+            const maxVisible = document.body.classList.contains('is-compact') ? 4 : 6;
+            const alive = state.floatingTexts.filter(ft => ft.life > 24);
+            alive.slice(0, Math.max(0, alive.length - maxVisible + 1)).forEach(ft => { ft.life = 24; });
+            state.floatingTexts.push({ x, y: y - 10, text, lines, w, h, type, accent, life, maxLife: life, offsetY: 0 });
         }
 
         function spawnParticle(startX, startY, endX, endY, type, power, targetRole, stage, color, chainData, senderRole) {
-            let speed = 0.0085; 
+            let speed = 0.0085;
             let size = type.startsWith('Correg') || type === 'Positivo' ? 7 : 5 + (power/8);
             const newChain = chainData ? JSON.parse(JSON.stringify(chainData)) : {};
-            state.particles.push({ startX, startY, endX, endY, progress: 0, speed, color, type, power, size, targetRole, stage, chain: newChain, senderRole });
+            state.particles.push({ startX, startY, endX, endY, progress: 0, speed, color, type, power, size, targetRole, stage, chain: newChain, senderRole, trail: [] });
         }
 
         function applyImpact(p) {
@@ -1802,95 +1700,130 @@
         }
 
 
+        // --- DIBUJO ---
+        const clamp01 = (v) => Math.max(0, Math.min(1, v));
+        const smooth = (a, b, v) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
+        function hexToRgb(hex) {
+            const h = hex.replace('#', '');
+            const n = parseInt(h.length === 3 ? h.split('').map(c => c + c).join('') : h, 16);
+            return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+        }
+        function mix(c1, c2, t) { return c1.map((v, i) => Math.round(v + (c2[i] - v) * t)); }
+        const rgb = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
+
+        // Halo precalculado por color: mucho más barato que shadowBlur en cada bola.
+        function glowSprite(color) {
+            let s = glowCache.get(color);
+            if (s) return s;
+            s = document.createElement('canvas'); s.width = s.height = 64;
+            const g = s.getContext('2d'); const [r, gg, b] = hexToRgb(color);
+            const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+            grad.addColorStop(0, `rgba(${r},${gg},${b},0.75)`);
+            grad.addColorStop(0.35, `rgba(${r},${gg},${b},0.28)`);
+            grad.addColorStop(1, `rgba(${r},${gg},${b},0)`);
+            g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+            glowCache.set(color, s);
+            return s;
+        }
+        function drawGlow(x, y, radius, color, alpha) {
+            ctx.globalAlpha = alpha;
+            ctx.drawImage(glowSprite(color), x - radius, y - radius, radius * 2, radius * 2);
+            ctx.globalAlpha = 1;
+        }
+
+        const SKY = {
+            calm:    [hexToRgb('#0f5163'), hexToRgb('#0d5b57'), hexToRgb('#062424')],
+            neutral: [hexToRgb('#0b1124'), hexToRgb('#141c45'), hexToRgb('#0c1121')],
+            storm:   [hexToRgb('#04050b'), hexToRgb('#0f111d'), hexToRgb('#1c1640')]
+        };
+
+        function updateView(dt) {
+            const f = 1 - Math.exp(-dt / 160);
+            view.ta += (state.a.tension - view.ta) * f;
+            view.te += (state.e.tension - view.te) * f;
+            view.health += (Math.max(0, state.health) - view.health) * f;
+            view.res += (state.resentment - view.res) * f;
+            const avg = (state.a.tension + state.e.tension) / 2;
+            const storm = Math.min(1, (avg + state.resentment * 0.95) / 110);
+            view.storm += (storm - view.storm) * (1 - Math.exp(-dt / 700));
+            view.secure += ((state.secureMode ? 1 : 0) - view.secure) * (1 - Math.exp(-dt / 900));
+        }
+
         function drawBird(x, y, scale, alpha) {
             ctx.save();
             ctx.translate(x, y);
             ctx.scale(scale, scale);
             ctx.globalAlpha = alpha;
             ctx.strokeStyle = 'rgba(226,232,240,0.85)';
-            ctx.lineWidth = 1.8;
+            ctx.lineWidth = 1.6;
             ctx.beginPath();
             ctx.moveTo(-8, 0); ctx.quadraticCurveTo(-3, -6, 0, 0);
             ctx.quadraticCurveTo(3, -6, 8, 0);
             ctx.stroke();
             ctx.restore();
-            ctx.globalAlpha = 1;
         }
 
-        function drawLightningBolt(x, y, scale = 1, alpha = 1) {
+        function drawLightningBolt(x, y, scale, alpha) {
             ctx.save();
             ctx.translate(x, y);
             ctx.scale(scale, scale);
+            drawGlow(0, 26, 46, '#facc15', alpha * 0.55);
             ctx.globalAlpha = alpha;
-            ctx.strokeStyle = 'rgba(250,204,21,0.95)';
-            ctx.lineWidth = 3;
-            ctx.shadowBlur = 18;
-            ctx.shadowColor = 'rgba(250,204,21,0.9)';
+            ctx.strokeStyle = 'rgba(253,224,71,0.95)';
+            ctx.lineWidth = 3; ctx.lineJoin = 'round';
             ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(-12, 24);
-            ctx.lineTo(-1, 22);
-            ctx.lineTo(-18, 54);
-            ctx.lineTo(16, 18);
-            ctx.lineTo(3, 20);
-            ctx.lineTo(13, 0);
+            ctx.moveTo(0, 0); ctx.lineTo(-12, 24); ctx.lineTo(-1, 22); ctx.lineTo(-18, 54);
+            ctx.lineTo(16, 18); ctx.lineTo(3, 20); ctx.lineTo(13, 0);
             ctx.stroke();
             ctx.restore();
-            ctx.shadowBlur = 0;
-            ctx.globalAlpha = 1;
         }
 
-        function drawTensionRays(x, y, color, intensity) {
+        function drawTensionRays(x, y, color, intensity, k) {
             const rayCount = Math.floor(7 + intensity / 8);
             ctx.save();
             ctx.translate(x, y);
-            ctx.strokeStyle = color;
-            ctx.globalAlpha = Math.min(0.72, 0.18 + intensity / 170);
+            ctx.strokeStyle = color; ctx.lineCap = 'round';
+            ctx.globalAlpha = Math.min(0.6, (intensity - 62) / 50);
             for (let i = 0; i < rayCount; i++) {
-                const angle = (Math.PI * 2 * i) / rayCount + state.ambientClock * 0.018;
-                const inner = 34;
-                const outer = 48 + (intensity / 3.2) + (i % 2 ? 9 : 0);
-                ctx.lineWidth = i % 2 ? 1.4 : 2.3;
+                const angle = (Math.PI * 2 * i) / rayCount + state.ambientClock * 0.012;
+                const inner = 40;
+                const outer = 52 + (intensity / 3.2) + (i % 2 ? 8 : 0) + Math.sin(state.ambientClock * 0.08 + i) * 3;
+                ctx.lineWidth = i % 2 ? 1.4 : 2.2;
                 ctx.beginPath();
                 ctx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
                 ctx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
                 ctx.stroke();
             }
             ctx.restore();
-            ctx.globalAlpha = 1;
         }
 
-        function drawBackgroundScene() {
-            const avgTension = (state.a.tension + state.e.tension) / 2;
-            const storm = Math.min(1, (avgTension + state.resentment * 0.95) / 110);
-            const calm = Math.max(0, 1 - storm);
-            state.ambientClock += 1;
-            if (state.flash > 0) state.flash--;
+        function drawBackgroundScene(k) {
+            state.ambientClock += k;
+            if (state.flash > 0) state.flash = Math.max(0, state.flash - k);
+            const s = view.storm;
+            const calm = Math.max(view.secure, 1 - smooth(0.14, 0.34, s));
+            const stormy = smooth(0.45, 0.7, s) * (1 - view.secure);
 
+            const stops = [0, 1, 2].map(i => mix(mix(SKY.neutral[i], SKY.calm[i], calm), SKY.storm[i], stormy));
             const sky = ctx.createLinearGradient(0, 0, 0, height);
-            if (state.secureMode || (avgTension < 20 && state.resentment < 15)) {
-                sky.addColorStop(0, '#155e75');
-                sky.addColorStop(0.45, '#0f766e');
-                sky.addColorStop(1, '#052e2b');
-            } else if (storm > 0.58) {
-                sky.addColorStop(0, '#020617');
-                sky.addColorStop(0.42, '#111827');
-                sky.addColorStop(1, '#1e1b4b');
-            } else {
-                sky.addColorStop(0, '#0f172a');
-                sky.addColorStop(0.55, '#172554');
-                sky.addColorStop(1, '#111827');
-            }
+            sky.addColorStop(0, rgb(stops[0])); sky.addColorStop(0.5, rgb(stops[1])); sky.addColorStop(1, rgb(stops[2]));
             ctx.fillStyle = sky;
             ctx.fillRect(0, 0, width, height);
 
-            const glow = ctx.createRadialGradient(width * 0.5, height * 0.18, 10, width * 0.5, height * 0.18, height * 0.48);
-            glow.addColorStop(0, `rgba(255,255,255,${0.06 + calm * 0.13})`);
-            glow.addColorStop(1, 'rgba(255,255,255,0)');
-            ctx.fillStyle = glow;
-            ctx.fillRect(0, 0, width, height);
+            // Estrellas cuando no hay calma
+            const starA = (1 - calm) * 0.7;
+            if (starA > 0.02) {
+                ctx.fillStyle = '#fff';
+                for (const st of stars) {
+                    ctx.globalAlpha = starA * (0.35 + 0.35 * Math.sin(state.ambientClock * 0.03 + st.ph));
+                    ctx.fillRect(st.x * width, st.y * height, st.r, st.r);
+                }
+                ctx.globalAlpha = 1;
+            }
 
-            ctx.fillStyle = 'rgba(15,23,42,0.42)';
+            drawGlow(width * 0.5, height * 0.16, Math.max(width, height) * 0.45, calm > 0.5 ? '#a7f3d0' : '#c7d2fe', 0.08 + calm * 0.16);
+
+            ctx.fillStyle = `rgba(4,8,20,${0.35 + stormy * 0.2})`;
             ctx.beginPath();
             ctx.moveTo(0, height * 0.76);
             ctx.quadraticCurveTo(width * 0.18, height * 0.66, width * 0.38, height * 0.76);
@@ -1899,175 +1832,284 @@
             ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.closePath();
             ctx.fill();
 
-            ctx.fillStyle = 'rgba(30,41,59,0.68)';
+            ctx.fillStyle = 'rgba(7,11,26,0.7)';
             ctx.beginPath();
-            ctx.moveTo(0, height * 0.84);
-            ctx.quadraticCurveTo(width * 0.22, height * 0.73, width * 0.52, height * 0.83);
-            ctx.quadraticCurveTo(width * 0.76, height * 0.9, width, height * 0.8);
+            ctx.moveTo(0, height * 0.86);
+            ctx.quadraticCurveTo(width * 0.22, height * 0.75, width * 0.52, height * 0.85);
+            ctx.quadraticCurveTo(width * 0.76, height * 0.92, width, height * 0.82);
             ctx.lineTo(width, height); ctx.lineTo(0, height); ctx.closePath();
             ctx.fill();
 
-            if (avgTension < 28 && state.resentment < 25) {
+            const birdA = smooth(0.5, 0.9, calm);
+            if (birdA > 0.02) {
                 const t = state.ambientClock * 0.012;
-                drawBird(width * 0.18 + Math.sin(t) * 18, height * 0.16 + Math.cos(t * 0.7) * 7, 1, 0.68);
-                drawBird(width * 0.26 + Math.sin(t + 1.2) * 14, height * 0.12 + Math.cos(t * 0.8) * 8, 0.82, 0.54);
-                drawBird(width * 0.78 + Math.sin(t + 0.6) * 16, height * 0.18 + Math.cos(t * 0.9) * 6, 0.94, 0.58);
+                drawBird(width * 0.18 + Math.sin(t) * 18, height * 0.16 + Math.cos(t * 0.7) * 7, 1, 0.68 * birdA);
+                drawBird(width * 0.26 + Math.sin(t + 1.2) * 14, height * 0.12 + Math.cos(t * 0.8) * 8, 0.82, 0.54 * birdA);
+                drawBird(width * 0.78 + Math.sin(t + 0.6) * 16, height * 0.18 + Math.cos(t * 0.9) * 6, 0.94, 0.58 * birdA);
             }
 
-            if (storm > 0.34) {
-                ctx.fillStyle = `rgba(2,6,23,${0.18 + storm * 0.32})`;
+            const cloudA = smooth(0.3, 0.6, s) * (1 - view.secure);
+            if (cloudA > 0.02) {
                 for (let i = 0; i < 6; i++) {
-                    const cx = width * (0.08 + i * 0.18) + Math.sin((state.ambientClock + i * 17) * 0.012) * 11;
-                    const cy = height * (0.12 + (i % 2) * 0.04);
-                    ctx.beginPath();
-                    ctx.ellipse(cx, cy, 78, 26, 0, 0, Math.PI * 2);
-                    ctx.fill();
+                    const cx = width * (0.08 + i * 0.18) + Math.sin((state.ambientClock + i * 17) * 0.008) * 14;
+                    const cy = height * (0.1 + (i % 2) * 0.04);
+                    drawGlow(cx, cy, 110, '#020617', cloudA * 0.9);
                 }
             }
 
-            if (storm > 0.72 || state.flash > 0) {
-                const flashAlpha = state.flash > 0 ? 0.08 + state.flash * 0.035 : 0.035;
-                ctx.fillStyle = `rgba(255,255,255,${flashAlpha})`;
+            // Relámpagos: con el trueno de la lógica y, si la tormenta aprieta, algún destello suelto.
+            if (stormy > 0.6 && state.flash <= 0 && Math.random() < 0.004 * k) state.flash = 9;
+            if (state.flash > 0) {
+                const a = state.flash / 12;
+                ctx.fillStyle = `rgba(255,255,255,${0.04 + a * 0.3})`;
                 ctx.fillRect(0, 0, width, height);
-                drawLightningBolt(width * 0.18, height * 0.06, 0.9, 0.95);
-                if (avgTension > 76) drawLightningBolt(width * 0.82, height * 0.08, 0.78, 0.9);
-                if (avgTension > 88) drawLightningBolt(width * 0.5, height * 0.04, 0.68, 0.78);
+                const avg = (view.ta + view.te) / 2;
+                drawLightningBolt(width * 0.18, height * 0.06, 0.9, a);
+                if (avg > 76) drawLightningBolt(width * 0.82, height * 0.08, 0.78, a * 0.9);
+                if (avg > 88) drawLightningBolt(width * 0.5, height * 0.04, 0.68, a * 0.8);
             }
         }
 
-        function renderLoop() {
-            ctx.clearRect(0, 0, width, height);
-            drawBackgroundScene();
-
-            ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,255,255,0.15)";
+        function drawPaths() {
+            ctx.lineCap = 'round';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([2, 7]);
+            ctx.lineDashOffset = -state.ambientClock * 0.4;
+            ctx.strokeStyle = 'rgba(255,255,255,0.16)';
             ctx.beginPath(); ctx.moveTo(pos.a.x, pos.dispA.y); ctx.lineTo(pos.a.x, pos.reacA.y); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(pos.e.x, pos.dispE.y); ctx.lineTo(pos.e.x, pos.reacE.y); ctx.stroke();
 
-            ctx.strokeStyle = `rgba(239, 68, 68, ${0.1 + (state.resentment/400)})`; 
+            ctx.setLineDash([6, 10]);
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = `rgba(248, 113, 113, ${0.14 + (view.res / 260)})`;
             ctx.beginPath(); ctx.moveTo(pos.reacE.x, pos.reacE.y); ctx.bezierCurveTo(width/2, pos.reacE.y, width/2, pos.dispA.y, pos.dispA.x, pos.dispA.y); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(pos.reacA.x, pos.reacA.y); ctx.bezierCurveTo(width/2, pos.reacA.y, width/2, pos.dispE.y, pos.dispE.x, pos.dispE.y); ctx.stroke();
-
-            const drawSubNode = (x, y, label, color, shakeTimer) => {
-                let sx = shakeTimer > 0 ? (Math.random()-0.5)*4 : 0;
-                let sy = shakeTimer > 0 ? (Math.random()-0.5)*4 : 0;
-                
-                ctx.beginPath(); ctx.arc(x+sx, y+sy, 12, 0, Math.PI*2);
-                ctx.fillStyle = "#1e293b"; ctx.fill();
-                ctx.lineWidth = 2; ctx.strokeStyle = shakeTimer > 0 ? "#ffffff" : color; ctx.stroke();
-                ctx.fillStyle = "#cbd5e1"; ctx.font = "9px sans-serif"; ctx.textAlign = "center"; ctx.fillText(label, x+sx, y+sy + 22);
-            };
-
-            ['a', 'e'].forEach(role => {
-                let p = state[role]; let c = p.color; let isA = role === 'a';
-                if(p.nodes.disp > 0) p.nodes.disp--;
-                if(p.nodes.center > 0) p.nodes.center--;
-                if(p.nodes.reac > 0) p.nodes.reac--;
-
-                drawSubNode(isA ? pos.dispA.x : pos.dispE.x, isA ? pos.dispA.y : pos.dispE.y, "Mente (Disparador)", c, p.nodes.disp);
-                drawSubNode(isA ? pos.reacA.x : pos.reacE.x, isA ? pos.reacA.y : pos.reacE.y, "Reacción", c, p.nodes.reac);
-            });
-
-            const drawAvatar = (x, y, data, isA) => {
-                let rgbColor = isA ? "59, 130, 246" : "168, 85, 247"; 
-                if(data.tension > 10 && !state.secureMode) {
-                    let auraRadius = Math.min(100, 30 + (data.tension/3));
-                    ctx.beginPath(); ctx.arc(x, y, auraRadius, 0, Math.PI*2);
-                    ctx.fillStyle = `rgba(${rgbColor}, ${Math.min(data.tension/150, 0.6)})`;
-                    ctx.fill();
-                }
-                if(data.tension > 62 && !state.secureMode) {
-                    drawTensionRays(x, y, `rgba(${rgbColor},0.95)`, data.tension);
-                }
-
-                let shakeC = data.nodes.center > 0;
-                let sx = shakeC ? (Math.random()-0.5)*5 : 0;
-                let sy = shakeC ? (Math.random()-0.5)*5 : 0;
-
-                ctx.fillStyle = (data.tension > 80 && !state.secureMode) ? "#f87171" : "#e2e8f0";
-                ctx.beginPath(); ctx.arc(x+sx, y+sy, 22, 0, Math.PI*2); ctx.fill(); 
-                ctx.fillStyle = "#0f172a"; ctx.font = "18px Arial"; ctx.textAlign = "center"; ctx.textBaseline="middle";
-                ctx.fillText(state.secureMode ? "S" : (isA ? (state.nameA[0] || 'A').toUpperCase() : (state.nameE[0] || 'E').toUpperCase()), x+sx, y+sy);
-                
-                ctx.fillStyle = (data.tension > 80 && !state.secureMode) ? "#fca5a5" : "#94a3b8"; ctx.font = "10px sans-serif";
-                ctx.fillText(`Tensión: ${Math.floor(data.tension)}%`, x+sx+45, y+sy);
-            };
-
-            drawAvatar(pos.a.x, pos.a.y, state.a, true); drawAvatar(pos.e.x, pos.e.y, state.e, false);
-
-            for (let i = state.particles.length - 1; i >= 0; i--) {
-                let p = state.particles[i]; 
-                
-                if (!state.esperandoUsuario) { p.progress += p.speed * Math.max(0.85, state.speed * 1.28); }
-                
-                let cx, cy;
-                if (p.startX === pos.center.x || p.startY === -20 || p.stage === 'hit_center' || p.stage === 'hit_reac') {
-                    cx = p.startX + (p.endX - p.startX) * p.progress; cy = p.startY + (p.endY - p.startY) * p.progress;
-                } else {
-                    const cp1 = {x: width/2, y: p.startY}; const cp2 = {x: width/2, y: p.endY};
-                    const t = p.progress; const mt = 1 - t;
-                    cx = mt*mt*mt*p.startX + 3*mt*mt*t*cp1.x + 3*mt*t*t*cp2.x + t*t*t*p.endX;
-                    cy = mt*mt*mt*p.startY + 3*mt*mt*t*cp1.y + 3*mt*t*t*cp2.y + t*t*t*p.endY;
-                }
-
-                ctx.beginPath(); ctx.arc(cx, cy, p.size, 0, Math.PI*2); ctx.fillStyle = p.color; ctx.fill();
-                ctx.shadowBlur = 15; ctx.shadowColor = p.color; ctx.fill(); ctx.shadowBlur = 0;
-                
-                if (p.progress >= 1 && !state.esperandoUsuario) { 
-                    applyImpact(p); 
-                    state.particles.splice(i, 1); 
-                }
-            }
-
-            for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
-                let ft = state.floatingTexts[i]; 
-                if (!state.esperandoUsuario) { ft.life--; ft.offsetY -= 0.2; }
-                
-                ctx.globalAlpha = Math.min(1, ft.life / 40); ctx.font = "bold 11px sans-serif"; ctx.textBaseline="middle";
-                let textWidth = ctx.measureText(ft.text).width; let pad = 8;
-                
-                ctx.fillStyle = ft.bg; ctx.strokeStyle = ft.border; ctx.lineWidth = 1.5;
-                ctx.beginPath(); ctx.roundRect(ft.x - textWidth/2 - pad, ft.y + ft.offsetY - 12, textWidth + pad*2, 24, 6);
-                ctx.fill(); ctx.stroke();
-                ctx.fillStyle = ft.color; ctx.textAlign = "center"; ctx.fillText(ft.text, ft.x, ft.y + ft.offsetY);
-                ctx.globalAlpha = 1.0;
-                if (ft.life <= 0) state.floatingTexts.splice(i, 1);
-            }
-
-            document.getElementById('tension-a').style.height = Math.min(100, state.a.tension) + '%';
-            document.getElementById('tension-e').style.height = Math.min(100, state.e.tension) + '%';
-            
-            const hb = document.getElementById('health-bar-fill');
-            hb.style.width = Math.max(0, state.health) + '%';
-            hb.style.backgroundColor = state.health < 30 ? '#ef4444' : state.health < 60 ? '#f59e0b' : '#10b981';
-            
-            document.getElementById('resent-bar-fill').style.width = Math.min(100, state.resentment) + '%';
-
-            // Actualizar contadores de daño/sanación
-            document.getElementById('stat-a-dmg').innerText = Math.floor(state.a.stats.dmg);
-            document.getElementById('stat-a-heal').innerText = Math.floor(state.a.stats.heal);
-            document.getElementById('stat-e-dmg').innerText = Math.floor(state.e.stats.dmg);
-            document.getElementById('stat-e-heal').innerText = Math.floor(state.e.stats.heal);
-
-            if (state.running) requestAnimationFrame(renderLoop);
+            ctx.setLineDash([]);
         }
 
-        let logicInterval;
+        function drawSubNode(x, y, label, icon, color, hit, labelAbove) {
+            const h = hit / 20;
+            if (h > 0) {
+                ctx.beginPath(); ctx.arc(x, y, 15 + (1 - h) * 22, 0, Math.PI * 2);
+                ctx.strokeStyle = color; ctx.globalAlpha = h * 0.8; ctx.lineWidth = 2; ctx.stroke(); ctx.globalAlpha = 1;
+                drawGlow(x, y, 40, color, h * 0.8);
+            }
+            const r = 15 * (1 + h * 0.12);
+            ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(13,17,34,0.92)'; ctx.fill();
+            ctx.lineWidth = 2; ctx.strokeStyle = h > 0 ? '#ffffff' : color; ctx.stroke();
+            ctx.font = '13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(icon, x, y + 1);
+            ctx.font = '600 11px Inter, system-ui, sans-serif'; ctx.fillStyle = 'rgba(203,213,225,0.85)';
+            ctx.fillText(label, x, labelAbove && height > 450 ? y - 27 : y + 28);
+        }
 
+        function drawAvatar(role) {
+            const isA = role === 'a';
+            const d = state[role]; const P = pos[role];
+            const t = isA ? view.ta : view.te;
+            const base = state.secureMode ? '#10b981' : (isA ? CLINICA.A.color : CLINICA.E.color);
+            const hot = t > 80 && !state.secureMode;
+
+            if (t > 10 && !state.secureMode) drawGlow(P.x, P.y, Math.min(110, 40 + t / 2.4), base, Math.min(t / 130, 0.75));
+            if (state.secureMode) drawGlow(P.x, P.y, 70, '#10b981', 0.5);
+            if (t > 62 && !state.secureMode) drawTensionRays(P.x, P.y, base, t);
+
+            const hit = d.nodes.center / 20;
+            const breathe = 1 + Math.sin(state.ambientClock * (0.035 + t / 2600)) * 0.025;
+            const r = 24 * breathe * (1 + hit * 0.14);
+
+            // Anillo de tensión
+            ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.arc(P.x, P.y, r + 9, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(148,163,184,0.16)'; ctx.lineWidth = 5; ctx.stroke();
+            if (t > 0.5) {
+                ctx.beginPath(); ctx.arc(P.x, P.y, r + 9, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(100, t) / 100);
+                ctx.strokeStyle = hot ? '#f87171' : base; ctx.lineWidth = 5; ctx.stroke();
+            }
+
+            // Cuerpo
+            const [cr, cg, cb] = hexToRgb(hot ? '#ef4444' : base);
+            const g = ctx.createRadialGradient(P.x - r * 0.35, P.y - r * 0.4, r * 0.1, P.x, P.y, r);
+            g.addColorStop(0, `rgb(${Math.min(255, cr + 110)},${Math.min(255, cg + 110)},${Math.min(255, cb + 110)})`);
+            g.addColorStop(1, `rgb(${cr},${cg},${cb})`);
+            ctx.beginPath(); ctx.arc(P.x, P.y, r, 0, Math.PI * 2); ctx.fillStyle = g; ctx.fill();
+            if (hit > 0) { ctx.lineWidth = 2; ctx.strokeStyle = `rgba(255,255,255,${hit})`; ctx.stroke(); }
+
+            const name = isA ? state.nameA : state.nameE;
+            ctx.fillStyle = '#fff'; ctx.font = '800 19px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(state.secureMode ? 'S' : (name[0] || (isA ? 'A' : 'E')).toUpperCase(), P.x, P.y + 1);
+
+            // Etiquetas
+            const labelY = P.y + r + 26;
+            ctx.font = '800 13px Inter, system-ui, sans-serif'; ctx.fillStyle = '#f1f5f9';
+            ctx.fillText(state.secureMode ? 'Apego seguro' : name, P.x, labelY);
+            ctx.font = '600 11px Inter, system-ui, sans-serif'; ctx.fillStyle = hot ? '#fca5a5' : 'rgba(203,213,225,0.75)';
+            ctx.fillText(`Tensión ${Math.round(t)}% · Freno ${isA ? view.frenoA : view.frenoE}%`, P.x, labelY + 16);
+        }
+
+        function particlePos(p) {
+            if (p.startX === pos.center.x || p.startY === -20 || p.stage === 'hit_center' || p.stage === 'hit_reac') {
+                return [p.startX + (p.endX - p.startX) * p.progress, p.startY + (p.endY - p.startY) * p.progress];
+            }
+            const cp1 = {x: width/2, y: p.startY}; const cp2 = {x: width/2, y: p.endY};
+            const t = Math.min(1, p.progress); const mt = 1 - t;
+            return [
+                mt*mt*mt*p.startX + 3*mt*mt*t*cp1.x + 3*mt*t*t*cp2.x + t*t*t*p.endX,
+                mt*mt*mt*p.startY + 3*mt*mt*t*cp1.y + 3*mt*t*t*cp2.y + t*t*t*p.endY
+            ];
+        }
+
+        // Coloca los globos sin que se pisen: los antiguos se quedan quietos y los nuevos buscan hueco.
+        function layoutFloatingTexts(dt) {
+            const minTop = document.body.classList.contains('is-landscape') ? 52 : (document.body.classList.contains('is-compact') ? 92 : 8);
+            const maxBottom = height - 8;
+            const placed = [];
+            const hits = (x, y, ft) => placed.find(p => Math.abs(p.x - x) < (p.w + ft.w) / 2 + 6 && Math.abs(p.y - y) < (p.h + ft.h) / 2 + 6);
+            const f = 1 - Math.exp(-dt / 140);
+            for (const ft of state.floatingTexts) {
+                const x = Math.max(ft.w / 2 + 8, Math.min(width - ft.w / 2 - 8, ft.x));
+                const base = Math.max(ft.h / 2 + minTop, ft.y + ft.offsetY);
+                let y = base, hit, n = 0;
+                while ((hit = hits(x, y, ft)) && n++ < 12) y = hit.y - (hit.h + ft.h) / 2 - 6;
+                if (y - ft.h / 2 < minTop) {
+                    y = base; n = 0;
+                    while ((hit = hits(x, y, ft)) && n++ < 12) y = hit.y + (hit.h + ft.h) / 2 + 6;
+                    y = Math.min(y, maxBottom - ft.h / 2);
+                }
+                ft.dx = x;
+                ft.dy = ft.dy === undefined ? y : ft.dy + (y - ft.dy) * f;
+                if (ft.life > 6) placed.push({ x, y: ft.dy, w: ft.w, h: ft.h });
+            }
+        }
+
+        function drawFloatingText(ft) {
+            const fadeIn = Math.min(1, (ft.maxLife - ft.life) / 10);
+            const alpha = Math.min(fadeIn, ft.life / 24);
+            if (alpha <= 0) return;
+            const x = ft.dx;
+            const y = ft.dy + (1 - fadeIn) * 6;
+            ctx.globalAlpha = alpha;
+            ctx.beginPath(); ctx.roundRect(x - ft.w / 2, y - ft.h / 2, ft.w, ft.h, 12);
+            ctx.fillStyle = 'rgba(10,13,28,0.88)'; ctx.fill();
+            const [r, g, b] = hexToRgb(ft.accent);
+            ctx.fillStyle = `rgba(${r},${g},${b},0.18)`; ctx.fill();
+            ctx.lineWidth = 1.2; ctx.strokeStyle = `rgba(${r},${g},${b},0.75)`; ctx.stroke();
+            ctx.font = TEXT_FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = ft.type === 'Transform' ? '#e0e7ff' : (ft.type === 'Edu' ? '#fef3c7' : '#f8fafc');
+            const top = y - ((ft.lines.length - 1) * 16) / 2;
+            ft.lines.forEach((l, i) => ctx.fillText(l, x, top + i * 16));
+            ctx.globalAlpha = 1;
+        }
+
+        let lastFrame = performance.now();
+        let lastStats = 0;
+
+        // Un solo bucle de dibujo, siempre vivo; todo se mueve según el tiempo real, no según los fotogramas.
+        function renderLoop(now) {
+            now = now || performance.now();
+            const dt = Math.min(64, Math.max(0, now - lastFrame)); lastFrame = now;
+            const k = dt / (1000 / 60);
+
+            if (width && height) {
+                updateView(dt);
+                ctx.clearRect(0, 0, width, height);
+                drawBackgroundScene(k);
+                drawPaths();
+
+                ['a', 'e'].forEach(role => {
+                    const p = state[role]; const isA = role === 'a';
+                    p.nodes.disp = Math.max(0, p.nodes.disp - k);
+                    p.nodes.center = Math.max(0, p.nodes.center - k);
+                    p.nodes.reac = Math.max(0, p.nodes.reac - k);
+                    const c = state.secureMode ? '#10b981' : p.color;
+                    drawSubNode(isA ? pos.dispA.x : pos.dispE.x, isA ? pos.dispA.y : pos.dispE.y, "Mente", "💭", c, p.nodes.disp, true);
+                    drawSubNode(isA ? pos.reacA.x : pos.reacE.x, isA ? pos.reacA.y : pos.reacE.y, "Reacción", "⚡", c, p.nodes.reac, false);
+                });
+
+                drawAvatar('a'); drawAvatar('e');
+
+                for (let i = state.particles.length - 1; i >= 0; i--) {
+                    let p = state.particles[i];
+                    if (state.running && !state.esperandoUsuario) { p.progress += p.speed * Math.max(0.85, state.speed * 1.28) * k; }
+                    const [cx, cy] = particlePos(p);
+                    if (state.running && !state.esperandoUsuario) { p.trail.push(cx, cy); if (p.trail.length > 20) p.trail.splice(0, 2); }
+
+                    ctx.fillStyle = p.color;
+                    const n = p.trail.length / 2;
+                    for (let j = 0; j < n - 1; j++) {
+                        const f = (j + 1) / n;
+                        ctx.globalAlpha = f * 0.35;
+                        ctx.beginPath(); ctx.arc(p.trail[j * 2], p.trail[j * 2 + 1], p.size * (0.35 + 0.55 * f), 0, Math.PI * 2); ctx.fill();
+                    }
+                    ctx.globalAlpha = 1;
+                    drawGlow(cx, cy, p.size * 3.4, p.color, 0.95);
+                    ctx.beginPath(); ctx.arc(cx, cy, p.size, 0, Math.PI*2); ctx.fillStyle = p.color; ctx.fill();
+                    ctx.beginPath(); ctx.arc(cx - p.size * 0.3, cy - p.size * 0.3, p.size * 0.38, 0, Math.PI*2); ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fill();
+
+                    if (p.progress >= 1 && state.running && !state.esperandoUsuario) {
+                        applyImpact(p);
+                        state.particles.splice(i, 1);
+                    }
+                }
+
+                layoutFloatingTexts(dt);
+                for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
+                    let ft = state.floatingTexts[i];
+                    if (state.running && !state.esperandoUsuario) { ft.life -= k; ft.offsetY -= 0.06 * k; }
+                    drawFloatingText(ft);
+                    if (ft.life <= 0) state.floatingTexts.splice(i, 1);
+                }
+
+                if (state.tint) {
+                    ctx.fillStyle = `rgba(${state.tint.rgb},${state.tint.a})`; ctx.fillRect(0, 0, width, height);
+                    state.tint.a -= 0.008 * k;
+                    if (state.tint.a <= 0) state.tint = null;
+                }
+            }
+
+            updateHud();
+            if (now - lastStats > 250) { updateStats(); lastStats = now; }
+            requestAnimationFrame(renderLoop);
+        }
+
+        const hud = {};
+        function updateHud() {
+            if (!hud.health) {
+                hud.health = document.getElementById('health-bar-fill'); hud.res = document.getElementById('resent-bar-fill');
+                hud.healthVal = document.getElementById('health-val'); hud.resVal = document.getElementById('res-val');
+            }
+            hud.health.style.transform = `scaleX(${view.health / 100})`;
+            const lvl = state.health < 30 ? 'low' : state.health < 60 ? 'mid' : 'ok';
+            if (hud.health.dataset.level !== lvl) hud.health.dataset.level = lvl;
+            hud.res.style.transform = `scaleX(${Math.min(100, view.res) / 100})`;
+            const hv = String(Math.round(view.health)), rv = String(Math.round(view.res));
+            if (hud.healthVal.textContent !== hv) hud.healthVal.textContent = hv;
+            if (hud.resVal.textContent !== rv) hud.resVal.textContent = rv;
+        }
+
+        function updateStats() {
+            [['stat-a-dmg', state.a.stats.dmg], ['stat-a-heal', state.a.stats.heal], ['stat-e-dmg', state.e.stats.dmg], ['stat-e-heal', state.e.stats.heal]].forEach(([id, v]) => {
+                const el = document.getElementById(id); const s = String(Math.floor(v));
+                if (el.textContent !== s) el.textContent = s;
+            });
+        }
+
+        // --- LÓGICA DE TIEMPO (sin cambios de comportamiento) ---
         function logicTick() {
             if(state.esperandoUsuario) return;
             if (state.health <= 0) { spawnText(width/2, height/2, "💔 LA RELACIÓN SE HA ROTO POR DESGASTE", 'Estres'); playSfx('tox'); vibrate([200, 80, 200, 80, 400]); toggleSim(); return; }
 
-            state.dias++; 
+            state.dias++;
             state.ticksSinceLastEvent++;
             if(state.therapyBuffTicks > 0) state.therapyBuffTicks--;
-            
+
             let decayA = (getVal('a-res') / 10) * 0.45;
             let decayE = (getVal('e-res') / 10) * 0.45;
-            
+
             if(state.a.tension > 70) decayA *= 0.06;
             if(state.e.tension > 70) decayE *= 0.06;
-            
-            let oldTA = state.a.tension; let oldTE = state.e.tension;
+
             state.a.tension = Math.max(0, state.a.tension - decayA);
             state.e.tension = Math.max(0, state.e.tension - decayE);
 
@@ -2075,15 +2117,15 @@
             let maxTension = Math.max(state.a.tension, state.e.tension);
             let minTension = Math.min(state.a.tension, state.e.tension);
             if (maxTension > 90 && minTension > 60) {
-                state.health -= 2.15; 
+                state.health -= 2.15;
                 if (Math.random() < 0.05) { logEvent("Colapso mutuo. La salud de la relación cae en picado.", "boom", "SYS"); vibrate([80, 40, 80]); }
                 maybeTriggerLightning(true);
             } else if (maxTension > 90) {
-                state.health -= 1.15; 
+                state.health -= 1.15;
                 if (Math.random() < 0.05) logEvent("Tensión crítica. Drenaje acelerado de salud.", "boom", "SYS");
                 maybeTriggerLightning();
             } else if (maxTension > 70) {
-                state.health -= 0.62; 
+                state.health -= 0.62;
                 if (Math.random() < 0.02) logEvent("La alta tensión sostenida desgasta la relación.", "est_a", "SYS");
                 if (Math.random() < 0.18) maybeTriggerLightning();
             }
@@ -2093,28 +2135,20 @@
             }
 
             if(state.wisdomCooldown > 0) {
-                state.wisdomCooldown--; const btnW = document.getElementById('btn-wisdom');
-                btnW.innerText = `⏳ Refractario (${state.wisdomCooldown}d)`;
-                if(state.wisdomCooldown <= 0) {
-                    btnW.disabled = false; btnW.innerText = "🛡️ Usar Sabiduría para Frenar (T. Fuera)";
-                    btnW.classList.replace('bg-slate-600', 'bg-emerald-600'); btnW.classList.replace('hover:bg-slate-600', 'hover:bg-emerald-500');
-                    syncMobileBadges();
-                }
+                state.wisdomCooldown--;
+                syncControls();
             }
 
-            document.getElementById('hud-dias').innerText = state.dias; 
+            document.getElementById('hud-dias').textContent = state.dias;
 
             if (state.health >= 90 && state.resentment === 0 && !state.secureMode && state.dias > 100 && state.corregulations >= 8) {
                 state.secureMode = true;
-                document.getElementById('label-a').innerText = "Apego Seguro (S)"; document.getElementById('label-e').innerText = "Apego Seguro (S)";
-                document.getElementById('label-a').className = "avatar-label label-a bg-emerald-900/50 border-emerald-500";
-                document.getElementById('label-e').className = "avatar-label label-e bg-emerald-900/50 border-emerald-500";
-                document.getElementById('panel-a').className = "bg-slate-800 rounded-xl p-4 md:p-5 panel-a shadow-lg flex flex-col justify-between border-emerald-500 secure-glow";
-                document.getElementById('panel-e').className = "bg-slate-800 rounded-xl p-4 md:p-5 panel-e shadow-lg flex flex-col justify-between border-emerald-500 secure-glow";
+                document.body.classList.add('secure');
                 state.a.color = '#10b981'; state.e.color = '#10b981';
-                
+
                 logEvent("¡Evolución confirmada! Apego Seguro Ganado.", 'transform', "SYS");
-                updateDiagnosis(); 
+                updateDiagnosis();
+                syncControls();
             }
 
             const freqEventos = Math.max(1, getVal('c-estres') * 0.5);
@@ -2123,21 +2157,21 @@
             if (forceEvent || Math.random() * 20 < freqEventos) {
                 state.ticksSinceLastEvent = 0;
                 let rnd = Math.random();
-                
-                if (rnd < 0.15 && !forceEvent) { 
+
+                if (rnd < 0.15 && !forceEvent) {
                     const msg = eventosPositivos[Math.floor(Math.random()*eventosPositivos.length)];
                     spawnText(pos.center.x, pos.center.y + 50, msg, 'Positivo');
                     playSfx(Math.random() < 0.55 ? 'birds' : 'heal');
-                    spawnParticle(pos.center.x, pos.center.y, pos.a.x, pos.a.y, 'Positivo', 20, 'a', 'hit_center', "#f59e0b", {eventoExterno: msg}, null); 
+                    spawnParticle(pos.center.x, pos.center.y, pos.a.x, pos.a.y, 'Positivo', 20, 'a', 'hit_center', "#f59e0b", {eventoExterno: msg}, null);
                     spawnParticle(pos.center.x, pos.center.y, pos.e.x, pos.e.y, 'Positivo', 20, 'e', 'hit_center', "#f59e0b", {eventoExterno: msg}, null);
                     logEvent(`Interacción nutritiva: ${msg}`, 'pos', "SYS");
-                } 
-                else if (rnd < 0.55) { 
+                }
+                else if (rnd < 0.55) {
                     const evt = CLINICA.E.disparadores[Math.floor(Math.random()*CLINICA.E.disparadores.length)];
                     spawnText(pos.center.x + 100, pos.center.y, "⚡ " + evt.evento, 'Estres');
                     spawnParticle(pos.center.x + 100, -20, pos.dispE.x, pos.dispE.y, 'Estres', 25, 'e', 'hit_disp', "#ef4444", {eventoExterno: evt.evento}, null);
                     logEvent(`Disparador externo: ${evt.evento}`, 'est', "SYS");
-                } else { 
+                } else {
                     const evt = CLINICA.A.disparadores[Math.floor(Math.random()*CLINICA.A.disparadores.length)];
                     spawnText(pos.center.x - 100, pos.center.y, "⚡ " + evt.evento, 'Estres');
                     spawnParticle(pos.center.x - 100, -20, pos.dispA.x, pos.dispA.y, 'Estres', 25, 'a', 'hit_disp', "#ef4444", {eventoExterno: evt.evento}, null);
@@ -2147,78 +2181,47 @@
         }
 
         function toggleSim() {
-            const btn = document.getElementById('btn-play');
             if (state.running) {
                 state.running = false; clearInterval(logicInterval);
-                syncMobileControls();
-                btn.innerText = "▶ Reanudar Simulador"; btn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 rounded shadow-lg mt-1 transition-colors duration-300";
             } else {
                 if(state.health <= 0) resetSim();
                 ensureAudio();
                 playSfx('start');
-                state.running = true; 
-                logicInterval = setInterval(logicTick, currentLogicDelay()); 
-                if(!state.esperandoUsuario) renderLoop(); 
-                syncMobileControls();
-                btn.innerText = "⏸ Pausar Simulador"; btn.className = "w-full bg-amber-500 hover:bg-amber-400 text-white text-sm font-bold py-2.5 rounded shadow-lg mt-1 transition-colors duration-300";
+                state.running = true;
+                if (!state.esperandoUsuario) startLogic();
             }
+            syncControls();
         }
 
         function resetSim() {
-            if (state.running) { state.running = false; clearInterval(logicInterval); }
-            const btn = document.getElementById('btn-play');
-            btn.innerText = "▶ Iniciar Simulador"; btn.className = "w-full bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold py-2.5 rounded shadow-lg mt-1";
+            if (state.running) { state.running = false; }
+            clearInterval(logicInterval);
 
             state.health = 100; state.dias = 0; state.resentment = 0;
             state.therapyUses = 2; state.therapyBuffTicks = 0; state.secureMode = false;
             state.corregulations = 0; state.wisdomCooldown = 0; state.ticksSinceLastEvent = 0; state.flash = 0; state.ambientClock = 0; state.toxEventsCount = 0;
-            
-            document.getElementById('therapy-count').innerText = "2"; document.getElementById('btn-therapy').classList.replace('bg-slate-600', 'bg-indigo-600');
-            const btnW = document.getElementById('btn-wisdom'); btnW.disabled = false; btnW.innerText = "🛡️ Usar Sabiduría para Frenar (T. Fuera)"; btnW.classList.replace('bg-slate-600', 'bg-emerald-600'); btnW.classList.replace('hover:bg-slate-600', 'hover:bg-emerald-500');
-            document.getElementById('chat-log').innerHTML = '<div class="text-slate-500 italic text-center mt-auto mb-auto text-sm">El chat se llenará cuando inicie la simulación...</div>';
-            
-            document.getElementById('label-a').innerText = "Ansioso (A)"; document.getElementById('label-e').innerText = "Evitativo (E)";
-            state.a.color = '#3b82f6'; state.e.color = '#a855f7';
+            state.tint = null;
+            document.body.classList.remove('secure');
 
-            state.a.tension = 0; state.e.tension = 0; 
+            document.getElementById('chat-log').innerHTML = '<div class="chat-empty">El chat se llenará cuando empiece el baile…</div>';
+            document.getElementById('hud-dias').textContent = '0';
+            state.a.color = CLINICA.A.color; state.e.color = CLINICA.E.color;
+
+            state.a.tension = 0; state.e.tension = 0;
             state.a.stats = {dmg: 0, heal: 0}; state.e.stats = {dmg: 0, heal: 0};
-            
+            Object.assign(view, { ta: 0, te: 0, health: 100, res: 0, storm: 0, secure: 0 });
+
             state.particles = []; state.floatingTexts = []; state.esperandoUsuario = false;
-            document.getElementById('expl-overlay').classList.add('hidden');
-            
-            setTimeout(() => { updateDiagnosis(); syncMobileControls(); syncMobileBadges(); }, 50);
+            document.getElementById('expl-overlay').hidden = true;
 
-            ctx.clearRect(0,0,width,height); drawBackgroundScene();
-            document.getElementById('tension-a').style.height = '0%'; document.getElementById('tension-e').style.height = '0%';
-            document.getElementById('health-bar-fill').style.width = '100%'; document.getElementById('resent-bar-fill').style.width = '0%';
-            
-            document.getElementById('stat-a-dmg').innerText = '0'; document.getElementById('stat-a-heal').innerText = '0';
-            document.getElementById('stat-e-dmg').innerText = '0'; document.getElementById('stat-e-heal').innerText = '0';
-
-            ctx.lineWidth = 2; ctx.strokeStyle = "rgba(255,255,255,0.15)";
-            ctx.beginPath(); ctx.moveTo(pos.a.x, pos.dispA.y); ctx.lineTo(pos.a.x, pos.reacA.y); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(pos.e.x, pos.dispE.y); ctx.lineTo(pos.e.x, pos.reacE.y); ctx.stroke();
-
-            const drawSubNode = (x, y, label, color) => {
-                ctx.beginPath(); ctx.arc(x, y, 12, 0, Math.PI*2); ctx.fillStyle = "#1e293b"; ctx.fill();
-                ctx.lineWidth = 2; ctx.strokeStyle = color; ctx.stroke();
-                ctx.fillStyle = "#cbd5e1"; ctx.font = "9px sans-serif"; ctx.textAlign = "center"; ctx.fillText(label, x, y + 22);
-            };
-            drawSubNode(pos.dispA.x, pos.dispA.y, "Mente (Disparador)", CLINICA.A.color); drawSubNode(pos.reacA.x, pos.reacA.y, "Cuerpo (Reacción)", CLINICA.A.color);
-            drawSubNode(pos.dispE.x, pos.dispE.y, "Mente (Disparador)", CLINICA.E.color); drawSubNode(pos.reacE.x, pos.reacE.y, "Cuerpo (Reacción)", CLINICA.E.color);
-
-            const drawInitialAvatar = (x, y, isA) => {
-                ctx.fillStyle = "#e2e8f0"; ctx.beginPath(); ctx.arc(x, y, 22, 0, Math.PI*2); ctx.fill(); 
-                ctx.fillStyle = "#0f172a"; ctx.font = "18px Arial"; ctx.textAlign = "center"; ctx.textBaseline="middle"; ctx.fillText(isA ? "A" : "E", x, y);
-            };
-            drawInitialAvatar(pos.a.x, pos.a.y, true); drawInitialAvatar(pos.e.x, pos.e.y, false);
+            updateDiagnosis(); updateStats(); syncControls();
         }
 
         function applyNames() {
-            document.getElementById('label-a').innerText = state.nameA;
-            document.getElementById('label-e').innerText = state.nameE;
-            document.getElementById('label-a').className = 'avatar-label label-a';
-            document.getElementById('label-e').className = 'avatar-label label-e';
+            document.getElementById('title-a').textContent = state.nameA;
+            document.getElementById('title-e').textContent = state.nameE;
+            document.getElementById('stat-title-a').textContent = state.nameA;
+            document.getElementById('stat-title-e').textContent = state.nameE;
         }
 
         function startFromWelcome() {
@@ -2229,16 +2232,25 @@
             applyNames();
             const ov = document.getElementById('welcome-overlay');
             if (ov) {
-                ov.style.transition = 'opacity 0.4s ease';
                 ov.style.opacity = '0';
                 vibrate([10, 5, 20]);
                 setTimeout(() => ov.remove(), 420);
             }
+            enterGameMode();
         }
+
+        document.getElementById('name-e').addEventListener('keydown', (e) => { if (e.key === 'Enter') startFromWelcome(); });
+        document.getElementById('name-a').addEventListener('keydown', (e) => { if (e.key === 'Enter') document.getElementById('name-e').focus(); });
 
         window.onload = () => {
             installSimulatorBackGuard();
-            setTimeout(() => { loadSettings(); resetSim(); syncMobileControls(); refreshFullscreenButton(); }, 100);
+            updateLayoutMode();
+            resizeCanvas();
+            loadSettings();
+            resetSim();
+            setTab('ajustes');
+            refreshFullscreenButton();
+            requestAnimationFrame(renderLoop);
         };
     </script>
 </body>
