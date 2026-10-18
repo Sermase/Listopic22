@@ -1372,10 +1372,13 @@
             ctx.font = TEXT_FONT;
             const w = Math.max(...lines.map(l => ctx.measureText(l).width)) + 22;
             const h = lines.length * 16 + 12;
-            // Si ya hay un globo reciente en el mismo punto, este sube para no taparlo.
-            let stack = 0;
-            state.floatingTexts.forEach(ft => { if (Math.abs(ft.ax - x) < 6 && Math.abs(ft.ay - y) < 6 && ft.life > ft.maxLife - 70) stack += ft.h + 6; });
-            state.floatingTexts.push({ ax: x, ay: y, x, y: y - 10 - stack, text, lines, w, h, type, accent, life: 180, maxLife: 180, offsetY: 0 });
+            // Tiempo de lectura según la longitud (en fotogramas a 60 fps): de ~3,5 s a 8 s.
+            const life = Math.round(Math.max(210, Math.min(480, 120 + text.length * 4.5)));
+            // Con demasiados globos a la vez, los más antiguos se despiden antes.
+            const maxVisible = document.body.classList.contains('is-compact') ? 4 : 6;
+            const alive = state.floatingTexts.filter(ft => ft.life > 24);
+            alive.slice(0, Math.max(0, alive.length - maxVisible + 1)).forEach(ft => { ft.life = 24; });
+            state.floatingTexts.push({ x, y: y - 10, text, lines, w, h, type, accent, life, maxLife: life, offsetY: 0 });
         }
 
         function spawnParticle(startX, startY, endX, endY, type, power, targetRole, stage, color, chainData, senderRole) {
@@ -1897,13 +1900,35 @@
             ];
         }
 
+        // Coloca los globos sin que se pisen: los antiguos se quedan quietos y los nuevos buscan hueco.
+        function layoutFloatingTexts(dt) {
+            const minTop = document.body.classList.contains('is-landscape') ? 52 : (document.body.classList.contains('is-compact') ? 92 : 8);
+            const maxBottom = height - 8;
+            const placed = [];
+            const hits = (x, y, ft) => placed.find(p => Math.abs(p.x - x) < (p.w + ft.w) / 2 + 6 && Math.abs(p.y - y) < (p.h + ft.h) / 2 + 6);
+            const f = 1 - Math.exp(-dt / 140);
+            for (const ft of state.floatingTexts) {
+                const x = Math.max(ft.w / 2 + 8, Math.min(width - ft.w / 2 - 8, ft.x));
+                const base = Math.max(ft.h / 2 + minTop, ft.y + ft.offsetY);
+                let y = base, hit, n = 0;
+                while ((hit = hits(x, y, ft)) && n++ < 12) y = hit.y - (hit.h + ft.h) / 2 - 6;
+                if (y - ft.h / 2 < minTop) {
+                    y = base; n = 0;
+                    while ((hit = hits(x, y, ft)) && n++ < 12) y = hit.y + (hit.h + ft.h) / 2 + 6;
+                    y = Math.min(y, maxBottom - ft.h / 2);
+                }
+                ft.dx = x;
+                ft.dy = ft.dy === undefined ? y : ft.dy + (y - ft.dy) * f;
+                if (ft.life > 6) placed.push({ x, y: ft.dy, w: ft.w, h: ft.h });
+            }
+        }
+
         function drawFloatingText(ft) {
             const fadeIn = Math.min(1, (ft.maxLife - ft.life) / 10);
-            const alpha = Math.min(fadeIn, ft.life / 40);
+            const alpha = Math.min(fadeIn, ft.life / 24);
             if (alpha <= 0) return;
-            const x = Math.max(ft.w / 2 + 8, Math.min(width - ft.w / 2 - 8, ft.x));
-            const minTop = document.body.classList.contains('is-landscape') ? 52 : (document.body.classList.contains('is-compact') ? 92 : 8);
-            const y = Math.max(ft.h / 2 + minTop, ft.y + ft.offsetY + (1 - fadeIn) * 6);
+            const x = ft.dx;
+            const y = ft.dy + (1 - fadeIn) * 6;
             ctx.globalAlpha = alpha;
             ctx.beginPath(); ctx.roundRect(x - ft.w / 2, y - ft.h / 2, ft.w, ft.h, 12);
             ctx.fillStyle = 'rgba(10,13,28,0.88)'; ctx.fill();
@@ -1968,9 +1993,10 @@
                     }
                 }
 
+                layoutFloatingTexts(dt);
                 for (let i = state.floatingTexts.length - 1; i >= 0; i--) {
                     let ft = state.floatingTexts[i];
-                    if (state.running && !state.esperandoUsuario) { ft.life -= k; ft.offsetY -= 0.2 * k; }
+                    if (state.running && !state.esperandoUsuario) { ft.life -= k; ft.offsetY -= 0.06 * k; }
                     drawFloatingText(ft);
                     if (ft.life <= 0) state.floatingTexts.splice(i, 1);
                 }
