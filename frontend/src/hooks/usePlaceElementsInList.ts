@@ -19,7 +19,9 @@ type ListDetailsData = Awaited<ReturnType<typeof fetchListDetails>>;
 export function usePlaceElementsInList(listId: string | null, list: ListMetaForElements | null, placeId: string | null | undefined, enabled = true) {
     const queryClient = useQueryClient();
     return useQuery<PlaceElementOption[]>({
-        queryKey: ['placeElementsInList', listId, placeId],
+        // Con los datos de la lista en la clave: al cambiar de lista, `list` llega
+        // después que `listId` y una consulta con los datos viejos no debe valer.
+        queryKey: ['placeElementsInList', listId, placeId, list?.parentListId ?? null, list?.isPublic === true || list?.visibility === 'public'],
         enabled: enabled && Boolean(listId && list && placeId),
         staleTime: 5 * 60 * 1000,
         queryFn: async () => {
