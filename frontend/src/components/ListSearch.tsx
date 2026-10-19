@@ -158,8 +158,11 @@ export const ListSearch: React.FC<ListSearchProps> = ({ onSelect, selectedListId
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // En móvil el teclado taparía las listas: solo sale si se toca el buscador.
+    // Con ratón (escritorio) se enfoca para escribir directamente.
     useEffect(() => {
-        if (isOpen && searchInputRef.current) {
+        if (!isOpen || !searchInputRef.current) return;
+        if (window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) {
             searchInputRef.current.focus();
         }
     }, [isOpen]);
