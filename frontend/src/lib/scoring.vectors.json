@@ -378,7 +378,7 @@
       }
     },
     {
-      "name": "pesos activos: fuera de rango se acota a 0–3 y se redondea",
+      "name": "pesos activos: fuera de rango se acota a 0–3 y se redondea a 0,5",
       "criteria": {
         "a": {
           "weight": 5
@@ -399,7 +399,7 @@
         "useWeights": true
       },
       "expected": {
-        "score": 7.6,
+        "score": 8,
         "complete": true,
         "scoredCount": 2,
         "requiredCount": 2,
@@ -605,6 +605,31 @@
         "missing": [
           "nuevo"
         ]
+      }
+    },
+    {
+      "name": "scoringWeights ×0,5 y ×1",
+      "criteria": {
+        "a": {},
+        "b": {}
+      },
+      "scores": {
+        "a": 4,
+        "b": 10
+      },
+      "options": {
+        "weights": {
+          "a": 0.5,
+          "b": 1
+        },
+        "useWeights": true
+      },
+      "expected": {
+        "score": 8,
+        "complete": true,
+        "scoredCount": 2,
+        "requiredCount": 2,
+        "missing": []
       }
     }
   ],

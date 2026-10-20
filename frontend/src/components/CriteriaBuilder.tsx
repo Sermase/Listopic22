@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, X, Sliders, Lock } from 'lucide-react';
-import { criterionWeightOf } from '../lib/criteria';
+import { criterionWeightOf, WEIGHT_OPTIONS } from '../lib/criteria';
 
 export interface Criterion {
     id: string;
@@ -10,17 +10,10 @@ export interface Criterion {
     isPonderable: boolean;
     step?: number;
     locked?: boolean;
-    /** Peso en la nota: 0 no cuenta, 1–3 cuenta ×1–×3. Sin valor: 1 si isPonderable, si no 0. */
+    /** Peso en la nota: 0 no cuenta, 0,5–3 cuenta esa proporción. Sin valor: 1 si isPonderable, si no 0. */
     weight?: number;
 }
 
-
-const WEIGHT_OPTIONS = [
-    { value: 0, label: 'No cuenta' },
-    { value: 1, label: 'Cuenta ×1' },
-    { value: 2, label: 'Cuenta ×2' },
-    { value: 3, label: 'Cuenta ×3' },
-];
 
 interface CriteriaBuilderProps {
     criteria: Criterion[];

@@ -31,9 +31,16 @@ export function orderedCriteriaEntries<T extends OrderableCriterion>(
 interface WeightedCriterion {
     id: string;
     isPonderable: boolean;
-    /** 0 no cuenta, 1–3 cuenta ×1–×3. */
+    /** 0 no cuenta; 0,5–3 cuenta esa proporción. */
     weight?: number;
 }
+
+/** «×1,5»; el 0 se lee «No cuenta». */
+export const formatWeight = (weight: number): string =>
+    weight > 0 ? `×${String(weight).replace('.', ',')}` : 'No cuenta';
+
+/** Pesos que se pueden elegir: 0, 0,5, 1 … 3. */
+export const WEIGHT_OPTIONS = [0, 0.5, 1, 1.5, 2, 2.5, 3].map((value) => ({ value, label: formatWeight(value) }));
 
 /** Peso de un criterio del formulario: el elegido o, si no hay, 1 si cuenta y 0 si no. */
 export const criterionWeightOf = (criterion: Pick<WeightedCriterion, 'isPonderable' | 'weight'>): number =>

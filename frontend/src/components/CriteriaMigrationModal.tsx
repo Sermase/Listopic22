@@ -7,6 +7,7 @@ import { Button } from './ui/Button';
 import { useConfirm } from '../context/ConfirmContext';
 import { useToast } from '../context/ToastContext';
 import { formatScore } from '../lib/scoreScale';
+import { WEIGHT_OPTIONS, formatWeight } from '../lib/criteria';
 
 export interface MigrationCriterion {
     id: string;
@@ -43,7 +44,6 @@ interface CriteriaMigrationModalProps {
     onApplied: () => void;
 }
 
-const WEIGHT_LABELS = ['No cuenta', '×1', '×2', '×3'];
 const SHOWN_ROWS = 30;
 
 const errorMessage = (error: unknown) =>
@@ -140,7 +140,7 @@ export const CriteriaMigrationModal: React.FC<CriteriaMigrationModalProps> = ({
                             <li key={criterion.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
                                 <span className={`font-semibold ${isRemoved ? 'line-through text-[var(--lt-text-muted)]' : ''}`}>
                                     {criterion.label}
-                                    <span className="ml-2 text-[11px] font-normal text-[var(--lt-text-muted)]">ahora {WEIGHT_LABELS[current] ?? `×${current}`}</span>
+                                    <span className="ml-2 text-[11px] font-normal text-[var(--lt-text-muted)]">ahora {formatWeight(current)}</span>
                                 </span>
                                 <span className="flex items-center gap-2">
                                     <select
@@ -150,7 +150,7 @@ export const CriteriaMigrationModal: React.FC<CriteriaMigrationModalProps> = ({
                                         onChange={(e) => setWeight(criterion.id, Number(e.target.value))}
                                         className="bg-[var(--lt-bg)] border border-[var(--lt-border)] rounded px-2 py-1 text-xs"
                                     >
-                                        {WEIGHT_LABELS.map((label, value) => <option key={value} value={value}>{label}</option>)}
+                                        {WEIGHT_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
                                     </select>
                                     <label className="flex items-center gap-1 text-xs text-[var(--lt-text-muted)]">
                                         <input type="checkbox" checked={isRemoved} onChange={() => toggleRemoved(criterion.id)} />

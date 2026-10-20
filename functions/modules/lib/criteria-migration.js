@@ -13,7 +13,7 @@
 // - Nada se pierde: se guarda la nota anterior en `overallRatingBefore`.
 
 const crypto = require('crypto');
-const { computeReviewScore, deriveScoringWeights, compareByRank, MAX_CRITERION_WEIGHT } = require('./scoring');
+const { computeReviewScore, deriveScoringWeights, compareByRank, MAX_CRITERION_WEIGHT, CRITERION_WEIGHT_STEP } = require('./scoring');
 const { syncMinilistCriteria, sameValue } = require('./minilist-criteria');
 
 const asMap = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
@@ -31,8 +31,8 @@ function normalizeChange(change, criteriaDefinition) {
   Object.entries(asMap(change?.weights)).forEach(([id, value]) => {
     if (!(id in definition) || removeCriteria.includes(id)) return;
     const n = Number(value);
-    if (!Number.isInteger(n) || n < 0 || n > MAX_CRITERION_WEIGHT) {
-      throw new Error(`Peso no válido para "${id}": ${value} (debe ser 0, 1, 2 o 3).`);
+    if (!Number.isInteger(n / CRITERION_WEIGHT_STEP) || n < 0 || n > MAX_CRITERION_WEIGHT) {
+      throw new Error(`Peso no válido para "${id}": ${value} (de 0 a 3, de medio en medio).`);
     }
     weights[id] = n;
   });

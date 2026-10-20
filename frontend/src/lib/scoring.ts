@@ -6,8 +6,8 @@
  * - Lista madre: solo se compara con SUS criterios. Una valoración hecha desde
  *   una Minilista puede tener criterios extra; para la madre no cuentan.
  * - Minilista: usa todos sus criterios (los heredados + los suyos).
- * - Pesos: la fuente de verdad es `scoringWeights` de la lista (id → 0..3).
- *   ×0 no cuenta; ×1, ×2 y ×3 cuentan esas veces. Si una lista antigua no tiene
+ * - Pesos: la fuente de verdad es `scoringWeights` de la lista (id → 0..3, en
+ *   pasos de 0,5). ×0 no cuenta; ×0,5 … ×3 cuentan esa proporción. Si una lista antigua no tiene
  *   `scoringWeights`, se usa `ponderable` (×1 / ×0).
  * - Un criterio sin puntuar en una valoración (p. ej. porque se añadió después)
  *   no cuenta para la media de esa valoración.
@@ -19,6 +19,8 @@
 export const SCORE_MIN = 0;
 export const SCORE_MAX = 10;
 export const MAX_CRITERION_WEIGHT = 3;
+/** Los pesos van de medio en medio: 0, 0,5, 1 … 3. */
+export const CRITERION_WEIGHT_STEP = 0.5;
 
 /**
  * Pesos ×0–×3 activos. En listas con valoraciones solo cambian con la migración
@@ -95,7 +97,8 @@ export function normalizeCriteria(criteria: CriteriaInput): ScoringCriterion[] {
         .map(([id, def]) => ({ ...(def as CriterionFields), id }));
 }
 
-const clampWeight = (value: number): number => Math.min(MAX_CRITERION_WEIGHT, Math.max(0, Math.round(value)));
+const clampWeight = (value: number): number =>
+    Math.min(MAX_CRITERION_WEIGHT, Math.max(0, Math.round(value / CRITERION_WEIGHT_STEP) * CRITERION_WEIGHT_STEP));
 
 /** Peso efectivo: 0 = no cuenta para la nota. Sin ponderaciones activas solo existe 0 o 1. */
 export function criterionWeight(criterion: CriterionFields, options: ScoringOptions = {}): number {

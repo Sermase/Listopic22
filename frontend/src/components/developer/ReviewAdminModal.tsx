@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { X, Save, Search, Loader2, ExternalLink, User, Tag, Star, Image as ImageIcon, AlertCircle, Copy, ChevronDown, Bot, ShieldCheck } from 'lucide-react';
 import { computeReviewScore, computingCriteria, normalizeCriteria } from '../../lib/scoring';
+import { formatWeight } from '../../lib/criteria';
 import {
     adminGetReview, adminSearchUsers, adminUpdateReview, formatAdminDate, userLabel,
     type AdminReviewChanges, type AdminReviewDetail, type AdminReviewRow, type AdminUserRow,
@@ -251,7 +252,7 @@ export const ReviewAdminModal: React.FC<Props> = ({ path, onClose, onSaved }) =>
                                             <label key={c.id} className="flex items-center justify-between gap-2 rounded-lg bg-black/20 px-3 py-2">
                                                 <span className="min-w-0 truncate text-sm text-gray-200">
                                                     {labels[c.id] || c.id}
-                                                    {typeof weight === 'number' && <span className="ml-1 text-xs text-gray-500">×{weight}</span>}
+                                                    {typeof weight === 'number' && <span className="ml-1 text-xs text-gray-500">{formatWeight(weight)}</span>}
                                                 </span>
                                                 <input
                                                     type="number" min={0} max={10} step={0.5}
