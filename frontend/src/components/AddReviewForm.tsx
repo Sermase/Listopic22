@@ -21,6 +21,9 @@ import { CriterionRating } from './CriterionRating';
 import { orderedCriteriaEntries } from '../lib/criteria';
 import { withCategoryTags } from '../lib/categoryTags';
 import { CategoryService } from '../services/CategoryService';
+import { parseReviewDraft, reviewDraftKey, REVIEW_DRAFT_VERSION, shouldRestoreReviewDraft } from '../lib/reviewDraft';
+import { usePlaceElementsInList } from '../hooks/usePlaceElementsInList';
+import { itemNameKey } from '../lib/placeItems';
 
 interface AddReviewFormProps {
     listId: string | null;
@@ -67,6 +70,7 @@ interface ListMetadata {
     name?: string;
     parentListId?: string | null;
     visibility?: string;
+    isPublic?: boolean;
     criteriaDefinition?: ReviewCriterion[] | Record<string, ReviewCriterion>;
     scoringWeights?: Record<string, number>;
     availableTags?: string[];
@@ -175,8 +179,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     // Core Data
     const [itemName, setItemName] = useState(prefillItemName || '');
     const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null);
-    const itemNameRef = useRef(itemName);
-    const prefillItemNameRef = useRef(prefillItemName);
 
     const [comment, setComment] = useState('');
     // Nota guardada al editar (solo se usa si la valoración antigua no tiene puntuaciones).
@@ -230,41 +232,64 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
     const isNew = !editReviewId;
 
+    // Borrador: va atado a lista + sitio y solo se recupera al elegir ese mismo
+    // sitio (lib/reviewDraft). Antes salía en cualquier valoración de la lista.
+    const selectedPlaceId = selectedPlace?.id || null;
+    const draftCheckedFor = useRef<string | null>(null);
     useEffect(() => {
-        itemNameRef.current = itemName;
-        prefillItemNameRef.current = prefillItemName;
-    }, [itemName, prefillItemName]);
-
-    // Draft Logic: Restore
-    useEffect(() => {
-        if (isNew) {
-            const draftStr = localStorage.getItem(`listopic_review_draft_${internalListId || 'global'}`);
-            if (draftStr) {
-                try {
-                    const draft = JSON.parse(draftStr);
-                    if (draft.itemName && !prefillItemName) setItemName(draft.itemName);
-                    if (draft.comment) setComment(draft.comment);
-                    // Los borradores antiguos (sin v: 2) traían un 5 en todos los
-                    // criterios aunque no se hubieran tocado: esas notas no se recuperan.
-                    if (draft.v === 2 && draft.criteriaScores && typeof draft.criteriaScores === 'object') {
-                        setCriteriaScores(draft.criteriaScores);
-                    }
-                } catch {
-                    // Ignore malformed local drafts.
-                }
-            }
+        if (!isNew || !internalListId || !selectedPlaceId) return;
+        const target = `${internalListId}|${selectedPlaceId}`;
+        if (draftCheckedFor.current === target) return;
+        draftCheckedFor.current = target;
+        let raw: string | null = null;
+        try { raw = localStorage.getItem(reviewDraftKey(internalListId)); } catch { return; }
+        const draft = parseReviewDraft(raw);
+        if (!draft) {
+            // Borradores antiguos (sin sitio) o caducados: fuera.
+            if (raw) try { localStorage.removeItem(reviewDraftKey(internalListId)); } catch { /* sin almacenamiento */ }
+            return;
         }
-    }, [isNew, internalListId, prefillItemName]);
+        if (!shouldRestoreReviewDraft(draft, {
+            placeId: selectedPlaceId,
+            lockedItemName: prefillItemName,
+            hasScores: Object.keys(criteriaScores).length > 0,
+            comment,
+        })) return;
+        if (draft.itemName && !prefillItemName && !itemName.trim()) setItemName(draft.itemName);
+        if (draft.comment) setComment(draft.comment);
+        if (Object.keys(draft.criteriaScores).length > 0) setCriteriaScores(draft.criteriaScores);
+        showToast({ variant: 'success', title: 'Borrador recuperado', message: 'Seguimos donde lo dejaste en este sitio.' });
+        // Solo al cambiar de lista o de sitio.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isNew, internalListId, selectedPlaceId]);
 
-    // Draft Logic: Save
     useEffect(() => {
-        if (!isNew || (Object.keys(criteriaScores).length === 0 && !itemName && !comment)) return;
+        if (!isNew || !internalListId || !selectedPlaceId) return;
+        if (Object.keys(criteriaScores).length === 0 && !itemName.trim() && !comment.trim()) return;
         const timeout = setTimeout(() => {
-            const draft = { v: 2, itemName, comment, criteriaScores };
-            localStorage.setItem(`listopic_review_draft_${internalListId || 'global'}`, JSON.stringify(draft));
+            const draft = { v: REVIEW_DRAFT_VERSION, placeId: selectedPlaceId, itemName, comment, criteriaScores, savedAt: Date.now() };
+            try { localStorage.setItem(reviewDraftKey(internalListId), JSON.stringify(draft)); } catch { /* sin almacenamiento */ }
         }, 500);
         return () => clearTimeout(timeout);
-    }, [itemName, comment, criteriaScores, isNew, internalListId]);
+    }, [itemName, comment, criteriaScores, isNew, internalListId, selectedPlaceId]);
+
+    // Elementos que el sitio ya tiene en la lista: se eligen con un toque o se
+    // escribe uno nuevo. No aplica al editar ni con el plato fijado desde la carta.
+    const offerExistingElements = isNew && !prefillItemName;
+    const { data: placeElements = [] } = usePlaceElementsInList(internalListId, listData, selectedPlaceId, offerExistingElements);
+    const elementOptions = offerExistingElements ? placeElements : [];
+    const [writeNewItem, setWriteNewItem] = useState(false);
+    const [showAllElements, setShowAllElements] = useState(false);
+    useEffect(() => {
+        setWriteNewItem(false);
+        setShowAllElements(false);
+    }, [internalListId, selectedPlaceId]);
+    const chosenElementKey = itemName.trim() ? itemNameKey(itemName) : '';
+    const chosenElement = elementOptions.find((element) => itemNameKey(element.name) === chosenElementKey) || null;
+    const showItemNameInput = elementOptions.length === 0 || writeNewItem || (Boolean(chosenElementKey) && !chosenElement);
+    const ELEMENT_CHIPS_LIMIT = 6;
+    const visibleElements = showAllElements ? elementOptions : elementOptions.slice(0, ELEMENT_CHIPS_LIMIT);
+    const hiddenElementsCount = elementOptions.length - visibleElements.length;
 
     // Nota en vivo: media de los criterios que cuentan (lib/scoring).
     // Pesos de la lista (hoy ×1 / ×0); en listas antiguas sin ellos se usa `ponderable`.
@@ -481,10 +506,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 if (snap.exists()) {
                     const data = snap.data() as ListMetadata;
                     setListData(data);
-
-                    if (data.name && !itemNameRef.current && !prefillItemNameRef.current && !editReviewId) {
-                        setItemName(data.name);
-                    }
 
                     const criteriaDefinition = data.criteriaDefinition;
                     if (criteriaDefinition) {
@@ -1033,7 +1054,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 title: isNew ? 'Valoración publicada' : 'Cambios guardados',
                 message: isNew ? pickRandom(REVIEW_CREATE_TOASTS) : pickRandom(REVIEW_EDIT_TOASTS),
             });
-            localStorage.removeItem(`listopic_review_draft_${finalListId || 'global'}`);
+            // El borrador se guarda con la lista elegida (en una Minilista no es finalListId).
+            try { localStorage.removeItem(reviewDraftKey(internalListId)); } catch { /* sin almacenamiento */ }
+            queryClient.invalidateQueries({ queryKey: ['placeElementsInList', internalListId] });
             onSuccess();
             onClose();
 
@@ -1194,6 +1217,58 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-success)] flex items-center gap-1.5">
                                     <span>🍽️</span> ¿Qué probaste?
                                 </p>
+                                {elementOptions.length > 0 && (
+                                    <div className="space-y-2">
+                                        <p className="text-xs text-[var(--lt-text-muted)]">
+                                            Ya en esta lista{selectedPlace?.name ? ` en ${selectedPlace.name}` : ''}:
+                                        </p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {visibleElements.map((element) => {
+                                                const selected = chosenElement?.name === element.name && !writeNewItem;
+                                                return (
+                                                    <button
+                                                        key={element.name}
+                                                        type="button"
+                                                        aria-pressed={selected}
+                                                        onClick={() => { setItemName(element.name); setWriteNewItem(false); }}
+                                                        className={`max-w-full flex items-center gap-1.5 px-3 py-2 rounded-full border text-sm font-semibold transition-colors ${selected
+                                                            ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-text)]'
+                                                            : 'bg-white/5 border-white/10 text-gray-300 hover:border-white/20'}`}
+                                                    >
+                                                        {selected && <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-[var(--lt-accent)]" />}
+                                                        <span className="truncate">{element.name}</span>
+                                                        <span className="text-[10px] font-bold tabular-nums text-[var(--lt-text-muted)]" title={`${element.count} ${element.count === 1 ? 'valoración' : 'valoraciones'}`}>
+                                                            {element.count}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                            {hiddenElementsCount > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setShowAllElements(true)}
+                                                    className="px-3 py-2 rounded-full border border-white/10 text-sm font-semibold text-[var(--lt-text-muted)] hover:text-white"
+                                                >
+                                                    +{hiddenElementsCount} más
+                                                </button>
+                                            )}
+                                            <button
+                                                type="button"
+                                                aria-pressed={showItemNameInput}
+                                                onClick={() => {
+                                                    if (chosenElement) setItemName('');
+                                                    setWriteNewItem(true);
+                                                }}
+                                                className={`px-3 py-2 rounded-full border border-dashed text-sm font-semibold transition-colors ${showItemNameInput
+                                                    ? 'border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
+                                                    : 'border-white/20 text-gray-400 hover:text-white'}`}
+                                            >
+                                                ＋ Otro
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                {showItemNameInput && (
                                 <div className="relative">
                                     <input
                                         type="text"
@@ -1201,6 +1276,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                         onChange={e => setItemName(e.target.value)}
                                         maxLength={150}
                                         placeholder="Ej: Pizza Margherita, Tacos al pastor..."
+                                        autoFocus={writeNewItem}
                                         disabled={!!prefillItemName}
                                         className={`w-full rounded-xl px-4 py-3 text-white text-sm focus:outline-none transition-all placeholder:text-gray-600
                                         ${prefillItemName
@@ -1212,6 +1288,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                         <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
                                     )}
                                 </div>
+                                )}
                             </div>
 
                             {/* ── Sección: Valoración ─────────────────── */}
