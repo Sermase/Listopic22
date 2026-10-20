@@ -1,6 +1,7 @@
 import React, { useId } from 'react';
 import { isScoreValue } from '../lib/scoring';
 import { formatScore, scoreBadge, scoreTextColor } from '../lib/scoreScale';
+import { formatWeight } from '../lib/criteria';
 
 export interface CriterionRatingCriterion {
     id: string;
@@ -48,12 +49,12 @@ export const CriterionRating: React.FC<CriterionRatingProps> = ({ criterion, val
             <div className="flex items-center justify-between gap-3">
                 <label htmlFor={inputId} className="text-sm font-semibold text-[var(--lt-text)] flex items-center gap-1.5">
                     {label}
-                    {counts && weight > 1 && (
+                    {counts && weight !== 1 && (
                         <span
                             className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border border-[var(--lt-accent-border)]"
-                            title={`Cuenta ${weight} veces en la nota`}
+                            title={`Cuenta ${formatWeight(weight)} en la nota`}
                         >
-                            ×{weight}
+                            {formatWeight(weight)}
                         </span>
                     )}
                 </label>

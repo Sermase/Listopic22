@@ -60,7 +60,13 @@ test('ponderable se mantiene coherente con el peso', () => {
 
 test('pesos no válidos se rechazan', () => {
   assert.throws(() => planCriteriaChange({ list, reviews, change: { weights: { sabor: 4 } } }), /Peso no válido/);
-  assert.throws(() => planCriteriaChange({ list, reviews, change: { weights: { sabor: 1.5 } } }), /Peso no válido/);
+  assert.throws(() => planCriteriaChange({ list, reviews, change: { weights: { sabor: 1.25 } } }), /Peso no válido/);
+  assert.throws(() => planCriteriaChange({ list, reviews, change: { weights: { sabor: -0.5 } } }), /Peso no válido/);
+});
+
+test('pesos de medio en medio se aceptan', () => {
+  const plan = planCriteriaChange({ list, reviews, change: { weights: { sabor: 1.5 } } });
+  assert.equal(plan.list.after.scoringWeights.sabor, 1.5);
 });
 
 test('la huella es estable y cambia si cambian los datos', () => {

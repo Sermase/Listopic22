@@ -7,6 +7,8 @@
 const SCORE_MIN = 0;
 const SCORE_MAX = 10;
 const MAX_CRITERION_WEIGHT = 3;
+// Pesos de medio en medio: 0, 0,5, 1 … 3.
+const CRITERION_WEIGHT_STEP = 0.5;
 // Pesos ×0–×3 activos (espejo de frontend/src/lib/scoring.ts).
 const WEIGHTS_ENABLED = true;
 
@@ -30,7 +32,8 @@ function normalizeCriteria(criteria) {
     .map(([id, def]) => ({ ...def, id }));
 }
 
-const clampWeight = (value) => Math.min(MAX_CRITERION_WEIGHT, Math.max(0, Math.round(value)));
+const clampWeight = (value) =>
+  Math.min(MAX_CRITERION_WEIGHT, Math.max(0, Math.round(value / CRITERION_WEIGHT_STEP) * CRITERION_WEIGHT_STEP));
 
 // `scoringWeights` de la lista (options.weights) manda sobre `ponderable`.
 function criterionWeight(criterion, options = {}) {
@@ -163,6 +166,7 @@ module.exports = {
   SCORE_MIN,
   SCORE_MAX,
   MAX_CRITERION_WEIGHT,
+  CRITERION_WEIGHT_STEP,
   WEIGHTS_ENABLED,
   roundToTenth,
   isScoreValue,
