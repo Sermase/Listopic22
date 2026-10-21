@@ -147,6 +147,16 @@ function getPrimaryReviewPhoto(review: any): string | null {
     return null;
 }
 
+const DEFAULT_LIST_FILTERS: FilterState = {
+    minRating: 0,
+    hasPhoto: false,
+    glutenFree: false,
+    petFriendly: false,
+    visited: false,
+    accessibility: {},
+    criteriaMin: {},
+};
+
 export const ListPage: React.FC = () => {
     const { listTitlePlaceFirst } = useAppConfig();
     const { listId } = useParams<{ listId: string }>();
@@ -201,15 +211,7 @@ export const ListPage: React.FC = () => {
         return false;
     }, [user, list]);
 
-    const [filters, setFilters] = useState<FilterState>({
-        minRating: 0,
-        hasPhoto: false,
-        glutenFree: false,
-        petFriendly: false,
-        visited: false,
-        accessibility: {},
-        criteriaMin: {}
-    });
+    const [filters, setFilters] = useState<FilterState>(DEFAULT_LIST_FILTERS);
     // Vista (Ranking / Mosaico) y agrupación: se recuerdan en este navegador.
     // Ranking por defecto (clave nueva para que todos empiecen ahí).
     const [viewMode, setViewMode] = useStoredChoice('listopic_list_view_v2', ['list', 'gallery'] as const, 'list');
@@ -607,17 +609,19 @@ export const ListPage: React.FC = () => {
     const [prefsLoadedFor, setPrefsLoadedFor] = useState<string | null>(null);
     useEffect(() => {
         if (!prefsKey) return;
-        try {
-            const saved = JSON.parse(localStorage.getItem(prefsKey) || 'null');
-            if (saved && typeof saved === 'object') {
-                if (saved.filters && typeof saved.filters === 'object') setFilters((prev) => ({ ...prev, ...saved.filters }));
-                if (['rating', 'newest', 'oldest', 'count'].includes(saved.sortMode)) setSortMode(saved.sortMode);
-                if (Array.isArray(saved.selectedTags)) setSelectedTags(saved.selectedTags.filter((t: unknown) => typeof t === 'string'));
-                if (typeof saved.showBotReviews === 'boolean') setShowBotReviews(saved.showBotReviews);
-                if (typeof saved.criticOnly === 'boolean') setCriticOnly(saved.criticOnly);
-                if (typeof saved.showUnavailable === 'boolean') setShowUnavailable(saved.showUnavailable);
-            }
-        } catch { /* sin almacenamiento: se empieza de cero */ }
+        // Cada Lista empieza de cero (React reutiliza la página al saltar de una a otra).
+        let raw: unknown = null;
+        try { raw = JSON.parse(localStorage.getItem(prefsKey) || 'null'); } catch { /* sin almacenamiento */ }
+        const saved = (raw && typeof raw === 'object' ? raw : {}) as {
+            filters?: Partial<FilterState>; sortMode?: typeof sortMode; selectedTags?: unknown;
+            showBotReviews?: unknown; criticOnly?: unknown; showUnavailable?: unknown;
+        };
+        setFilters({ ...DEFAULT_LIST_FILTERS, ...(saved.filters && typeof saved.filters === 'object' ? saved.filters : {}) });
+        setSortMode(saved.sortMode && ['rating', 'newest', 'oldest', 'count'].includes(saved.sortMode) ? saved.sortMode : 'rating');
+        setSelectedTags(Array.isArray(saved.selectedTags) ? saved.selectedTags.filter((t: unknown) => typeof t === 'string') : []);
+        setShowBotReviews(saved.showBotReviews === true);
+        setCriticOnly(saved.criticOnly === true);
+        setShowUnavailable(saved.showUnavailable === true);
         setPrefsLoadedFor(prefsKey);
     }, [prefsKey]);
     useEffect(() => {

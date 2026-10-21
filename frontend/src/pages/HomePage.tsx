@@ -167,6 +167,7 @@ const HOME_FEEDS_VISIBLE: Record<string, boolean> = {
 };
 // Si cerca hay menos sitios que esto, la Home amplía el radio un escalón.
 const MIN_NEARBY_PLACES = 5;
+const MAX_AUTO_RANGE_KM = 10;
 
 // Aspecto y enlace «Ver todo» de cada carrusel de lib/homeFeeds.
 const HOME_FEED_LOOK: Record<string, { icon: React.ReactNode; accentClass: string; searchType: 'lists' | 'places' | 'items'; searchSort?: string }> = {
@@ -926,8 +927,9 @@ export const HomePage: React.FC = () => {
         if (filteredPlaces.length >= MIN_NEARBY_PLACES) return;
         if (userPickedRangeRef.current) return;
 
+        // Se amplía escalón a escalón, pero nunca más allá de MAX_AUTO_RANGE_KM: el Inicio sigue siendo «cerca».
         const nextRange = getExpandedRangeValue(range);
-        if (nextRange !== range) {
+        if (nextRange !== null && nextRange <= MAX_AUTO_RANGE_KM && nextRange !== range) {
             setWidenedRange(nextRange);
         }
     }, [activeTab, range, location, loadingReviews, hasHomeMapCandidates, filteredPlaces.length, areaFilter.kind]);

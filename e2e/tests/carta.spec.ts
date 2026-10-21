@@ -1,9 +1,9 @@
 // Carta de un negocio Business Pro de punta a punta (sembrado en seed.mjs: «Casa Carta»,
-// gestora «gerente» y una valoración de «Croketa de jamon» en «Croquetas E2E»):
+// gestora «gerente» y una reseña de «Croketa de jamon» en «Croquetas E2E»):
 // la gestora añade dos platos con sección y precio sin recargar, un duplicado avisa,
-// propone mover la valoración mal escrita a su plato y renombrarlo; la jefa lo ve en
+// propone mover la reseña mal escrita a su plato y renombrarlo; la jefa lo ve en
 // Developer → «📥 Pendientes», lo aprueba en Patrocinios y Pro → 📥 Bandeja, simula
-// «🧹 Reparar cartas» (🛠️ Herramientas) y la valoración sale con el nombre nuevo (el
+// «🧹 Reparar cartas» (🛠️ Herramientas) y la reseña sale con el nombre nuevo (el
 // enlace antiguo redirige).
 import { test, expect, login, isolate, watchErrors } from './support';
 
@@ -11,7 +11,7 @@ const PLACE = 'p_carta';
 const COMMENT = 'Cremosa por dentro y crujiente por fuera.';
 const groupUrl = (name: string) => `/group/${PLACE}/${encodeURIComponent(name)}`;
 
-test('carta: alta de platos, mover una valoración y renombrar con aprobación admin', async ({ page, browser, errors }) => {
+test('carta: alta de platos, mover una reseña y renombrar con aprobación admin', async ({ page, browser, errors }) => {
   test.setTimeout(180_000);
 
   // ── Gestora: secciones y platos ───────────────────────────────────────────
@@ -91,13 +91,13 @@ test('carta: alta de platos, mover una valoración y renombrar con aprobación a
   await expect(entrantes).toBeVisible();
   expect(await page.evaluate(() => (window as unknown as { e2eSinRecargar?: boolean }).e2eSinRecargar)).toBe(true);
 
-  // ── Gestora: propuestas (mover la valoración y renombrar el plato) ────────
+  // ── Gestora: propuestas (mover la reseña y renombrar el plato) ────────
   await page.getByRole('button', { name: 'Croketa de jamon', exact: true }).click();
   const croketaSheet = page.getByRole('dialog', { name: /Croketa de jamon/ });
-  await croketaSheet.getByRole('tab', { name: /Valoraciones/ }).click();
+  await croketaSheet.getByRole('tab', { name: /Reseñas/ }).click();
   await expect(croketaSheet.getByText(COMMENT)).toBeVisible();
   await croketaSheet.getByRole('button', { name: /Mover a otro plato/ }).click();
-  await croketaSheet.getByRole('group', { name: '¿De qué plato es esta valoración?' })
+  await croketaSheet.getByRole('group', { name: '¿De qué plato es esta reseña?' })
     .getByRole('button', { name: 'Croqueta casera', exact: true })
     .click();
   await croketaSheet.getByRole('button', { name: 'Proponer', exact: true }).click();
@@ -117,7 +117,7 @@ test('carta: alta de platos, mover una valoración y renombrar con aprobación a
   await page.getByRole('button', { name: 'Historial de propuestas, 2 pendientes' }).click();
   const history = page.getByRole('dialog', { name: /Tus propuestas/ });
   await expect(history.getByText('«Croqueta de la casa»')).toBeVisible();
-  await expect(history.getByText(/valoración de ana/)).toBeVisible();
+  await expect(history.getByText(/reseña de ana/)).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(history).toBeHidden();
 
@@ -140,7 +140,7 @@ test('carta: alta de platos, mover una valoración y renombrar con aprobación a
   await proposalsGroup.getByRole('button', { name: 'Ver todas →' }).click();
   await expect(admin.getByRole('tab', { name: /Bandeja/ })).toHaveAttribute('aria-selected', 'true');
 
-  const MOVE = 'Mover la valoración "Croketa de jamon" de ana a "Croqueta casera"';
+  const MOVE = 'Mover la reseña "Croketa de jamon" de ana a "Croqueta casera"';
   const RENAME = 'Renombrar "Croqueta casera" a "Croqueta de la casa"';
   const proposalRow = (description: string) => admin.locator('article').filter({ hasText: description });
   await expect(proposalRow(MOVE)).toBeVisible({ timeout: 20_000 });
@@ -156,7 +156,7 @@ test('carta: alta de platos, mover una valoración y renombrar con aprobación a
     await expect(row.getByText('Aprobada y aplicada. Hemos avisado al negocio.')).toBeVisible({ timeout: 30_000 });
     await expect(row.getByRole('button', { name: /Aprobar y aplicar/ })).toHaveCount(0);
   };
-  // Primero se mueve la valoración y después se renombra el plato (el caso de la dueña).
+  // Primero se mueve la reseña y después se renombra el plato (el caso de la dueña).
   await approve(MOVE);
   await approve(RENAME);
 
@@ -180,13 +180,13 @@ test('carta: alta de platos, mover una valoración y renombrar con aprobación a
   await expect(page.getByRole('heading', { level: 1, name: 'Croqueta de la casa' })).toBeVisible();
   await expect(page.getByText(COMMENT).first()).toBeVisible();
 
-  // La Lista agrupa la valoración en el plato con su nombre nuevo (ya no en «Croketa de jamon»).
+  // La Lista agrupa la reseña en el plato con su nombre nuevo (ya no en «Croketa de jamon»).
   await page.goto('/list/croquetas');
   await page.getByLabel('Distancia o zona').selectOption('r:all');
   await expect(page.locator(`[data-element-key="${PLACE}_croqueta de la casa"]`)).toBeVisible();
   await expect(page.locator(`[data-element-key^="${PLACE}_"]`)).toHaveCount(1);
 
-  // Y en la gestión el plato renombrado tiene la valoración; el mal escrito ya no sale.
+  // Y en la gestión el plato renombrado tiene la reseña; el mal escrito ya no sale.
   await page.goto(`/businesses/${PLACE}/manage?tab=items`);
   const renamed = page.getByRole('button', { name: 'Croqueta de la casa', exact: true });
   await expect(renamed).toBeVisible({ timeout: 20_000 });
