@@ -1,6 +1,6 @@
 /**
- * Borrador de una valoración nueva (localStorage, una clave por lista).
- * Va atado al sitio: antes se recuperaba en cualquier valoración de la misma
+ * Borrador de una reseña nueva (localStorage, una clave por lista).
+ * Va atado al sitio: antes se recuperaba en cualquier reseña de la misma
  * lista y el formulario salía relleno con el plato y las notas de otro sitio.
  */
 export const REVIEW_DRAFT_VERSION = 3;

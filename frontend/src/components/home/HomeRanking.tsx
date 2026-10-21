@@ -12,7 +12,12 @@ export interface RankingRow {
     subtitle?: string;
     imageUrl?: string;
     score: number | null;
+    /** Distancia ya formateada («a 350 m»). */
+    distanceLabel?: string;
+    /** «Tu colega Cris le dio un 9». */
+    friendNote?: string;
 }
+
 
 interface HomeRankingProps {
     dishes: RankingRow[];
@@ -50,8 +55,11 @@ const Row: React.FC<{ row: RankingRow; position: number; fallbackIcon: React.Ele
             </span>
             <span className="min-w-0">
                 <MarqueeText text={row.title} className="text-sm font-bold text-[var(--lt-text)]" />
-                {row.subtitle && (
-                    <MarqueeText text={row.subtitle} className="text-xs text-[var(--lt-text-muted)]" />
+                {(row.subtitle || row.distanceLabel) && (
+                    <MarqueeText text={[row.subtitle, row.distanceLabel].filter(Boolean).join(' · ')} className="text-xs text-[var(--lt-text-muted)]" />
+                )}
+                {row.friendNote && (
+                    <span className="block truncate text-[11px] font-semibold text-[var(--lt-accent)]">{row.friendNote}</span>
                 )}
             </span>
             <span
@@ -76,8 +84,8 @@ export const HomeRanking: React.FC<HomeRankingProps> = ({ dishes, places, dishes
         <section className="w-full">
             <div className="mb-2.5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                    <h2 className="truncate font-display text-base font-bold leading-tight text-[var(--lt-text)] md:text-xl">Lo mejor valorado</h2>
-                    <p className="mt-0.5 truncate text-xs font-medium text-[var(--lt-text-muted)]">En tu zona, según la comunidad.</p>
+                    <h2 className="truncate font-display text-base font-bold leading-tight text-[var(--lt-text)] md:text-xl">Cerca y bueno</h2>
+                    <p className="mt-0.5 truncate text-xs font-medium text-[var(--lt-text-muted)]">Lo mejor valorado a tu alrededor.</p>
                 </div>
                 <div role="tablist" aria-label="Tipo de ranking" className="flex shrink-0 rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] p-1">
                     {([['dishes', 'Platos'], ['places', 'Sitios']] as const).map(([id, label]) => (
@@ -109,7 +117,7 @@ export const HomeRanking: React.FC<HomeRankingProps> = ({ dishes, places, dishes
                         ))}
                     </ul>
                 ) : rows.length === 0 ? (
-                    <p className="px-4 py-6 text-center text-sm text-[var(--lt-text-muted)]">Todavía no hay valoraciones aquí. ¡Estrena tú el ranking!</p>
+                    <p className="px-4 py-6 text-center text-sm text-[var(--lt-text-muted)]">Todavía no hay reseñas aquí. ¡Estrena tú el ranking!</p>
                 ) : (
                     <ol className="divide-y divide-[var(--lt-border)]">
                         {rows.map((row, index) => (

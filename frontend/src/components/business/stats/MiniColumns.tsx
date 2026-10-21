@@ -1,5 +1,5 @@
 /**
- * Columnas pequeñas (visitas por día, valoraciones por mes). Cada columna es
+ * Columnas pequeñas (visitas por día, reseñas por mes). Cada columna es
  * un botón: al tocarla (o con las flechas) se lee su detalle arriba.
  *
  *   <MiniColumns ariaLabel="Visitas por día" hint="Toca una columna para ver el día"

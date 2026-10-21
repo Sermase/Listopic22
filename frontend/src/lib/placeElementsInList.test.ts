@@ -11,7 +11,7 @@ describe('placeElementsInList', () => {
         { placeId: 'bar-1', itemName: '  ' },
     ];
 
-    it('agrupa los nombres equivalentes del sitio y ordena por valoraciones', () => {
+    it('agrupa los nombres equivalentes del sitio y ordena por reseñas', () => {
         expect(placeElementsInList(reviews, 'bar-1')).toEqual([
             { name: 'Tortilla de patata', count: 3 },
             { name: 'Tortilla con cebolla', count: 1 },

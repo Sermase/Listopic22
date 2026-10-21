@@ -1,9 +1,8 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Archive, Home, Plus, Search, Sparkles, User } from 'lucide-react';
+import { Bookmark, Home, Plus, Search, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAuthPrompt } from '../context/AuthPromptContext';
-import { useManagedBusinesses } from '../hooks/useManagedBusinesses';
 
 // Pantallas con formularios o a pantalla completa: ahí la barra estorba.
 const HIDDEN_PATTERNS: RegExp[] = [
@@ -24,13 +23,9 @@ interface TabProps {
     icon: React.ElementType;
     active: boolean;
     onClick?: React.MouseEventHandler<HTMLAnchorElement>;
-    /** Pestaña de Business Pro: icono con el degradado de la marca. */
-    pro?: boolean;
 }
 
-const PRO_GRADIENT = 'linear-gradient(135deg, #f59e0b, #ec4899 55%, #8b5cf6)';
-
-const Tab: React.FC<TabProps> = ({ to, label, icon: Icon, active, onClick, pro = false }) => (
+const Tab: React.FC<TabProps> = ({ to, label, icon: Icon, active, onClick }) => (
     <Link
         to={to}
         onClick={onClick}
@@ -38,33 +33,29 @@ const Tab: React.FC<TabProps> = ({ to, label, icon: Icon, active, onClick, pro =
         className={`group relative flex min-w-0 flex-col items-center justify-center gap-1 pb-1.5 pt-2 text-[10px] font-bold transition-colors ${active ? 'text-[var(--lt-text)]' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
     >
         <span
-            className={`flex h-8 w-12 items-center justify-center rounded-2xl transition-all duration-200 group-active:scale-90 ${pro
-                ? `lt-on-accent ${active ? 'shadow-[0_6px_16px_rgba(236,72,153,0.45)]' : 'opacity-90'}`
-                : active ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : ''}`}
-            style={pro ? { backgroundImage: PRO_GRADIENT } : undefined}
+            className={`flex h-8 w-12 items-center justify-center rounded-2xl transition-all duration-200 group-active:scale-90 ${active ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : ''}`}
         >
-            <Icon className="h-[19px] w-[19px]" strokeWidth={active || pro ? 2.4 : 2} />
+            <Icon className="h-[19px] w-[19px]" strokeWidth={active ? 2.4 : 2} />
         </span>
         <span className="max-w-full truncate px-0.5 leading-none">{label}</span>
         {/* Punto bajo la pestaña activa */}
         <span
             aria-hidden="true"
             className={`absolute bottom-0 h-1 w-1 rounded-full transition-opacity ${active ? 'opacity-100' : 'opacity-0'}`}
-            style={{ backgroundImage: pro ? PRO_GRADIENT : 'var(--lt-accent-grad)' }}
+            style={{ backgroundImage: 'var(--lt-accent-grad)' }}
         />
     </Link>
 );
 
 /**
  * Barra inferior para móvil: cinco huecos iguales con el botón de valorar en el
- * centro. Con Business Pro, «Negocio» ocupa el sitio de «Perfil» (el perfil sigue
- * en el avatar de la cabecera). Toma los colores del tema activo.
+ * centro, igual para todos (Business Pro tiene su acceso en la cabecera).
+ * Toma los colores del tema activo.
  */
 export const BottomNav: React.FC = () => {
     const { user } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
     const { pathname } = useLocation();
-    const { hasPro } = useManagedBusinesses(user?.uid);
 
     if (!shouldShowBottomNav(pathname)) return null;
 
@@ -92,8 +83,8 @@ export const BottomNav: React.FC = () => {
                     <div className="flex justify-center">
                         <Link
                             to="/create-review"
-                            onClick={guard('crear una valoración')}
-                            aria-label="Nueva valoración"
+                            onClick={guard('escribir una reseña')}
+                            aria-label="Nueva reseña"
                             className="group flex h-14 w-14 -translate-y-4 items-center justify-center rounded-full lt-on-accent transition-transform active:scale-90"
                             // El aro del color del fondo hace de «muesca» sobre la barra.
                             style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 0 0 5px var(--lt-bg), 0 10px 24px var(--lt-accent-shadow)' }}
@@ -101,12 +92,8 @@ export const BottomNav: React.FC = () => {
                             <Plus className="h-7 w-7 transition-transform duration-300 group-active:rotate-90" strokeWidth={2.75} />
                         </Link>
                     </div>
-                    <Tab to="/archive" label="Colecciones" icon={Archive} active={pathname.startsWith('/archive')} onClick={guard('ver tus colecciones')} />
-                    {hasPro ? (
-                        <Tab to="/businesses" label="Negocio" icon={Sparkles} active={pathname.startsWith('/businesses')} pro />
-                    ) : (
-                        <Tab to={profilePath} label={user ? 'Perfil' : 'Entrar'} icon={User} active={pathname.startsWith('/profile') || pathname === '/login'} />
-                    )}
+                    <Tab to="/archive" label="Guardados" icon={Bookmark} active={pathname.startsWith('/archive')} onClick={guard('ver tus guardados')} />
+                    <Tab to={profilePath} label={user ? 'Perfil' : 'Entrar'} icon={User} active={pathname.startsWith('/profile') || pathname === '/login'} />
                 </div>
             </nav>
         </>

@@ -1,10 +1,10 @@
 /**
  * 🏆 Tus estrellas de la carta (spec §9.6): podio 🥇🥈🥉 por mejor nota (al
- * menos 3 valoraciones, desde «😍 Muy bueno») o por más valorados, los puestos
+ * menos 3 reseñas, desde «😍 Muy bueno») o por más valorados, los puestos
  * 4 y 5, y los platos con margen de mejora (llevan a la Carta).
  *
  * T5: la nota de cada plato va con el color de su tramo. T6: las cifras de un
- * plato cuentan todas sus valoraciones (también las no públicas), y se dice.
+ * plato cuentan todas sus reseñas (también las no públicas), y se dice.
  */
 import React, { useState } from 'react';
 import type { CanonicalPlaceItem } from '../../../services/CanonicalItemService';
@@ -38,7 +38,7 @@ export interface TopItemsCardProps {
 const Counts: React.FC<{ item: RankedItem; className?: string }> = ({ item, className }) => (
     <span className={cn('text-xs text-[var(--lt-text-muted)]', className)}>
         <span aria-hidden="true">📝 </span>
-        <span className="sr-only">Valoraciones: </span>
+        <span className="sr-only">Reseñas: </span>
         {formatCount(item.reviews)}
         {' · '}
         <span aria-hidden="true">📸 </span>
@@ -123,7 +123,7 @@ export const TopItemsCard: React.FC<TopItemsCardProps> = ({ status, items, onRet
                     {ranked.length === 0 ? (
                         <p className="text-sm text-[var(--lt-text-muted)]">
                             <span aria-hidden="true">🌱 </span>
-                            Aún ningún plato tiene {MIN_RATINGS_FOR_STAR} valoraciones o más con nota de «Muy bueno» para arriba. Mira los más valorados.
+                            Aún ningún plato tiene {MIN_RATINGS_FOR_STAR} reseñas o más con nota de «Muy bueno» para arriba. Mira los más valorados.
                         </p>
                     ) : (
                         <div>
@@ -164,7 +164,7 @@ export const TopItemsCard: React.FC<TopItemsCardProps> = ({ status, items, onRet
 
                     <p className="text-xs text-[var(--lt-text-muted)]">
                         <span aria-hidden="true">ℹ️ </span>
-                        La nota y las cifras de cada plato cuentan todas sus valoraciones, también las que no son públicas, así que pueden no cuadrar con tu nota en Listopic.
+                        La nota y las cifras de cada plato cuentan todas sus reseñas, también las que no son públicas, así que pueden no cuadrar con tu nota en Listopic.
                     </p>
                 </>
             );

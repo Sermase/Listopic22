@@ -290,7 +290,7 @@ export function pickNearby(
             const distance = bucket.distanceKm !== null && radiusKm ? `a ${formatKm(bucket.distanceKm)}` : '';
             const ago = agoLabel(bucket.latest, now);
             const subtitle = kind === 'place'
-                ? [distance, plural(count, 'valoración', 'valoraciones')].filter(Boolean).join(' · ')
+                ? [distance, plural(count, 'reseña', 'reseñas')].filter(Boolean).join(' · ')
                 : [bucket.placeName, distance].filter(Boolean).join(' · ');
             return {
                 key: `${kind}:${bucket.id}`,

@@ -21,7 +21,7 @@ export const PrivacyPage: React.FC = () => (
         <LegalSection title="2. Qué datos tratamos">
             <p><LegalStrong>Cuenta:</LegalStrong> nombre, correo electrónico y foto de perfil (de Google si entras con Google). La contraseña la gestiona Firebase Authentication y nunca la vemos.</p>
             <p><LegalStrong>Perfil:</LegalStrong> nombre de usuario, nombre y apellidos si los añades, biografía, localidad y tus preferencias (tema, mapa, distancia, notificaciones).</p>
-            <p><LegalStrong>Lo que publicas y haces:</LegalStrong> listas, reseñas, valoraciones, fotos, comentarios, reacciones, mensajes en chats y foros, a quién sigues y quién te sigue, y tus archivos de lugares.</p>
+            <p><LegalStrong>Lo que publicas y haces:</LegalStrong> listas, reseñas, reseñas, fotos, comentarios, reacciones, mensajes en chats y foros, a quién sigues y quién te sigue, y tus archivos de lugares.</p>
             <p><LegalStrong>Ubicación:</LegalStrong> solo si das permiso en tu dispositivo, para mostrarte lugares cercanos. Para estadísticas solo se envía una zona aproximada (redondeada a unos 10 km), nunca tu posición exacta.</p>
             <p><LegalStrong>Notificaciones push:</LegalStrong> el identificador de tu dispositivo para enviártelas, si las activas.</p>
             <p><LegalStrong>Aceptación de condiciones:</LegalStrong> la versión de los Términos y de esta política que aceptaste, la fecha y tu confirmación de edad.</p>

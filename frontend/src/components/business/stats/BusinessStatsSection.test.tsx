@@ -148,7 +148,7 @@ const card = (title: RegExp) => screen.getByRole('region', { name: title });
 beforeEach(() => {
     vi.clearAllMocks();
     analytics.getBusinessPlaceAnalytics.mockResolvedValue(trafficOf((index) => (index >= 30 ? 3 : 1), (index) => (index === 59 ? 2 : 0)));
-    // Unas valoraciones con nota baja: la media hecha aquí sería 3, nunca la que se enseña.
+    // Unas reseñas con nota baja: la media hecha aquí sería 3, nunca la que se enseña.
     service.getLatestPlaceReviewsForManager.mockResolvedValue({
         reviews: [review('r1', 2, 1), review('r2', 4, 3, { authorName: 'Pablo', itemName: 'Patatas bravas', comment: '' })],
         newestFirst: true,
@@ -162,7 +162,7 @@ beforeEach(() => {
 describe('BusinessStatsSection', () => {
     it('enseña la nota PÚBLICA del sitio y no una media de las reseñas leídas (T2, T7)', async () => {
         renderStats();
-        const rating = await screen.findByText('de 23 valoraciones públicas');
+        const rating = await screen.findByText('de 23 reseñas públicas');
         const ratingTile = rating.closest('article')!;
         expect(within(ratingTile).getByText('8.4')).toBeInTheDocument();
         expect(within(ratingTile).getByText('Muy bueno')).toBeInTheDocument();
@@ -178,7 +178,7 @@ describe('BusinessStatsSection', () => {
     it('sin la nota de la página, la lee del lugar', async () => {
         firestore.getDoc.mockResolvedValue({ exists: () => true, data: () => ({ averageRating: 7.5, publicHumanReviewsCount: 4 }) });
         renderStats({ rating: undefined });
-        expect(await screen.findByText('de 4 valoraciones públicas')).toBeInTheDocument();
+        expect(await screen.findByText('de 4 reseñas públicas')).toBeInTheDocument();
         expect(screen.getByText('7.5')).toBeInTheDocument();
     });
 
@@ -188,7 +188,7 @@ describe('BusinessStatsSection', () => {
         const visits = card(/¿Cuánta gente te ve\?/);
         expect(await within(visits).findByText('No hemos podido cargar las visitas de tu ficha')).toBeInTheDocument();
         expect(within(card(/¿Cómo te encuentran\?/)).getByRole('alert')).toBeInTheDocument();
-        // Las valoraciones sí salen.
+        // Las reseñas sí salen.
         expect(await within(card(/¿Qué opinan de ti\?/)).findByText('Lucía')).toBeInTheDocument();
         // Las cifras de visitas no se pintan como 0.
         const visitsTile = screen.getByRole('heading', { name: 'Visitas a tu ficha' }).closest('article')!;

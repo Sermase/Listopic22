@@ -77,7 +77,7 @@ const ProfileStatsTab: React.FC<Props> = ({
         </div>
         <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
           <div className="text-[11px] uppercase tracking-wider text-gray-400">
-            Valoraciones analizadas
+            Reseñas analizadas
           </div>
           <div className="text-3xl font-black text-white mt-1">
             {advancedStats.totalReviews}
@@ -96,7 +96,7 @@ const ProfileStatsTab: React.FC<Props> = ({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="rounded-xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
           <div className="text-[11px] uppercase tracking-wider text-gray-400">
-            Fotos en valoraciones
+            Fotos en reseñas
           </div>
           <div className="text-3xl font-black text-white mt-1">
             {advancedStats.reviewPhotosCount}
@@ -118,7 +118,7 @@ const ProfileStatsTab: React.FC<Props> = ({
             Media por lista
           </h3>
           <span className="text-[11px] text-gray-400">
-            Valoraciones y nota media
+            Reseñas y nota media
           </span>
         </div>
         <div className="px-4 py-2 border-b border-white/10">
@@ -132,7 +132,7 @@ const ProfileStatsTab: React.FC<Props> = ({
                   : "text-gray-300 hover:text-white"
               }`}
             >
-              Más valoraciones
+              Más reseñas
             </button>
             <button
               type="button"
@@ -149,7 +149,7 @@ const ProfileStatsTab: React.FC<Props> = ({
         </div>
         {sortedStatsPerList.length === 0 ? (
           <div className="py-10 text-center text-gray-500 text-sm">
-            No hay datos de valoración por lista.
+            No hay datos de reseña por lista.
           </div>
         ) : (
           <div className="divide-y divide-white/10">
@@ -165,7 +165,7 @@ const ProfileStatsTab: React.FC<Props> = ({
                     {listStat.listName}
                   </div>
                   <div className="text-[11px] text-gray-400">
-                    {listStat.reviewsCount} valoraciones
+                    {listStat.reviewsCount} reseñas
                   </div>
                 </div>
                 <div className="shrink-0 text-right">

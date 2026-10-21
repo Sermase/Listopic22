@@ -724,7 +724,7 @@ const drawVerticalList = (
     if (rowHeight >= 80) drawRankRows(ctx, items, images, margin, y, contentWidth, rowHeight, gap);
 };
 
-/** Sitio, plato o valoración: se apila de abajo arriba, encima del pie. */
+/** Sitio, plato o reseña: se apila de abajo arriba, encima del pie. */
 const drawVerticalContent = (
     ctx: CanvasRenderingContext2D,
     entity: ShareEntityPayload,
@@ -777,7 +777,7 @@ const drawVerticalContent = (
         cursorY -= pillHeight;
         const pillWidth = drawScorePill(ctx, entity.score, margin, cursorY, size);
         const band = scoreBand(entity.score);
-        const side = isReview ? SCORE_BAND_LABEL[band] : (entity.reviewCount ? `${entity.reviewCount} ${entity.reviewCount === 1 ? 'valoración' : 'valoraciones'}` : SCORE_BAND_LABEL[band]);
+        const side = isReview ? SCORE_BAND_LABEL[band] : (entity.reviewCount ? `${entity.reviewCount} ${entity.reviewCount === 1 ? 'reseña' : 'reseñas'}` : SCORE_BAND_LABEL[band]);
         const sideSub = isReview ? '' : SCORE_BAND_LABEL[band];
         setFont(ctx, 800, isStory ? 40 : 32);
         ctx.fillStyle = isReview ? SCORE_TEXT_ON_DARK[band] : SOFT;
@@ -794,7 +794,7 @@ const drawVerticalContent = (
         cursorY -= isStory ? 40 : 28;
     }
 
-    // Sitio y ciudad: en la valoración, bien grandes.
+    // Sitio y ciudad: en la reseña, bien grandes.
     const placeSize = isReview ? (isStory ? 54 : isSquare ? 38 : 44) : (isStory ? 40 : 32);
     const placeName = isReview ? entity.subtitle : undefined;
     const city = entity.city || (!isReview ? entity.subtitle : undefined);
@@ -971,7 +971,7 @@ const drawLandscape = (
             ctx.fillStyle = '#e2e8f0';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.fillText(`${entity.reviewCount} ${entity.reviewCount === 1 ? 'valoración' : 'valoraciones'}`, x + pillWidth + 24, pillY + 55);
+            ctx.fillText(`${entity.reviewCount} ${entity.reviewCount === 1 ? 'reseña' : 'reseñas'}`, x + pillWidth + 24, pillY + 55);
         }
     }
     drawBottomBar(ctx, width, height, 10);

@@ -25,7 +25,7 @@ export interface PlaceShowcase {
     address?: string;
     /** La foto que se ve en la cabecera pública si no hay portada. */
     photoUrl?: string;
-    /** Nota pública (personas) y nº de valoraciones. */
+    /** Nota pública (personas) y nº de reseñas. */
     rating: { average: number | null; count: number };
     photos: ShowcasePhoto[];
     photosFailed: boolean;

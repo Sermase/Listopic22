@@ -112,7 +112,7 @@ describe('GroupPage', () => {
         data.reviews = [review('r1', 'Croqueta, la original'), review('r2', 'Bravas')];
         renderAt('/group/P/croqueta%20la%20ORIGINAL');
 
-        expect(await screen.findByText('1 valoración')).toBeInTheDocument();
+        expect(await screen.findByText('1 reseña')).toBeInTheDocument();
         expect(data.itemReads).toBe(0);
     });
 
@@ -124,17 +124,17 @@ describe('GroupPage', () => {
         await waitFor(() => expect(screen.getByTestId('path').textContent)
             .toBe('/group/P/Croqueta%2C%20la%20original?listId=L1'));
         expect(await screen.findByRole('heading', { level: 1, name: 'Croqueta, la original' })).toBeInTheDocument();
-        expect(await screen.findByText('1 valoración')).toBeInTheDocument();
+        expect(await screen.findByText('1 reseña')).toBeInTheDocument();
         // La carta se lee una sola vez aunque haya redirección.
         expect(data.itemReads).toBe(1);
     });
 
-    it('muestra las valoraciones enlazadas al elemento antes de que el servidor las renombre', async () => {
+    it('muestra las reseñas enlazadas al elemento antes de que el servidor las renombre', async () => {
         data.reviews = [review('r1', '1', { canonicalItemId: 'croqueta-prueba-1', canonicalItemName: 'Croqueta prueba 1' }), review('r2', '2')];
         data.items = [croqueta];
         renderAt('/group/P/Croqueta%2C%20la%20original');
 
-        expect(await screen.findByText('1 valoración')).toBeInTheDocument();
+        expect(await screen.findByText('1 reseña')).toBeInTheDocument();
         expect(screen.getByTestId('path').textContent).toBe('/group/P/Croqueta%2C%20la%20original');
     });
 
@@ -147,7 +147,7 @@ describe('GroupPage', () => {
         renderAt('/group/P/Reggina%20rosa');
 
         await waitFor(() => expect(screen.getByTestId('path').textContent).toBe('/group/P/Regina%20rossa'));
-        expect(await screen.findByText('1 valoración')).toBeInTheDocument();
+        expect(await screen.findByText('1 reseña')).toBeInTheDocument();
     });
 
     it('una carga que ya no es la vigente no redirige (el usuario ya se fue a otro elemento)', async () => {
@@ -164,7 +164,7 @@ describe('GroupPage', () => {
             await new Promise((resolve) => setTimeout(resolve, 0));
         });
 
-        expect(await screen.findByText('Nadie ha escrito una valoración detallada sobre este plato aún.')).toBeInTheDocument();
+        expect(await screen.findByText('Nadie ha escrito una reseña detallada sobre este plato aún.')).toBeInTheDocument();
         await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
         expect(screen.getByTestId('path').textContent).toBe('/group/P/Tortilla');
     });
@@ -175,6 +175,6 @@ describe('GroupPage', () => {
 
         await waitFor(() => expect(data.itemReads).toBe(1));
         expect(screen.getByTestId('path').textContent).toBe('/group/P/Tortilla');
-        expect(await screen.findByText('Nadie ha escrito una valoración detallada sobre este plato aún.')).toBeInTheDocument();
+        expect(await screen.findByText('Nadie ha escrito una reseña detallada sobre este plato aún.')).toBeInTheDocument();
     });
 });

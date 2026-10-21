@@ -24,7 +24,7 @@ interface ListItemCardProps {
         placeCity?: string;
         placeAddress?: string;
         photoUrl?: string; // Best photo from reviews
-        /** null = sin nota pública (p. ej. un sitio solo con valoraciones de bots). */
+        /** null = sin nota pública (p. ej. un sitio solo con reseñas de bots). */
         avgRating: number | null;
         reviewCount: number;
         /** 'bot': la nota y el nº son de bots (solo con el filtro «Bots»). */
@@ -109,7 +109,7 @@ const CHIP_ACCENT = `${CHIP} bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] 
 const CHIP_NEUTRAL = `${CHIP} bg-[var(--lt-card)] text-[var(--lt-text-muted)] border-[var(--lt-border)]`;
 
 export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextRankLabel, isGrid, groupingMode = 'place', listId, disableLift = false, elementKey, placeFirst = false }) => {
-    // Una misma etiqueta puede llegar repetida (varias valoraciones del elemento).
+    // Una misma etiqueta puede llegar repetida (varias reseñas del elemento).
     const tags = Array.from(new Set(item.tags || []));
     const closedKind = closedStatusKind(item.placeClosedStatus);
     // Elemento en una Lista: con placeFirst el título es el sitio y debajo va el elemento.
@@ -131,7 +131,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
             <div className="flex items-center gap-3 mt-1.5 text-xs text-[var(--lt-text-muted)] font-medium">
                 {item.reviewCount !== undefined && (
                     <span className="flex items-center gap-1">
-                        <Star className="w-3 h-3" /> {item.reviewCount} valoraciones
+                        <Star className="w-3 h-3" /> {item.reviewCount} reseñas
                     </span>
                 )}
                 {item.itemCount !== undefined && (
@@ -322,7 +322,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                         )}
                                     </>
                                 ) : item.reviewCount > 0 && (
-                                    <span className="flex items-center gap-0.5" title={item.scoreKind === 'bot' ? 'Valoraciones de bots' : undefined}>
+                                    <span className="flex items-center gap-0.5" title={item.scoreKind === 'bot' ? 'Reseñas de bots' : undefined}>
                                         {item.scoreKind === 'bot'
                                             ? <Bot className="w-3 h-3 text-[var(--lt-text-muted)]" />
                                             : <Star className="w-3 h-3 text-[var(--lt-accent)]" />}
@@ -385,10 +385,10 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                     </div>
                                 )}
 
-                                {/* Meta compacta: valoraciones · puesto en la zona · Lista */}
+                                {/* Meta compacta: reseñas · puesto en la zona · Lista */}
                                 {((groupingMode !== 'list' && item.reviewCount > 0) || contextRankLabel || item.listName) && (
                                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--lt-text-muted)]">
-                                        {groupingMode !== 'list' && item.reviewCount > 0 && <span>{`${item.reviewCount} ${item.reviewCount === 1 ? 'valoración' : 'valoraciones'}${item.scoreKind === 'bot' ? ' de bots' : ''}`}</span>}
+                                        {groupingMode !== 'list' && item.reviewCount > 0 && <span>{`${item.reviewCount} ${item.reviewCount === 1 ? 'reseña' : 'reseñas'}${item.scoreKind === 'bot' ? ' de bots' : ''}`}</span>}
                                         {contextRankLabel && (
                                             <span className="rounded-full bg-[var(--lt-accent-soft)] px-1.5 py-0.5 font-bold text-[var(--lt-accent)]">{contextRankLabel}</span>
                                         )}

@@ -224,7 +224,7 @@ describe('Tu carta: tablero', () => {
         service.getPlaceReviewsForManager.mockRejectedValueOnce(new Error('offline'));
         const user = await renderSection();
         await user.click(screen.getByRole('button', { name: 'Más acciones de Bravas' }));
-        await user.click(screen.getByRole('menuitem', { name: /Valoraciones/ }));
+        await user.click(screen.getByRole('menuitem', { name: /Reseñas/ }));
         const reload = deferred<CanonicalPlaceItem[]>();
         getCanonicalPlaceItems.mockReturnValueOnce(reload.promise);
         await user.click(await within(dialog()).findByRole('button', { name: /Reintentar/ }));
@@ -674,7 +674,7 @@ describe('Tu carta: ficha del plato', () => {
         expect(within(dialog()).getByLabelText(/Nota para el equipo/)).toHaveValue('');
     });
 
-    it('mueve una valoración a otro plato y enseña cómo se escribió', async () => {
+    it('mueve una reseña a otro plato y enseña cómo se escribió', async () => {
         service.getPlaceReviewsForManager.mockResolvedValue([{
             refPath: 'lists/l1/reviews/r1',
             itemId: 'bravas',
@@ -688,7 +688,7 @@ describe('Tu carta: ficha del plato', () => {
         service.submitItemProposal.mockResolvedValue(undefined);
         const user = await renderSection();
         await user.click(screen.getByRole('button', { name: 'Más acciones de Bravas' }));
-        await user.click(screen.getByRole('menuitem', { name: /Valoraciones/ }));
+        await user.click(screen.getByRole('menuitem', { name: /Reseñas/ }));
         expect(await within(dialog()).findByText(/Escrito como «Brabas»/)).toBeInTheDocument();
         await user.click(within(dialog()).getByRole('button', { name: /Mover a otro plato/ }));
         await user.click(within(dialog()).getByRole('button', { name: /Pulpo/ }));

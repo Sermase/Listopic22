@@ -89,10 +89,10 @@ export const ListsManagerTab: React.FC = () => {
                     ? { ...l, isPublic: newIsPublic, publicAccess: newIsPublic ? (l.publicAccess || 'reader') : 'reader' }
                     : l
             ));
-            // Sin esto las valoraciones se quedan con la visibilidad anterior y
+            // Sin esto las reseñas se quedan con la visibilidad anterior y
             // desaparecen del perfil y de la Lista (solo se leen las públicas).
             const synced = await syncListReviewVisibility(list.id, list.parentListId, newIsPublic ? 'public' : 'private');
-            showToast({ variant: 'success', title: 'Actualizado', message: `Lista ${newIsPublic ? 'pública' : 'privada'} · ${synced} valoraciones sincronizadas` });
+            showToast({ variant: 'success', title: 'Actualizado', message: `Lista ${newIsPublic ? 'pública' : 'privada'} · ${synced} reseñas sincronizadas` });
         } catch (err: any) {
             showToast({ variant: 'error', title: 'Error', message: err.message });
         } finally {

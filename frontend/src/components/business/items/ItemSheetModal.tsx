@@ -1,5 +1,5 @@
 /**
- * Ficha de un plato en un modal (spec §7.5): 📝 Ficha | 💬 Valoraciones | 🛠️ Correcciones.
+ * Ficha de un plato en un modal (spec §7.5): 📝 Ficha | 💬 Reseñas | 🛠️ Correcciones.
  *
  *   <ItemSheetModal item={open} initialTab="ficha" items={items} sections={names}
  *     reviews={reviewsOf(open.id)} reviewsState="ready" onRetryReviews={reload}
@@ -83,7 +83,7 @@ export interface ItemSheetModalProps {
     /** Toda la carta (para buscar duplicados y elegir otro plato). */
     items: CanonicalPlaceItem[];
     sections: string[];
-    /** Valoraciones de este plato. */
+    /** Reseñas de este plato. */
     reviews: ManagerPlaceReview[];
     reviewsState: 'loading' | 'ready' | 'error';
     onRetryReviews: () => void;
@@ -244,13 +244,13 @@ const ItemSheet: React.FC<ItemSheetModalProps & { item: CanonicalPlaceItem }> = 
                         { value: 'ficha', label: '📝 Ficha' },
                         {
                             value: 'reviews',
-                            label: '💬 Valoraciones',
+                            label: '💬 Reseñas',
                             suffix: <span className="rounded-full bg-[var(--lt-glass)] px-1.5 text-xs tabular-nums">{reviewCount}</span>,
                         },
                         { value: 'fixes', label: '🛠️ Correcciones' },
                     ]}
                 />
-                <div role="tabpanel" aria-label={tab === 'ficha' ? 'Ficha' : tab === 'reviews' ? 'Valoraciones' : 'Correcciones'}>
+                <div role="tabpanel" aria-label={tab === 'ficha' ? 'Ficha' : tab === 'reviews' ? 'Reseñas' : 'Correcciones'}>
                     {tab === 'ficha' && (
                         <FichaTab
                             item={item}
@@ -500,7 +500,7 @@ const LinkedLists: React.FC<{ listIds?: string[] }> = ({ listIds }) => {
     );
 };
 
-// ── 💬 Valoraciones ─────────────────────────────────────────────────────────
+// ── 💬 Reseñas ─────────────────────────────────────────────────────────
 
 const ReviewsTab: React.FC<{
     item: CanonicalPlaceItem;
@@ -519,16 +519,16 @@ const ReviewsTab: React.FC<{
     const atLimit = pendingProposals >= MAX_PENDING_PROPOSALS;
     const canonical = normalizeItemName(itemNameOf(item));
 
-    if (reviewsState === 'error') return <PanelError what="las valoraciones" onRetry={onRetry} />;
+    if (reviewsState === 'error') return <PanelError what="las reseñas" onRetry={onRetry} />;
     if (reviewsState === 'loading' && reviews.length === 0) {
         return (
-            <div className="space-y-2" aria-busy="true" aria-label="Cargando valoraciones">
+            <div className="space-y-2" aria-busy="true" aria-label="Cargando reseñas">
                 {[0, 1, 2].map((key) => <div key={key} className={cn(kit.inset, 'h-20 animate-pulse motion-reduce:animate-none')} />)}
             </div>
         );
     }
     if (reviews.length === 0) {
-        return <EmptyState size="sm" emoji="💬" title="Aún sin valoraciones." text="¡Comparte el plato para estrenarlo!" />;
+        return <EmptyState size="sm" emoji="💬" title="Aún sin reseñas." text="¡Comparte el plato para estrenarlo!" />;
     }
 
     const propose = async (review: ManagerPlaceReview) => {
@@ -589,7 +589,7 @@ const ReviewsTab: React.FC<{
                             </div>
                             {moving && (
                                 <div className="space-y-3 border-t border-[var(--lt-border)] pt-3">
-                                    <ItemPicker legend="¿De qué plato es esta valoración?" items={others} value={targetId} onChange={setTargetId} disabled={sending} />
+                                    <ItemPicker legend="¿De qué plato es esta reseña?" items={others} value={targetId} onChange={setTargetId} disabled={sending} />
                                     <div className="flex flex-wrap gap-2">
                                         <Button
                                             onClick={() => { void propose(review); }}
@@ -671,7 +671,7 @@ const FixesTab: React.FC<{
     return (
         <div className="space-y-5">
             <p className="text-sm text-[var(--lt-text-muted)]">
-                Las valoraciones nunca se pierden. Lo revisa el equipo de Listopic y te avisamos.
+                Las reseñas nunca se pierden. Lo revisa el equipo de Listopic y te avisamos.
             </p>
             {atLimit ? <LimitNotice /> : pendingProposals >= PROPOSALS_WARN_AT && (
                 <p className="text-sm font-semibold text-[var(--lt-warning)]">

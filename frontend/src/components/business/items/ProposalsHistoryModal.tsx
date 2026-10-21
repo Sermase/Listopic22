@@ -1,6 +1,6 @@
 /**
  * «🕓 Tus propuestas» (spec §7.7): historial de fusiones, renombres y
- * valoraciones movidas, con filtro por estado y línea de tiempo.
+ * reseñas movidas, con filtro por estado y línea de tiempo.
  *
  *   <ProposalsHistoryModal open={open} load={loadProposals} onClose={close} />
  *
@@ -65,7 +65,7 @@ const ProposalDiff: React.FC<{ proposal: ItemProposal }> = ({ proposal }) => {
     return (
         <p className="flex flex-wrap items-center gap-2 text-sm text-[var(--lt-text)]">
             <span>
-                💬 valoración{p.reviewAuthorName ? ` de ${p.reviewAuthorName}` : ''}
+                💬 reseña{p.reviewAuthorName ? ` de ${p.reviewAuthorName}` : ''}
                 {p.reviewItemName ? <span className="text-[var(--lt-text-muted)]"> («{p.reviewItemName}»)</span> : null}
             </span>
             <span aria-hidden="true">➜</span>

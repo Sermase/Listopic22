@@ -102,7 +102,7 @@ export const UserAdminPanel: React.FC<Props> = ({ uid, onClose, onEditRoles }) =
                     {data && stats && (
                         <>
                             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                                {stat('Valoraciones', stats.reviews, `${stats.publicReviews} públicas · ${stats.privateReviews} privadas`)}
+                                {stat('Reseñas', stats.reviews, `${stats.publicReviews} públicas · ${stats.privateReviews} privadas`)}
                                 {stat('Públicas / privadas', `${stats.publicReviews} / ${stats.privateReviews}`)}
                                 {stat('Nota media', stats.averageRating ?? '—')}
                                 {stat('Con fotos', stats.withPhotos)}
@@ -113,12 +113,12 @@ export const UserAdminPanel: React.FC<Props> = ({ uid, onClose, onEditRoles }) =
                             </div>
                             {mismatch && (
                                 <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
-                                    El contador guardado dice {stats.storedReviewsCount} valoraciones y hay {stats.reviews}. Se corrige con Mantenimiento → «Recalcular usuarios».
+                                    El contador guardado dice {stats.storedReviewsCount} reseñas y hay {stats.reviews}. Se corrige con Mantenimiento → «Recalcular usuarios».
                                 </p>
                             )}
 
                             <div className="flex gap-2 overflow-x-auto pb-1">
-                                {tabButton('reviews', 'Valoraciones', <Star className="h-3.5 w-3.5" />, data.reviews.length)}
+                                {tabButton('reviews', 'Reseñas', <Star className="h-3.5 w-3.5" />, data.reviews.length)}
                                 {tabButton('lists', 'Listas', <ListIcon className="h-3.5 w-3.5" />, data.lists.length)}
                                 {tabButton('photos', 'Fotos de sitios', <ImageIcon className="h-3.5 w-3.5" />, data.placePhotos.length)}
                                 {tabButton('business', 'Negocios', <Building2 className="h-3.5 w-3.5" />, data.businessPlaces.length)}
@@ -129,9 +129,9 @@ export const UserAdminPanel: React.FC<Props> = ({ uid, onClose, onEditRoles }) =
                                 <div className="space-y-2">
                                     <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-[#1e253c] px-3 py-2">
                                         <Search className="h-4 w-4 text-gray-500" />
-                                        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filtrar por elemento, sitio, Lista, comentario o etiqueta" className="min-w-0 flex-1 bg-transparent text-sm text-gray-200 outline-none" aria-label="Filtrar valoraciones" />
+                                        <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filtrar por elemento, sitio, Lista, comentario o etiqueta" className="min-w-0 flex-1 bg-transparent text-sm text-gray-200 outline-none" aria-label="Filtrar reseñas" />
                                     </label>
-                                    {reviews.length === 0 && <p className="py-6 text-center text-sm text-gray-500">Sin valoraciones.</p>}
+                                    {reviews.length === 0 && <p className="py-6 text-center text-sm text-gray-500">Sin reseñas.</p>}
                                     <div className="divide-y divide-white/5 overflow-hidden rounded-xl border border-white/10">
                                         {reviews.map((r) => (
                                             <button key={r.path} type="button" onClick={() => setOpenReview(r.path)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-white/5">
@@ -157,7 +157,7 @@ export const UserAdminPanel: React.FC<Props> = ({ uid, onClose, onEditRoles }) =
                                         <a key={l.id} href={`/list/${l.id}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 px-3 py-2.5 hover:bg-white/5">
                                             <span className="min-w-0 flex-1">
                                                 <span className="block truncate text-sm font-semibold text-white">{l.name}</span>
-                                                <span className="block text-xs text-gray-500">{l.parentListId ? 'Minilista' : 'Lista'} {l.visibility === 'public' ? 'pública' : 'privada'} · {l.reviewCount} valoraciones · {l.itemCount} elementos · {l.followersCount} seguidores</span>
+                                                <span className="block text-xs text-gray-500">{l.parentListId ? 'Minilista' : 'Lista'} {l.visibility === 'public' ? 'pública' : 'privada'} · {l.reviewCount} reseñas · {l.itemCount} elementos · {l.followersCount} seguidores</span>
                                             </span>
                                             <ExternalLink className="h-4 w-4 shrink-0 text-gray-500" />
                                         </a>

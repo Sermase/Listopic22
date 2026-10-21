@@ -3,10 +3,18 @@ import { useAuth } from './AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
-export const DEFAULT_RANGE_KM = 5;
+// «Cerca» de verdad: 1 km. Si hay poco, la Home amplía el radio sin tocar la elección.
+export const DEFAULT_RANGE_KM = 1;
 export const RANGE_STEPS_KM: number[] = [1, 2, 5, 10, 50, 100, 500];
 const SESSION_RANGE_KEY = 'sessionRange';
 const SESSION_RANGE_UID_KEY = 'sessionRangeUid';
+
+// La distancia elegida se recuerda entre visitas (por usuario; '' sin sesión).
+const rangeStore = {
+    get: (key: string): string | null => { try { return localStorage.getItem(key); } catch { return null; } },
+    set: (key: string, value: string) => { try { localStorage.setItem(key, value); } catch { /* opcional */ } },
+    remove: (key: string) => { try { localStorage.removeItem(key); } catch { /* opcional */ } },
+};
 
 export const getNextRangeValue = (current: number | null): number | null => {
     if (current === null) {
@@ -72,24 +80,17 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const { user } = useAuth();
 
     const resolveSessionRange = (uid: string | undefined): number | null | undefined => {
-        const saved = sessionStorage.getItem(SESSION_RANGE_KEY);
+        const saved = rangeStore.get(SESSION_RANGE_KEY);
         if (saved === null) {
             return undefined;
         }
-
-        const savedUid = sessionStorage.getItem(SESSION_RANGE_UID_KEY);
-        if (uid) {
-            if (!savedUid || savedUid !== uid) {
-                sessionStorage.removeItem(SESSION_RANGE_KEY);
-                sessionStorage.removeItem(SESSION_RANGE_UID_KEY);
-                return undefined;
-            }
+        if ((rangeStore.get(SESSION_RANGE_UID_KEY) ?? '') !== (uid ?? '')) {
+            return undefined;
         }
-
-        return normalizeRangeValue(saved, DEFAULT_RANGE_KM);
+        return saved === 'all' ? null : normalizeRangeValue(saved, DEFAULT_RANGE_KM);
     };
 
-    // If user exists and no session value, keep it neutral until profile preference is fetched.
+    // Con sesión y sin valor guardado, neutro hasta leer la preferencia del perfil.
     const [range, setRangeState] = useState<number | null>(() => {
         const sessionRange = resolveSessionRange(user?.uid);
         if (sessionRange !== undefined) {
@@ -101,23 +102,26 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return DEFAULT_RANGE_KM;
     });
 
+    const storeRange = useCallback((value: number | null, uid: string | undefined) => {
+        rangeStore.set(SESSION_RANGE_KEY, value === null ? 'all' : String(value));
+        rangeStore.set(SESSION_RANGE_UID_KEY, uid ?? '');
+    }, []);
+
     useEffect(() => {
         const uid = user?.uid;
         const sessionRange = resolveSessionRange(uid);
-
-        if (!uid) {
-            sessionStorage.removeItem(SESSION_RANGE_KEY);
-            sessionStorage.removeItem(SESSION_RANGE_UID_KEY);
-            setRangeState(DEFAULT_RANGE_KM);
-            return;
-        }
 
         if (sessionRange !== undefined) {
             setRangeState(sessionRange);
             return;
         }
 
-        // Avoid showing 5km before loading persisted profile preference.
+        if (!uid) {
+            setRangeState(DEFAULT_RANGE_KM);
+            return;
+        }
+
+        // Evita enseñar el radio por defecto antes de leer la preferencia del perfil.
         setRangeState(null);
 
         let cancelled = false;
@@ -134,8 +138,7 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 }
                 if (cancelled) return;
                 setRangeState(resolvedRange);
-                sessionStorage.setItem(SESSION_RANGE_KEY, String(resolvedRange));
-                sessionStorage.setItem(SESSION_RANGE_UID_KEY, uid);
+                storeRange(resolvedRange, uid);
             } catch (e) {
                 console.error("Error fetching user preferences:", e);
                 if (cancelled) return;
@@ -147,20 +150,13 @@ export const FilterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return () => {
             cancelled = true;
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.uid]);
 
     const setRange = useCallback((newRange: number | null) => {
         setRangeState(newRange);
-        if (newRange !== null) {
-            sessionStorage.setItem(SESSION_RANGE_KEY, String(newRange));
-            if (user?.uid) {
-                sessionStorage.setItem(SESSION_RANGE_UID_KEY, user.uid);
-            }
-        } else {
-            sessionStorage.removeItem(SESSION_RANGE_KEY);
-            sessionStorage.removeItem(SESSION_RANGE_UID_KEY);
-        }
-    }, [user?.uid]);
+        storeRange(newRange, user?.uid);
+    }, [user?.uid, storeRange]);
 
     const toggleRange = useCallback(() => {
         setRange(getNextRangeValue(range));

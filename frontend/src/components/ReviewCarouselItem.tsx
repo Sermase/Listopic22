@@ -132,7 +132,7 @@ export const ReviewCarouselItem: React.FC<ReviewCarouselItemProps> = ({ review, 
             <Link
                 to={review.placeId ? `/group/${review.placeId}/${encodeURIComponent(review.itemName || review.placeName || '')}` : '#'}
                 className="absolute inset-0 z-20"
-                aria-label={`Ver valoración de ${review.itemName || review.placeName}`}
+                aria-label={`Ver reseña de ${review.itemName || review.placeName}`}
             />
         </article >
     );

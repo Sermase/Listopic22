@@ -203,7 +203,7 @@ export const MenuItemRow: React.FC<MenuItemRowProps> = ({
                         label: data.available ? '🚫 Marcar agotado' : '🟢 Volver a poner en carta',
                         onSelect: () => actions.toggleAvailable(item),
                     },
-                    { key: 'reviews', label: '💬 Valoraciones', onSelect: () => actions.openSheet(item.id, 'reviews') },
+                    { key: 'reviews', label: '💬 Reseñas', onSelect: () => actions.openSheet(item.id, 'reviews') },
                     { key: 'impulse', label: '📣 Impulsar', onSelect: () => actions.impulse(item) },
                 ]}
             />

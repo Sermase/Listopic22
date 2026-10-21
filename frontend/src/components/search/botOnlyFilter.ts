@@ -1,7 +1,7 @@
 import { useCurrentRefinements } from 'react-instantsearch';
 
 /**
- * Elementos con valoraciones solo de bots: la Lista no los enseña mientras no se
+ * Elementos con reseñas solo de bots: la Lista no los enseña mientras no se
  * piden los bots, y Buscar igual. Con el filtro «Bots» activo, aparecen.
  */
 export const HIDE_BOT_ONLY = 'NOT botOnly:true';

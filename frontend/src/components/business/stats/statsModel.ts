@@ -276,14 +276,14 @@ export const weekdayStrengths = (all: readonly DayStats[], minViews = MIN_VIEWS_
     return { days, best, max };
 };
 
-// ── Valoraciones ────────────────────────────────────────────────────────────
+// ── Reseñas ────────────────────────────────────────────────────────────
 
 export interface ReviewCoverage {
     /** Se leyó el máximo: puede haber más. */
     capped: boolean;
     /** La lectura trae las más recientes (si no, son unas cualquiera). */
     newestFirst: boolean;
-    /** Día de la valoración más antigua leída. */
+    /** Día de la reseña más antigua leída. */
     oldestKey: string | null;
 }
 
@@ -300,7 +300,7 @@ export const reviewCoverage = (
     };
 };
 
-/** Cuántas valoraciones caen en esos días y si la cuenta puede quedarse corta. */
+/** Cuántas reseñas caen en esos días y si la cuenta puede quedarse corta. */
 export const countReviewsIn = (
     reviews: readonly ManagerPlaceReview[],
     keys: readonly string[],
@@ -314,7 +314,7 @@ export const countReviewsIn = (
     return { count, partial };
 };
 
-/** Valoraciones por día, alineadas con `keys`. */
+/** Reseñas por día, alineadas con `keys`. */
 export const reviewsPerDay = (reviews: readonly ManagerPlaceReview[], keys: readonly string[]): number[] => {
     const counts = new Map(keys.map((key) => [key, 0]));
     reviews.forEach((review) => {
@@ -327,7 +327,7 @@ export const reviewsPerDay = (reviews: readonly ManagerPlaceReview[], keys: read
 
 export type RatedBand = Exclude<ScoreBand, 'none'>;
 
-/** Cuántas valoraciones hay en cada tramo de nota (🤩 … 😬). */
+/** Cuántas reseñas hay en cada tramo de nota (🤩 … 😬). */
 export const bandCounts = (reviews: readonly ManagerPlaceReview[]): Record<RatedBand, number> => {
     const counts = Object.fromEntries(SCORE_BANDS.map((band) => [band, 0])) as Record<RatedBand, number>;
     reviews.forEach((review) => {
@@ -344,7 +344,7 @@ export interface MonthBucket {
     average: number | null;
 }
 
-/** Valoraciones y nota media de cada uno de los últimos `months` meses. */
+/** Reseñas y nota media de cada uno de los últimos `months` meses. */
 export const monthlyReviews = (reviews: readonly ManagerPlaceReview[], months = 6, nowMs: number = Date.now()): MonthBucket[] => {
     const keys = lastMonthKeys(months, nowMs);
     const buckets = new Map(keys.map((key) => [key, { count: 0, total: 0, rated: 0 }]));
@@ -370,9 +370,9 @@ export interface RankedItem {
     id: string;
     name: string;
     average: number | null;
-    /** Valoraciones con nota. */
+    /** Reseñas con nota. */
     ratings: number;
-    /** Valoraciones (con o sin nota; incluye las que no son públicas, T6). */
+    /** Reseñas (con o sin nota; incluye las que no son públicas, T6). */
     reviews: number;
     photos: number;
 }
@@ -399,8 +399,8 @@ const starCandidates = (items: readonly CanonicalPlaceItem[]): RankedItem[] => i
 export const STAR_MIN_AVERAGE = SCORE_BAND_MIN.good;
 
 /**
- * Mejor nota (con al menos 3 valoraciones y desde «Muy bueno»); empate → más
- * valoraciones. Los de menos nota van a «Con margen de mejora», no al podio.
+ * Mejor nota (con al menos 3 reseñas y desde «Muy bueno»); empate → más
+ * reseñas. Los de menos nota van a «Con margen de mejora», no al podio.
  */
 export const topItemsByScore = (items: readonly CanonicalPlaceItem[], limit: number): RankedItem[] => starCandidates(items)
     .filter((item) => item.average! >= STAR_MIN_AVERAGE)

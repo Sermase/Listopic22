@@ -41,7 +41,7 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; ic
         icon: <MapPin className="w-3 h-3" />,
     },
     review: {
-        label: 'Valoración',
+        label: 'Reseña',
         color: 'text-purple-300',
         bg: 'bg-purple-500/20',
         icon: <MessageSquare className="w-3 h-3" />,
@@ -113,7 +113,7 @@ const SECTION_TABS = [
 const PHOTO_FILTER_TABS = [
     { value: 'all' as const, label: 'Todas' },
     { value: 'place' as const, label: 'Sitios' },
-    { value: 'review' as const, label: 'Valoraciones' },
+    { value: 'review' as const, label: 'Reseñas' },
 ];
 
 const COLLECTION_FILTER_TABS = [
@@ -121,7 +121,7 @@ const COLLECTION_FILTER_TABS = [
     { value: 'place' as const, label: 'Sitios' },
     { value: 'list' as const, label: 'Listas' },
     { value: 'group' as const, label: 'Platos' },
-    { value: 'review' as const, label: 'Valoraciones' },
+    { value: 'review' as const, label: 'Reseñas' },
 ];
 
 function toMillis(value: any): number {
@@ -396,7 +396,7 @@ export const ArchivePage: React.FC = () => {
                                 reviewId: reviewDoc.id,
                                 listId,
                                 placeId: typeof data.placeId === 'string' ? data.placeId : undefined,
-                                itemName: typeof data.itemName === 'string' && data.itemName.trim() ? data.itemName.trim() : 'Valoración',
+                                itemName: typeof data.itemName === 'string' && data.itemName.trim() ? data.itemName.trim() : 'Reseña',
                                 placeName: typeof data.placeName === 'string' && data.placeName.trim() ? data.placeName.trim() : undefined,
                                 url: trimmedUrl,
                                 storagePath: explicitStoragePath || getStoragePathFromUrl(trimmedUrl),
@@ -745,7 +745,7 @@ export const ArchivePage: React.FC = () => {
 
     const deleteUploadedReviewPhoto = async (photo: UploadedReviewPhoto) => {
         setOpenPhotoMenu(null);
-        if (!await confirm({ title: '¿Borrar esta foto de la valoración?', confirmLabel: 'Borrar', destructive: true })) return;
+        if (!await confirm({ title: '¿Borrar esta foto de la reseña?', confirmLabel: 'Borrar', destructive: true })) return;
         try {
             if (photo.storagePath) {
                 await deleteObject(ref(storage, photo.storagePath)).catch((error: any) => {
@@ -875,7 +875,7 @@ export const ArchivePage: React.FC = () => {
                 <header className="mb-5">
                     <div className="flex justify-between items-end gap-3 mb-4">
                         <div className="min-w-0">
-                            <h1 className="text-2xl md:text-3xl font-display font-black leading-tight text-[var(--lt-text)]">Mis colecciones</h1>
+                            <h1 className="text-2xl md:text-3xl font-display font-black leading-tight text-[var(--lt-text)]">Guardados</h1>
                             <p className="mt-0.5 text-xs font-medium text-[var(--lt-text-muted)]">
                                 {activeSection === 'photos'
                                     ? `${uploadedPlacePhotos.length + uploadedReviewPhotos.length} fotos subidas por ti`
@@ -917,13 +917,13 @@ export const ArchivePage: React.FC = () => {
                             {(activeSection === 'photos' ? [
                                 { id: 'all', label: 'Todas' },
                                 { id: 'place', label: 'Sitios' },
-                                { id: 'review', label: 'Valoraciones' },
+                                { id: 'review', label: 'Reseñas' },
                             ] : [
                                 { id: 'all', label: 'Todo' },
                                 { id: 'place', label: 'Sitios' },
                                 { id: 'list', label: 'Listas' },
                                 { id: 'group', label: 'Platos' },
-                                { id: 'review', label: 'Valoraciones' },
+                                { id: 'review', label: 'Reseñas' },
                             ]).map(f => (
                                 <button
                                     key={f.id}
@@ -950,7 +950,7 @@ export const ArchivePage: React.FC = () => {
                                     </span>
                                     Fotos
                                 </h2>
-                                <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Las que has subido a valoraciones y sitios</p>
+                                <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Las que has subido a reseñas y sitios</p>
                             </div>
                             <span className="text-xs font-bold text-[var(--lt-accent)] bg-[var(--lt-accent-soft)] rounded-full px-2.5 py-1">
                                 {uploadedPlacePhotos.length + uploadedReviewPhotos.length}
@@ -994,7 +994,7 @@ export const ArchivePage: React.FC = () => {
                                                 <UploadedPhotoImage photo={item.photo} kind={item.kind} alt={title} />
                                                 <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-bold uppercase tracking-wide ${item.kind === 'place' ? 'text-emerald-300' : 'text-purple-300'}`}>
                                                     {item.kind === 'place' ? <MapPin className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
-                                                    {item.kind === 'place' ? 'Sitio' : 'Valoración'}
+                                                    {item.kind === 'place' ? 'Sitio' : 'Reseña'}
                                                 </span>
                                             </Link>
                                             <div className="absolute top-1.5 right-1.5 z-20">

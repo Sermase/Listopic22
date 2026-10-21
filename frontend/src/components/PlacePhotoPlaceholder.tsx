@@ -21,7 +21,7 @@ export const PlacePhotoPlaceholder: React.FC<PlacePhotoPlaceholderProps> = ({ cl
         },
         review: {
             icon: MessageSquare,
-            label: 'Sin foto de valoración',
+            label: 'Sin foto de reseña',
             gradient: 'from-indigo-950 via-slate-900 to-slate-950',
         },
     }[variant];

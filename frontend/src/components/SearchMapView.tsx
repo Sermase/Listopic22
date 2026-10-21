@@ -316,7 +316,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                                             to={href}
                                             photoUrl={photo}
                                             score={rating}
-                                            subtitle={reviewCount > 0 ? `${reviewCount} ${reviewCount === 1 ? 'valoración' : 'valoraciones'}` : placeScore ? NO_PUBLIC_RATING_LABEL : 'Sin valoraciones'}
+                                            subtitle={reviewCount > 0 ? `${reviewCount} ${reviewCount === 1 ? 'reseña' : 'reseñas'}` : placeScore ? NO_PUBLIC_RATING_LABEL : 'Sin reseñas'}
                                         />
                                     </Popup>
                                 )}
