@@ -4,6 +4,7 @@ import { ChevronRight, MapPin, Utensils } from 'lucide-react';
 import { ProgressiveImage } from '../ProgressiveImage';
 import { scoreBadgeStyle } from '../../lib/scoreScale';
 import { MarqueeText } from '../ui/MarqueeText';
+import { HelpTip } from '../HelpTip';
 
 export interface RankingRow {
     key: string;
@@ -84,7 +85,7 @@ export const HomeRanking: React.FC<HomeRankingProps> = ({ dishes, places, dishes
         <section className="w-full">
             <div className="mb-2.5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                    <h2 className="truncate font-display text-base font-bold leading-tight text-[var(--lt-text)] md:text-xl">Cerca y bueno</h2>
+                    <h2 className="truncate font-display text-base font-bold leading-tight text-[var(--lt-text)] md:text-xl"><span className="inline-flex items-center gap-1">Cerca y bueno <HelpTip topic="cerca" /></span></h2>
                     <p className="mt-0.5 truncate text-xs font-medium text-[var(--lt-text-muted)]">Lo mejor valorado a tu alrededor.</p>
                 </div>
                 <div role="tablist" aria-label="Tipo de ranking" className="flex shrink-0 rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] p-1">

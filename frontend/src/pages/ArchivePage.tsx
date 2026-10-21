@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { HelpTip } from '../components/HelpTip';
 import { useArchives, type SavedItemEntity } from '../hooks/useArchives';
 import { Folder, MapPin, MessageSquare, List as ListIcon, Trash2, Map as MapIcon, X, Filter, Edit2, Search, Check, MoreVertical, Image as ImageIcon, ChevronRight, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -875,7 +876,7 @@ export const ArchivePage: React.FC = () => {
                 <header className="mb-5">
                     <div className="flex justify-between items-end gap-3 mb-4">
                         <div className="min-w-0">
-                            <h1 className="text-2xl md:text-3xl font-display font-black leading-tight text-[var(--lt-text)]">Guardados</h1>
+                            <h1 className="text-2xl md:text-3xl font-display font-black leading-tight text-[var(--lt-text)] flex items-center gap-2">Guardados <HelpTip topic="guardados" /></h1>
                             <p className="mt-0.5 text-xs font-medium text-[var(--lt-text-muted)]">
                                 {activeSection === 'photos'
                                     ? `${uploadedPlacePhotos.length + uploadedReviewPhotos.length} fotos subidas por ti`

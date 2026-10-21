@@ -301,6 +301,13 @@ describe('V4 · Un usuario no puede ascenderse a sí mismo', () => {
     await assertSucceeds(updateDoc(ref, { notifiedLevel: 2, notifiedBadges: arrayUnion('PRIMERA') }));
   });
 
+  it('✅/❌ preferencias de uso: solo interruptores conocidos', async () => {
+    const ref = doc(as('alice'), 'users/alice');
+    await assertSucceeds(setDoc(ref, { uxPreferences: { glutenFree: true, vegetarian: false, showHelpTips: true } }, { merge: true }));
+    await assertFails(setDoc(ref, { uxPreferences: { glutenFree: 'sí' } }, { merge: true }));
+    await assertFails(setDoc(ref, { uxPreferences: { isAdmin: true } }, { merge: true }));
+  });
+
   it('✅ alta de perfil con el payload real de UserProfileService', async () => {
     await assertSucceeds(setDoc(doc(as('newbie'), 'users/newbie'), {
       username: 'newbie', usernameLower: 'newbie', displayName: 'Newbie', name: '', surnames: '',

@@ -6,6 +6,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { LegalAcceptanceGate } from './components/legal/LegalAcceptanceGate';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
+import { WelcomeCards } from './components/WelcomeCards';
 import { App as CapApp } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Capacitor } from '@capacitor/core';
@@ -23,6 +24,8 @@ import { useScrollRestoration } from './hooks/useScrollRestoration';
 
 // Lazy Load Pages
 const HomePage = React.lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
+const HelpPage = React.lazy(() => import('./pages/HelpPage').then(m => ({ default: m.HelpPage })));
+const ReviewPage = React.lazy(() => import('./pages/ReviewPage').then(m => ({ default: m.ReviewPage })));
 const PlansPage = React.lazy(() => import('./pages/PlansPage').then(m => ({ default: m.PlansPage })));
 const SearchPage = React.lazy(() => import('./pages/SearchPage').then(m => ({ default: m.SearchPage })));
 const ListPage = React.lazy(() => import('./pages/ListPage').then(m => ({ default: m.ListPage })));
@@ -254,6 +257,9 @@ const AppRoutes = () => {
               {/* Public info pages */}
               <Route path="/planes" element={<PlansPage />} />
               <Route path="/about" element={<AboutPage />} />
+              <Route path="/ayuda" element={<HelpPage />} />
+              <Route path="/preferencias" element={<HelpPage section="preferencias" />} />
+              <Route path="/review/:listId/:reviewId" element={<ReviewPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/child-safety" element={<ChildSafetyPage />} />
               <Route path="/istari-core" element={<IstariCorePage />} />
@@ -294,6 +300,7 @@ function App() {
               <NotificationBanner />
               <AppRoutes />
               <BottomNav />
+              <WelcomeCards />
               <PushSetup />
               <LegalAcceptanceGate />
             </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Bookmark, Bell, Building2, ChevronRight, Dice5, Eye, Info, Menu, MessageSquare, Plus, Search, Sparkles, User, X } from 'lucide-react';
+import { Bookmark, Bell, Building2, ChevronRight, Dice5, Eye, Info, LifeBuoy, Menu, MessageSquare, Plus, Search, SlidersHorizontal, Sparkles, User, X } from 'lucide-react';
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig, useAppConfigLoading } from '../context/AppConfigContext';
@@ -448,6 +448,8 @@ export const Navbar: React.FC = () => {
                             )}
                             <MenuTile to="/create-sublist" icon={Plus} label="Crear minilista" onClick={guardProtectedLink('crear una minilista')} />
                             <MenuTile to="/planes" icon={Sparkles} label="Planes" onClick={() => setIsMenuOpen(false)} />
+                            <MenuTile to="/preferencias" icon={SlidersHorizontal} label="Preferencias" onClick={() => setIsMenuOpen(false)} />
+                            <MenuTile to="/ayuda" icon={LifeBuoy} label="Ayuda" onClick={() => setIsMenuOpen(false)} />
                             {config.showRandomChoiceButton && (
                                 <MenuTile to="/?surprise=1" icon={Dice5} label="Sorpréndeme" onClick={() => setIsMenuOpen(false)} />
                             )}

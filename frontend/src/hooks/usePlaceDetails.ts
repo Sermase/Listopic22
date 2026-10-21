@@ -9,6 +9,7 @@ import { getBusinessPlanFromPlace } from '../utils/businessPlan';
 import type { BusinessHoursInfo, BusinessWeeklyHours, ResolvedBusinessInfo } from '../types/businessInfo';
 import { placeRating, type PlaceRating } from '../lib/placeRating';
 import type { BusinessVisualStyle } from '../services/BusinessProService';
+import { compareByUseful } from '../lib/reviewOrder';
 
 const VISUAL_STYLES: BusinessVisualStyle[] = ['editorial', 'clean', 'warm', 'night'];
 
@@ -410,7 +411,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
 
     const reviews = Array.from(reviewMap.values())
         .filter(canViewReview)
-        .sort((a, b) => toMillis(b.createdAt) - toMillis(a.createdAt));
+        .sort(compareByUseful((r: ReviewEntity) => toMillis(r.createdAt)));
     const placePhotos = placePhotosSnap.docs
         .map((photoDoc): PlacePhoto | null => {
             const data = photoDoc.data() as Record<string, unknown>;
