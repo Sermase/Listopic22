@@ -25,6 +25,8 @@ import { EntityHero } from '../components/EntityHero';
 import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
 import { useAuthPrompt } from '../context/AuthPromptContext';
 import { useAppConfig } from '../context/AppConfigContext';
+import { usePreferences } from '../context/PreferencesContext';
+import { HelpTip } from '../components/HelpTip';
 import { compareElementsByRank, isScoreValue, reviewScoreForList } from '../lib/scoring';
 import { elementKey } from '../lib/listElements';
 import { scoreBadgeStyle } from '../lib/scoreScale';
@@ -64,6 +66,13 @@ function hasGlutenFreeTag(tags: unknown) {
             || normalized.includes('celiaco')
             || normalized.includes('celiaca')
             || normalized.includes('celiac');
+    });
+}
+
+function hasVegetarianTag(tags: unknown) {
+    return (Array.isArray(tags) ? tags : []).some(tag => {
+        const normalized = normalizeFilterToken(tag);
+        return normalized.includes('vegetarian') || normalized.includes('vegan') || normalized.includes('vegetal');
     });
 }
 
@@ -588,6 +597,16 @@ export const ListPage: React.FC = () => {
 
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
+    // «Mis preferencias» (dieta) se aplican solas; se pueden quitar solo en esta lista.
+    const { prefs } = usePreferences();
+    const [ignoredDiet, setIgnoredDiet] = useState<{ glutenFree?: boolean; vegetarian?: boolean }>({});
+    const dietGluten = filters.glutenFree || (prefs.glutenFree && !ignoredDiet.glutenFree);
+    const dietVeg = prefs.vegetarian && !ignoredDiet.vegetarian;
+    const activeDietChips = [
+        ...(prefs.glutenFree && !ignoredDiet.glutenFree ? [{ key: 'glutenFree' as const, label: '🌾 Sin gluten' }] : []),
+        ...(dietVeg ? [{ key: 'vegetarian' as const, label: '🥦 Vegetariano' }] : []),
+    ];
+
     // Cuántos filtros hay activos (el botón lo enseña; ordenar no cuenta).
     const activeFilterCount = [
         filters.minRating > 0,
@@ -784,8 +803,11 @@ export const ListPage: React.FC = () => {
         if (filters.hasPhoto) {
             result = result.filter(item => !!item.photoUrl);
         }
-        if (filters.glutenFree) {
+        if (dietGluten) {
             result = result.filter(item => hasGlutenFreeTag(item.allTags || item.tags));
+        }
+        if (dietVeg) {
+            result = result.filter(item => hasVegetarianTag(item.allTags || item.tags));
         }
         if (filters.petFriendly) {
             result = result.filter(item => hasPetFriendlySignal(item.petOptions));
@@ -840,7 +862,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable, effectiveArea]);
+    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg]);
 
     const filteredMapItems = useMemo(() => {
         // Filter mapItems based on the SAME criteria as the list (or at least search/range)
@@ -863,8 +885,11 @@ export const ListPage: React.FC = () => {
         if (filters.hasPhoto) {
             result = result.filter(item => !!item.photoUrl);
         }
-        if (filters.glutenFree) {
+        if (dietGluten) {
             result = result.filter(item => hasGlutenFreeTag(item.allTags));
+        }
+        if (dietVeg) {
+            result = result.filter(item => hasVegetarianTag(item.allTags));
         }
         if (filters.petFriendly) {
             result = result.filter(item => hasPetFriendlySignal(item.petOptions));
@@ -894,7 +919,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [mapItems, searchQuery, filters, range, location, showUnavailable, effectiveArea]);
+    }, [mapItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg]);
 
     const hasListMapCandidates = useMemo(() => {
         return mapItems.some((item: any) => !!item?.lat && !!item?.lng);
@@ -1389,6 +1414,20 @@ export const ListPage: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Mis preferencias activas: siempre a la vista, para que nadie piense que faltan sitios */}
+                {activeDietChips.length > 0 && (
+                    <div className="mb-3 flex flex-wrap items-center gap-2 px-1">
+                        {activeDietChips.map((chip) => (
+                            <span key={chip.key} className="inline-flex items-center gap-1.5 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] py-1 pl-3 pr-1 text-xs font-bold text-[var(--lt-text)]">
+                                {chip.label}
+                                <button type="button" onClick={() => setIgnoredDiet((prev) => ({ ...prev, [chip.key]: true }))} aria-label={`Quitar ${chip.label} en esta lista`} className="rounded-full px-1.5 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">✕</button>
+                            </span>
+                        ))}
+                        <Link to="/preferencias" className="text-xs font-semibold text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)]">Mis preferencias</Link>
+                        <HelpTip topic="preferencias" />
+                    </div>
+                )}
+
                 {filteredItemsAll.length > 0 && (
                     <div className="mb-3 px-1 min-w-0">
                         <h2 className="flex items-center gap-2 text-base md:text-xl font-display font-bold leading-tight text-[var(--lt-text)]">
@@ -1398,6 +1437,7 @@ export const ListPage: React.FC = () => {
                             <span className="truncate">
                                 {sortMode === 'rating' ? 'El ranking' : sortMode === 'count' ? 'Los más valorados' : sortMode === 'newest' ? 'Lo último' : 'Los primeros'}
                             </span>
+                            <HelpTip topic="nota" />
                         </h2>
                         <p className="mt-0.5 truncate text-xs text-[var(--lt-text-muted)] font-medium" aria-live="polite">
                             {filteredItemsAll.length} {filteredItemsAll.length === 1 ? 'elemento' : 'elementos'}

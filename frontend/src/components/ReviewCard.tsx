@@ -35,10 +35,12 @@ interface ReviewCardProps {
     onEdit?: (review: ReviewEntity) => void;
     reactionConfig?: { like?: string; dislike?: string }; // Text for animation (e.g. "ñam!")
     placeClosedStatus?: string | null;
+    /** Página de la reseña: texto entero, notas y comentarios abiertos. */
+    expanded?: boolean;
 }
 
 
-export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp }) => {
+export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp, expanded = false }) => {
     const { showToast } = useToast();
     const confirm = useConfirm();
     // El estado del sitio en vivo manda sobre la copia guardada en la reseña.
@@ -51,7 +53,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     // Visual States
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(review.reactionCounts?.like || 0); // Placeholder count
-    const [showComments, setShowComments] = useState(false);
+    const [showComments, setShowComments] = useState(expanded);
     const [reactionAnimationText, setReactionAnimationText] = useState('');
     const [reactionAnimationTone, setReactionAnimationTone] = useState<'like' | 'dislike'>('like');
     const [showAnimation, setShowAnimation] = useState(false); // For "ñam!" animation
@@ -184,7 +186,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         checkLike();
     }, [user, review.id, review.listId]);
 
-    const [showAllScores, setShowAllScores] = useState(false);
+    const [showAllScores, setShowAllScores] = useState(expanded);
     const hasVisual = Boolean(review.photoUrls?.length || review.photoUrl || review.placeMainImage);
     // Lo mejor y lo peor de los criterios que cuentan (si hay diferencia que contar).
     const highlights = React.useMemo(() => {
@@ -343,7 +345,12 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                         </span>
                                     )}
                                 </div>
-                                <span className="shrink-0 text-[11px] text-[var(--lt-text-muted)] whitespace-nowrap">
+                                <Link
+                                    to={review.listId && review.id ? `/review/${review.listId}/${review.id}` : '#'}
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="Abrir la reseña"
+                                    className="shrink-0 text-[11px] text-[var(--lt-text-muted)] whitespace-nowrap hover:text-[var(--lt-accent)] hover:underline"
+                                >
                                     {(() => {
                                         const date = review.createdAt;
                                         let dateObj: Date | null = null;
@@ -352,7 +359,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                         else if (typeof date === 'string' || typeof date === 'number') dateObj = new Date(date);
                                         return dateObj ? `hace ${formatDistanceToNow(dateObj, { locale: es })}` : 'Reciente';
                                     })()}
-                                </span>
+                                </Link>
                             </div>
                         </div>
 
@@ -413,7 +420,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
                     {/* Lo que cuenta la persona, delante de las notas */}
                     {review.comment && (
-                        <ExpandableText text={review.comment} lines={4} className="text-[15px] leading-relaxed text-[var(--lt-text)]" />
+                        <ExpandableText text={review.comment} lines={4} defaultExpanded={expanded} className="text-[15px] leading-relaxed text-[var(--lt-text)]" />
                     )}
 
                     {/* Lo mejor y lo peor; el detalle de notas, en un desplegable */}
@@ -502,6 +509,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             onClick={handleLike}
                         >
                             <ThumbsUp className={`w-5 h-5 group-hover/btn:scale-110 transition-transform stroke-[1.5] ${liked ? 'fill-current' : ''}`} />
+                            <span className="text-sm font-semibold">Útil</span>
                             <span className="text-sm font-semibold relative overflow-hidden h-5 min-w-[12px] flex items-center justify-center">
                                 {showAnimation ? (
                                     <span className="animate-[fade-in_0.3s_ease-out_forwards]">{likeCount > 0 ? likeCount : ''}</span>

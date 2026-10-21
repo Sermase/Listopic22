@@ -14,6 +14,8 @@ const IGNORED = [/net::ERR_FAILED/, /Failed to load resource/, /ERR_BLOCKED_BY_C
 
 /** Algolia → simulador local; todo lo que no sea local se corta (nada sale a internet). */
 export async function isolate(context: BrowserContext, { allowHttpsLocalhost = false } = {}) {
+  // Las tarjetas de bienvenida tapan la pantalla la primera vez: en las pruebas ya se han visto.
+  await context.addInitScript(() => { try { localStorage.setItem('listopic_welcome_seen_v1', '1'); } catch { /* sin almacenamiento */ } });
   await context.route((url) => /(^|\.)algolia\.(net|io)$|(^|\.)algolianet\.com$/.test(url.hostname), async (route) => {
     const request = route.request();
     const url = new URL(request.url());

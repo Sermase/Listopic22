@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { HelpTip } from './HelpTip';
 import { createPortal } from 'react-dom';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db, storage, functions } from '../firebase';
@@ -1351,7 +1352,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                 <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-4 space-y-5">
                                     <div className="flex items-center justify-between gap-3">
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-accent)] flex items-center gap-1.5">
-                                            <span aria-hidden>⭐</span> Reseña
+                                            <span aria-hidden>⭐</span> Reseña <HelpTip topic="nota" />
                                         </p>
                                         <span
                                             className={`text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full ${scoreSummary.complete

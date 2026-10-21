@@ -54,8 +54,22 @@ service cloud.firestore {
         'photoUrl', 'photoURL', 'photoStoragePath', 'defaultDistanceKm',
         'mapLayerPreference', 'themePreference', 'notificationPreferences',
         'isOnline', 'lastActiveAt', 'createdAt', 'updatedAt', 'usernameLockedAt',
-        'notifiedLevel', 'notifiedBadges', 'legalAcceptance'
+        'notifiedLevel', 'notifiedBadges', 'legalAcceptance', 'uxPreferences'
       ];
+    }
+
+    // Preferencias de uso (Mis preferencias y ayudas): solo interruptores.
+    function uxPreferencesIsValid(value) {
+      return value is map &&
+             value.keys().hasOnly(['glutenFree', 'vegetarian', 'showHelpTips']) &&
+             (!('glutenFree' in value) || value.glutenFree is bool) &&
+             (!('vegetarian' in value) || value.vegetarian is bool) &&
+             (!('showHelpTips' in value) || value.showHelpTips is bool);
+    }
+
+    function userUpdateUxPreferencesOk() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uxPreferences']) ||
+             uxPreferencesIsValid(request.resource.data.uxPreferences);
     }
 
     // Aceptación de Términos y Privacidad (prueba RGPD): solo la versión, la
@@ -478,6 +492,7 @@ service cloud.firestore {
           request.auth.uid == userId && doesNotChangeUserType()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(userSelfUpdateKeys())
           && userUpdateLegalAcceptanceOk()
+          && userUpdateUxPreferencesOk()
         ) || (isJefe(request.auth.uid) && userUpdateChangesOnlyAllowedFields())
       );
       // Un usuario puede borrarse a sí mismo O un jefe puede borrarlo.

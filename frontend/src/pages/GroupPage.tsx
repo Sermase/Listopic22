@@ -25,6 +25,8 @@ import { itemNameKey, resolvePlaceItemByName, reviewItemId, type PlaceItemLike }
 
 import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
 import { FeaturedQuote } from '../components/FeaturedQuote';
+import { HelpTip } from '../components/HelpTip';
+import { compareByUseful } from '../lib/reviewOrder';
 
 
 // react-router ya entrega el parámetro decodificado: un segundo decode rompe
@@ -247,7 +249,7 @@ export const GroupPage: React.FC = () => {
                 }
             }
 
-            feats.sort((a: any, b: any) => toMillis(b.createdAt) - toMillis(a.createdAt));
+            feats.sort(compareByUseful((r: any) => toMillis(r.createdAt)));
 
 
             // --- Enrichment: Users & Lists (FIX for missing names) ---
@@ -773,6 +775,7 @@ export const GroupPage: React.FC = () => {
                                         <BarChart3 className="w-3.5 h-3.5" />
                                     </span>
                                     Puntuaciones
+                                    <HelpTip topic="criterios" />
                                 </h3>
                                 {listStats && primaryListName && (
                                     <button

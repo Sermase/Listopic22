@@ -2,6 +2,7 @@ import React from 'react';
 import { X, SlidersHorizontal, Star, Trash2, ChevronDown } from 'lucide-react';
 import type { FilterState } from '../pages/ListPage';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { HelpTip } from './HelpTip';
 
 const ACCESSIBILITY_FILTER_LABELS: Record<string, string> = {
     wheelchairAccessibleEntrance: 'Entrada accesible',
@@ -128,7 +129,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
                 <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--lt-border)] px-4 py-3">
                     <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--lt-text)]">
-                        <SlidersHorizontal className="h-5 w-5 text-[var(--lt-accent)]" /> Filtros
+                        <SlidersHorizontal className="h-5 w-5 text-[var(--lt-accent)]" /> Filtros <HelpTip topic="filtros" />
                     </h2>
                     <button type="button" onClick={onClose} aria-label="Cerrar" className="rounded-full p-2 text-[var(--lt-text-muted)] transition-colors hover:bg-[var(--lt-glass)] hover:text-[var(--lt-text)]">
                         <X className="h-5 w-5" />

@@ -267,7 +267,14 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                             >
                                 <MarqueeText text={review.authorName || 'Anónimo'} />
                             </Link>
-                            <span className="shrink-0 text-[11px] text-[var(--lt-text-muted)]">· hace {formattedDate}</span>
+                            <Link
+                                to={review.listId && review.id ? `/review/${review.listId}/${review.id}` : '#'}
+                                onClick={(e) => e.stopPropagation()}
+                                title="Abrir la reseña"
+                                className="shrink-0 text-[11px] text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)] hover:underline"
+                            >
+                                · hace {formattedDate}
+                            </Link>
                             {closedKind && (
                                 <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${closedKind === 'permanent'
                                     ? 'bg-[var(--lt-danger-soft)] border-[var(--lt-danger)]/30 text-[var(--lt-danger)]'
@@ -382,7 +389,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                             className={`relative inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${liked ? 'text-pink-500' : 'text-[var(--lt-text-muted)] hover:text-pink-500'}`}
                         >
                             <ThumbsUp className={`w-4 h-4 ${liked ? 'fill-current' : ''}`} />
-                            {likeCount > 0 && <span>{likeCount}</span>}
+                            <span>Útil{likeCount > 0 ? ` · ${likeCount}` : ''}</span>
                             {showAnimation && (
                                 <span className={`absolute -top-6 left-1/2 -translate-x-1/2 font-extrabold text-xs whitespace-nowrap pointer-events-none drop-shadow-md animate-[float-up_0.8s_cubic-bezier(0.2,0.8,0.2,1)_forwards] ${reactionAnimationTone === 'like' ? 'text-pink-500' : 'text-gray-400'}`}>
                                     {reactionAnimationText}
