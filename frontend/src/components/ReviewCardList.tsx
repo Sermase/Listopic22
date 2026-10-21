@@ -26,6 +26,7 @@ import { useConfirm } from '../context/ConfirmContext';
 import { scoreBadgeStyle, scoreTextColor } from '../lib/scoreScale';
 import { closedStatusKind } from '../utils/placeStatus';
 import { MarqueeText } from './ui/MarqueeText';
+import { ExpandableText } from './ui/ExpandableText';
 
 interface ReviewCardListProps {
     review: ReviewEntity;
@@ -347,9 +348,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                             </button>
                         )}
                         {review.comment && (
-                            <p className="text-sm leading-relaxed text-[var(--lt-text)] line-clamp-4 flex-1">
-                                {review.comment}
-                            </p>
+                            <ExpandableText text={review.comment} lines={4} className="min-w-0 flex-1 text-sm leading-relaxed text-[var(--lt-text)]" />
                         )}
                     </div>
                 )}

@@ -24,6 +24,7 @@ import { useAuthPrompt } from '../context/AuthPromptContext';
 import { itemNameKey, resolvePlaceItemByName, reviewItemId, type PlaceItemLike } from '../lib/placeItems';
 
 import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
+import { FeaturedQuote } from '../components/FeaturedQuote';
 
 
 // react-router ya entrega el parámetro decodificado: un segundo decode rompe
@@ -101,6 +102,7 @@ export const GroupPage: React.FC = () => {
     const [reviewViewMode, setReviewViewMode] = useState<'list' | 'full' | 'gallery'>('list');
     const [groupActiveTab, setGroupActiveTab] = useState<'reviews' | 'photos'>('reviews');
     const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
+    const [showListAvg, setShowListAvg] = useState(false);
 
     // Infinite Scroll
     const [visibleCount, setVisibleCount] = useState(4);
@@ -746,30 +748,21 @@ export const GroupPage: React.FC = () => {
                         />
                     )}
 
-                    {/* Acciones (compactas, como en la ficha del sitio) */}
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                        <button
-                            onClick={openSaveModal}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all"
-                        >
-                            <Bookmark className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
-                            <span className="max-w-full truncate text-[11px] font-bold leading-tight">Guardar</span>
+                    {/* Acciones: pequeñas, en una fila */}
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={openSaveModal} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
+                            <Bookmark className="h-4 w-4 text-[var(--lt-accent)]" /> Guardar
                         </button>
-                        <button
-                            onClick={() => setIsShareModalOpen(true)}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all"
-                        >
-                            <Share2 className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
-                            <span className="max-w-full truncate text-[11px] font-bold leading-tight">Compartir</span>
+                        <button type="button" onClick={() => setIsShareModalOpen(true)} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
+                            <Share2 className="h-4 w-4 text-[var(--lt-accent)]" /> Compartir
                         </button>
-                        <button
-                            onClick={openReportModal}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:bg-[var(--lt-danger-soft)] hover:text-[var(--lt-danger)] transition-all"
-                        >
-                            <Flag className="w-5 h-5 mb-1 text-[var(--lt-danger)] opacity-70" />
-                            <span className="max-w-full truncate text-[11px] font-bold leading-tight">Reportar</span>
+                        <button type="button" onClick={openReportModal} aria-label="Reportar" title="Reportar" className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--lt-text-muted)] transition-colors hover:bg-[var(--lt-danger-soft)] hover:text-[var(--lt-danger)]">
+                            <Flag className="h-4 w-4" />
                         </button>
                     </div>
+
+                    {/* Una frase de la gente, antes de las notas */}
+                    <FeaturedQuote reviews={reviews} onSeeAll={() => document.getElementById('resenas')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
 
                     {/* 1. Detailed Stats (Refactored) */}
                     {stats && (stats.ponderable.length > 0 || stats.nonPonderable.length > 0) && (
@@ -782,17 +775,22 @@ export const GroupPage: React.FC = () => {
                                     Puntuaciones
                                 </h3>
                                 {listStats && primaryListName && (
-                                    <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-[var(--lt-text-muted)]">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowListAvg((v) => !v)}
+                                        aria-pressed={showListAvg}
+                                        className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                                    >
                                         <span className="inline-block w-1 h-3 rounded-full bg-[var(--lt-text-muted)] opacity-60 shrink-0" aria-hidden />
-                                        <span className="truncate">La marca es la media de «{primaryListName}»</span>
-                                    </p>
+                                        <span className="truncate">{showListAvg ? `La marca es la media de «${primaryListName}»` : `Comparar con «${primaryListName}»`}</span>
+                                    </button>
                                 )}
                             </div>
 
                             {/* Ponderable (Charts) */}
                             <div className="space-y-4">
                                 {stats.ponderable.map((c, i) => {
-                                    const listAvg = listStats?.[c.key];
+                                    const listAvg = showListAvg ? listStats?.[c.key] : undefined;
                                     return (
                                         <div key={c.key}>
                                             <div className="flex justify-between items-end mb-1">
@@ -894,7 +892,7 @@ export const GroupPage: React.FC = () => {
                 </div>
 
                 {/* Main Content (Left) */}
-                <div className="order-2 lg:col-span-8 lg:order-first">
+                <div id="resenas" className="order-2 lg:col-span-8 lg:order-first scroll-mt-24">
 
                     {/* Cabecera de sección: pestañas y vista en una fila (las pestañas ya titulan la sección) */}
                     <div className="flex items-center justify-between gap-2 mb-4">

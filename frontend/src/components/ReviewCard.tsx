@@ -27,6 +27,7 @@ import { compareCriteria } from '../lib/criteria';
 import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
 import { closedStatusKind } from '../utils/placeStatus';
 import { MarqueeText } from './ui/MarqueeText';
+import { ExpandableText } from './ui/ExpandableText';
 
 interface ReviewCardProps {
     review: ReviewEntity;
@@ -182,6 +183,21 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         };
         checkLike();
     }, [user, review.id, review.listId]);
+
+    const [showAllScores, setShowAllScores] = useState(false);
+    const hasVisual = Boolean(review.photoUrls?.length || review.photoUrl || review.placeMainImage);
+    // Lo mejor y lo peor de los criterios que cuentan (si hay diferencia que contar).
+    const highlights = React.useMemo(() => {
+        if (ponderable.length < 2) return [];
+        const sorted = [...ponderable].sort((a, b) => b.score - a.score);
+        const best = sorted[0];
+        const worst = sorted[sorted.length - 1];
+        if (best.score - worst.score < 1) return [{ kind: 'best' as const, label: best.label, score: best.score }];
+        return [
+            { kind: 'best' as const, label: best.label, score: best.score },
+            { kind: 'worst' as const, label: worst.label, score: worst.score },
+        ];
+    }, [ponderable]);
 
     const handleCardClick = () => {
         if (review.placeId && review.itemName) {
@@ -351,8 +367,8 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     </div>
                 </div>
 
-                {/* 2. Main Visual: Photo Carousel with Score Bubble */}
-                <ReviewPhotoCarousel
+                {/* 2. Foto con la nota (sin foto ni imagen del sitio, la nota va junto al título) */}
+                {hasVisual && <ReviewPhotoCarousel
                     photoUrls={review.photoUrls}
                     photoUrl={review.photoUrl}
                     placeMainImage={review.placeMainImage}
@@ -360,7 +376,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     placeName={review.placeName}
                     overallRating={review.overallRating}
                     placeCity={(review as any).placeCity}
-                />
+                />}
 
                 {/* 3. Content Body */}
                 <div className="px-4 pt-3.5 pb-4 space-y-3 flex-1">
@@ -388,10 +404,43 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         <h3 className="text-sm font-semibold text-[var(--lt-accent)]">
                             <MarqueeText text={review.itemName || ''} />
                         </h3>
+                        {!hasVisual && typeof review.overallRating === 'number' && (
+                            <span className="mt-1.5 inline-flex rounded-full px-2.5 py-1 font-display text-base font-bold tabular-nums" style={{ backgroundColor: scoreBadge(review.overallRating).bg, color: scoreBadge(review.overallRating).fg }}>
+                                {review.overallRating.toFixed(1)}
+                            </span>
+                        )}
                     </div>
 
+                    {/* Lo que cuenta la persona, delante de las notas */}
+                    {review.comment && (
+                        <ExpandableText text={review.comment} lines={4} className="text-[15px] leading-relaxed text-[var(--lt-text)]" />
+                    )}
+
+                    {/* Lo mejor y lo peor; el detalle de notas, en un desplegable */}
+                    {highlights.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            {highlights.map((h) => (
+                                <span key={h.label} className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-border)] px-2.5 py-1 text-xs text-[var(--lt-text-muted)]">
+                                    <span aria-hidden="true">{h.kind === 'best' ? '👍' : '👎'}</span>
+                                    <span className="font-semibold text-[var(--lt-text)]">{h.label}</span>
+                                    <span className="font-display font-bold" style={{ color: scoreTextColor(h.score) }}>{h.score.toFixed(1)}</span>
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                    {(ponderable.length + nonPonderable.length) > 0 && (
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setShowAllScores((v) => !v); }}
+                            aria-expanded={showAllScores}
+                            className="text-xs font-bold text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                        >
+                            {showAllScores ? 'Ocultar notas ▴' : `Ver las ${ponderable.length + nonPonderable.length} notas ▾`}
+                        </button>
+                    )}
+
                     {/* Criteria Bars (Grouped) */}
-                    {(ponderable.length > 0 || nonPonderable.length > 0) && (
+                    {showAllScores && (ponderable.length > 0 || nonPonderable.length > 0) && (
                         <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] p-3 space-y-3">
 
                             {/* Ponderable (Standard) - Grid */}
@@ -432,14 +481,6 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         </div>
                     )}
 
-                    {/* Review Text */}
-                    {review.comment && (
-                        <div className="pl-3 border-l-2 border-[var(--lt-accent-border)]">
-                            <p className="text-[var(--lt-text)] text-sm leading-relaxed italic line-clamp-3">
-                                "{review.comment}"
-                            </p>
-                        </div>
-                    )}
 
                     {/* Tags */}
                     {(review.tags && review.tags.length > 0) || (review.userTags && review.userTags.length > 0) ? (
