@@ -15,17 +15,20 @@ const SHOW_ON = /^\/($|search|list\/|place\/|group\/)/;
 /** Tres tarjetas la primera vez que alguien entra. Se pueden saltar y volver a ver desde Ayuda. */
 export const WelcomeCards: React.FC = () => {
     const { pathname } = useLocation();
-    const [open, setOpen] = useState(() => !welcomeSeen() && SHOW_ON.test(pathname));
+    // Se decide en cada ruta: quien entra por /login o /ayuda las ve al llegar a Inicio.
+    const [closed, setClosed] = useState(false);
+    const [forced, setForced] = useState(false);
     const [step, setStep] = useState(0);
+    const open = forced || (!closed && !welcomeSeen() && SHOW_ON.test(pathname));
 
     useEffect(() => {
-        const reopen = () => { setStep(0); setOpen(true); };
+        const reopen = () => { setStep(0); setForced(true); };
         window.addEventListener(WELCOME_EVENT, reopen);
         return () => window.removeEventListener(WELCOME_EVENT, reopen);
     }, []);
 
     if (!open) return null;
-    const close = () => { markWelcomeSeen(); setOpen(false); };
+    const close = () => { markWelcomeSeen(); setClosed(true); setForced(false); };
     const card = CARDS[step];
     const last = step === CARDS.length - 1;
 
