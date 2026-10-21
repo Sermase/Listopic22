@@ -26,7 +26,6 @@ import { itemNameKey, resolvePlaceItemByName, reviewItemId, type PlaceItemLike }
 import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
 import { FeaturedQuote } from '../components/FeaturedQuote';
 import { HelpTip } from '../components/HelpTip';
-import { compareByUseful } from '../lib/reviewOrder';
 
 
 // react-router ya entrega el parámetro decodificado: un segundo decode rompe
@@ -104,7 +103,6 @@ export const GroupPage: React.FC = () => {
     const [reviewViewMode, setReviewViewMode] = useState<'list' | 'full' | 'gallery'>('list');
     const [groupActiveTab, setGroupActiveTab] = useState<'reviews' | 'photos'>('reviews');
     const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
-    const [showListAvg, setShowListAvg] = useState(false);
 
     // Infinite Scroll
     const [visibleCount, setVisibleCount] = useState(4);
@@ -249,7 +247,7 @@ export const GroupPage: React.FC = () => {
                 }
             }
 
-            feats.sort(compareByUseful((r: any) => toMillis(r.createdAt)));
+            feats.sort((a: any, b: any) => toMillis(b.createdAt) - toMillis(a.createdAt));
 
 
             // --- Enrichment: Users & Lists (FIX for missing names) ---
@@ -778,22 +776,17 @@ export const GroupPage: React.FC = () => {
                                     <HelpTip topic="criterios" />
                                 </h3>
                                 {listStats && primaryListName && (
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowListAvg((v) => !v)}
-                                        aria-pressed={showListAvg}
-                                        className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
-                                    >
+                                    <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-[var(--lt-text-muted)]">
                                         <span className="inline-block w-1 h-3 rounded-full bg-[var(--lt-text-muted)] opacity-60 shrink-0" aria-hidden />
-                                        <span className="truncate">{showListAvg ? `La marca es la media de «${primaryListName}»` : `Comparar con «${primaryListName}»`}</span>
-                                    </button>
+                                        <span className="truncate">La marca es la media de «{primaryListName}»</span>
+                                    </p>
                                 )}
                             </div>
 
                             {/* Ponderable (Charts) */}
                             <div className="space-y-4">
                                 {stats.ponderable.map((c, i) => {
-                                    const listAvg = showListAvg ? listStats?.[c.key] : undefined;
+                                    const listAvg = listStats?.[c.key];
                                     return (
                                         <div key={c.key}>
                                             <div className="flex justify-between items-end mb-1">

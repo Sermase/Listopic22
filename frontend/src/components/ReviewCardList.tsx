@@ -389,7 +389,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                             className={`relative inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${liked ? 'text-pink-500' : 'text-[var(--lt-text-muted)] hover:text-pink-500'}`}
                         >
                             <ThumbsUp className={`w-4 h-4 ${liked ? 'fill-current' : ''}`} />
-                            <span>Útil{likeCount > 0 ? ` · ${likeCount}` : ''}</span>
+                            {likeCount > 0 && <span>{likeCount}</span>}
                             {showAnimation && (
                                 <span className={`absolute -top-6 left-1/2 -translate-x-1/2 font-extrabold text-xs whitespace-nowrap pointer-events-none drop-shadow-md animate-[float-up_0.8s_cubic-bezier(0.2,0.8,0.2,1)_forwards] ${reactionAnimationTone === 'like' ? 'text-pink-500' : 'text-gray-400'}`}>
                                     {reactionAnimationText}

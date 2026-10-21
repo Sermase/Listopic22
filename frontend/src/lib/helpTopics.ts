@@ -75,7 +75,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Reseñas',
         body: [
             'Una reseña son tus notas y, si quieres, unas líneas contando qué tal. El texto es lo que más ayuda a otros a decidir.',
-            'Marca «Útil» en las reseñas que te sirvan: las más útiles salen primero.',
+            'Dale a 👍 a las reseñas que te gusten: la más votada sale destacada en el sitio y en el plato.',
         ],
     },
     {
