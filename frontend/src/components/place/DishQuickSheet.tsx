@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAuthPrompt } from '../../context/AuthPromptContext';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { dishReviewUrl } from './dishReviewUrl';
+import { reviewItemId, type ReviewItemRef } from '../../lib/placeItems';
 
 export interface DishQuickSheetDish {
     name: string;
@@ -23,9 +24,11 @@ export interface DishQuickSheetDish {
     /** Chips de alérgenos ya pintados por la ficha del sitio. */
     allergens?: React.ReactNode;
     listId?: string | null;
+    /** Ids del elemento (los mismos que agrupan La Carta): así salen también reseñas con un nombre antiguo. */
+    itemIds?: string[];
 }
 
-interface SheetReview {
+interface SheetReview extends ReviewItemRef {
     id?: string;
     itemName?: string;
     listId?: string;
@@ -56,10 +59,11 @@ export const DishQuickSheet: React.FC<DishQuickSheetProps> = ({ placeId, dish, r
     const { user } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
 
-    const dishReviews = useMemo(
-        () => reviews.filter((r) => norm(r.itemName) === norm(dish.name) && (r.visibility ?? 'public') === 'public'),
-        [reviews, dish.name],
-    );
+    const dishReviews = useMemo(() => {
+        const ids = new Set(dish.itemIds ?? []);
+        const isThisDish = (r: SheetReview) => (ids.size > 0 ? ids.has(reviewItemId(r)) : norm(r.itemName) === norm(dish.name));
+        return reviews.filter((r) => isThisDish(r) && (r.visibility ?? 'public') === 'public');
+    }, [reviews, dish.itemIds, dish.name]);
     const lists = useMemo(() => {
         const map = new Map<string, string>();
         dishReviews.forEach((r) => { if (r.listId && !map.has(r.listId)) map.set(r.listId, r.listName || 'Lista'); });

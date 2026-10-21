@@ -1910,6 +1910,7 @@ export const PlacePage: React.FC = () => {
                                                             type="button"
                                                             onClick={() => setQuickDish({
                                                                 name: item.name,
+                                                                itemIds: [item.id, ...item.keys],
                                                                 photo: item.photo,
                                                                 rating: item.rating,
                                                                 reviewCount: item.reviewCount,
@@ -1970,6 +1971,7 @@ export const PlacePage: React.FC = () => {
                                                     type="button"
                                                     onClick={() => setQuickDish({
                                                         name: dish.name,
+                                                        itemIds: [dish.itemId],
                                                         photo: dish.photo,
                                                         rating: dish.avg,
                                                         reviewCount: dish.count,
