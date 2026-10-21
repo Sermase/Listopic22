@@ -1873,29 +1873,13 @@ export const PlacePage: React.FC = () => {
                                                                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/25">No disponible</span>
                                                                 )}
                                                             </div>
-                                                            {item.description && (
-                                                                <p className="mt-0.5 text-xs leading-snug text-[var(--lt-text-muted)] line-clamp-2">{item.description}</p>
+                                                            {/* Descripción, ingredientes y alérgenos, en la ficha rápida del plato. */}
+                                                            {item.reviewCount > 0 && item.rating !== null && (
+                                                                <span className="mt-0.5 block text-xs font-black tabular-nums" style={{ color: scoreTextColor(item.rating) }}>
+                                                                    ★ {item.rating.toFixed(1)}
+                                                                    <span className="ml-1 font-normal text-[var(--lt-text-muted)]">({item.reviewCount})</span>
+                                                                </span>
                                                             )}
-                                                            {item.ingredients && (
-                                                                <p className="mt-0.5 text-[11px] leading-snug text-gray-500 line-clamp-1">
-                                                                    <span aria-hidden="true">🥕 </span>
-                                                                    <span className="sr-only">Ingredientes: </span>
-                                                                    {item.ingredients}
-                                                                </p>
-                                                            )}
-                                                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                                                {item.reviewCount > 0 && item.rating !== null && (
-                                                                    <span className="text-xs font-black tabular-nums" style={{ color: scoreTextColor(item.rating) }}>
-                                                                        ★ {item.rating.toFixed(1)}
-                                                                        <span className="ml-1 font-normal text-[var(--lt-text-muted)]">({item.reviewCount})</span>
-                                                                    </span>
-                                                                )}
-                                                                {item.allergens.map((allergen) => (
-                                                                    <span key={allergen} className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400" title={allergenLabel(allergen)}>
-                                                                        <EmojiLabel {...storedTextChip(findOptionByValue(ALLERGEN_OPTIONS, allergen), allergenLabel(allergen))} />
-                                                                    </span>
-                                                                ))}
-                                                            </div>
                                                         </div>
                                                         {item.price && (
                                                             <span className={`shrink-0 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-2.5 py-1 text-sm font-black tabular-nums text-[var(--lt-text)] ${unavailable ? 'opacity-50' : ''}`}>{item.price}</span>
@@ -1921,7 +1905,7 @@ export const PlacePage: React.FC = () => {
                                                                 available: item.available,
                                                                 listId: itemListId,
                                                                 allergens: item.allergens.length > 0 ? item.allergens.map((allergen) => (
-                                                                    <span key={allergen} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-gray-300">
+                                                                    <span key={allergen} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-gray-300" title={allergenLabel(allergen)}>
                                                                         <EmojiLabel {...storedTextChip(findOptionByValue(ALLERGEN_OPTIONS, allergen), allergenLabel(allergen))} />
                                                                     </span>
                                                                 )) : undefined,
@@ -2021,16 +2005,10 @@ export const PlacePage: React.FC = () => {
                                                         </div>
                                                         <div className="flex items-center gap-2 flex-wrap">
                                                             <span className="text-xs text-[var(--lt-text-muted)]">{dish.count} {dish.count === 1 ? 'reseña' : 'reseñas'}</span>
-                                                            {official?.group && (
-                                                                <span className="text-[11px] text-gray-400">· {official.group}</span>
-                                                            )}
                                                             {official?.discount && (
                                                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">{official.discount}</span>
                                                             )}
                                                         </div>
-                                                        {official?.description && (
-                                                            <p className="mt-0.5 text-[11px] leading-snug text-gray-500 line-clamp-1">{official.description}</p>
-                                                        )}
                                                     </div>
 
                                                     {/* Precio oficial (ficha del negocio) */}

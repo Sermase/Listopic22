@@ -125,7 +125,7 @@ export const DishQuickSheet: React.FC<DishQuickSheetProps> = ({ placeId, dish, r
                     {(dish.description || dish.ingredients || dish.allergens) && (
                         <div className="space-y-1.5 text-sm text-[var(--lt-text)]">
                             {dish.description && <p className="leading-relaxed">{dish.description}</p>}
-                            {dish.ingredients && <p className="text-xs text-[var(--lt-text-muted)]"><span aria-hidden="true">🥕 </span>{dish.ingredients}</p>}
+                            {dish.ingredients && <p className="text-xs text-[var(--lt-text-muted)]"><span aria-hidden="true">🥕 </span><span className="sr-only">Ingredientes: </span>{dish.ingredients}</p>}
                             {dish.allergens && <div className="flex flex-wrap gap-1.5">{dish.allergens}</div>}
                         </div>
                     )}
