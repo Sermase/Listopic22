@@ -1779,7 +1779,7 @@ export const HomePage: React.FC = () => {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className={feedViewMode === 'list' ? 'flex flex-col gap-3' : 'space-y-8'} key="feed">
+                                    <div className={feedViewMode === 'list' ? 'flex flex-col gap-3' : 'space-y-5 sm:space-y-8'} key="feed">
                                         {filteredItems.slice(0, visibleCount).map((review: any) => (
                                             feedViewMode === 'list'
                                                 ? <ReviewCardList key={review.id} review={review} />

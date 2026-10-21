@@ -44,7 +44,7 @@ export const ReviewPhotoCarousel: React.FC<ReviewPhotoCarouselProps> = ({
             : 'from-red-500 to-pink-500';
 
     return (
-        <div className={`relative w-[calc(100%-1.5rem)] mx-auto rounded-[1.25rem] overflow-hidden bg-gray-900 shadow-inner group/image ${hasPhotos ? 'aspect-auto' : 'h-32 sm:h-40'}`}>
+        <div className={`relative w-full sm:w-[calc(100%-1.5rem)] mx-auto rounded-2xl sm:rounded-[1.25rem] overflow-hidden bg-gray-900 shadow-inner group/image ${hasPhotos ? 'aspect-auto' : 'h-32 sm:h-40'}`}>
             {hasPhotos ? (
                 <>
                     <ProgressiveImage

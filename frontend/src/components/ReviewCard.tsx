@@ -303,11 +303,11 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
             <article
                 onClick={handleCardClick}
                 style={{ willChange: 'transform' }} // Optimize for GPU
-                className="cursor-pointer group relative flex w-full flex-col overflow-hidden rounded-3xl border border-[var(--lt-border)] bg-[var(--lt-card)] shadow-lg transition-colors duration-300 hover:border-[var(--lt-accent-border)]"
+                className="cursor-pointer group relative flex w-full flex-col overflow-hidden transition-colors duration-300 sm:rounded-3xl sm:border sm:border-[var(--lt-border)] sm:bg-[var(--lt-card)] sm:shadow-lg sm:hover:border-[var(--lt-accent-border)]"
             >
                 {/* 1. Header: User, Context, Menu */}
                 {/* ... (Header code unchanged) ... */}
-                <div className="px-3.5 pt-3.5 pb-3 flex items-center justify-center">
+                <div className="px-1 pt-1 pb-3 sm:px-3.5 sm:pt-3.5 flex items-center justify-center">
                     <div className="flex items-center gap-3 w-full">
                         {/* Living Avatar Ring */}
                         <Link
@@ -386,7 +386,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 />}
 
                 {/* 3. Content Body */}
-                <div className="px-4 pt-3.5 pb-4 space-y-3 flex-1">
+                <div className="px-1 sm:px-4 pt-3.5 pb-4 space-y-3 flex-1">
                     {/* Title & Item */}
                     <div>
                         {review.placeName && (
@@ -502,7 +502,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 </div>
 
                 {/* 4. Footer: Interactive Bar */}
-                <div className="px-4 py-2.5 border-t border-[var(--lt-border)] flex items-center justify-between mt-auto relative z-10">
+                <div className="px-1 sm:px-4 py-2.5 sm:border-t sm:border-[var(--lt-border)] flex items-center justify-between mt-auto relative z-10">
                     <div className="flex items-center gap-4">
                         <button
                             className={`flex items-center gap-1.5 transition-all group/btn ${liked ? 'text-pink-500 scale-105' : 'text-[var(--lt-text-muted)] hover:text-pink-500'} relative`}
@@ -560,6 +560,8 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         />
                     </div>
                 )}
+                {/* En el móvil no hay recuadro: una raya suave separa una reseña de la siguiente. */}
+                <div aria-hidden="true" className="sm:hidden mx-auto mt-2 h-px w-4/5 bg-gradient-to-r from-transparent via-[var(--lt-accent-border)] to-transparent" />
             </article>
 
             {/* Modals */}
