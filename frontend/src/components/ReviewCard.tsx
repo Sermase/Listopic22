@@ -509,7 +509,6 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             onClick={handleLike}
                         >
                             <ThumbsUp className={`w-5 h-5 group-hover/btn:scale-110 transition-transform stroke-[1.5] ${liked ? 'fill-current' : ''}`} />
-                            <span className="text-sm font-semibold">Útil</span>
                             <span className="text-sm font-semibold relative overflow-hidden h-5 min-w-[12px] flex items-center justify-center">
                                 {showAnimation ? (
                                     <span className="animate-[fade-in_0.3s_ease-out_forwards]">{likeCount > 0 ? likeCount : ''}</span>
