@@ -57,7 +57,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Cerca y bueno',
         body: [
             'El Inicio enseña lo mejor valorado a tu alrededor. Por defecto busca a 1 km y recuerda la distancia que elijas.',
-            'Si cerca hay muy poco, amplía el radio un escalón y te lo dice. Si eliges tú la distancia, se respeta.',
+            'Si cerca hay muy poco, amplía el radio (hasta 10 km) y te lo dice. Si eliges tú la distancia, se respeta.',
         ],
     },
     {
