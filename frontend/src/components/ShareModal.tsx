@@ -4,7 +4,7 @@ import { X, MessageSquare, Copy, Send, Search, Check, Share2 } from 'lucide-reac
 import { doc, getDoc } from 'firebase/firestore';
 
 import type { PlaceDetails } from '../hooks/usePlaceDetails';
-import { ShareCardModern, type ModernCardVariant } from './ShareCardModern';
+import { ShareCardModern, ShareCardThumb, type ModernCardVariant } from './ShareCardModern';
 import type { ReviewEntity } from '../hooks/useListDetails';
 import { useAuth } from '../context/AuthContext';
 import { ChatService, type Chat } from '../services/ChatService';
@@ -51,7 +51,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const { user } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
     useBodyScrollLock(isOpen);
-    const shareCardTriggerRef = React.useRef<() => void>(() => { });
+    const shareCardTriggerRef = React.useRef<(variant?: ModernCardVariant) => void>(() => { });
     const fallbackUrl = buildPublicUrl(url || (typeof window !== 'undefined' ? window.location.href : '/'));
 
     const [isChatPanelOpen, setIsChatPanelOpen] = React.useState(false);
@@ -72,32 +72,32 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | undefined>(undefined);
     const [hydratedAuthorPhoto, setHydratedAuthorPhoto] = React.useState<string | undefined>(undefined);
     const closeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+    const stylePickerRef = React.useRef<HTMLDivElement | null>(null);
+    React.useEffect(() => {
+        if (isCardStylePickerOpen) stylePickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, [isCardStylePickerOpen]);
     // Formatos dibujados en canvas con layout determinista
     // (sin html2canvas ni datos desencuadrados).
-    const cardVariantOptions: Array<{ id: ModernCardVariant; label: string; description: string; swatch: string }> = [
+    const cardVariantOptions: Array<{ id: ModernCardVariant; label: string; description: string }> = [
         {
             id: 'story',
             label: 'Story',
-            description: 'Vertical 9:16 con la foto a sangre, nota gigante y criterios. Perfecta para Stories.',
-            swatch: 'linear-gradient(160deg, #0a0e1a 0%, #312e81 45%, #0e7490 100%)',
+            description: '9:16 · Stories',
         },
         {
             id: 'square',
             label: 'Post',
-            description: 'Cuadrada 1:1 para feed y WhatsApp, con los mismos datos bien encuadrados.',
-            swatch: 'linear-gradient(135deg, #312e81 0%, #6d28d9 55%, #f59e0b 100%)',
+            description: '1:1 · Feed y WhatsApp',
         },
         {
             id: 'portrait',
             label: 'Retrato',
-            description: 'Vertical 4:5 para publicaciones de Instagram, con más espacio para datos.',
-            swatch: 'linear-gradient(160deg, #0f766e 0%, #312e81 58%, #7e22ce 100%)',
+            description: '4:5 · Publicación de Instagram',
         },
         {
             id: 'landscape',
             label: 'Banner',
-            description: 'Horizontal 1,91:1 para enlaces, X, Facebook y cabeceras.',
-            swatch: 'linear-gradient(110deg, #111827 0%, #3730a3 55%, #0891b2 100%)',
+            description: '1,91:1 · X, Facebook y enlaces',
         },
     ];
 
@@ -423,7 +423,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             setIsCardStylePickerOpen(true);
             setSelectedCardVariant(null);
             setStatusTone('neutral');
-            setStatusMessage('Elige un estilo antes de generar la tarjeta');
+            setStatusMessage('Toca un formato para verlo en grande y compartirlo');
             return;
         }
 
@@ -448,16 +448,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         );
     };
 
-    const handleGenerateCard = () => {
-        if (!selectedCardVariant) {
-            setStatusTone('error');
-            setStatusMessage('Selecciona un estilo para la tarjeta');
-            return;
-        }
-
+    const handleGenerateCard = (variant: ModernCardVariant) => {
+        setSelectedCardVariant(variant);
         setStatusTone('neutral');
         setStatusMessage(null);
-        shareCardTriggerRef.current();
+        shareCardTriggerRef.current(variant);
         trackSuccessfulShare('image');
     };
 
@@ -589,7 +584,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                         </div>
                         <div className="flex flex-col items-start">
                             <span className="font-bold text-sm">Tarjeta imagen</span>
-                            <span className="text-xs opacity-70">Previsualizar y descargar PNG</span>
+                            <span className="text-xs opacity-70">Mira cómo queda, compártela o guárdala</span>
                         </div>
                     </button>
 
@@ -606,7 +601,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 </div>
 
                 {isCardStylePickerOpen && (
-                    <div className="mt-5 border border-white/10 rounded-xl bg-[var(--lt-bg-deep)] overflow-hidden">
+                    <div ref={stylePickerRef} className="mt-5 border border-white/10 rounded-xl bg-[var(--lt-bg-deep)] overflow-hidden">
                         <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
                             <div className="text-sm font-bold text-white">Estilo de tarjeta</div>
                             <button
@@ -661,38 +656,18 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                                 </div>
                             )}
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                {cardVariantOptions.map((option) => {
-                                    const isSelected = selectedCardVariant === option.id;
-                                    return (
-                                        <button
-                                            key={option.id}
-                                            type="button"
-                                            onClick={() => setSelectedCardVariant(option.id)}
-                                            className={`text-left rounded-xl border p-2.5 transition-all ${isSelected
-                                                ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] shadow-lg shadow-[var(--lt-accent-shadow)]'
-                                                : 'border-white/10 bg-white/5 hover:bg-white/10'
-                                                }`}
-                                        >
-                                            <div
-                                                className="h-14 rounded-lg border border-white/15 mb-2"
-                                                style={{ background: option.swatch }}
-                                            />
-                                            <div className="text-sm font-bold text-white">{option.label}</div>
-                                            <div className="text-[11px] text-gray-400 mt-1 leading-relaxed">{option.description}</div>
-                                        </button>
-                                    );
-                                })}
+                            <div className="grid grid-cols-2 gap-2">
+                                {cardVariantOptions.map((option) => (
+                                    <ShareCardThumb
+                                        key={option.id}
+                                        entity={cardEntity}
+                                        variant={option.id}
+                                        label={option.label}
+                                        hint={option.description}
+                                        onPick={() => handleGenerateCard(option.id)}
+                                    />
+                                ))}
                             </div>
-
-                            <button
-                                type="button"
-                                onClick={handleGenerateCard}
-                                disabled={!selectedCardVariant}
-                                className="w-full py-2.5 rounded-lg bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Generar previsualizacion
-                            </button>
                         </div>
                     </div>
                 )}
