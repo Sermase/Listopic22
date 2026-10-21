@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { PlaceDetails, PlaceOfficialMenuItem } from '../hooks/usePlaceDetails';
 
@@ -99,9 +99,13 @@ describe('PlacePage: carta oficial', () => {
         const order = within(section).getAllByText(/^(Brownie|Tarta de queso|Flan|Natillas)$/).map((node) => node.textContent);
         expect(order).toEqual(names);
 
-        const ingredients = within(section).getByText(/queso, galleta/);
+        // La fila queda limpia: ingredientes y alérgenos salen en la ficha rápida del plato.
+        expect(within(section).queryByText(/queso, galleta/)).toBeNull();
+        fireEvent.click(within(section).getByText('Tarta de queso'));
+        const sheet = screen.getByRole('dialog', { name: 'Tarta de queso' });
+        const ingredients = within(sheet).getByText(/queso, galleta/);
         expect(ingredients.textContent).toContain('Ingredientes:');
-        const lacteos = within(section).getByTitle('🥛 Lácteos');
+        const lacteos = within(sheet).getByTitle('🥛 Lácteos');
         expect(lacteos.textContent).toBe('🥛 Lácteos');
         expect(lacteos.querySelector('[aria-hidden="true"]')?.textContent?.trim()).toBe('🥛');
     });

@@ -212,6 +212,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const [originalData, setOriginalData] = useState<string>(''); // JSON string for deep comparison
 
     const scrollRef = useRef<HTMLDivElement>(null);
+    const commentRef = useRef<HTMLTextAreaElement>(null);
     const handlePointerDown = (e: React.PointerEvent) => {
         // If the user taps on something that is NOT a text input/textarea, blur the active element.
         // This dismisses the mobile keyboard immediately and prevents browser scroll jumps.
@@ -1092,6 +1093,60 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             return next;
         });
     };
+    // Sugerencias para empezar a escribir, sacadas de las propias notas.
+    const scored = ponderableCriteria
+        .filter((c) => typeof criteriaScores[c.id] === 'number')
+        .map((c) => ({ label: c.label || c.id, score: criteriaScores[c.id] as number }))
+        .sort((a, b) => b.score - a.score);
+    const fmtScore = (n: number) => Number(n.toFixed(1)).toLocaleString('es-ES');
+    const opinionStarters = [
+        ...(scored.length > 0 ? [`Lo mejor, ${scored[0].label.toLowerCase()} (${fmtScore(scored[0].score)}): `] : []),
+        ...(scored.length > 1 && scored[0].score - scored[scored.length - 1].score >= 1
+            ? [`Lo peor, ${scored[scored.length - 1].label.toLowerCase()} (${fmtScore(scored[scored.length - 1].score)}): `]
+            : []),
+        '¿Repetiría? ',
+    ];
+    const addStarter = (starter: string) => {
+        setComment((prev) => (prev.trim() ? `${prev.trimEnd()}\n${starter}` : starter));
+        // Aquí sí hay intención de escribir: se abre el teclado.
+        window.setTimeout(() => {
+            const el = commentRef.current;
+            if (!el) return;
+            el.focus();
+            el.setSelectionRange(el.value.length, el.value.length);
+        }, 0);
+    };
+    const opinionBlock = (
+        <div className="space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-accent)] flex items-center gap-1.5">
+                <span>💬</span> Tu opinión <span className="normal-case font-normal tracking-normal text-[var(--lt-text-muted)]">· opcional, pero es lo que más se lee al decidir</span>
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+                {opinionStarters.map((starter) => (
+                    <button
+                        key={starter}
+                        type="button"
+                        onClick={() => addStarter(starter)}
+                        className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-2.5 py-1 text-xs font-semibold text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)]"
+                    >
+                        {starter.trim().endsWith('?') ? starter.trim() : `${starter.replace(/[:\s]+$/, '')}…`}
+                    </button>
+                ))}
+            </div>
+            <textarea
+                ref={commentRef}
+                value={comment}
+                onChange={e => setComment(e.target.value)}
+                maxLength={2000}
+                placeholder="¿Qué te pareció? Los detalles que hacen la diferencia..."
+                rows={3}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all placeholder:text-gray-600 resize-none"
+            />
+            {comment.length > 0 && (
+                <p className={`text-right text-[10px] ${comment.length > 1800 ? 'text-amber-500' : 'text-gray-600'}`}>{comment.length}/2000</p>
+            )}
+        </div>
+    );
     const overallBand = scoreBand(overallRating);
     const overallBadge = SCORE_BADGE[overallBand];
     const scoringProgress = scoreSummary.requiredCount > 0 ? scoreSummary.scoredCount / scoreSummary.requiredCount : 0;
@@ -1363,6 +1418,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                         ))}
                                     </div>
 
+                                    {/* La opinión, justo después de las notas que cuentan */}
+                                    <div className="border-t border-[var(--lt-border)] pt-5">{opinionBlock}</div>
+
                                     {/* Detalles opcionales: no cuentan para la nota */}
                                     {nonPonderableCriteria.length > 0 && (
                                         <div className="border-t border-[var(--lt-border)] pt-5 space-y-6">
@@ -1396,23 +1454,10 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                 </div>
                             )}
 
-                            {/* ── Sección: Tu opinión ─────────────────── */}
-                            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-accent)] flex items-center gap-1.5">
-                                    <span>💬</span> Tu opinión
-                                </p>
-                                <textarea
-                                    value={comment}
-                                    onChange={e => setComment(e.target.value)}
-                                    maxLength={2000}
-                                    placeholder="¿Qué te pareció? Los detalles que hacen la diferencia..."
-                                    rows={3}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all placeholder:text-gray-600 resize-none"
-                                />
-                                {comment.length > 0 && (
-                                    <p className={`text-right text-[10px] ${comment.length > 1800 ? 'text-amber-500' : 'text-gray-600'}`}>{comment.length}/2000</p>
-                                )}
-                            </div>
+                            {/* ── Sección: Tu opinión (si la lista no tiene criterios que cuenten) ── */}
+                            {!(criteriaLoaded && hasComputingCriteria) && (
+                                <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">{opinionBlock}</div>
+                            )}
 
                             {/* ── Sección: Fotos ──────────────────────── */}
                             <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
