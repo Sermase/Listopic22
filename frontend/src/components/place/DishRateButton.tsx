@@ -14,7 +14,7 @@ interface DishRateButtonProps {
 }
 
 /**
- * Botoncito «+» de cada fila de la carta: abre la valoración de ESE plato con
+ * Botoncito «+» de cada fila de la carta: abre la reseña de ESE plato con
  * los datos fijados. Va fuera del enlace de la fila (hit area propia) y para
  * la propagación por si acaso.
  */

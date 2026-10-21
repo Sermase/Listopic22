@@ -8,8 +8,8 @@
  * - `onGoToTab`: para los atajos a Carta y Promos (pasa por el aviso de cambios
  *   sin guardar de la página). Si no llega, se cambia `?tab=` directamente.
  *
- * Cada fuente (visitas, valoraciones, platos, campañas) carga y falla por su
- * cuenta (T4): las valoraciones y la carta salen antes y las visitas después.
+ * Cada fuente (visitas, reseñas, platos, campañas) carga y falla por su
+ * cuenta (T4): las reseñas y la carta salen antes y las visitas después.
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -105,9 +105,9 @@ export const BusinessStatsSection: React.FC<BusinessStatsSectionProps> = ({ plac
         const coverage = reviewCoverage(read.reviews, read);
         const current = countReviewsIn(read.reviews, currentKeys, coverage);
         const previous = countReviewsIn(read.reviews, previousKeys, coverage);
-        let note = 'Valoraciones públicas en el periodo';
+        let note = 'Reseñas públicas en el periodo';
         if (current.partial) {
-            note = read.newestFirst ? 'Contamos tus 100 valoraciones más recientes' : 'Contamos 100 de tus valoraciones';
+            note = read.newestFirst ? 'Contamos tus 100 reseñas más recientes' : 'Contamos 100 de tus reseñas';
         }
         return {
             count: current.count,

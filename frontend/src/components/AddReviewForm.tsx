@@ -39,7 +39,7 @@ interface AddReviewFormProps {
 
 const REVIEW_CREATE_TOASTS = [
     'Tu veredicto ya está en la mesa.',
-    'Valoración publicada: criterio fino y sin titubeos.',
+    'Reseña publicada: criterio fino y sin titubeos.',
     'Nuevo punto en el mapa del buen gusto.',
     'Anotado. El ranking acaba de ponerse interesante.',
 ] as const;
@@ -181,7 +181,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null);
 
     const [comment, setComment] = useState('');
-    // Nota guardada al editar (solo se usa si la valoración antigua no tiene puntuaciones).
+    // Nota guardada al editar (solo se usa si la reseña antigua no tiene puntuaciones).
     const [storedOverallRating, setStoredOverallRating] = useState<number | null>(null);
 
     // Changed: Store full definition list to preserve ORDER
@@ -233,7 +233,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const isNew = !editReviewId;
 
     // Borrador: va atado a lista + sitio y solo se recupera al elegir ese mismo
-    // sitio (lib/reviewDraft). Antes salía en cualquier valoración de la lista.
+    // sitio (lib/reviewDraft). Antes salía en cualquier reseña de la lista.
     const selectedPlaceId = selectedPlace?.id || null;
     const draftCheckedFor = useRef<string | null>(null);
     useEffect(() => {
@@ -444,7 +444,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 );
             } catch (e) {
                 console.error("Error fetching review for edit:", e);
-                setError("Error cargando la valoración para editar");
+                setError("Error cargando la reseña para editar");
             }
         };
 
@@ -535,7 +535,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             });
                         }
 
-                        // Valoración nueva: ningún criterio viene puntuado. Solo se
+                        // Reseña nueva: ningún criterio viene puntuado. Solo se
                         // conservan notas de esta lista (p. ej. de un borrador).
                         if (!editReviewId) {
                             const ids = new Set(cList.map(c => c.id));
@@ -1051,7 +1051,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
             showToast({
                 variant: 'success',
-                title: isNew ? 'Valoración publicada' : 'Cambios guardados',
+                title: isNew ? 'Reseña publicada' : 'Cambios guardados',
                 message: isNew ? pickRandom(REVIEW_CREATE_TOASTS) : pickRandom(REVIEW_EDIT_TOASTS),
             });
             // El borrador se guarda con la lista elegida (en una Minilista no es finalListId).
@@ -1066,7 +1066,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             showToast({
                 variant: 'error',
                 title: 'No se pudo guardar',
-                message: 'Hubo un problema al guardar la valoración. Inténtalo de nuevo en unos segundos.',
+                message: 'Hubo un problema al guardar la reseña. Inténtalo de nuevo en unos segundos.',
             });
         } finally {
             setLoading(false);
@@ -1123,7 +1123,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             </div>
                             <div>
                                 <h2 className="text-base font-bold text-white font-display leading-tight">
-                                    {isNew ? 'Nueva valoración' : 'Editar valoración'}
+                                    {isNew ? 'Nueva reseña' : 'Editar reseña'}
                                 </h2>
                                 {listData?.name && (
                                     <p className="text-xs text-[var(--lt-accent)]/60 mt-0.5">en {listData.name}</p>
@@ -1237,7 +1237,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                     >
                                                         {selected && <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-[var(--lt-accent)]" />}
                                                         <span className="truncate">{element.name}</span>
-                                                        <span className="text-[10px] font-bold tabular-nums text-[var(--lt-text-muted)]" title={`${element.count} ${element.count === 1 ? 'valoración' : 'valoraciones'}`}>
+                                                        <span className="text-[10px] font-bold tabular-nums text-[var(--lt-text-muted)]" title={`${element.count} ${element.count === 1 ? 'reseña' : 'reseñas'}`}>
                                                             {element.count}
                                                         </span>
                                                     </button>
@@ -1291,12 +1291,12 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                 )}
                             </div>
 
-                            {/* ── Sección: Valoración ─────────────────── */}
+                            {/* ── Sección: Reseña ─────────────────── */}
                             {criteriaLoaded && hasComputingCriteria ? (
                                 <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-4 space-y-5">
                                     <div className="flex items-center justify-between gap-3">
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-accent)] flex items-center gap-1.5">
-                                            <span aria-hidden>⭐</span> Valoración
+                                            <span aria-hidden>⭐</span> Reseña
                                         </p>
                                         <span
                                             className={`text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full ${scoreSummary.complete
@@ -1580,7 +1580,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             >
                                 {loading
                                     ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>
-                                    : isNew ? '✨ Publicar valoración' : '💾 Guardar Cambios'
+                                    : isNew ? '✨ Publicar reseña' : '💾 Guardar Cambios'
                                 }
                             </button>
                         </div>

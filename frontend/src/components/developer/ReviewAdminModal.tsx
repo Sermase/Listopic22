@@ -21,7 +21,7 @@ const initialTags = (review: Record<string, unknown>): string[] => [...new Set([
 ].filter((t): t is string => typeof t === 'string' && t.trim().length > 0).map((t) => t.trim()))];
 
 /**
- * Valoración en Developer: todo el detalle y edición por el servidor (adminUpdateReview).
+ * Reseña en Developer: todo el detalle y edición por el servidor (adminUpdateReview).
  * La nota global no se escribe a mano si la Lista tiene criterios: se recalcula como al valorar.
  */
 export const ReviewAdminModal: React.FC<Props> = ({ path, onClose, onSaved }) => {
@@ -111,14 +111,14 @@ export const ReviewAdminModal: React.FC<Props> = ({ path, onClose, onSaved }) =>
     const save = async () => {
         if (changeCount === 0) return;
         const summary = Object.keys(changes).map((k) => ({ itemName: 'nombre', comment: 'comentario', tags: 'etiquetas', scores: 'puntuaciones', overallRating: 'nota global', authorUid: 'AUTOR' }[k] || k)).join(', ');
-        if (!confirm(`¿Guardar cambios (${summary}) en esta valoración?${changes.authorUid ? '\n\nCambiar el autor recalcula los contadores, la experiencia y las medallas de los dos usuarios.' : ''}`)) return;
+        if (!confirm(`¿Guardar cambios (${summary}) en esta reseña?${changes.authorUid ? '\n\nCambiar el autor recalcula los contadores, la experiencia y las medallas de los dos usuarios.' : ''}`)) return;
         setSaving(true);
         setSaveError(null);
         setSaveResult(null);
         try {
             const result = await adminUpdateReview(path, changes, reason);
             const recount = result.recounted.length
-                ? ` · Recontados: ${result.recounted.map((r) => `${r.uid} (${r.reviewsCount} valoraciones)`).join(', ')}`
+                ? ` · Recontados: ${result.recounted.map((r) => `${r.uid} (${r.reviewsCount} reseñas)`).join(', ')}`
                 : '';
             setSaveResult(result.changed.length ? `Guardado: ${result.changed.join(', ')}${recount}` : 'No había nada que cambiar.');
             onSaved?.(result.review);
@@ -135,11 +135,11 @@ export const ReviewAdminModal: React.FC<Props> = ({ path, onClose, onSaved }) =>
     const h = 'flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-gray-400';
 
     return (
-        <div className="fixed inset-0 z-[1300] flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Valoración">
+        <div className="fixed inset-0 z-[1300] flex items-end justify-center bg-black/70 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Reseña">
             <div className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#121624] shadow-2xl sm:rounded-2xl">
                 <div className="flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4">
                     <div className="min-w-0">
-                        <h3 className="truncate text-lg font-bold text-white">{itemName || 'Valoración'}</h3>
+                        <h3 className="truncate text-lg font-bold text-white">{itemName || 'Reseña'}</h3>
                         <p className="truncate text-xs text-gray-400">
                             {detail?.place?.name || String(review?.placeName ?? '')}{detail?.place?.city ? ` · ${detail.place.city}` : ''}
                         </p>

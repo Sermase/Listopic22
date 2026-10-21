@@ -515,7 +515,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                             />
                             <div>
                                 <span className="block text-sm font-medium text-white">Solo Lectura</span>
-                                <span className="block text-xs text-gray-500">Los visitantes pueden ver la lista pero solo tú (y editores) pueden añadir valoraciones.</span>
+                                <span className="block text-xs text-gray-500">Los visitantes pueden ver la lista pero solo tú (y editores) pueden añadir reseñas.</span>
                             </div>
                         </label>
                         <label className="flex items-center gap-3 cursor-pointer">
@@ -529,7 +529,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                             />
                             <div>
                                 <span className="block text-sm font-medium text-white">Colaborativa (Escritura)</span>
-                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir sus propias valoraciones a esta lista.</span>
+                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir sus propias reseñas a esta lista.</span>
                             </div>
                         </label>
                     </div>

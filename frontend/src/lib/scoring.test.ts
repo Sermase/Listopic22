@@ -42,7 +42,7 @@ function seededRandom(seed: number) {
 }
 
 describe('scoring: vectores compartidos con el servidor', () => {
-    it.each(vectors.review)('nota de valoración: $name', ({ criteria, scores, expected, ...rest }) => {
+    it.each(vectors.review)('nota de reseña: $name', ({ criteria, scores, expected, ...rest }) => {
         const options = 'options' in rest ? (rest.options as { useWeights?: boolean }) : undefined;
         expect(computeReviewScore(scores as ScoresInput, criteria as CriteriaInput, options)).toEqual(expected);
     });
@@ -55,7 +55,7 @@ describe('scoring: vectores compartidos con el servidor', () => {
         expect(reviewScoreForList(review as ReviewLike, list as Parameters<typeof reviewScoreForList>[1])).toEqual(expected);
     });
 
-    it.each(vectors.ranking)('ranking: media $average con $count valoraciones (C=$prior)', ({ average, count, prior, position }) => {
+    it.each(vectors.ranking)('ranking: media $average con $count reseñas (C=$prior)', ({ average, count, prior, position }) => {
         expect(rankPosition(average, count, prior)).toBeCloseTo(position, 9);
     });
 
@@ -134,19 +134,19 @@ describe('scoring: medias', () => {
     });
 });
 
-describe('ranking único: una sola valoración no basta para encabezar', () => {
-    it('10 con 1 valoración queda por debajo de 8,5 con 10 valoraciones (C = 7)', () => {
+describe('ranking único: una sola reseña no basta para encabezar', () => {
+    it('10 con 1 reseña queda por debajo de 8,5 con 10 reseñas (C = 7)', () => {
         expect(rankPosition(10, 1)).toBeCloseTo(7.75, 10);
         expect(rankPosition(8.5, 10)).toBeGreaterThan(rankPosition(10, 1));
     });
 
-    it('cualquier media de 8 o más con 10 valoraciones supera a un 10 con 1', () => {
+    it('cualquier media de 8 o más con 10 reseñas supera a un 10 con 1', () => {
         for (const avg of [8, 8.5, 9, 9.5]) {
             expect(rankPosition(avg, 10)).toBeGreaterThan(rankPosition(10, 1));
         }
     });
 
-    it('con muchas valoraciones manda la media real', () => {
+    it('con muchas reseñas manda la media real', () => {
         expect(rankPosition(9, 1000)).toBeGreaterThan(8.95);
         expect(rankPosition(9, 100)).toBeGreaterThan(rankPosition(7.5, 100));
     });
@@ -155,17 +155,17 @@ describe('ranking único: una sola valoración no basta para encabezar', () => {
         expect(rankPosition(9, 2)).toBeGreaterThan(rankPosition(6, 100));
     });
 
-    it('compareByRank ordena por posición y desempata por número de valoraciones', () => {
+    it('compareByRank ordena por posición y desempata por número de reseñas', () => {
         const items = [
             { id: 'uno-de-10', average: 10, count: 1 },
             { id: 'diez-de-8.5', average: 8.5, count: 10 },
             { id: 'empate-a', average: 8, count: 3 },
             { id: 'empate-b', average: 8, count: 3 },
-            { id: 'sin-valoraciones', average: null, count: 0 },
+            { id: 'sin-reseñas', average: null, count: 0 },
         ];
         const order = [...items].sort(compareByRank).map((i) => i.id);
         expect(order[0]).toBe('diez-de-8.5');
-        expect(order[order.length - 1]).toBe('sin-valoraciones');
+        expect(order[order.length - 1]).toBe('sin-reseñas');
     });
 });
 
@@ -179,7 +179,7 @@ describe('scoringWeights', () => {
 });
 
 // Regla histórica (confirmada 30/09/2026): un criterio que no existía cuando se
-// hizo la valoración NO entra en su cálculo. Nunca se sustituye por 0, 5 ni nada.
+// hizo la reseña NO entra en su cálculo. Nunca se sustituye por 0, 5 ni nada.
 describe('regla histórica de criterios nuevos', () => {
     const HAND_EXPECTED = [7, 8, 7, 8, 7];
     type ListFixture = { criteriaDefinition: CriteriaInput; scoringWeights: Record<string, number>; parentListId: string | null };
@@ -201,7 +201,7 @@ describe('regla histórica de criterios nuevos', () => {
         expect(score).not.toBeCloseTo((old as { notWith: { five: number } }).notWith.five, 1);
     });
 
-    it('la valoración antigua queda «incompleta» pero con nota válida', () => {
+    it('la reseña antigua queda «incompleta» pero con nota válida', () => {
         const [old] = vectors.historic;
         const list = old.list as ListFixture;
         const r = computeReviewScore(old.scores as ScoresInput, list.criteriaDefinition, { weights: list.scoringWeights });

@@ -1,4 +1,4 @@
-// Inicio de sesión y una valoración nueva de punta a punta (Firestore emulado).
+// Inicio de sesión y una reseña nueva de punta a punta (Firestore emulado).
 import { test, expect, login } from './support';
 
 const FIRESTORE = `http://${process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'}/v1/projects/demo-listopic/databases/(default)/documents`;
@@ -22,7 +22,7 @@ test('valorar un elemento y verlo en la Lista', async ({ page, errors }) => {
   const sliders = page.locator('input[type="range"]');
   await expect(sliders.first()).toBeVisible();
   for (const slider of await sliders.all()) await slider.fill('8');
-  await page.getByRole('button', { name: /Publicar valoración/ }).click();
+  await page.getByRole('button', { name: /Publicar reseña/ }).click();
   await expect.poll(async () => (await reviewsBy('eva', 'pruebas')).length, { timeout: 15_000 }).toBe(before + 1);
   await page.goto('/list/pruebas');
   await page.getByLabel('Distancia o zona').selectOption('r:all');

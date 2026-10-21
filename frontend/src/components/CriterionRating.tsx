@@ -24,7 +24,7 @@ interface CriterionRatingProps {
 const UNSCORED_TRACK = 'var(--lt-border)';
 
 /**
- * Un criterio de la valoración. Empieza "Sin puntuar": el deslizador no trae
+ * Un criterio de la reseña. Empieza "Sin puntuar": el deslizador no trae
  * ninguna nota puesta hasta que la persona lo toca (también vale tocar el
  * centro o pulsar Enter para dejar el 5).
  */

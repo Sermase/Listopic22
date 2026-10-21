@@ -192,7 +192,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const handleLike = async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('indicar que te gusta esta valoración');
+            openAuthPrompt('indicar que te gusta esta reseña');
             return;
         }
         if (!review.id || !review.listId) return;
@@ -225,7 +225,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const handleSaveClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('guardar esta valoración');
+            openAuthPrompt('guardar esta reseña');
             return;
         }
         setIsSaveModalOpen(true);
@@ -238,14 +238,14 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
     const handleDelete = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (await confirm({ title: '¿Eliminar esta valoración?', message: 'No se puede deshacer.', confirmLabel: 'Eliminar', destructive: true })) {
+        if (await confirm({ title: '¿Eliminar esta reseña?', message: 'No se puede deshacer.', confirmLabel: 'Eliminar', destructive: true })) {
             setIsDeleting(true);
             try {
                 await ReviewService.deleteReview(review.listId, review.id, queryClient);
                 if (onDelete) onDelete(review.id);
             } catch (error) {
                 console.error(error);
-                showToast({ variant: 'error', message: 'No se pudo eliminar la valoración.' });
+                showToast({ variant: 'error', message: 'No se pudo eliminar la reseña.' });
                 setIsDeleting(false);
             }
         }
@@ -254,7 +254,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const handleReportClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('reportar esta valoración');
+            openAuthPrompt('reportar esta reseña');
             return;
         }
         setShowReportModal(true);
@@ -492,7 +492,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             <Bookmark className="w-5 h-5 stroke-[1.5]" />
                         </button>
                         <button
-                            aria-label="Compartir valoración"
+                            aria-label="Compartir reseña"
                             className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors p-1"
                             onClick={handleShareClick}
                         >
@@ -530,16 +530,16 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
             <ShareModal
                 isOpen={isShareOpen}
                 onClose={() => setIsShareOpen(false)}
-                title={`Compartir valoración`}
+                title={`Compartir reseña`}
                 url={reviewShareUrl}
-                text={`¡Mira esta valoración de ${review.itemName} en ${review.placeName}!`}
+                text={`¡Mira esta reseña de ${review.itemName} en ${review.placeName}!`}
                 review={review}
                 shareEntity={(() => {
                     const shareCriteria = buildShareCriteriaGroups(review.scores, review.criteriaDefinition);
                     return {
                     type: 'review',
                     id: review.id,
-                    title: review.itemName || 'Valoración',
+                    title: review.itemName || 'Reseña',
                     subtitle: review.placeName || 'Lugar',
                     description: review.comment,
                     route: review.placeId && review.itemName ? reviewRoute : undefined,
@@ -565,7 +565,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 isOpen={showReportModal}
                 onClose={() => setShowReportModal(false)}
                 targetId={review.id || ''}
-                targetName={review.itemName || 'Valoración'}
+                targetName={review.itemName || 'Reseña'}
                 itemName={review.placeName}
                 targetType="review"
                 targetOwnerId={review.userId || review.authorId}

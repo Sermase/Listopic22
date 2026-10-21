@@ -173,7 +173,7 @@ export const PlacePage: React.FC = () => {
             el.setAttribute('content', content);
         };
         setMeta('og:title', title);
-        setMeta('og:description', `${place.reviewCount} valoraciones · ${place.address || place.name}`);
+        setMeta('og:description', `${place.reviewCount} reseñas · ${place.address || place.name}`);
         setMeta('og:url', window.location.href);
         setMeta('og:type', 'website');
         if (place.photoUrl) setMeta('og:image', place.photoUrl);
@@ -313,7 +313,7 @@ export const PlacePage: React.FC = () => {
 
     const handleOpenReviewFlow = () => {
         if (!user) {
-            openAuthPrompt('añadir una valoración');
+            openAuthPrompt('añadir una reseña');
             return;
         }
         setSelectedListId(fromListId || null);
@@ -576,7 +576,7 @@ export const PlacePage: React.FC = () => {
                     : [r.photoUrl];
                 reviewPhotos.forEach(photoUrl => {
                     addPhoto(photoUrl, {
-                        caption: r.itemName || r.authorName || 'Foto de valoración',
+                        caption: r.itemName || r.authorName || 'Foto de reseña',
                         source: 'review',
                     });
                 });
@@ -915,12 +915,12 @@ export const PlacePage: React.FC = () => {
                         {/* Notas y acción principal: la general con «Valorar» en una fila; la de críticos, aparte debajo */}
                         <div className="flex flex-col items-stretch gap-2 md:items-end">
                             <div className="flex items-center gap-2">
-                                {/* Nota Listopic global (provisional) + nº de valoraciones */}
+                                {/* Nota Listopic global (provisional) + nº de reseñas */}
                                 {place.reviewCount > 0 ? (
                                     <button
                                         type="button"
                                         onClick={() => setActiveTab('stats')}
-                                        title="Nota Listopic: media de las valoraciones públicas (sin bots) en todas sus Listas. Toca para ver el detalle por Lista."
+                                        title="Nota Listopic: media de las reseñas públicas (sin bots) en todas sus Listas. Toca para ver el detalle por Lista."
                                         className="flex min-w-0 items-center gap-2 pl-1 pr-3 py-1 rounded-full text-sm font-bold border border-[var(--lt-border-strong)] bg-[var(--lt-glass)] backdrop-blur-md text-[var(--lt-text)]"
                                     >
                                         <span className="inline-flex shrink-0 items-center gap-1 px-2 py-0.5 rounded-full" style={scoreBadgeStyle(place.avgScore)}>
@@ -928,15 +928,15 @@ export const PlacePage: React.FC = () => {
                                             {place.avgScore.toFixed(1)}
                                         </span>
                                         <span className="truncate text-xs font-semibold text-[var(--lt-text-muted)]">
-                                            {place.reviewCount} {place.reviewCount === 1 ? 'valoración' : 'valoraciones'}
+                                            {place.reviewCount} {place.reviewCount === 1 ? 'reseña' : 'reseñas'}
                                         </span>
                                     </button>
                                 ) : (
                                     <span
                                         className="px-3 py-1 rounded-full text-xs font-semibold border border-[var(--lt-border-strong)] text-[var(--lt-text-muted)]"
-                                        title={place.visibleReviewCount > 0 ? 'Solo tiene valoraciones de bots: la nota pública es la de personas.' : undefined}
+                                        title={place.visibleReviewCount > 0 ? 'Solo tiene reseñas de bots: la nota pública es la de personas.' : undefined}
                                     >
-                                        {place.visibleReviewCount > 0 ? NO_PUBLIC_RATING_LABEL : 'Sin valoraciones'}
+                                        {place.visibleReviewCount > 0 ? NO_PUBLIC_RATING_LABEL : 'Sin reseñas'}
                                     </span>
                                 )}
                                 <button
@@ -1603,7 +1603,7 @@ export const PlacePage: React.FC = () => {
                             className={placeTabClass(activeTab === 'reviews')}
                             style={activeTab === 'reviews' ? activeTabStyle : undefined}
                         >
-                            <MessageSquare className="w-4 h-4" /> Valoraciones ({place.reviews.length})
+                            <MessageSquare className="w-4 h-4" /> Reseñas ({place.reviews.length})
                         </button>
                         <button
                             onClick={() => setActiveTab('dishes')}
@@ -1652,7 +1652,7 @@ export const PlacePage: React.FC = () => {
                             {/* Reviews header with view toggle */}
                             <PlaceSectionHeader
                                 className="mb-3"
-                                title="Valoraciones"
+                                title="Reseñas"
                                 icon={<MessageSquare />}
                                 subtitle={place.reviews.length > 0
                                     ? `${place.reviews.length} ${place.reviews.length === 1 ? 'opinión' : 'opiniones'} de la comunidad`
@@ -1689,7 +1689,7 @@ export const PlacePage: React.FC = () => {
                                     <span className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
                                         <MessageSquare className="h-6 w-6" />
                                     </span>
-                                    <p className="text-sm font-bold text-[var(--lt-text)]">Aún sin valoraciones</p>
+                                    <p className="text-sm font-bold text-[var(--lt-text)]">Aún sin reseñas</p>
                                     <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Estrena tú la ficha: la primera opinión siempre se recuerda.</p>
                                     <button
                                         type="button"
@@ -1734,10 +1734,10 @@ export const PlacePage: React.FC = () => {
                                                     <button
                                                         onClick={() => setExpandedReviewId(null)}
                                                         className="self-center mb-3 flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-gray-200 hover:text-white text-sm font-semibold rounded-full transition-all border border-[var(--lt-accent-border)] shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]"
-                                                        aria-label="Plegar valoración"
+                                                        aria-label="Plegar reseña"
                                                     >
                                                         <ChevronUp className="w-4 h-4" />
-                                                        <span>Cerrar valoración</span>
+                                                        <span>Cerrar reseña</span>
                                                     </button>
                                                     <ReviewCard
                                                         review={review}
@@ -1989,7 +1989,7 @@ export const PlacePage: React.FC = () => {
                                                             )}
                                                         </div>
                                                         <div className="flex items-center gap-2 flex-wrap">
-                                                            <span className="text-xs text-[var(--lt-text-muted)]">{dish.count} {dish.count === 1 ? 'valoración' : 'valoraciones'}</span>
+                                                            <span className="text-xs text-[var(--lt-text-muted)]">{dish.count} {dish.count === 1 ? 'reseña' : 'reseñas'}</span>
                                                             {official?.group && (
                                                                 <span className="text-[11px] text-gray-400">· {official.group}</span>
                                                             )}

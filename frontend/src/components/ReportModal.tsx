@@ -100,7 +100,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
     const getTypeLabel = () => {
         switch (targetType) {
             case 'place': return 'Sitio';
-            case 'review': return 'Valoración';
+            case 'review': return 'Reseña';
             case 'list': return 'Lista';
             case 'group': return 'Grupo';
             case 'user': return 'Usuario';

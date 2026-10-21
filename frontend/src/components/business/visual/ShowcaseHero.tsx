@@ -113,12 +113,12 @@ export const ShowcaseHero: React.FC<ShowcaseHeroProps> = ({
                                 {rating.average.toFixed(1)}
                             </span>
                             <span className="truncate text-xs font-semibold text-[var(--lt-text-muted)]">
-                                {rating.count} {rating.count === 1 ? 'valoración' : 'valoraciones'}
+                                {rating.count} {rating.count === 1 ? 'reseña' : 'reseñas'}
                             </span>
                         </span>
                     ) : (
                         <span className="rounded-full border border-[var(--lt-border-strong)] px-3 py-1 text-xs font-semibold text-[var(--lt-text-muted)]">
-                            Sin valoraciones
+                            Sin reseñas
                         </span>
                     )}
                     <span className={cn(

@@ -1,7 +1,7 @@
 /**
  * Contadores y notas de un sitio, calculados en el servidor
  * (functions/modules/lib/place-rating.js):
- * - nota pública (`averageRating`, `publicHumanReviewsCount`): valoraciones públicas de
+ * - nota pública (`averageRating`, `publicHumanReviewsCount`): reseñas públicas de
  *   personas, sin bots. Es la que se enseña y la única que ordena.
  * - actividad (`totalVisibleReviewsCount`, alias `reviewsCount`): públicas también de bots.
  *   Un sitio solo con bots existe y sale en Buscar, pero «Sin nota pública todavía».
@@ -33,9 +33,9 @@ const num = (value: unknown): number | null => (typeof value === 'number' && Num
 export interface PlaceRating {
     /** Nota pública (personas); null = «Sin nota pública todavía». */
     average: number | null;
-    /** Nº de valoraciones públicas de personas (las de la nota). */
+    /** Nº de reseñas públicas de personas (las de la nota). */
     count: number;
-    /** Valoraciones públicas también de bots: el sitio tiene actividad. */
+    /** Reseñas públicas también de bots: el sitio tiene actividad. */
     visibleCount: number;
     bots: { average: number | null; count: number } | null;
     critic: { average: number; count: number; provisional: boolean } | null;

@@ -145,7 +145,7 @@ export const planDropMoves = (
     });
 };
 
-/** Mismo orden que getCanonicalPlaceItems: más valoraciones primero y luego por nombre. */
+/** Mismo orden que getCanonicalPlaceItems: más reseñas primero y luego por nombre. */
 export const sortPlaceItems = (rows: CanonicalPlaceItem[]): CanonicalPlaceItem[] => [...rows].sort((a, b) =>
     reviewCountOf(b) - reviewCountOf(a) || itemNameOf(a).localeCompare(itemNameOf(b), 'es'));
 

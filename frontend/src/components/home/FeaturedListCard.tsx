@@ -36,7 +36,7 @@ export const FeaturedListCard: React.FC<{ list: FeaturedListData }> = ({ list })
                     </h2>
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-white/80">
                         <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{list.inAreaPlaces} {list.inAreaPlaces === 1 ? 'sitio' : 'sitios'} en tu zona</span>
-                        <span className="inline-flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{list.inAreaReviews} {list.inAreaReviews === 1 ? 'valoración' : 'valoraciones'}</span>
+                        <span className="inline-flex items-center gap-1"><MessageCircle className="h-3.5 w-3.5" />{list.inAreaReviews} {list.inAreaReviews === 1 ? 'reseña' : 'reseñas'}</span>
                         {list.inAreaAuthors > 1 && <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />{list.inAreaAuthors}</span>}
                         {typeof list.rating === 'number' && <span>{list.rating.toFixed(1)} de media</span>}
                     </div>

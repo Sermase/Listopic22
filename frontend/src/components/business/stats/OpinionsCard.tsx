@@ -1,6 +1,6 @@
 /**
- * ⭐ ¿Qué opinan de ti? (spec §9.5): termómetro de notas, valoraciones por
- * mes (con su nota) y lo último que dicen. Sale de las valoraciones públicas
+ * ⭐ ¿Qué opinan de ti? (spec §9.5): termómetro de notas, reseñas por
+ * mes (con su nota) y lo último que dicen. Sale de las reseñas públicas
  * que lee la gestión (como mucho 100, las más recientes cuando hay índice).
  */
 import React, { useState } from 'react';
@@ -72,16 +72,16 @@ export const OpinionsCard: React.FC<OpinionsCardProps> = ({ status, data, nowMs,
 
     let body: React.ReactNode;
     if (status === 'error') {
-        body = <PanelError what="tus valoraciones" onRetry={onRetry} />;
+        body = <PanelError what="tus reseñas" onRetry={onRetry} />;
     } else if (status === 'loading' || !data) {
-        body = <CardSkeleton chart lines={3} label="Cargando tus valoraciones…" />;
+        body = <CardSkeleton chart lines={3} label="Cargando tus reseñas…" />;
     } else if (data.reviews.length === 0) {
         body = (
             <EmptyState
                 as="h4"
                 size="sm"
                 emoji="⭐"
-                title="Aún no tienes valoraciones públicas."
+                title="Aún no tienes reseñas públicas."
                 text="Cuando alguien valore un plato de tu carta, lo verás aquí."
             />
         );
@@ -94,9 +94,9 @@ export const OpinionsCard: React.FC<OpinionsCardProps> = ({ status, data, nowMs,
                 <ScoreThermometer counts={bandCounts(data.reviews)} />
 
                 <div className="space-y-2">
-                    <h4 className="text-sm font-semibold text-[var(--lt-text)]">Valoraciones por mes</h4>
+                    <h4 className="text-sm font-semibold text-[var(--lt-text)]">Reseñas por mes</h4>
                     <MiniColumns
-                        ariaLabel="Valoraciones por mes"
+                        ariaLabel="Reseñas por mes"
                         hint="Toca un mes para ver su nota"
                         heightClass="h-28"
                         columns={months.map((month, index) => ({
@@ -104,7 +104,7 @@ export const OpinionsCard: React.FC<OpinionsCardProps> = ({ status, data, nowMs,
                             value: month.count,
                             current: index === months.length - 1,
                             axisLabel: month.label,
-                            detail: `${month.label} ${month.key.slice(0, 4)} · ${plural(month.count, 'valoración', 'valoraciones')}${month.average !== null ? ` · nota ${formatScore(Math.round(month.average * 10) / 10)}` : ''}`,
+                            detail: `${month.label} ${month.key.slice(0, 4)} · ${plural(month.count, 'reseña', 'reseñas')}${month.average !== null ? ` · nota ${formatScore(Math.round(month.average * 10) / 10)}` : ''}`,
                             extra: month.average !== null
                                 ? <ScoreChip score={Math.round(month.average * 10) / 10} />
                                 : <span aria-hidden="true" className="text-xs text-[var(--lt-text-muted)]">·</span>,
@@ -135,8 +135,8 @@ export const OpinionsCard: React.FC<OpinionsCardProps> = ({ status, data, nowMs,
                     <p className="text-xs text-[var(--lt-text-muted)]">
                         <span aria-hidden="true">ℹ️ </span>
                         {data.newestFirst
-                            ? 'Basado en tus 100 valoraciones más recientes.'
-                            : 'Basado en 100 de tus valoraciones públicas.'}
+                            ? 'Basado en tus 100 reseñas más recientes.'
+                            : 'Basado en 100 de tus reseñas públicas.'}
                     </p>
                 )}
             </>
@@ -144,7 +144,7 @@ export const OpinionsCard: React.FC<OpinionsCardProps> = ({ status, data, nowMs,
     }
 
     return (
-        <StatsCard emoji="⭐" title="¿Qué opinan de ti?" help="Las valoraciones públicas de tus platos." busy={busy} className={className}>
+        <StatsCard emoji="⭐" title="¿Qué opinan de ti?" help="Las reseñas públicas de tus platos." busy={busy} className={className}>
             {body}
         </StatsCard>
     );

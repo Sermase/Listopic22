@@ -1,16 +1,16 @@
 /**
  * Cálculo de notas de Listopic: una sola fuente para toda la app.
  *
- * - Nota de una valoración: media de los criterios que cuentan para la nota,
+ * - Nota de una reseña: media de los criterios que cuentan para la nota,
  *   redondeada a 1 decimal (igual que se ha guardado siempre `overallRating`).
- * - Lista madre: solo se compara con SUS criterios. Una valoración hecha desde
+ * - Lista madre: solo se compara con SUS criterios. Una reseña hecha desde
  *   una Minilista puede tener criterios extra; para la madre no cuentan.
  * - Minilista: usa todos sus criterios (los heredados + los suyos).
  * - Pesos: la fuente de verdad es `scoringWeights` de la lista (id → 0..3, en
  *   pasos de 0,5). ×0 no cuenta; ×0,5 … ×3 cuentan esa proporción. Si una lista antigua no tiene
  *   `scoringWeights`, se usa `ponderable` (×1 / ×0).
- * - Un criterio sin puntuar en una valoración (p. ej. porque se añadió después)
- *   no cuenta para la media de esa valoración.
+ * - Un criterio sin puntuar en una reseña (p. ej. porque se añadió después)
+ *   no cuenta para la media de esa reseña.
  * - Ranking: una sola fórmula bayesiana para toda la app (`rankPosition`).
  *
  * Espejo en servidor: functions/modules/lib/scoring.js (mismos vectores de test).
@@ -23,7 +23,7 @@ export const MAX_CRITERION_WEIGHT = 3;
 export const CRITERION_WEIGHT_STEP = 0.5;
 
 /**
- * Pesos ×0–×3 activos. En listas con valoraciones solo cambian con la migración
+ * Pesos ×0–×3 activos. En listas con reseñas solo cambian con la migración
  * del servidor (simular → aplicar). Poner false vuelve a «cuenta = ×1».
  */
 export const WEIGHTS_ENABLED = true;
@@ -75,7 +75,7 @@ export interface ListScoreResult {
     score: number | null;
     /** 'criteria': recalculada con los criterios de la lista; 'stored': overallRating guardado. */
     source: 'criteria' | 'stored' | 'none';
-    /** Solo una parte de los criterios de la lista estaba puntuada en la valoración. */
+    /** Solo una parte de los criterios de la lista estaba puntuada en la reseña. */
     partial: boolean;
 }
 
@@ -136,7 +136,7 @@ export function computingCriteria(criteria: CriteriaInput, options: ScoringOptio
 }
 
 /**
- * Nota de una valoración con los criterios dados. Con los criterios de siempre
+ * Nota de una reseña con los criterios dados. Con los criterios de siempre
  * (todos ×1) da exactamente el mismo número que se guardaba en `overallRating`.
  */
 export function computeReviewScore(
@@ -185,11 +185,11 @@ const storedOverall = (review: ReviewLike): number | null =>
     isScoreValue(review.overallRating) ? review.overallRating : null;
 
 /**
- * Nota de una valoración vista desde una Lista (madre).
+ * Nota de una reseña vista desde una Lista (madre).
  *
- * - Valoración hecha en la propia lista: su `overallRating` guardado, tal cual
+ * - Reseña hecha en la propia lista: su `overallRating` guardado, tal cual
  *   (así no cambia ningún resultado aunque el creador haya editado criterios).
- * - Valoración hecha desde una Minilista: se recalcula solo con los criterios
+ * - Reseña hecha desde una Minilista: se recalcula solo con los criterios
  *   de la madre que tenga puntuados, para que los criterios extra no alteren la
  *   comparación. Si no comparte ninguno, se usa el `overallRating` guardado.
  */
@@ -209,13 +209,13 @@ export function reviewScoreForParentList(
     return { score: stored, source: stored === null ? 'none' : 'stored', partial: false };
 }
 
-/** Nota de una valoración dentro de su Minilista: la guardada (incluye los criterios extra). */
+/** Nota de una reseña dentro de su Minilista: la guardada (incluye los criterios extra). */
 export function reviewScoreForMinilist(review: ReviewLike): ListScoreResult {
     const stored = storedOverall(review);
     return { score: stored, source: stored === null ? 'none' : 'stored', partial: false };
 }
 
-/** Nota de una valoración según la lista que se está mirando. */
+/** Nota de una reseña según la lista que se está mirando. */
 export function reviewScoreForList(
     review: ReviewLike,
     list: { criteriaDefinition?: CriteriaInput; parentListId?: unknown; scoringWeights?: Readonly<Record<string, unknown>> | null } | null | undefined,
@@ -241,9 +241,9 @@ export function averageScore(values: ReadonlyArray<number | null | undefined>): 
 //
 //   posición = (n · media + m · C) / (n + m),   m = 3,   C = 7
 //
-//   m = 3: con m = 2 un 10 con 1 valoración empata con un 8,5 con 10.
+//   m = 3: con m = 2 un 10 con 1 reseña empata con un 8,5 con 10.
 //   C fijo en 7 (no la media de cada lista): con C = media de una lista
-//   exigente (8) un 10 con 1 valoración volvía a encabezar. Mostrar siempre la
+//   exigente (8) un 10 con 1 reseña volvía a encabezar. Mostrar siempre la
 //   media real; este número solo ordena.
 
 export const RANK_PRIOR_WEIGHT = 3;
@@ -251,7 +251,7 @@ export const RANK_PRIOR = 7;
 
 const safeNumber = (value: unknown): number => (isScoreValue(value) ? value : 0);
 
-/** Posición bayesiana de un elemento. Sin valoraciones → 0 (va al final). */
+/** Posición bayesiana de un elemento. Sin reseñas → 0 (va al final). */
 export function rankPosition(
     average: unknown,
     count: unknown,
@@ -269,7 +269,7 @@ export interface RankableStats {
     count: unknown;
 }
 
-/** Comparador para `.sort`: mejor posición primero; a igualdad, más valoraciones. */
+/** Comparador para `.sort`: mejor posición primero; a igualdad, más reseñas. */
 export function compareByRank(a: RankableStats, b: RankableStats): number {
     const diff = rankPosition(b.average, b.count) - rankPosition(a.average, a.count);
     if (diff !== 0) return diff;
@@ -286,9 +286,9 @@ export interface RankedStats extends RankableStats {
 
 /**
  * Orden de los elementos de una Lista, el mismo en la Lista, la ficha y Buscar:
- * posición con 4 decimales (lo que guarda Algolia), luego más valoraciones y,
+ * posición con 4 decimales (lo que guarda Algolia), luego más reseñas y,
  * si todo empata, la clave del elemento. Sin empates, el puesto no depende de
- * qué valoración llegó antes ni del orden interno de Algolia.
+ * qué reseña llegó antes ni del orden interno de Algolia.
  */
 export function compareElementsByRank(a: RankedStats, b: RankedStats): number {
     const diff = rankingIndexScore(b.average, b.count) - rankingIndexScore(a.average, a.count);

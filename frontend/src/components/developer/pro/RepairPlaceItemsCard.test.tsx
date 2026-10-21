@@ -78,7 +78,7 @@ describe('RepairPlaceItemsCard · Reparar cartas', () => {
         expect(within(result).getByText('1 sitio sin cambios.')).toBeInTheDocument();
         expect(within(result).queryByText('Otro sitio')).not.toBeInTheDocument();
         // Totales con su etiqueta y enlace al lugar con algo que contar.
-        expect(result).toHaveTextContent(/2\s*valoraciones renombradas/);
+        expect(result).toHaveTextContent(/2\s*reseñas renombradas/);
         expect(within(result).getByRole('link', { name: /Lugar/ })).toHaveAttribute('href', `/place/${PLACE_ID}`);
         expect(await screen.findByText(/Simulación lista: no se ha cambiado nada/)).toBeInTheDocument();
     });

@@ -58,12 +58,12 @@ export const PlaceStatsPanel: React.FC<PlaceStatsPanelProps> = ({ placeId, revie
                     )}
                     <div className="min-w-0">
                         <p className="font-bold text-[var(--lt-text)]">
-                            {reviewCount} {reviewCount === 1 ? 'valoración' : 'valoraciones'} en {breakdown.length} {breakdown.length === 1 ? 'Lista' : 'Listas'}
+                            {reviewCount} {reviewCount === 1 ? 'reseña' : 'reseñas'} en {breakdown.length} {breakdown.length === 1 ? 'Lista' : 'Listas'}
                         </p>
                         <p className="mt-1 text-xs text-[var(--lt-text-muted)] flex items-start gap-1.5">
                             <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden />
                             <span>
-                                Media de las valoraciones públicas de este sitio en todas sus Listas, sin contar bots.
+                                Media de las reseñas públicas de este sitio en todas sus Listas, sin contar bots.
                                 La de los críticos verificados se muestra aparte.
                             </span>
                         </p>
@@ -74,7 +74,7 @@ export const PlaceStatsPanel: React.FC<PlaceStatsPanelProps> = ({ placeId, revie
             <section className="glass-card rounded-2xl p-5 border border-[var(--lt-border)]">
                 <h3 className="text-sm font-bold text-[var(--lt-text)]">Por Lista</h3>
                 {breakdown.length === 0 ? (
-                    <p className="mt-2 text-sm text-[var(--lt-text-muted)]">Todavía no hay valoraciones de este sitio.</p>
+                    <p className="mt-2 text-sm text-[var(--lt-text-muted)]">Todavía no hay reseñas de este sitio.</p>
                 ) : (
                     <ul className="mt-3 divide-y divide-[var(--lt-border)]">
                         {breakdown.map((row) => {
@@ -88,7 +88,7 @@ export const PlaceStatsPanel: React.FC<PlaceStatsPanelProps> = ({ placeId, revie
                                             {row.listName}
                                         </Link>
                                         <div className="flex items-center gap-2 shrink-0 text-xs text-[var(--lt-text-muted)]">
-                                            <span>{row.count} {row.count === 1 ? 'valoración' : 'valoraciones'}</span>
+                                            <span>{row.count} {row.count === 1 ? 'reseña' : 'reseñas'}</span>
                                             {row.average !== null && (
                                                 <span className="px-2 py-0.5 rounded-md font-bold" style={scoreBadgeStyle(row.average)}>
                                                     {row.average.toFixed(1)}

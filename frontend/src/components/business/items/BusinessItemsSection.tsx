@@ -142,7 +142,7 @@ export const BusinessItemsSection: React.FC<BusinessItemsSectionProps> = ({ plac
             setReviewsState('ready');
         } else {
             console.error('BusinessItemsSection: reviews load failed', reviewResult.status === 'rejected' ? reviewResult.reason : null);
-            // Si ya había valoraciones se quedan; si no, se dice.
+            // Si ya había reseñas se quedan; si no, se dice.
             setReviewsState((prev) => (prev === 'ready' ? prev : 'error'));
         }
         if (itemResult.status === 'rejected') {

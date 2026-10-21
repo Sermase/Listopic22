@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useLayoutEffect, useCallba
 import { createPortal } from 'react-dom';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useParams, Link, useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
-import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid, Bot, Star, Trophy, SearchX } from 'lucide-react';
+import { Map as MapIcon, List as ListIcon, Plus, Heart, SlidersHorizontal, Clock, Search, ChevronDown, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid, Trophy, SearchX } from 'lucide-react';
 import { MarqueeText } from '../components/ui/MarqueeText';
 import { useListDetails } from '../hooks/useListDetails';
 import { useUserProfile } from '../hooks/useUserProfile';
@@ -147,29 +147,15 @@ function getPrimaryReviewPhoto(review: any): string | null {
     return null;
 }
 
-interface ToolbarToggleProps {
-    label: string;
-    title: string;
-    pressed: boolean;
-    icon: React.ReactNode;
-    onClick: () => void;
-}
-
-// Botón de la barra de la lista: icono + texto corto, estado visible y accesible.
-const ToolbarToggle: React.FC<ToolbarToggleProps> = ({ label, title, pressed, icon, onClick }) => (
-    <button
-        type="button"
-        onClick={onClick}
-        title={title}
-        aria-pressed={pressed}
-        className={`h-11 min-w-[3rem] px-1.5 flex flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors active:scale-95 motion-reduce:active:scale-100 ${pressed
-            ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
-            : 'bg-[var(--lt-glass)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
-    >
-        {icon}
-        <span className="text-[10px] font-semibold leading-none">{label}</span>
-    </button>
-);
+const DEFAULT_LIST_FILTERS: FilterState = {
+    minRating: 0,
+    hasPhoto: false,
+    glutenFree: false,
+    petFriendly: false,
+    visited: false,
+    accessibility: {},
+    criteriaMin: {},
+};
 
 export const ListPage: React.FC = () => {
     const { listTitlePlaceFirst } = useAppConfig();
@@ -192,7 +178,7 @@ export const ListPage: React.FC = () => {
             el.setAttribute('content', content);
         };
         setMeta('og:title', title);
-        setMeta('og:description', (list as any).description || `${list.reviewCount} valoraciones · ${list.name}`);
+        setMeta('og:description', (list as any).description || `${list.reviewCount} reseñas · ${list.name}`);
         setMeta('og:url', window.location.href);
         setMeta('og:type', 'website');
         const img = (list as any).thumbnailUrl || (list as any).mainImageUrl || (list as any).photoUrl || (list as any).coverUrl || (list as any).imageUrl;
@@ -225,17 +211,10 @@ export const ListPage: React.FC = () => {
         return false;
     }, [user, list]);
 
-    const [filters, setFilters] = useState<FilterState>({
-        minRating: 0,
-        hasPhoto: false,
-        glutenFree: false,
-        petFriendly: false,
-        visited: false,
-        accessibility: {},
-        criteriaMin: {}
-    });
+    const [filters, setFilters] = useState<FilterState>(DEFAULT_LIST_FILTERS);
     // Vista (Ranking / Mosaico) y agrupación: se recuerdan en este navegador.
-    const [viewMode, setViewMode] = useStoredChoice('listopic_list_view', ['list', 'gallery'] as const, 'gallery');
+    // Ranking por defecto (clave nueva para que todos empiecen ahí).
+    const [viewMode, setViewMode] = useStoredChoice('listopic_list_view_v2', ['list', 'gallery'] as const, 'list');
     const [groupingMode, setGroupingMode] = useStoredChoice('listopic_list_grouping', ['place', 'dish'] as const, 'dish');
 
     // Check for editId param
@@ -251,7 +230,7 @@ export const ListPage: React.FC = () => {
         const Eid = q.get('editId');
         if (Eid) {
             if (!user) {
-                openAuthPrompt('editar una valoración');
+                openAuthPrompt('editar una reseña');
                 return;
             }
             setEditingReviewId(Eid);
@@ -261,7 +240,7 @@ export const ListPage: React.FC = () => {
 
     const handleOpenAddReview = () => {
         if (!user) {
-            openAuthPrompt('añadir una valoración');
+            openAuthPrompt('añadir una reseña');
             return;
         }
         setIsAddModalOpen(true);
@@ -419,7 +398,7 @@ export const ListPage: React.FC = () => {
         }> = {};
 
         visibleReviews.forEach(review => {
-            // En la Lista madre, las valoraciones de Minilista cuentan solo con sus criterios.
+            // En la Lista madre, las reseñas de Minilista cuentan solo con sus criterios.
             // Sin nota no puntúa ni cuenta (igual que en Buscar: lib/listElements).
             const reviewScore = reviewScoreForList(review, list).score;
             if (reviewScore === null) return;
@@ -557,7 +536,7 @@ export const ListPage: React.FC = () => {
 
             Object.keys(g.criteriaSums).forEach(k => {
                 if (allowedCriteria && !allowedCriteria.includes(k)) return;
-                // Media entre quienes puntuaron ese criterio (no entre todas las valoraciones).
+                // Media entre quienes puntuaron ese criterio (no entre todas las reseñas).
                 criteriaAverages[k] = g.criteriaSums[k] / (g.criteriaCounts[k] || 1);
             });
 
@@ -585,8 +564,8 @@ export const ListPage: React.FC = () => {
             };
         }).sort((a, b) => {
             if (sortMode === 'rating') {
-                // Ranking único (lib/scoring): una valoración suelta no basta para
-                // encabezar; a igualdad, más valoraciones y luego la clave (como Buscar).
+                // Ranking único (lib/scoring): una reseña suelta no basta para
+                // encabezar; a igualdad, más reseñas y luego la clave (como Buscar).
                 return compareElementsByRank({ id: a.id, average: a.avgRating, count: a.reviewCount }, { id: b.id, average: b.avgRating, count: b.reviewCount });
             }
             if (sortMode === 'count') {
@@ -608,6 +587,49 @@ export const ListPage: React.FC = () => {
     }, [groupedItems]);
 
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+    // Cuántos filtros hay activos (el botón lo enseña; ordenar no cuenta).
+    const activeFilterCount = [
+        filters.minRating > 0,
+        filters.hasPhoto,
+        filters.glutenFree,
+        filters.petFriendly,
+        filters.visited,
+        selectedTags.length > 0,
+        Object.values(filters.accessibility || {}).some(Boolean),
+        Object.values(filters.criteriaMin || {}).some((v) => v > 0),
+        showBotReviews,
+        criticOnly,
+        groupingMode === 'place',
+        showUnavailable,
+    ].filter(Boolean).length;
+
+    // Filtros de cada Lista: se recuerdan en este navegador para la próxima vez.
+    const prefsKey = listId ? `listopic_list_prefs:${listId}` : null;
+    const [prefsLoadedFor, setPrefsLoadedFor] = useState<string | null>(null);
+    useEffect(() => {
+        if (!prefsKey) return;
+        // Cada Lista empieza de cero (React reutiliza la página al saltar de una a otra).
+        let raw: unknown = null;
+        try { raw = JSON.parse(localStorage.getItem(prefsKey) || 'null'); } catch { /* sin almacenamiento */ }
+        const saved = (raw && typeof raw === 'object' ? raw : {}) as {
+            filters?: Partial<FilterState>; sortMode?: typeof sortMode; selectedTags?: unknown;
+            showBotReviews?: unknown; criticOnly?: unknown; showUnavailable?: unknown;
+        };
+        setFilters({ ...DEFAULT_LIST_FILTERS, ...(saved.filters && typeof saved.filters === 'object' ? saved.filters : {}) });
+        setSortMode(saved.sortMode && ['rating', 'newest', 'oldest', 'count'].includes(saved.sortMode) ? saved.sortMode : 'rating');
+        setSelectedTags(Array.isArray(saved.selectedTags) ? saved.selectedTags.filter((t: unknown) => typeof t === 'string') : []);
+        setShowBotReviews(saved.showBotReviews === true);
+        setCriticOnly(saved.criticOnly === true);
+        setShowUnavailable(saved.showUnavailable === true);
+        setPrefsLoadedFor(prefsKey);
+    }, [prefsKey]);
+    useEffect(() => {
+        if (!prefsKey || prefsLoadedFor !== prefsKey) return;
+        try {
+            localStorage.setItem(prefsKey, JSON.stringify({ filters, sortMode, selectedTags, showBotReviews, criticOnly, showUnavailable }));
+        } catch { /* opcional */ }
+    }, [prefsKey, prefsLoadedFor, filters, sortMode, selectedTags, showBotReviews, criticOnly, showUnavailable]);
 
     // Filter Items
     // Filter Items by Tag
@@ -1002,7 +1024,7 @@ export const ListPage: React.FC = () => {
         );
     }
 
-    // Por qué no se ve nada: Lista sin valoraciones, búsqueda, zona o filtros.
+    // Por qué no se ve nada: Lista sin reseñas, búsqueda, zona o filtros.
     const areaFiltering = effectiveArea.kind !== 'near' || range !== null;
     const emptyReason: 'none' | 'search' | 'area' | 'filters' = reviews.length === 0
         ? 'none'
@@ -1010,7 +1032,7 @@ export const ListPage: React.FC = () => {
         : groupedItems.length > 0 && areaFiltering ? 'area'
         : 'filters';
     const emptyMessage = {
-        none: 'Todavía no hay valoraciones en esta Lista.',
+        none: 'Todavía no hay reseñas en esta Lista.',
         search: 'No hay resultados para tu búsqueda.',
         area: effectiveArea.kind !== 'near'
             ? `No hay nada en ${geoAreaLabel(effectiveArea.kind, effectiveArea.value)}.`
@@ -1329,40 +1351,27 @@ export const ListPage: React.FC = () => {
 
                         {/* Barra de herramientas: cada botón dice lo que hace */}
                         <div className="flex items-center gap-1.5 w-full sm:w-auto">
-                            <ToolbarToggle
-                                label="Filtros"
-                                pressed={filters.minRating > 0 || filters.hasPhoto || filters.glutenFree || filters.petFriendly || filters.visited || selectedTags.length > 0 || Object.values(filters.accessibility || {}).some(Boolean) || Object.values(filters.criteriaMin || {}).some(v => v > 0)}
+                            {/* Un solo botón de filtros: todo lo demás vive en la hoja */}
+                            <button
+                                type="button"
                                 onClick={() => setIsFilterModalOpen(true)}
-                                title="Filtrar y ordenar"
-                                icon={<ArrowDownWideNarrow className="w-4 h-4 rotate-180" />}
-                            />
-                            <ToolbarToggle
-                                label="Bots"
-                                pressed={showBotReviews}
-                                onClick={() => setShowBotReviews(prev => !prev)}
-                                title={showBotReviews ? 'Ocultar valoraciones de bots' : 'Mostrar valoraciones de bots'}
-                                icon={<Bot className="w-4 h-4" />}
-                            />
-                            <ToolbarToggle
-                                label="Críticos"
-                                pressed={criticOnly}
-                                onClick={() => setCriticOnly(prev => !prev)}
-                                title={criticOnly ? 'Mostrando solo críticos' : 'Ver solo valoraciones de críticos'}
-                                icon={<Star className="w-4 h-4" />}
-                            />
-                            <ToolbarToggle
-                                label="Por sitio"
-                                pressed={groupingMode === 'place'}
-                                onClick={() => setGroupingMode(prev => prev === 'place' ? 'dish' : 'place')}
-                                title={groupingMode === 'place' ? 'Agrupado por sitio: pulsa para ver cada elemento' : 'Agrupar los elementos por sitio'}
-                                icon={<Store className="w-4 h-4" />}
-                            />
+                                aria-label={activeFilterCount > 0 ? `Filtros (${activeFilterCount} activos)` : 'Filtros'}
+                                className={`h-11 flex items-center gap-1.5 px-3 rounded-xl border text-sm font-bold transition-colors active:scale-95 motion-reduce:active:scale-100 ${activeFilterCount > 0
+                                    ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
+                                    : 'bg-[var(--lt-glass)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+                            >
+                                <SlidersHorizontal className="w-4 h-4" />
+                                Filtros
+                                {activeFilterCount > 0 && (
+                                    <span className="min-w-[1.25rem] rounded-full bg-[var(--lt-accent)] px-1 text-[11px] leading-5 lt-on-accent">{activeFilterCount}</span>
+                                )}
+                            </button>
 
                             {/* Vista: Ranking o Mosaico (el mapa va en su panel) */}
                             <div role="group" aria-label="Vista" className="ml-auto flex-shrink-0 flex bg-[var(--lt-glass)] rounded-xl p-0.5 border border-[var(--lt-border)]">
                                 {([
                                     { mode: 'list' as const, label: 'Ranking', icon: <ListIcon className="w-3.5 h-3.5" /> },
-                                    { mode: 'gallery' as const, label: 'Mosaico', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
+                                    { mode: 'gallery' as const, label: 'Fotos', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
                                 ]).map(({ mode, label, icon }) => (
                                     <button
                                         key={mode}
@@ -1538,7 +1547,7 @@ export const ListPage: React.FC = () => {
                                     style={{ backgroundImage: 'var(--lt-accent-grad)' }}
                                     className="lt-on-accent inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[var(--lt-accent)] text-sm font-bold shadow-lg shadow-[var(--lt-accent-shadow)] hover:opacity-90 transition-opacity"
                                 >
-                                    ¡Añade la primera valoración!
+                                    ¡Añade la primera reseña!
                                 </button>
                             )}
                         </div>
@@ -1650,6 +1659,13 @@ export const ListPage: React.FC = () => {
                 setSelectedTags={setSelectedTags}
                 showUnavailable={showUnavailable}
                 setShowUnavailable={setShowUnavailable}
+                showBotReviews={showBotReviews}
+                setShowBotReviews={setShowBotReviews}
+                criticOnly={criticOnly}
+                setCriticOnly={setCriticOnly}
+                groupByPlace={groupingMode === 'place'}
+                setGroupByPlace={(v) => setGroupingMode(v ? 'place' : 'dish')}
+                resultCount={filteredItemsAll.length}
             />
         </div >
     );

@@ -1,9 +1,9 @@
 /**
- * Visibilidad de las valoraciones: cada valoración tiene `visibility`
+ * Visibilidad de las reseñas: cada reseña tiene `visibility`
  * ('public' | 'private') igual a la de su lista real (la Minilista si tiene
  * `sublistId`, si no la lista donde está guardada). Las consultas públicas
  * (perfil, Lista, Home) solo leen `visibility == 'public'`: si una lista pasa a
- * pública y sus valoraciones no se sincronizan, desaparecen de la vista.
+ * pública y sus reseñas no se sincronizan, desaparecen de la vista.
  * Misma regla que `reviewVisibilityMatchesList` en firestore.rules.
  */
 import { collection, getDocs, query, where, writeBatch, type DocumentData, type QueryDocumentSnapshot, type QuerySnapshot } from 'firebase/firestore';
@@ -15,19 +15,19 @@ export type ReviewVisibility = 'public' | 'private';
 export const listVisibility = (list: { isPublic?: unknown; visibility?: unknown } | null | undefined): ReviewVisibility =>
     list?.isPublic === true || list?.visibility === 'public' ? 'public' : 'private';
 
-/** Lista cuya visibilidad manda sobre la valoración. */
+/** Lista cuya visibilidad manda sobre la reseña. */
 export const reviewTargetListId = (review: { sublistId?: unknown }, storedInListId: string): string =>
     typeof review.sublistId === 'string' && review.sublistId.trim() ? review.sublistId : storedInListId;
 
 /**
- * Pone a sus valoraciones la visibilidad de la lista. En una Lista madre no
- * toca las valoraciones hechas desde una Minilista (siguen a su Minilista).
+ * Pone a sus reseñas la visibilidad de la lista. En una Lista madre no
+ * toca las reseñas hechas desde una Minilista (siguen a su Minilista).
  * Devuelve cuántas se han cambiado.
  */
 export async function syncListReviewVisibility(listId: string, parentListId: string | null | undefined, visibility: ReviewVisibility): Promise<number> {
     const safeGetDocs = async (load: () => Promise<QuerySnapshot<DocumentData>>): Promise<QuerySnapshot<DocumentData> | null> => {
         try { return await load(); } catch (e: unknown) {
-            if (!isPermissionDeniedError(e)) console.warn('syncListReviewVisibility: no se pudieron leer valoraciones', e);
+            if (!isPermissionDeniedError(e)) console.warn('syncListReviewVisibility: no se pudieron leer reseñas', e);
             return null;
         }
     };

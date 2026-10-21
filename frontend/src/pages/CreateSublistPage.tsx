@@ -557,7 +557,7 @@ export const CreateSublistPage: React.FC = () => {
                             <div className="p-3 bg-[var(--lt-bg)] rounded-xl border border-white/5 flex items-center justify-between gap-3">
                                 <div className="min-w-0">
                                     <div className="text-sm font-semibold text-gray-200">Colaboración pública</div>
-                                    <div className="text-xs text-gray-500 mt-0.5">Cualquier usuario puede añadir valoraciones</div>
+                                    <div className="text-xs text-gray-500 mt-0.5">Cualquier usuario puede añadir reseñas</div>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer shrink-0">
                                     <input
@@ -606,7 +606,7 @@ export const CreateSublistPage: React.FC = () => {
                             {guestLookupError && (
                                 <p className="text-xs text-red-400">{guestLookupError}</p>
                             )}
-                            <p className="text-xs text-gray-600">Los colaboradores pueden ver y añadir valoraciones aunque la lista sea privada.</p>
+                            <p className="text-xs text-gray-600">Los colaboradores pueden ver y añadir reseñas aunque la lista sea privada.</p>
                         </div>
                     </div>
 

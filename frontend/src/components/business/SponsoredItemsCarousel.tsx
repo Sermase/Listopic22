@@ -16,7 +16,7 @@ const MAX_CAROUSEL_ITEMS = 6;
 // activas cuyo radio cubre la posición del usuario (y, en listas, vinculadas a
 // esa lista); entre ellos se hace un sorteo ponderado por unidades compradas:
 // pagar 2 unidades duplica la probabilidad de salir. Siempre con etiqueta
-// "Patrocinado" y sin tocar valoraciones ni rankings orgánicos.
+// "Patrocinado" y sin tocar reseñas ni rankings orgánicos.
 // La ubicación es la compartida de la app: si el usuario se ubica más tarde
 // (chip de distancia, mapa, este mismo aviso...) el carrusel aparece solo.
 export const SponsoredItemsCarousel: React.FC<{ listId?: string; className?: string }> = ({ listId, className }) => {

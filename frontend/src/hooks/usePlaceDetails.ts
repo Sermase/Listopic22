@@ -70,7 +70,7 @@ export interface PlaceDetails {
     reviewCount: number;
     /** Nota de críticos verificados (aparte de la general); provisional con poca muestra. */
     criticRating: PlaceRating['critic'];
-    /** Valoraciones públicas también de bots: hay actividad aunque no haya nota pública. */
+    /** Reseñas públicas también de bots: hay actividad aunque no haya nota pública. */
     visibleReviewCount: number;
     reviews: ReviewEntity[];
     relatedLists: { id: string; name: string; authorName?: string; parentListId?: string; photoUrl?: string; }[];
@@ -474,7 +474,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     });
 
     // Nota Listopic del sitio: la del servidor (lib/placeRating), igual que en
-    // tarjetas, Home y Buscar: solo valoraciones públicas, sin bots, y la de
+    // tarjetas, Home y Buscar: solo reseñas públicas, sin bots, y la de
     // críticos aparte. Nunca la nota de Google.
     const rating = placeRating(placeData);
 

@@ -51,7 +51,7 @@ export const TermsPage: React.FC = () => (
         </LegalSection>
 
         <LegalSection title="6. Tu contenido">
-            <p>Lo que publicas (listas, reseñas, valoraciones, fotos, comentarios) <LegalStrong>sigue siendo tuyo</LegalStrong>.</p>
+            <p>Lo que publicas (listas, reseñas, reseñas, fotos, comentarios) <LegalStrong>sigue siendo tuyo</LegalStrong>.</p>
             <p>Para poder mostrarlo nos concedes una licencia <LegalStrong>gratuita, no exclusiva y mundial</LegalStrong> para alojarlo, reproducirlo, adaptarlo al formato de la app (por ejemplo, recortar una foto o generar una imagen para compartir) y mostrarlo dentro de Listopic y en los enlaces que se compartan. No lo venderemos ni lo cederemos a terceros para otros fines.</p>
             <p>La licencia dura mientras el contenido esté publicado. Si al borrar tu cuenta eliges conservar tus aportaciones de forma anónima, la licencia continúa solo sobre ese contenido, ya sin tu nombre ni tu foto.</p>
             <p>Al publicar algo garantizas que tienes derecho a hacerlo, en especial sobre las fotos que subes.</p>

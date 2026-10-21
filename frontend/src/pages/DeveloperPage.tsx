@@ -374,11 +374,11 @@ export const DeveloperPage: React.FC = () => {
 
 
 
-    // Copia el rol (bot, crítico…) de cada persona a sus valoraciones. Lo hace el
+    // Copia el rol (bot, crítico…) de cada persona a sus reseñas. Lo hace el
     // servidor (propagateAuthorFieldsToReviews), una persona cada vez: antes el
-    // navegador recorría y escribía todas las valoraciones una a una.
+    // navegador recorría y escribía todas las reseñas una a una.
     const handleBackfillAuthorUserType = async () => {
-        if (!confirm('¿Copiar el tipo de usuario de cada persona a sus valoraciones? Lo hace el servidor, persona a persona.')) return;
+        if (!confirm('¿Copiar el tipo de usuario de cada persona a sus reseñas? Lo hace el servidor, persona a persona.')) return;
         setProcessingMaintenance(true);
         setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando backfill de authorUserType...`, ...prev]);
         try {
@@ -399,7 +399,7 @@ export const DeveloperPage: React.FC = () => {
                     setMaintenanceLog(prev => [`⚠️ ${userDoc.id}: ${err instanceof Error ? err.message : String(err)}`, ...prev]);
                 }
             }
-            setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ✅ Backfill completado: ${users} personas · ${reviews} valoraciones · ${failed} errores.`, ...prev]);
+            setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ✅ Backfill completado: ${users} personas · ${reviews} reseñas · ${failed} errores.`, ...prev]);
         } catch (err: any) {
             setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ❌ Error: ${err.message}`, ...prev]);
         } finally {

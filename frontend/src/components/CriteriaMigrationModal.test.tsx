@@ -49,7 +49,7 @@ describe('CriteriaMigrationModal', () => {
         expect(simulate).toBeDisabled();
         fireEvent.change(screen.getByLabelText('Peso de Sabor'), { target: { value: '3' } });
         fireEvent.click(simulate);
-        await screen.findByText(/2 de 4 valoraciones cambian de nota/);
+        await screen.findByText(/2 de 4 reseñas cambian de nota/);
         expect(callables.simulateCriteriaChange).toHaveBeenCalledWith({ listId: 'madre', change: { weights: { sabor: 3 }, removeCriteria: [] } });
         expect(screen.getAllByText('Croqueta')).toHaveLength(2); // nota y puesto
         expect(screen.getByText('#2 →', { exact: false })).toBeInTheDocument();

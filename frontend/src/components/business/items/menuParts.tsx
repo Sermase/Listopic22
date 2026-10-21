@@ -156,7 +156,7 @@ export const ScoreChip: React.FC<{ rating: number | null; count: number; classNa
         <span
             className={cn('inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-black tabular-nums', className)}
             style={scoreBadgeStyle(rating)}
-            title={`Nota media ${formatScoreEs(rating)} con ${count} ${count === 1 ? 'valoración' : 'valoraciones'}`}
+            title={`Nota media ${formatScoreEs(rating)} con ${count} ${count === 1 ? 'reseña' : 'reseñas'}`}
         >
             <span aria-hidden="true">⭐</span>
             {formatScoreEs(rating)}
@@ -165,7 +165,7 @@ export const ScoreChip: React.FC<{ rating: number | null; count: number; classNa
     );
 };
 
-/** Nota de una valoración: «⭐ 9» con el color de la escala, o «Sin nota». */
+/** Nota de una reseña: «⭐ 9» con el color de la escala, o «Sin nota». */
 export const ReviewScore: React.FC<{ score: number | null; className?: string }> = ({ score, className }) => {
     if (score === null) {
         return <span className={cn('inline-flex shrink-0 rounded-full px-2 py-0.5 text-xs font-bold text-[var(--lt-text-muted)]', className)}>Sin nota</span>;

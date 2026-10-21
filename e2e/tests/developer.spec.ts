@@ -1,6 +1,6 @@
 // Developer como jefe SIN claim `admin` (lo normal en una cuenta nueva): el claim se
 // pide solo, Developer abre en «📥 Pendientes», Reseñas carga por el servidor y una
-// valoración se ve y se edita (también el autor) en su modal; Usuarios abre la ficha
+// reseña se ve y se edita (también el autor) en su modal; Usuarios abre la ficha
 // completa; ninguna pestaña ni sub-pestaña de Patrocinios y Pro da errores.
 import type { Page } from '@playwright/test';
 import { test, expect, login } from './support';
@@ -14,7 +14,7 @@ const openTab = async (page: Page, label: string) => {
   await devNav(page).locator('button').filter({ hasText: label }).first().click();
 };
 
-test('Reseñas: carga todo por el servidor y se edita una valoración en su modal', async ({ page, errors }) => {
+test('Reseñas: carga todo por el servidor y se edita una reseña en su modal', async ({ page, errors }) => {
   page.on('dialog', (dialog) => dialog.accept());
   await login(page, 'jefe');
   await page.goto('/developer');
@@ -29,7 +29,7 @@ test('Reseñas: carga todo por el servidor y se edita una valoración en su moda
   // La de «Bar Robot» (Lista «Robots E2E»): ninguna prueba posterior depende de ella.
   await page.getByPlaceholder('itemName...').fill('Bravas robot');
   await page.getByTitle('Ver y editar').first().click();
-  const modal = page.getByRole('dialog', { name: 'Valoración' });
+  const modal = page.getByRole('dialog', { name: 'Reseña' });
   await expect(modal.getByText('Autor')).toBeVisible();
   await modal.getByLabel('Comentario').fill('Editado desde Developer');
   await modal.getByLabel('Motivo').fill('prueba E2E');
@@ -45,7 +45,7 @@ test('Reseñas: carga todo por el servidor y se edita una valoración en su moda
   expect(errors).toEqual([]);
 });
 
-test('Usuarios: ficha completa y, desde ella, el detalle de una valoración', async ({ page, errors }) => {
+test('Usuarios: ficha completa y, desde ella, el detalle de una reseña', async ({ page, errors }) => {
   await login(page, 'jefe');
   await page.goto('/developer');
   await expect(page.getByText('Comprobando permisos…')).toBeHidden({ timeout: 20_000 });
@@ -54,10 +54,10 @@ test('Usuarios: ficha completa y, desde ella, el detalle de una valoración', as
   await page.getByRole('button', { name: 'Buscar', exact: true }).click();
   await page.locator('tr', { hasText: '@ana' }).first().click();
   const panel = page.getByRole('dialog', { name: 'Ficha de usuario' });
-  await expect(panel.getByRole('button', { name: /Valoraciones \(\d+\)/ })).toBeVisible();
+  await expect(panel.getByRole('button', { name: /Reseñas \(\d+\)/ })).toBeVisible();
   await expect(panel.getByText('Públicas / privadas')).toBeVisible();
   await panel.locator('button', { hasText: 'pública' }).first().click();
-  await expect(page.getByRole('dialog', { name: 'Valoración' }).getByText('Autor')).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Reseña' }).getByText('Autor')).toBeVisible();
   expect(errors).toEqual([]);
 });
 

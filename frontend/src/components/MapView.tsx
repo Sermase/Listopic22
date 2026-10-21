@@ -343,7 +343,7 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                                 photoUrl={item.photoUrl}
                                 score={item.rating}
                                 sponsored={isSponsored}
-                                subtitle={item.reviewsCount ? `${item.reviewsCount} ${item.reviewsCount === 1 ? 'valoración' : 'valoraciones'}` : null}
+                                subtitle={item.reviewsCount ? `${item.reviewsCount} ${item.reviewsCount === 1 ? 'reseña' : 'reseñas'}` : null}
                                 onNavigate={() => {
                                     if (!isJefe) campaignIds.forEach((campaignId) => {
                                         void Promise.all([

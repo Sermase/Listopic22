@@ -6,7 +6,7 @@ import { normalizeItemName, placeGeoFields, rankListElements, type ListForRankin
 
 const places = vectors.places as Record<string, Record<string, unknown>>;
 
-// Como la carga de una Lista pública (useListDetails): solo valoraciones
+// Como la carga de una Lista pública (useListDetails): solo reseñas
 // públicas, de la más reciente a la más antigua, con la zona del sitio.
 const listReviews = vectors.reviews
     .filter((r) => r.visibility === 'public')
@@ -23,7 +23,7 @@ describe('Lista: puestos del caso compartido con Buscar', () => {
         for (const { input, expected } of vectors.itemNames) expect(normalizeItemName(input)).toBe(expected);
     });
 
-    it('elementos, media, nº de valoraciones, zona y puesto', () => {
+    it('elementos, media, nº de reseñas, zona y puesto', () => {
         expect(ranked.map((e) => ({
             key: e.id,
             average: Number(e.average.toFixed(4)),
@@ -36,7 +36,7 @@ describe('Lista: puestos del caso compartido con Buscar', () => {
         }))).toEqual(vectors.expected.elements);
     });
 
-    it('sin la Minilista privada, sin bots y sin valoraciones sin nota', () => {
+    it('sin la Minilista privada, sin bots y sin reseñas sin nota', () => {
         const leon = ranked.find((e) => e.id === 'p_leon_bravas')!;
         expect(leon).toMatchObject({ average: 7, count: 1 });
         expect(ranked.some((e) => vectors.expected.botOnlyKeys.includes(e.id))).toBe(false);

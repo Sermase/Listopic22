@@ -102,7 +102,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
     const [tagRenames, setTagRenames] = useState<Map<string, string>>(new Map());
     const [inheritedCriteriaIds, setInheritedCriteriaIds] = useState<string[]>([]);
-    // Con valoraciones, los criterios existentes no se quitan ni cambian de peso.
+    // Con reseñas, los criterios existentes no se quitan ni cambian de peso.
     const [scoringLockedIds, setScoringLockedIds] = useState<string[]>([]);
     const [existingWeights, setExistingWeights] = useState<Record<string, number> | null>(null);
     // Criterios de otro tipo (no deslizador): se conservan tal cual al guardar.
@@ -296,7 +296,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 };
             });
 
-            // Pesos de la nota: ×1 lo que cuenta, ×0 lo que no. Con valoraciones se
+            // Pesos de la nota: ×1 lo que cuenta, ×0 lo que no. Con reseñas se
             // conservan los ya guardados (cambiarlos exige una migración).
             const scoringWeights = deriveScoringWeights(criteriaDefinitionMap, {
                 ...weightsFromCriteria(criteria),
@@ -358,7 +358,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 }
             }
 
-            // Las valoraciones siguen la visibilidad de su lista (ver lib/reviewVisibility).
+            // Las reseñas siguen la visibilidad de su lista (ver lib/reviewVisibility).
             await syncListReviewVisibility(listId, parentListId, newVisibility);
 
             queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
@@ -459,7 +459,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                                 className="w-4 h-4 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] border-gray-600" />
                             <div>
                                 <span className="block text-sm font-medium text-white">Solo Lectura</span>
-                                <span className="block text-xs text-gray-500">Los visitantes pueden ver pero solo editores añaden valoraciones.</span>
+                                <span className="block text-xs text-gray-500">Los visitantes pueden ver pero solo editores añaden reseñas.</span>
                             </div>
                         </label>
                         <label className="flex items-center gap-3 cursor-pointer">
@@ -467,7 +467,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                                 className="w-4 h-4 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] border-gray-600" />
                             <div>
                                 <span className="block text-sm font-medium text-white">Colaborativa (Escritura)</span>
-                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir valoraciones.</span>
+                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir reseñas.</span>
                             </div>
                         </label>
                     </div>
@@ -511,7 +511,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
                 <div>
                     <h3 className="text-lg font-bold text-white mb-2">Etiquetas</h3>
-                    <p className="text-sm text-gray-400 mb-3">Define qué etiquetas estarán disponibles para clasificar las valoraciones.</p>
+                    <p className="text-sm text-gray-400 mb-3">Define qué etiquetas estarán disponibles para clasificar las reseñas.</p>
                     <div className="flex flex-wrap gap-2 mb-3">
                         {customTags.map(tag => {
                             const isLocked = isLockedTag(tag);

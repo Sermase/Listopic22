@@ -431,7 +431,7 @@ export const GroupPage: React.FC = () => {
 
     const openAddReviewFlow = () => {
         if (!user) {
-            openAuthPrompt('añadir una valoración');
+            openAuthPrompt('añadir una reseña');
             return;
         }
         setSelectedListId(lockedListId);
@@ -608,7 +608,7 @@ export const GroupPage: React.FC = () => {
         );
     }
 
-    // Sin sitio y sin valoraciones: no hay nada que enseñar (ni que valorar).
+    // Sin sitio y sin reseñas: no hay nada que enseñar (ni que valorar).
     if (placeMissing && reviews.length === 0) {
         return (
             <div className="min-h-screen pt-safe-32 px-4 text-center bg-[var(--lt-bg)]">
@@ -698,14 +698,14 @@ export const GroupPage: React.FC = () => {
                                 <div className="flex items-center gap-2">
                                     <span
                                         className="flex min-w-0 items-center gap-2 pl-1 pr-3 py-1 rounded-full text-sm font-bold border border-[var(--lt-border-strong)] bg-[var(--lt-glass)] backdrop-blur-md text-[var(--lt-text)]"
-                                        title="Media de las valoraciones de este elemento en sus Listas."
+                                        title="Media de las reseñas de este elemento en sus Listas."
                                     >
                                         <span className="inline-flex shrink-0 items-center gap-1 px-2 py-0.5 rounded-full" style={scoreBadgeStyle(stats.avg)}>
                                             <Star className="w-3.5 h-3.5 fill-current" aria-hidden />
                                             {stats.avg.toFixed(1)}
                                         </span>
                                         <span className="truncate text-xs font-semibold text-[var(--lt-text-muted)]">
-                                            {stats.count} {stats.count === 1 ? 'valoración' : 'valoraciones'}
+                                            {stats.count} {stats.count === 1 ? 'reseña' : 'reseñas'}
                                         </span>
                                     </span>
                                     <button
@@ -907,7 +907,7 @@ export const GroupPage: React.FC = () => {
                                     }`}
                                 style={groupActiveTab === 'reviews' ? { backgroundImage: 'var(--lt-accent-grad)' } : undefined}
                             >
-                                <MessageSquare className="w-3.5 h-3.5" /> Valoraciones ({reviews.length})
+                                <MessageSquare className="w-3.5 h-3.5" /> Reseñas ({reviews.length})
                             </button>
                             {stats && stats.photos.length > 0 && (
                                 <button
@@ -1018,10 +1018,10 @@ export const GroupPage: React.FC = () => {
                                                     <button
                                                         onClick={() => setExpandedReviewId(null)}
                                                         className="self-center mb-3 flex items-center gap-2 px-4 py-1.5 bg-[var(--lt-accent-soft)] hover:opacity-80 text-[var(--lt-accent)] text-sm font-bold rounded-full transition-opacity border border-[var(--lt-accent-border)]"
-                                                        aria-label="Plegar valoración"
+                                                        aria-label="Plegar reseña"
                                                     >
                                                         <ChevronUp className="w-4 h-4" />
-                                                        <span>Cerrar valoración</span>
+                                                        <span>Cerrar reseña</span>
                                                     </button>
                                                     <ReviewCard review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} placeClosedStatus={placeClosedStatus || undefined} />
                                                 </div>
@@ -1094,7 +1094,7 @@ export const GroupPage: React.FC = () => {
                                     <MessageSquare className="w-7 h-7 text-[var(--lt-accent)]" />
                                 </span>
                                 <h3 className="text-lg font-display font-bold text-[var(--lt-text)] mb-1.5">Sé el primero en opinar</h3>
-                                <p className="text-[var(--lt-text-muted)] mb-5 text-sm max-w-xs mx-auto">Nadie ha escrito una valoración detallada sobre este plato aún.</p>
+                                <p className="text-[var(--lt-text-muted)] mb-5 text-sm max-w-xs mx-auto">Nadie ha escrito una reseña detallada sobre este plato aún.</p>
                                 <button
                                     onClick={openAddReviewFlow}
                                     className="inline-flex items-center gap-2 px-5 py-2.5 lt-on-accent rounded-xl text-sm font-bold transition-opacity hover:opacity-90 shadow-lg shadow-[var(--lt-accent-shadow)]"

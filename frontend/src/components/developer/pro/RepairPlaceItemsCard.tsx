@@ -3,7 +3,7 @@
  * de «Patrocinios y Pro».
  *
  * Llama al callable adminRepairPlaceItems, que pasa los datos antiguos al modelo
- * nuevo de la carta: las valoraciones movidas o renombradas llevan el nombre
+ * nuevo de la carta: las reseñas movidas o renombradas llevan el nombre
  * oficial del elemento, se recuperan los nombres de renombres y fusiones
  * aprobados, se cierran duplicados y se actualizan los platos destacados.
  *
@@ -31,8 +31,8 @@ import {
 import { Button, Card } from '../../ui';
 
 const REPAIR_COUNTER_LABELS: Array<{ key: keyof RepairPlaceItemsCounters; emoji: string; label: string }> = [
-    { key: 'renamedReviews', emoji: '✏️', label: 'valoraciones renombradas' },
-    { key: 'stampedReviews', emoji: '🏷️', label: 'valoraciones actualizadas' },
+    { key: 'renamedReviews', emoji: '✏️', label: 'reseñas renombradas' },
+    { key: 'stampedReviews', emoji: '🏷️', label: 'reseñas actualizadas' },
     { key: 'mergedItems', emoji: '🔀', label: 'elementos fusionados' },
     { key: 'deactivatedItems', emoji: '💤', label: 'elementos desactivados' },
     { key: 'fixedMergedItems', emoji: '🩹', label: 'fusiones corregidas' },
@@ -135,7 +135,7 @@ export const RepairPlaceItemsCard: React.FC<RepairPlaceItemsCardProps> = ({ onDa
             const accepted = await confirm({
                 title: target ? '¿Reparar la carta de este sitio?' : '¿Reparar todas las cartas?',
                 message: target
-                    ? `Se reescribirán las valoraciones y los elementos de ${target}. Conviene simular antes.`
+                    ? `Se reescribirán las reseñas y los elementos de ${target}. Conviene simular antes.`
                     : 'Se repararán los sitios verificados y los que tienen propuestas aprobadas (hasta 300). Conviene simular antes.',
                 confirmLabel: 'Aplicar',
                 destructive: true,
@@ -172,7 +172,7 @@ export const RepairPlaceItemsCard: React.FC<RepairPlaceItemsCardProps> = ({ onDa
             <div>
                 <h3 className="text-lg font-bold text-white">🧹 Reparar cartas</h3>
                 <p className="mt-1 max-w-3xl text-sm text-gray-400">
-                    Pone al día los datos antiguos: las valoraciones movidas o renombradas pasan a llevar el nombre oficial del
+                    Pone al día los datos antiguos: las reseñas movidas o renombradas pasan a llevar el nombre oficial del
                     elemento, se recuperan los nombres de renombres y fusiones aprobados, se cierran duplicados y se actualizan
                     los platos destacados. Sin sitio, repasa los verificados y los que tienen propuestas aprobadas.
                 </p>

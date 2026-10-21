@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Sliders, Star, Trash2, Check, ArrowUpDown, EyeOff } from 'lucide-react';
+import { X, SlidersHorizontal, Star, Trash2, ChevronDown } from 'lucide-react';
 import type { FilterState } from '../pages/ListPage';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 
@@ -12,6 +12,13 @@ const ACCESSIBILITY_FILTER_LABELS: Record<string, string> = {
 };
 
 type SortMode = 'rating' | 'newest' | 'oldest' | 'count';
+
+const SORT_OPTIONS: Array<{ id: SortMode; label: string }> = [
+    { id: 'rating', label: 'Mejor nota' },
+    { id: 'count', label: 'Más reseñas' },
+    { id: 'newest', label: 'Lo último' },
+    { id: 'oldest', label: 'Lo primero' },
+];
 
 interface FilterModalProps {
     isOpen: boolean;
@@ -26,8 +33,42 @@ interface FilterModalProps {
     setSelectedTags: (tags: string[]) => void;
     showUnavailable?: boolean;
     setShowUnavailable?: (v: boolean) => void;
+    showBotReviews?: boolean;
+    setShowBotReviews?: (v: boolean) => void;
+    criticOnly?: boolean;
+    setCriticOnly?: (v: boolean) => void;
+    groupByPlace?: boolean;
+    setGroupByPlace?: (v: boolean) => void;
+    /** Resultados con los filtros actuales (para el botón «Ver N»). */
+    resultCount?: number;
 }
 
+const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <h3 className="mb-2 text-[11px] font-bold uppercase tracking-widest text-[var(--lt-text-muted)]">{children}</h3>
+);
+
+/** Interruptor con una línea de explicación debajo cuando la opción puede despistar. */
+const ToggleRow: React.FC<{ label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }> = ({ label, hint, checked, onChange }) => (
+    <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-2.5 transition-colors hover:border-[var(--lt-accent-border)]">
+        <span className="min-w-0">
+            <span className="block text-sm font-semibold text-[var(--lt-text)]">{label}</span>
+            {hint && <span className="mt-0.5 block text-xs leading-snug text-[var(--lt-text-muted)]">{hint}</span>}
+        </span>
+        <input type="checkbox" className="sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        <span aria-hidden="true" className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${checked ? 'bg-[var(--lt-accent)]' : 'bg-[var(--lt-border)]'}`}>
+            <span className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-6' : 'translate-x-1'}`} />
+        </span>
+    </label>
+);
+
+const chipClass = (active: boolean) => `rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${active
+    ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent)] lt-on-accent'
+    : 'border-[var(--lt-border)] bg-[var(--lt-glass)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`;
+
+/**
+ * Hoja de filtros de una Lista: todo en una sola pantalla que se desplaza, lo
+ * habitual arriba y lo fino (criterios, accesibilidad) en desplegables.
+ */
 export const FilterModal: React.FC<FilterModalProps> = ({
     isOpen,
     onClose,
@@ -41,20 +82,20 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     setSelectedTags,
     showUnavailable,
     setShowUnavailable,
+    showBotReviews,
+    setShowBotReviews,
+    criticOnly,
+    setCriticOnly,
+    groupByPlace,
+    setGroupByPlace,
+    resultCount,
 }) => {
-    const [activeTab, setActiveTab] = React.useState<'filters' | 'sort'>('filters');
     useBodyScrollLock(isOpen);
 
     if (!isOpen) return null;
 
     const handleCriterionChange = (key: string, value: number) => {
-        setFilters(prev => ({
-            ...prev,
-            criteriaMin: {
-                ...prev.criteriaMin,
-                [key]: value
-            }
-        }));
+        setFilters(prev => ({ ...prev, criteriaMin: { ...prev.criteriaMin, [key]: value } }));
     };
 
     const clearFilters = () => {
@@ -68,259 +109,181 @@ export const FilterModal: React.FC<FilterModalProps> = ({
             criteriaMin: {}
         });
         setSelectedTags([]);
+        setShowBotReviews?.(false);
+        setCriticOnly?.(false);
+        setGroupByPlace?.(false);
+        setShowUnavailable?.(false);
     };
 
     const toggleTag = (tag: string) => {
-        if (selectedTags.includes(tag)) {
-            setSelectedTags(selectedTags.filter(t => t !== tag));
-        } else {
-            setSelectedTags([...selectedTags, tag]);
-        }
+        setSelectedTags(selectedTags.includes(tag) ? selectedTags.filter(t => t !== tag) : [...selectedTags, tag]);
     };
+
+    const criteriaActive = Object.values(filters.criteriaMin || {}).filter(v => v > 0).length;
+    const accessibilityActive = Object.values(filters.accessibility || {}).filter(Boolean).length;
 
     return (
         <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="bg-[var(--lt-card-strong)] w-full sm:max-w-md sm:rounded-2xl shadow-2xl border-0 sm:border border-white/10 overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[90vh] rounded-t-2xl transition-all" onClick={e => e.stopPropagation()}>
+            <div role="dialog" aria-label="Filtros" className="bg-[var(--lt-card-strong)] w-full sm:max-w-md sm:rounded-2xl shadow-2xl border-0 sm:border border-[var(--lt-border)] overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[90vh] rounded-t-2xl" onClick={e => e.stopPropagation()}>
 
-                {/* Header with Tabs */}
-                <div className="border-b border-white/10 bg-white/5 flex-shrink-0">
-                    <div className="p-4 flex items-center justify-between">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                            <Sliders className="w-5 h-5 text-[var(--lt-accent)]" /> Preferencias
-                        </h2>
-                        <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white">
-                            <X className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    <div className="flex px-4 gap-4">
-                        <button
-                            onClick={() => setActiveTab('filters')}
-                            className={`pb-3 text-sm font-bold border-b-2 transition-colors flex-1 text-center ${activeTab === 'filters' ? 'border-[var(--lt-accent-border)] text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                        >
-                            Filtros
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('sort')}
-                            className={`pb-3 text-sm font-bold border-b-2 transition-colors flex-1 text-center ${activeTab === 'sort' ? 'border-[var(--lt-accent-border)] text-white' : 'border-transparent text-gray-400 hover:text-white'}`}
-                        >
-                            Ordenar
-                        </button>
-                    </div>
+                <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--lt-border)] px-4 py-3">
+                    <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--lt-text)]">
+                        <SlidersHorizontal className="h-5 w-5 text-[var(--lt-accent)]" /> Filtros
+                    </h2>
+                    <button type="button" onClick={onClose} aria-label="Cerrar" className="rounded-full p-2 text-[var(--lt-text-muted)] transition-colors hover:bg-[var(--lt-glass)] hover:text-[var(--lt-text)]">
+                        <X className="h-5 w-5" />
+                    </button>
                 </div>
 
-                {/* Body - Scrollable */}
-                <div className="p-6 overflow-y-auto flex-1 space-y-8 bg-[var(--lt-card-strong)]">
-
-                    {activeTab === 'filters' ? (
-                        <>
-                            {/* Tag Cloud */}
-                            {availableTags && availableTags.length > 0 && (
-                                <div>
-                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                        Etiquetas
-                                    </h3>
-                                    <div className="flex flex-wrap gap-2">
-                                        <button
-                                            onClick={() => setSelectedTags([])}
-                                            className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${selectedTags.length === 0 ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/30'}`}
-                                        >
-                                            Todas
-                                        </button>
-                                        {availableTags.map(tag => (
-                                            <button
-                                                key={tag}
-                                                onClick={() => toggleTag(tag)}
-                                                className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${selectedTags.includes(tag) ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white' : 'bg-white/5 border-white/10 text-gray-400 hover:border-white/30'}`}
-                                            >
-                                                {tag}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Global Rating Filter */}
-                            <div>
-                                <div className="flex justify-between items-center mb-3">
-                                    <label className="text-sm font-medium text-gray-300 flex items-center gap-2">
-                                        <Star className="w-4 h-4 text-yellow-500 fill-current" /> Nota Global Mínima
-                                    </label>
-                                    <span className="text-sm font-bold text-white bg-white/10 px-2.5 py-1 rounded-md min-w-[3rem] text-center">
-                                        {filters.minRating > 0 ? filters.minRating.toFixed(1) : 'Cualquiera'}
-                                    </span>
-                                </div>
-                                <input
-                                    type="range"
-                                    min="0"
-                                    max="10"
-                                    step="0.5"
-                                    value={filters.minRating}
-                                    onChange={(e) => setFilters(prev => ({ ...prev, minRating: parseFloat(e.target.value) }))}
-                                    className="w-full accent-indigo-500 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                                />
-                                <div className="flex justify-between text-xs text-gray-500 mt-2 font-medium">
-                                    <span>0</span>
-                                    <span>5</span>
-                                    <span>10</span>
-                                </div>
-                            </div>
-
-                            {/* Criteria Filters */}
-                            {criteriaDefinition && Object.keys(criteriaDefinition).length > 0 && (
-                                <div>
-                                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 border-b border-white/5 pb-2">Por Criterio</h3>
-                                    <div className="space-y-6">
-                                        {Object.entries(criteriaDefinition).map(([key, def]) => {
-                                            const currentVal = filters.criteriaMin[key] || 0;
-                                            const min = def.min ?? 0;
-                                            const max = def.max ?? 10;
-                                            return (
-                                                <div key={key}>
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <label className="text-sm text-gray-300">{def.label}</label>
-                                                        <span className={`text-xs px-2 py-0.5 rounded font-bold ${currentVal > min ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'text-gray-500'}`}>
-                                                            {currentVal > min ? `> ${currentVal}` : 'Cualquiera'}
-                                                        </span>
-                                                    </div>
-                                                    <input
-                                                        type="range"
-                                                        min={min}
-                                                        max={max}
-                                                        step={def.step ?? 0.5}
-                                                        value={currentVal}
-                                                        onChange={(e) => handleCriterionChange(key, parseFloat(e.target.value))}
-                                                        className="w-full accent-emerald-500 h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer"
-                                                    />
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Toggles */}
-                            <div className="space-y-3 pt-2">
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 border-b border-white/5 pb-2">Estado</h3>
-                                <label className="flex items-center justify-between cursor-pointer group p-3 bg-white/5 rounded-xl transition-all hover:bg-white/10 border border-white/5">
-                                    <span className="text-gray-300 text-sm font-medium">Visitados por mí</span>
-                                    <div className={`w-11 h-6 rounded-full relative transition-colors ${filters.visited ? 'bg-[var(--lt-accent)]' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
-                                        <input type="checkbox" className="hidden" checked={filters.visited} onChange={(e) => setFilters(prev => ({ ...prev, visited: e.target.checked }))} />
-                                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${filters.visited ? 'translate-x-6' : 'translate-x-1'}`}></div>
-                                    </div>
-                                </label>
-                                <label className="flex items-center justify-between cursor-pointer group p-3 bg-white/5 rounded-xl transition-all hover:bg-white/10 border border-white/5">
-                                    <span className="text-gray-300 text-sm font-medium">Con fotos</span>
-                                    <div className={`w-11 h-6 rounded-full relative transition-colors ${filters.hasPhoto ? 'bg-[var(--lt-accent)]' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
-                                        <input type="checkbox" className="hidden" checked={filters.hasPhoto} onChange={(e) => setFilters(prev => ({ ...prev, hasPhoto: e.target.checked }))} />
-                                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${filters.hasPhoto ? 'translate-x-6' : 'translate-x-1'}`}></div>
-                                    </div>
-                                </label>
-                                <label className="flex items-center justify-between cursor-pointer group p-3 bg-white/5 rounded-xl transition-all hover:bg-white/10 border border-white/5">
-                                    <span className="text-gray-300 text-sm font-medium">Sin gluten</span>
-                                    <div className={`w-11 h-6 rounded-full relative transition-colors ${filters.glutenFree ? 'bg-[var(--lt-accent)]' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
-                                        <input type="checkbox" className="hidden" checked={filters.glutenFree} onChange={(e) => setFilters(prev => ({ ...prev, glutenFree: e.target.checked }))} />
-                                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${filters.glutenFree ? 'translate-x-6' : 'translate-x-1'}`}></div>
-                                    </div>
-                                </label>
-                                <label className="flex items-center justify-between cursor-pointer group p-3 bg-white/5 rounded-xl transition-all hover:bg-white/10 border border-white/5">
-                                    <span className="text-gray-300 text-sm font-medium">Admite mascotas</span>
-                                    <div className={`w-11 h-6 rounded-full relative transition-colors ${filters.petFriendly ? 'bg-[var(--lt-accent)]' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
-                                        <input type="checkbox" className="hidden" checked={filters.petFriendly} onChange={(e) => setFilters(prev => ({ ...prev, petFriendly: e.target.checked }))} />
-                                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${filters.petFriendly ? 'translate-x-6' : 'translate-x-1'}`}></div>
-                                    </div>
-                                </label>
-                                {setShowUnavailable && (
-                                    <label className="flex items-center justify-between cursor-pointer group p-3 bg-white/5 rounded-xl transition-all hover:bg-white/10 border border-white/5">
-                                        <span className="text-gray-300 text-sm font-medium flex items-center gap-2">
-                                            <EyeOff className="w-4 h-4 text-red-400" /> Mostrar no disponibles
-                                        </span>
-                                        <div className={`w-11 h-6 rounded-full relative transition-colors ${showUnavailable ? 'bg-red-600' : 'bg-gray-700 group-hover:bg-gray-600'}`}>
-                                            <input type="checkbox" className="hidden" checked={!!showUnavailable} onChange={(e) => setShowUnavailable(e.target.checked)} />
-                                            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform shadow-sm ${showUnavailable ? 'translate-x-6' : 'translate-x-1'}`}></div>
-                                        </div>
-                                    </label>
-                                )}
-                            </div>
-
-                            <div>
-                                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 border-b border-white/5 pb-2">Accesibilidad</h3>
-                                <div className="grid grid-cols-1 gap-2">
-                                    {Object.entries(ACCESSIBILITY_FILTER_LABELS).map(([key, label]) => {
-                                        const active = Boolean(filters.accessibility?.[key]);
-                                        return (
-                                            <button
-                                                type="button"
-                                                key={key}
-                                                onClick={() => setFilters(prev => ({
-                                                    ...prev,
-                                                    accessibility: {
-                                                        ...(prev.accessibility || {}),
-                                                        [key]: !active,
-                                                    }
-                                                }))}
-                                                className={`w-full rounded-xl border px-3 py-2.5 text-left text-sm font-bold transition-all ${
-                                                    active
-                                                        ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]'
-                                                        : 'bg-white/5 border-white/10 text-gray-300 hover:border-white/30 hover:text-white'
-                                                }`}
-                                            >
-                                                {label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </>
-                    ) : (
-                        <div className="space-y-3">
-                            <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-                                <ArrowUpDown className="w-3 h-3" /> Ordenar Por
-                            </h3>
-                            {([
-                                { id: 'rating', label: 'Mejor Valorados', icon: <Star className="w-4 h-4" /> },
-                                { id: 'newest', label: 'Más Recientes', icon: <Check className="w-4 h-4" /> },
-                                { id: 'oldest', label: 'Más Antiguos', icon: <Check className="w-4 h-4" /> },
-                                { id: 'count', label: 'Con más valoraciones', icon: <Check className="w-4 h-4" /> }
-                            ] satisfies Array<{ id: SortMode; label: string; icon: React.ReactNode }>).map(option => (
-                                <button
-                                    key={option.id}
-                                    onClick={() => setSortMode(option.id)}
-                                    className={`w-full p-4 rounded-xl border text-left text-sm font-bold transition-all flex items-center justify-between group
-                                        ${sortMode === option.id ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white shadow-lg shadow-[var(--lt-accent-shadow)]' : 'bg-[var(--lt-bg)] border-white/10 text-gray-400 hover:border-white/30 hover:text-white hover:bg-white/5'}`}
-                                >
-                                    <span className="flex items-center gap-3">
-                                        {option.label}
-                                    </span>
-                                    {sortMode === option.id && <div className="w-2.5 h-2.5 rounded-full bg-white shadow-glow"></div>}
+                <div className="flex-1 space-y-6 overflow-y-auto p-4">
+                    <div>
+                        <SectionTitle>Ordenar</SectionTitle>
+                        <div className="flex flex-wrap gap-2">
+                            {SORT_OPTIONS.map(option => (
+                                <button key={option.id} type="button" aria-pressed={sortMode === option.id} onClick={() => setSortMode(option.id)} className={chipClass(sortMode === option.id)}>
+                                    {option.label}
                                 </button>
                             ))}
                         </div>
+                    </div>
+
+                    <div>
+                        <div className="mb-2 flex items-center justify-between">
+                            <SectionTitle>Nota mínima</SectionTitle>
+                            <span className="flex items-center gap-1 text-sm font-bold text-[var(--lt-text)]">
+                                <Star className="h-3.5 w-3.5 fill-current text-amber-400" />
+                                {filters.minRating > 0 ? filters.minRating.toFixed(1).replace('.', ',') : 'Cualquiera'}
+                            </span>
+                        </div>
+                        <input
+                            type="range"
+                            min="0"
+                            max="10"
+                            step="0.5"
+                            value={filters.minRating}
+                            onChange={(e) => setFilters(prev => ({ ...prev, minRating: parseFloat(e.target.value) }))}
+                            aria-label="Nota mínima"
+                            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-[var(--lt-border)] accent-[var(--lt-accent)]"
+                        />
+                    </div>
+
+                    {availableTags && availableTags.length > 0 && (
+                        <div>
+                            <SectionTitle>Etiquetas</SectionTitle>
+                            <div className="flex flex-wrap gap-2">
+                                {availableTags.map(tag => (
+                                    <button key={tag} type="button" aria-pressed={selectedTags.includes(tag)} onClick={() => toggleTag(tag)} className={chipClass(selectedTags.includes(tag))}>
+                                        {tag}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     )}
 
-                    {/* Spacer for bottom actions */}
-                    <div className="h-4"></div>
+                    <div className="space-y-2">
+                        <SectionTitle>Qué ver</SectionTitle>
+                        {setGroupByPlace && (
+                            <ToggleRow label="Agrupar por sitio" hint="Junta en una fila los platos de un mismo sitio." checked={!!groupByPlace} onChange={setGroupByPlace} />
+                        )}
+                        <ToggleRow label="Con fotos" checked={filters.hasPhoto} onChange={(v) => setFilters(prev => ({ ...prev, hasPhoto: v }))} />
+                        <ToggleRow label="Donde ya he estado" hint="Solo lo que tú ya has reseñado." checked={filters.visited} onChange={(v) => setFilters(prev => ({ ...prev, visited: v }))} />
+                        {setCriticOnly && (
+                            <ToggleRow label="Solo críticos" hint="Solo reseñas de gente con la insignia de crítico." checked={!!criticOnly} onChange={setCriticOnly} />
+                        )}
+                        {setShowBotReviews && (
+                            <ToggleRow label="Incluir reseñas de bots" hint="Listopic añade reseñas automáticas para arrancar; por defecto no se ven." checked={!!showBotReviews} onChange={setShowBotReviews} />
+                        )}
+                        {setShowUnavailable && (
+                            <ToggleRow label="Incluir no disponibles" hint="Platos retirados de la carta y sitios cerrados." checked={!!showUnavailable} onChange={setShowUnavailable} />
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <SectionTitle>Dieta y más</SectionTitle>
+                        <ToggleRow label="Sin gluten" hint="Según lo que marca la gente: no es una garantía para alérgicos." checked={filters.glutenFree} onChange={(v) => setFilters(prev => ({ ...prev, glutenFree: v }))} />
+                        <ToggleRow label="Admite mascotas" checked={filters.petFriendly} onChange={(v) => setFilters(prev => ({ ...prev, petFriendly: v }))} />
+                    </div>
+
+                    {criteriaDefinition && Object.keys(criteriaDefinition).length > 0 && (
+                        <details className="group rounded-xl border border-[var(--lt-border)] bg-[var(--lt-glass)]" open={criteriaActive > 0}>
+                            <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-sm font-semibold text-[var(--lt-text)]">
+                                <span>
+                                    Afinar por criterio {criteriaActive > 0 && <span className="text-[var(--lt-accent)]">· {criteriaActive}</span>}
+                                    <span className="mt-0.5 block text-xs font-normal text-[var(--lt-text-muted)]">Nota mínima en cada cosa que puntúa esta lista.</span>
+                                </span>
+                                <ChevronDown className="h-4 w-4 shrink-0 text-[var(--lt-text-muted)] transition-transform group-open:rotate-180" />
+                            </summary>
+                            <div className="space-y-4 px-3 pb-3">
+                                {Object.entries(criteriaDefinition).map(([key, def]) => {
+                                    const currentVal = filters.criteriaMin[key] || 0;
+                                    const min = def.min ?? 0;
+                                    const max = def.max ?? 10;
+                                    return (
+                                        <div key={key}>
+                                            <div className="mb-1 flex items-center justify-between">
+                                                <span className="text-sm text-[var(--lt-text)]">{def.label}</span>
+                                                <span className={`text-xs font-bold ${currentVal > min ? 'text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)]'}`}>
+                                                    {currentVal > min ? `≥ ${currentVal}` : 'Cualquiera'}
+                                                </span>
+                                            </div>
+                                            <input
+                                                type="range"
+                                                min={min}
+                                                max={max}
+                                                step={def.step ?? 0.5}
+                                                value={currentVal}
+                                                aria-label={`Mínimo en ${def.label}`}
+                                                onChange={(e) => handleCriterionChange(key, parseFloat(e.target.value))}
+                                                className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-[var(--lt-border)] accent-[var(--lt-accent)]"
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </details>
+                    )}
+
+                    <details className="group rounded-xl border border-[var(--lt-border)] bg-[var(--lt-glass)]" open={accessibilityActive > 0}>
+                        <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 text-sm font-semibold text-[var(--lt-text)]">
+                            <span>Accesibilidad {accessibilityActive > 0 && <span className="text-[var(--lt-accent)]">· {accessibilityActive}</span>}</span>
+                            <ChevronDown className="h-4 w-4 shrink-0 text-[var(--lt-text-muted)] transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="flex flex-wrap gap-2 px-3 pb-3">
+                            {Object.entries(ACCESSIBILITY_FILTER_LABELS).map(([key, label]) => {
+                                const active = Boolean(filters.accessibility?.[key]);
+                                return (
+                                    <button
+                                        type="button"
+                                        key={key}
+                                        aria-pressed={active}
+                                        onClick={() => setFilters(prev => ({ ...prev, accessibility: { ...(prev.accessibility || {}), [key]: !active } }))}
+                                        className={chipClass(active)}
+                                    >
+                                        {label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </details>
                 </div>
 
-                {/* Footer Actions - Fixed Bottom */}
-                <div className="border-t border-white/10 bg-[var(--lt-bg)] p-4 flex items-center justify-between gap-4 flex-shrink-0 z-10 safe-area-bottom">
+                <div className="flex flex-shrink-0 items-center gap-3 border-t border-[var(--lt-border)] bg-[var(--lt-bg)] p-4 safe-area-bottom">
                     <button
+                        type="button"
                         onClick={clearFilters}
-                        className="px-4 py-3 rounded-xl hover:bg-white/5 text-gray-400 hover:text-white transition-colors text-sm font-bold flex items-center gap-2"
+                        className="flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-[var(--lt-text-muted)] transition-colors hover:bg-[var(--lt-glass)] hover:text-[var(--lt-text)]"
                     >
-                        <Trash2 className="w-4 h-4" />
-                        <span className="hidden sm:inline">Limpiar</span>
-                        <span className="sm:hidden">Limpiar</span>
+                        <Trash2 className="h-4 w-4" /> Limpiar
                     </button>
-
                     <button
+                        type="button"
                         onClick={onClose}
-                        className="flex-1 px-6 py-3 bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] text-white font-bold rounded-xl shadow-lg shadow-[var(--lt-accent-shadow)] transition-all active:scale-95 text-center"
+                        className="flex-1 rounded-xl px-6 py-3 text-center font-bold lt-on-accent shadow-lg transition-transform active:scale-95"
+                        style={{ backgroundImage: 'var(--lt-accent-grad)' }}
                     >
-                        Ver Resultados
+                        {typeof resultCount === 'number' ? `Ver ${resultCount} ${resultCount === 1 ? 'resultado' : 'resultados'}` : 'Ver resultados'}
                     </button>
                 </div>
-
             </div>
         </div>
     );
