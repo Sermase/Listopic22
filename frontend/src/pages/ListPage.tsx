@@ -1080,8 +1080,15 @@ export const ListPage: React.FC = () => {
         ]),
     ].filter((value): value is string => Boolean(value))));
     const listShareCriteria = buildShareCriteriaGroups(list.criteriaAverages, list.criteriaDefinition);
+    // Zona elegida al compartir: la tarjeta dice «las mejores» de esa zona y su top sale de ahí.
+    const listShareScope = effectiveArea.kind !== 'near'
+        ? `en ${geoAreaLabel(effectiveArea.kind, effectiveArea.value)}`
+        : range !== null && location
+            ? `${distanceLabel(range).toLowerCase()}${userGeo?.city ? `, en ${userGeo.city}` : ''}`
+            : undefined;
+    const listShareItems = listShareScope ? filteredItemsAll : groupedItems;
     // El top 3 de la tarjeta va siempre por nota, aunque la lista se vea en otro orden.
-    const listShareTop = [...groupedItems]
+    const listShareTop = [...listShareItems]
         .sort((a, b) => compareElementsByRank({ id: a.id, average: a.avgRating, count: a.reviewCount }, { id: b.id, average: b.avgRating, count: b.reviewCount }))
         .slice(0, 3)
         .map((item) => ({
@@ -1655,7 +1662,8 @@ export const ListPage: React.FC = () => {
                     criteriaStats: listShareCriteria.ponderable,
                     nonPonderableStats: listShareCriteria.nonPonderable,
                     rankItems: listShareTop,
-                    elementCount: groupedItems.length,
+                    elementCount: listShareItems.length,
+                    scopeLabel: listShareScope,
                 }}
             />
 

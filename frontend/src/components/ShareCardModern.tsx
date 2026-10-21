@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -13,7 +13,7 @@ export type ModernCardVariant = 'story' | 'portrait' | 'square' | 'landscape';
 interface ShareCardModernProps {
     entity: ShareEntityPayload;
     variant: ModernCardVariant;
-    triggerRef: React.MutableRefObject<() => void>;
+    triggerRef: React.MutableRefObject<(variant?: ModernCardVariant) => void>;
     onRequestClose?: () => void;
 }
 
@@ -38,7 +38,8 @@ const fetchImageBlob = async (url: string): Promise<Blob | null> => {
         : [url, `${PUBLIC_ORIGIN}/s/img?u=${encodeURIComponent(url)}`];
     for (const attempt of attempts) {
         try {
-            const response = await fetch(attempt);
+            const signal = typeof AbortSignal !== 'undefined' && 'timeout' in AbortSignal ? AbortSignal.timeout(10_000) : undefined;
+            const response = await fetch(attempt, { signal });
             const type = response.headers.get('content-type') || '';
             if (response.ok && (type.startsWith('image/') || !type)) return await response.blob();
         } catch {
@@ -48,8 +49,20 @@ const fetchImageBlob = async (url: string): Promise<Blob | null> => {
     return null;
 };
 
-const loadImage = async (url?: string): Promise<HTMLImageElement | null> => {
-    if (!url) return null;
+// Las miniaturas y la tarjeta grande comparten fotos: se descargan una sola vez.
+const imageCache = new Map<string, Promise<HTMLImageElement | null>>();
+
+const loadImage = (url?: string): Promise<HTMLImageElement | null> => {
+    if (!url) return Promise.resolve(null);
+    let pending = imageCache.get(url);
+    if (!pending) {
+        pending = loadImageUncached(url);
+        imageCache.set(url, pending);
+    }
+    return pending;
+};
+
+const loadImageUncached = async (url: string): Promise<HTMLImageElement | null> => {
     try {
         const blob = await fetchImageBlob(url);
         if (!blob) return null;
@@ -560,6 +573,9 @@ const typeChipLabel = (entity: ShareEntityPayload) => {
     return getShareEntityLabel(entity.type);
 };
 
+/** Listas con zona: «Las mejores» y, debajo del título, la zona. */
+const listChipLabel = (entity: ShareEntityPayload, fallback: string) => (entity.scopeLabel ? 'Las mejores' : fallback);
+
 const paintBackground = (
     ctx: CanvasRenderingContext2D,
     hero: HTMLImageElement | null,
@@ -700,11 +716,12 @@ const drawVerticalList = (
     const isStory = variant === 'story';
     const contentWidth = width - margin * 2;
     let y = isStory ? 230 : 170;
-    const chip = entity.authorName && !isStory ? typeChipLabel(entity) : (entity.authorName ? `El top de ${entity.authorName}` : typeChipLabel(entity));
+    const chip = listChipLabel(entity, entity.authorName && !isStory ? typeChipLabel(entity) : (entity.authorName ? `El top de ${entity.authorName}` : typeChipLabel(entity)));
     drawChip(ctx, chip, margin, y, isStory ? 32 : 26);
     y += (isStory ? 32 : 26) * 1.85 + (isStory ? 30 : 22);
     y += drawTitleBlock(ctx, entity.title, margin, y, contentWidth, isStory ? 100 : variant === 'portrait' ? 80 : 68, 48, 2);
     const meta = [
+        entity.scopeLabel || '',
         isStory && entity.authorName ? elementCountLabel(entity) : (entity.authorName ? `por ${entity.authorName}` : ''),
         hasScore(entity.score) ? `media ${entity.score.toFixed(1)}` : '',
     ].filter(Boolean);
@@ -906,11 +923,11 @@ const drawLandscape = (
         return;
     }
 
-    drawChip(ctx, typeChipLabel(entity), x, 150, 24);
+    drawChip(ctx, listWithTop ? listChipLabel(entity, typeChipLabel(entity)) : typeChipLabel(entity), x, 150, 24);
     const titleHeight = drawTitleBlock(ctx, entity.title, x, 214, maxWidth, listWithTop ? 68 : 76, 46, listWithTop ? 3 : 2);
     let y = 214 + titleHeight + 18;
     if (listWithTop) {
-        const meta = [entity.authorName ? `por ${entity.authorName}` : '', hasScore(entity.score) ? `media ${entity.score.toFixed(1)}` : '']
+        const meta = [entity.scopeLabel || '', entity.authorName ? `por ${entity.authorName}` : '', hasScore(entity.score) ? `media ${entity.score.toFixed(1)}` : '']
             .filter(Boolean).join(' · ');
         if (meta) {
             setFont(ctx, 700, 30);
@@ -977,7 +994,7 @@ const drawLandscape = (
     drawBottomBar(ctx, width, height, 10);
 };
 
-async function renderCard(entity: ShareEntityPayload, variant: ModernCardVariant): Promise<string> {
+async function drawCard(entity: ShareEntityPayload, variant: ModernCardVariant): Promise<HTMLCanvasElement> {
     const { width, height } = DIMENSIONS[variant];
     const canvas = document.createElement('canvas');
     canvas.width = width;
@@ -999,7 +1016,7 @@ async function renderCard(entity: ShareEntityPayload, variant: ModernCardVariant
 
     if (variant === 'landscape') {
         drawLandscape(ctx, entity, hero, avatar, logo, rankImages, width, height);
-        return canvas.toDataURL('image/png', 1.0);
+        return canvas;
     }
 
     const isStory = variant === 'story';
@@ -1022,8 +1039,69 @@ async function renderCard(entity: ShareEntityPayload, variant: ModernCardVariant
     }
     drawBottomBar(ctx, width, height, barHeight);
 
-    return canvas.toDataURL('image/png', 1.0);
+    return canvas;
 }
+
+const renderCard = async (entity: ShareEntityPayload, variant: ModernCardVariant): Promise<string> =>
+    (await drawCard(entity, variant)).toDataURL('image/png', 1.0);
+
+/** Miniatura real de la tarjeta (la misma que se compartirá, en pequeño). */
+const renderThumb = async (entity: ShareEntityPayload, variant: ModernCardVariant, maxSide = 420): Promise<string> => {
+    const full = await drawCard(entity, variant);
+    const scale = Math.min(1, maxSide / Math.max(full.width, full.height));
+    const small = document.createElement('canvas');
+    small.width = Math.round(full.width * scale);
+    small.height = Math.round(full.height * scale);
+    small.getContext('2d')?.drawImage(full, 0, 0, small.width, small.height);
+    return small.toDataURL('image/jpeg', 0.82);
+};
+
+interface ShareCardThumbProps {
+    entity: ShareEntityPayload;
+    variant: ModernCardVariant;
+    label: string;
+    hint: string;
+    onPick: () => void;
+}
+
+/** Botón con la vista previa real de un formato de tarjeta. */
+export const ShareCardThumb: React.FC<ShareCardThumbProps> = ({ entity, variant, label, hint, onPick }) => {
+    const [thumb, setThumb] = useState<{ key: string; src: string | null } | null>(null);
+    const key = `${variant}|${entity.imageUrl || ''}|${entity.title}|${entity.scopeLabel || ''}`;
+
+    useEffect(() => {
+        let cancelled = false;
+        renderThumb(entity, variant)
+            .then((src) => { if (!cancelled) setThumb({ key, src }); })
+            .catch(() => { if (!cancelled) setThumb({ key, src: null }); });
+        return () => { cancelled = true; };
+        // La clave resume lo que cambia el dibujo; el objeto entity se rehace en cada render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [key]);
+
+    const { width, height } = DIMENSIONS[variant];
+    const ready = thumb?.key === key;
+    return (
+        <button
+            type="button"
+            onClick={onPick}
+            className="group flex flex-col items-center gap-1.5 rounded-xl p-1.5 text-center transition-colors hover:bg-white/5"
+        >
+            <span className="flex h-36 w-full items-center justify-center">
+                {ready && thumb?.src ? (
+                    <img src={thumb.src} alt={`Vista previa ${label}`} className="max-h-36 max-w-full rounded-lg border border-white/15 shadow-lg transition-transform group-hover:scale-[1.03]" />
+                ) : (
+                    <span
+                        className={`block max-h-36 max-w-full rounded-lg border border-white/10 bg-white/5 ${ready ? '' : 'animate-pulse'}`}
+                        style={{ aspectRatio: `${width} / ${height}`, height: width >= height ? undefined : '9rem', width: width >= height ? '100%' : undefined }}
+                    />
+                )}
+            </span>
+            <span className="text-xs font-bold text-white">{label}</span>
+            <span className="text-[10px] leading-tight text-gray-400">{hint}</span>
+        </button>
+    );
+};
 
 export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, variant, triggerRef, onRequestClose }) => {
     const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -1032,13 +1110,13 @@ export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, varian
     const [feedback, setFeedback] = useState<string | null>(null);
     const busyRef = useRef(false);
 
-    triggerRef.current = async () => {
+    triggerRef.current = async (picked?: ModernCardVariant) => {
         if (busyRef.current) return;
         busyRef.current = true;
         setLoading(true);
         setFeedback(null);
         try {
-            const image = await renderCard(entity, variant);
+            const image = await renderCard(entity, picked || variant);
             setPreviewImage(image);
             setIsOpen(true);
         } catch (error) {
@@ -1066,6 +1144,13 @@ export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, varian
         if (!previewImage) return;
         const shareUrl = buildShareRouteUrl(entity.shareRoute || entity.route) || entity.url || '';
         const text = `${buildShareText(entity)} ${shareUrl}`.trim();
+        // El enlace va al portapapeles antes de abrir el menú de compartir: Instagram y
+        // compañía no dejan meterlo en la imagen, así que se pega en la publicación.
+        let linkCopied = false;
+        if (shareUrl && navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(shareUrl).then(() => { linkCopied = true; setFeedback('🔗 Enlace copiado: pégalo en tu publicación.'); }).catch(() => { /* sin permiso */ });
+        }
+        const sharedFeedback = () => (linkCopied ? 'Tarjeta compartida. 🔗 El enlace está copiado: pégalo en tu publicación.' : 'Tarjeta compartida');
         try {
             if (Capacitor.isNativePlatform()) {
                 const saved = await Filesystem.writeFile({
@@ -1074,14 +1159,14 @@ export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, varian
                     directory: Directory.Cache,
                 });
                 await Share.share({ title: entity.title, text, url: saved.uri, dialogTitle: 'Compartir Listopic' });
-                setFeedback('Tarjeta compartida');
+                setFeedback(sharedFeedback());
                 return;
             }
             const blob = await (await fetch(previewImage)).blob();
             const file = new File([blob], fileName, { type: 'image/png' });
             if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
                 await navigator.share({ files: [file], title: entity.title, text });
-                setFeedback('Tarjeta compartida');
+                setFeedback(sharedFeedback());
                 return;
             }
             if (navigator.clipboard?.writeText) {
@@ -1126,6 +1211,11 @@ export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, varian
                     <p className="rounded-xl border border-white/15 bg-black/60 px-4 py-2 text-center text-xs font-bold text-white">
                         <Check className="mr-1 inline h-3.5 w-3.5 text-emerald-400" />
                         {feedback}
+                    </p>
+                )}
+                {!feedback && (
+                    <p className="text-center text-[11px] text-gray-300">
+                        Al compartir copiamos también el enlace, para que lo pegues en tu publicación.
                     </p>
                 )}
                 <div className="flex gap-2">

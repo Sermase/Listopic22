@@ -25,6 +25,7 @@ export const buildShareText = (entity: ShareEntityPayload): string => {
         case 'list':
         case 'sublist': {
             const name = entity.title || 'Una lista';
+            if (entity.scopeLabel) return `🏆 Lo mejor de «${name}» ${entity.scopeLabel}, votado en Listopic:`;
             const count = entity.reviewCount && entity.reviewCount > 0 ? ` · ${entity.reviewCount} reseñas` : '';
             return `📋 ${name}${count}, votada por la comunidad en Listopic:`;
         }
