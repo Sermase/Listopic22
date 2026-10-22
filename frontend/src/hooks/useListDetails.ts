@@ -195,6 +195,10 @@ export async function fetchListDetails(listId: string): Promise<{ list: ListEnti
             placeAverageRating: place?.averageRating ?? place?.rating ?? place?.avgScore,
             placeClosedStatus: placeClosedStatus(place),
             placePetOptions: place?.businessPetOptions || place?.petOptions || place?.pets,
+            // Accesibilidad de Google y, encima, la que indica el propio local.
+            placeAccessibility: place?.accessibility || place?.businessAccessibility
+                ? { ...(place?.accessibility || {}), ...(place?.businessAccessibility || {}) }
+                : undefined,
             authorName: user?.username || user?.displayName || user?.name || review.authorName,
             authorPhoto: user?.photoUrl || user?.photoURL || review.authorPhoto,
             lat: place?.location?.latitude || legacyReview.lat || review.lat,

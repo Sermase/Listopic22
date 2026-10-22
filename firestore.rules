@@ -58,12 +58,17 @@ service cloud.firestore {
       ];
     }
 
-    // Preferencias de uso (Mis preferencias y ayudas): solo interruptores.
+    // Preferencias de uso (Mis preferencias y ayudas): interruptores y la lista de alérgenos.
     function uxPreferencesIsValid(value) {
       return value is map &&
-             value.keys().hasOnly(['glutenFree', 'vegetarian', 'showHelpTips']) &&
+             value.keys().hasOnly(['glutenFree', 'vegetarian', 'vegan', 'allergens', 'stepFree', 'accessibleRestroom', 'petFriendly', 'showHelpTips']) &&
              (!('glutenFree' in value) || value.glutenFree is bool) &&
              (!('vegetarian' in value) || value.vegetarian is bool) &&
+             (!('vegan' in value) || value.vegan is bool) &&
+             (!('allergens' in value) || (value.allergens is list && value.allergens.size() <= 14)) &&
+             (!('stepFree' in value) || value.stepFree is bool) &&
+             (!('accessibleRestroom' in value) || value.accessibleRestroom is bool) &&
+             (!('petFriendly' in value) || value.petFriendly is bool) &&
              (!('showHelpTips' in value) || value.showHelpTips is bool);
     }
 

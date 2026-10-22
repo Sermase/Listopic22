@@ -217,7 +217,7 @@ function aggregateGroups(listId, listData, reviews, placeMap, botAuthorIds = new
                 placeClosedStatus: typeof closedStatus === 'string' ? closedStatus : null,
                 placeGoogleBusinessStatus: placeInfo && typeof placeInfo.googleBusinessStatus === 'string' ? placeInfo.googleBusinessStatus : null,
                 placeBusinessStatus: placeInfo && typeof placeInfo.businessStatus === 'string' ? placeInfo.businessStatus : null,
-                placeAccessibilityOptions: placeInfo ? (placeInfo.accessibilityOptions || placeInfo.accessibility || null) : null,
+                placeAccessibilityOptions: placeInfo ? (placeInfo.businessAccessibility ? { ...(placeInfo.accessibility || {}), ...placeInfo.businessAccessibility } : (placeInfo.accessibilityOptions || placeInfo.accessibility || null)) : null,
                 placePetOptions: placeInfo ? (placeInfo.businessPetOptions || placeInfo.petOptions || placeInfo.pets || null) : null,
                 geoloc: extractGeoloc(placeInfo),
                 thumbnailMaxLikes: -1 // Track max likes for thumbnail selection

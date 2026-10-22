@@ -6,6 +6,8 @@ import { FILTER_SECTIONS, NUMERIC_FILTER_ATTRIBUTES, formatNumericRefinementLabe
 import { hitPhoto, usePlaceHitPhotos } from '../components/search/SearchResultPhotos';
 import { SearchLanding } from '../components/search/SearchLanding';
 import { elementKey } from '../lib/listElements';
+import { usePreferences } from '../context/PreferencesContext';
+import { searchPreferenceRules } from '../lib/searchPreferences';
 import { parseZones, zoneKey, zonesFilter, zonesLabel, type Zone } from '../lib/searchZones';
 import {
     InstantSearch,
@@ -922,9 +924,9 @@ interface HitsProps {
 }
 
 /** Configure de los resultados: añade el filtro de «solo bots» según el filtro «Bots». */
-const ResultsConfigure = ({ tab, query, filters, geo }: { tab: string; query: string; filters: string; geo: Record<string, unknown> }) => {
+const ResultsConfigure = ({ tab, query, filters, geo, optionalFilters }: { tab: string; query: string; filters: string; geo: Record<string, unknown>; optionalFilters?: string[] }) => {
     const botFilter = useBotOnlyFilter(tab);
-    return <Configure query={query} filters={joinAlgoliaFilters([filters, botFilter])} hitsPerPage={20} {...geo} />;
+    return <Configure query={query} filters={joinAlgoliaFilters([filters, botFilter])} hitsPerPage={20} {...(optionalFilters?.length ? { optionalFilters } : {})} {...geo} />;
 };
 
 const NO_HITS: SearchHit[] = [];
@@ -1486,9 +1488,18 @@ export const SearchPage: React.FC = () => {
             activeTab === 'items' && listIdParam ? `listId:"${listIdParam.replace(/"/g, '')}"` : '',
         ])
     ), [parsedAlgoliaFilters, defaultClosedFilter, activeTab, listIdParam]);
+    // «Mis preferencias»: se aplican solas y se pueden quitar mientras dura la búsqueda.
+    const { prefs } = usePreferences();
+    const [ignoredPrefs, setIgnoredPrefs] = useState<Record<string, boolean>>({});
+    const prefRules = useMemo(
+        () => searchPreferenceRules(prefs, activeTab).filter((rule) => !ignoredPrefs[rule.key]),
+        [prefs, activeTab, ignoredPrefs],
+    );
+    const prefFilter = prefRules.map((rule) => rule.filter || '').filter(Boolean).join(' AND ');
+    const prefOptionalFilters = useMemo(() => prefRules.flatMap((rule) => rule.optional || []), [prefRules]);
     const algoliaFilters = useMemo(() => (
-        joinAlgoliaFilters([baseAlgoliaFilters, isGeoTab ? zonesFilter(activeTab, zones) : ''])
-    ), [baseAlgoliaFilters, isGeoTab, activeTab, zones]);
+        joinAlgoliaFilters([baseAlgoliaFilters, prefFilter, isGeoTab ? zonesFilter(activeTab, zones) : ''])
+    ), [baseAlgoliaFilters, prefFilter, isGeoTab, activeTab, zones]);
     const selectedZoneLabel = zonesLabel(zones);
 
     // «#3 en Valladolid» solo cuando lo que se ve es el ranking de la Lista en
@@ -1544,6 +1555,19 @@ export const SearchPage: React.FC = () => {
                     <X className="ml-0.5 w-3 h-3 text-[var(--lt-text-muted)]" aria-hidden />
                 </button>
             )}
+            {prefRules.map((rule) => (
+                <button
+                    key={rule.key}
+                    type="button"
+                    onClick={() => setIgnoredPrefs((prev) => ({ ...prev, [rule.key]: true }))}
+                    aria-label={`Quitar ${rule.label} en esta búsqueda (es de tus preferencias)`}
+                    title="De tus preferencias"
+                    className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1.5 text-xs font-semibold text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                >
+                    {rule.label}
+                    <X className="ml-0.5 w-3 h-3" aria-hidden />
+                </button>
+            ))}
         </div>
     ) : null;
 
@@ -1614,6 +1638,7 @@ export const SearchPage: React.FC = () => {
                             query={parsedQuery.cleanedQuery}
                             filters={algoliaFilters}
                             geo={activeGeoConfig}
+                            optionalFilters={prefOptionalFilters}
                         />
 
                         {/* ── Mobile filter modal ───────────────────────────── */}

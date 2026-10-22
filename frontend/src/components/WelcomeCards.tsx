@@ -7,6 +7,7 @@ const CARDS = [
     { emoji: '🏆', title: 'Rankings de cosas concretas', text: 'Cada lista es un ranking: las mejores bravas, tortillas, cocidos… según la gente.' },
     { emoji: '📍', title: 'Lo bueno, cerca', text: 'En Inicio ves lo mejor valorado a tu alrededor. Toca cualquier plato o sitio para ver más.' },
     { emoji: '➕', title: 'Valora con el botón central', text: 'Puntúa cada criterio, cuenta qué tal en una frase y sube una foto si quieres.' },
+    { emoji: '🔒', title: 'Filtros a tu medida', text: '¿Sin gluten, alergias, vas en silla o con perro? Actívalo en Menú → Preferencias y la app filtra sola. Es privado: nadie más lo ve.' },
     { emoji: 'ⓘ', title: 'Ayuda a mano', text: 'Por la app verás iconos ⓘ: tócalos y te explican esa parte. Si ya no los necesitas, apágalos desde el propio ⓘ o en Menú → Ayuda.' },
 ];
 
