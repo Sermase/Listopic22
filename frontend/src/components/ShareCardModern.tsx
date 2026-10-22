@@ -6,6 +6,7 @@ import { Check, Download, Share2, X } from 'lucide-react';
 import { getShareEntityLabel, type ShareCriteriaStat, type ShareEntityPayload, type ShareProfileStat, type ShareRankItem } from '../types/share';
 import { buildShareText } from '../utils/shareTexts';
 import { buildShareRouteUrl, PUBLIC_ORIGIN } from '../utils/publicUrl';
+import { CARD_PALETTE_IDS, CARD_PALETTES, type CardPalette, type CardPaletteId } from '../lib/shareCardPalettes';
 import { SCORE_BADGE, SCORE_BAND_LABEL, SCORE_TEXT_ON_DARK, scoreBand } from '../lib/scoreScale';
 
 export type ModernCardVariant = 'story' | 'portrait' | 'square' | 'landscape';
@@ -14,6 +15,8 @@ interface ShareCardModernProps {
     entity: ShareEntityPayload;
     variant: ModernCardVariant;
     triggerRef: React.MutableRefObject<(variant?: ModernCardVariant) => void>;
+    palette: CardPaletteId;
+    onPaletteChange: (palette: CardPaletteId) => void;
     onRequestClose?: () => void;
 }
 
@@ -135,8 +138,8 @@ const drawCircularImage = (
         drawCover(ctx, image, centerX - radius, centerY - radius, radius * 2, radius * 2);
     } else {
         const gradient = ctx.createLinearGradient(centerX - radius, centerY - radius, centerX + radius, centerY + radius);
-        gradient.addColorStop(0, '#6366f1');
-        gradient.addColorStop(1, '#a855f7');
+        gradient.addColorStop(0, pal.accent);
+        gradient.addColorStop(1, pal.accent2);
         ctx.fillStyle = gradient;
         ctx.fillRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
         ctx.fillStyle = '#ffffff';
@@ -208,12 +211,13 @@ const layoutTitle = (
 // --- Estilo «B · Noche»: fondo marino, foto que se funde, chapas de nota con
 // el color de lib/scoreScale y barra de degradado de la marca abajo. ---------
 
-const BG = '#0b1021';
 const TEXT = '#f8fafc';
 const MUTED = '#94a3b8';
 const SOFT = '#cbd5e1';
-const CYAN = '#67e8f9';
-const INDIGO_SOFT = '#a5b4fc';
+
+// El dibujo es síncrono tras cargar las fotos: drawCard fija la paleta justo antes.
+let pal: CardPalette = CARD_PALETTES.dark;
+const bgA = (alpha: number) => `rgba(${pal.bgRgb},${alpha})`;
 
 const setFont = (ctx: CanvasRenderingContext2D, weight: number, size: number, italic = false) => {
     ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px ${FONT}`;
@@ -221,7 +225,7 @@ const setFont = (ctx: CanvasRenderingContext2D, weight: number, size: number, it
 
 const drawGlassPanel = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius = 28) => {
     roundRect(ctx, x, y, w, h, radius);
-    ctx.fillStyle = 'rgba(21,27,46,0.82)';
+    ctx.fillStyle = `rgba(${pal.panelRgb},0.82)`;
     ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.1)';
     ctx.lineWidth = 2;
@@ -231,7 +235,7 @@ const drawGlassPanel = (ctx: CanvasRenderingContext2D, x: number, y: number, w: 
 const drawGlow = (ctx: CanvasRenderingContext2D, x: number, y: number, r: number, color: string, w: number, h: number) => {
     const glow = ctx.createRadialGradient(x, y, 0, x, y, r);
     glow.addColorStop(0, color);
-    glow.addColorStop(1, 'rgba(11,16,33,0)');
+    glow.addColorStop(1, bgA(0));
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, w, h);
 };
@@ -253,9 +257,9 @@ const drawBrand = (ctx: CanvasRenderingContext2D, logo: HTMLImageElement | null,
 
 const drawBottomBar = (ctx: CanvasRenderingContext2D, w: number, h: number, thickness = 12) => {
     const bar = ctx.createLinearGradient(0, 0, w, 0);
-    bar.addColorStop(0, '#22d3ee');
-    bar.addColorStop(0.5, '#6366f1');
-    bar.addColorStop(1, '#a855f7');
+    bar.addColorStop(0, pal.pin);
+    bar.addColorStop(0.5, pal.accent);
+    bar.addColorStop(1, pal.accent2);
     ctx.fillStyle = bar;
     ctx.fillRect(0, h - thickness, w, thickness);
 };
@@ -266,12 +270,12 @@ const drawChip = (ctx: CanvasRenderingContext2D, text: string, x: number, y: num
     const height = Math.round(fontSize * 1.85);
     const width = ctx.measureText(text).width + fontSize * 1.7;
     roundRect(ctx, x, y, width, height, height / 2);
-    ctx.fillStyle = 'rgba(99,102,241,0.24)';
+    ctx.fillStyle = `rgba(${pal.accentRgb},0.24)`;
     ctx.fill();
-    ctx.strokeStyle = 'rgba(129,140,248,0.6)';
+    ctx.strokeStyle = `rgba(${pal.accentRgb},0.6)`;
     ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.fillStyle = '#c7d2fe';
+    ctx.fillStyle = pal.chipText;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, x + fontSize * 0.85, y + height / 2 + 1);
@@ -320,11 +324,24 @@ const drawPin = (ctx: CanvasRenderingContext2D, x: number, y: number, size: numb
     ctx.fill();
     ctx.beginPath();
     ctx.arc(cx, cy, r * 0.42, 0, Math.PI * 2);
-    ctx.fillStyle = BG;
+    ctx.fillStyle = pal.bg;
     ctx.fill();
 };
 
-/** «📍 Sitio · Ciudad» con el sitio en blanco y la ciudad en cian. */
+/** «📍 Sitio» en hasta dos líneas (la ciudad va en su etiqueta, arriba a la derecha); sin sitio, la ciudad. */
+const placeLines = (ctx: CanvasRenderingContext2D, place: string | undefined, city: string | undefined, maxWidth: number, size: number) => {
+    const text = place || city;
+    if (!text) return [];
+    const room = maxWidth - Math.round(size * 0.95) - size * 0.35;
+    setFont(ctx, 800, size);
+    return place ? wrapText(ctx, place, room, 2) : [fitText(ctx, text, room)];
+};
+
+const placeLineHeight = (ctx: CanvasRenderingContext2D, place: string | undefined, city: string | undefined, maxWidth: number, size: number) => {
+    const count = placeLines(ctx, place, city, maxWidth, size).length;
+    return count ? size + 4 + (count - 1) * size * 1.1 : 0;
+};
+
 const drawPlaceLine = (
     ctx: CanvasRenderingContext2D,
     place: string | undefined,
@@ -334,31 +351,38 @@ const drawPlaceLine = (
     maxWidth: number,
     size: number,
 ) => {
-    if (!place && !city) return 0;
+    const lines = placeLines(ctx, place, city, maxWidth, size);
+    if (!lines.length) return 0;
     const pin = Math.round(size * 0.95);
-    drawPin(ctx, x, y + (size - pin) / 2 + 2, pin, '#22d3ee');
+    drawPin(ctx, x, y + (size - pin) / 2 + 2, pin, pal.pin);
     const textX = x + pin + size * 0.35;
-    const room = maxWidth - (textX - x);
+    setFont(ctx, 800, size);
+    ctx.fillStyle = place ? TEXT : pal.highlight;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    const middle = y + size / 2 + 2;
-    if (place) {
-        setFont(ctx, 800, size);
-        ctx.fillStyle = TEXT;
-        const placeText = fitText(ctx, place, city ? room * 0.66 : room);
-        ctx.fillText(placeText, textX, middle);
-        if (city) {
-            const placeWidth = ctx.measureText(placeText).width;
-            setFont(ctx, 800, Math.round(size * 0.92));
-            ctx.fillStyle = CYAN;
-            ctx.fillText(fitText(ctx, `· ${city}`, room - placeWidth - size * 0.35), textX + placeWidth + size * 0.35, middle);
-        }
-    } else if (city) {
-        setFont(ctx, 800, size);
-        ctx.fillStyle = CYAN;
-        ctx.fillText(fitText(ctx, city, room), textX, middle);
-    }
-    return size + 4;
+    lines.forEach((line, index) => ctx.fillText(line, textX, y + size / 2 + 2 + index * size * 1.1));
+    return placeLineHeight(ctx, place, city, maxWidth, size);
+};
+
+/** Etiqueta «📍 CIUDAD» pegada a la derecha. */
+const drawCityTag = (ctx: CanvasRenderingContext2D, city: string, right: number, y: number, fontSize: number, maxWidth: number) => {
+    setFont(ctx, 800, fontSize);
+    const label = fitText(ctx, city.toUpperCase(), maxWidth - fontSize * 2.6);
+    const pin = Math.round(fontSize * 1.05);
+    const height = Math.round(fontSize * 2);
+    const width = ctx.measureText(label).width + pin + fontSize * 2.1;
+    const x = right - width;
+    roundRect(ctx, x, y, width, height, height / 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.42)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    drawPin(ctx, x + fontSize * 0.8, y + (height - pin) / 2, pin, pal.pin);
+    ctx.fillStyle = TEXT;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x + fontSize * 0.8 + pin + fontSize * 0.45, y + height / 2 + 1);
 };
 
 const drawTitleBlock = (
@@ -404,7 +428,7 @@ const drawAuthorRow = (
     ctx.textBaseline = 'alphabetic';
     ctx.fillText(fitText(ctx, entity.authorName || 'Alguien', maxWidth - (textX - x)), textX, y + radius + size * 0.1);
     setFont(ctx, 700, Math.round(size * 0.55));
-    ctx.fillStyle = INDIGO_SOFT;
+    ctx.fillStyle = pal.accentSoft;
     ctx.fillText('ha valorado', textX, y + radius + size * 0.8);
     return radius * 2;
 };
@@ -433,8 +457,8 @@ const drawCriteriaBars = (
         ctx.fill();
         const ratio = Math.max(0.03, Math.min(1, stat.score / 10));
         const fill = ctx.createLinearGradient(barX, 0, barX + barW, 0);
-        fill.addColorStop(0, '#6366f1');
-        fill.addColorStop(1, '#a855f7');
+        fill.addColorStop(0, pal.accent);
+        fill.addColorStop(1, pal.accent2);
         roundRect(ctx, barX, rowY - barH / 2, barW * ratio, barH, barH / 2);
         ctx.fillStyle = fill;
         ctx.fill();
@@ -506,13 +530,13 @@ const drawProfileStats = (
         const cellY = y + Math.floor(index / columns) * (cellHeight + gap);
         const isLevel = stat.key === 'level';
         roundRect(ctx, cellX, cellY, cellWidth, cellHeight, 24);
-        ctx.fillStyle = isLevel ? 'rgba(99,102,241,0.24)' : 'rgba(21,27,46,0.82)';
+        ctx.fillStyle = isLevel ? `rgba(${pal.accentRgb},0.24)` : `rgba(${pal.panelRgb},0.82)`;
         ctx.fill();
-        ctx.strokeStyle = isLevel ? 'rgba(129,140,248,0.6)' : 'rgba(255,255,255,0.1)';
+        ctx.strokeStyle = isLevel ? `rgba(${pal.accentRgb},0.6)` : 'rgba(255,255,255,0.1)';
         ctx.lineWidth = 2;
         ctx.stroke();
         setFont(ctx, 800, Math.round(cellHeight * 0.38));
-        ctx.fillStyle = isLevel ? '#c7d2fe' : TEXT;
+        ctx.fillStyle = isLevel ? pal.chipText : TEXT;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(formatMetricValue(stat.value), cellX + cellWidth / 2, cellY + cellHeight * 0.4);
@@ -584,12 +608,12 @@ const paintBackground = (
     height: number,
     photoRatio: number,
 ) => {
-    ctx.fillStyle = BG;
+    ctx.fillStyle = pal.bg;
     ctx.fillRect(0, 0, width, height);
     const usePhoto = hero && entity.type !== 'profile' && !(isList(entity) && entity.rankItems?.length);
     if (!usePhoto) {
-        drawGlow(ctx, width * 0.85, height * 0.12, Math.max(width, height) * 0.7, 'rgba(49,46,129,0.95)', width, height);
-        drawGlow(ctx, width * 0.05, height * 0.9, Math.max(width, height) * 0.45, 'rgba(14,116,144,0.28)', width, height);
+        drawGlow(ctx, width * 0.85, height * 0.12, Math.max(width, height) * 0.7, pal.glow, width, height);
+        drawGlow(ctx, width * 0.05, height * 0.9, Math.max(width, height) * 0.45, pal.glow2, width, height);
         return;
     }
     const photoHeight = Math.round(height * photoRatio);
@@ -600,14 +624,14 @@ const paintBackground = (
     drawCover(ctx, hero, 0, 0, width, photoHeight);
     ctx.restore();
     const top = ctx.createLinearGradient(0, 0, 0, height * 0.22);
-    top.addColorStop(0, 'rgba(11,16,33,0.6)');
-    top.addColorStop(1, 'rgba(11,16,33,0)');
+    top.addColorStop(0, bgA(0.6));
+    top.addColorStop(1, bgA(0));
     ctx.fillStyle = top;
     ctx.fillRect(0, 0, width, height * 0.22);
     const fade = ctx.createLinearGradient(0, photoHeight * 0.45, 0, photoHeight);
-    fade.addColorStop(0, 'rgba(11,16,33,0)');
-    fade.addColorStop(0.6, 'rgba(11,16,33,0.7)');
-    fade.addColorStop(1, BG);
+    fade.addColorStop(0, bgA(0));
+    fade.addColorStop(0.6, bgA(0.7));
+    fade.addColorStop(1, pal.bg);
     ctx.fillStyle = fade;
     ctx.fillRect(0, 0, width, photoHeight + 1);
 };
@@ -627,7 +651,7 @@ const drawRankRows = (
         drawGlassPanel(ctx, x, rowY, width, rowHeight, rowHeight * 0.2);
         const pad = Math.round(rowHeight * 0.13);
         setFont(ctx, 800, Math.round(Math.min(rowHeight * 0.36, 64)));
-        ctx.fillStyle = INDIGO_SOFT;
+        ctx.fillStyle = pal.accentSoft;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(index + 1), x + pad + rowHeight * 0.2, rowY + rowHeight / 2);
@@ -638,7 +662,7 @@ const drawRankRows = (
         ctx.clip();
         if (images[index]) drawCover(ctx, images[index] as HTMLImageElement, photoX, rowY + pad, photoSize, photoSize);
         else {
-            ctx.fillStyle = 'rgba(99,102,241,0.3)';
+            ctx.fillStyle = `rgba(${pal.accentRgb},0.3)`;
             ctx.fillRect(photoX, rowY + pad, photoSize, photoSize);
         }
         ctx.restore();
@@ -679,7 +703,7 @@ const drawVerticalProfile = (
     const centerY = isStory ? 600 : variant === 'portrait' ? 330 : 285;
     ctx.beginPath();
     ctx.arc(width / 2, centerY, radius + 28, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(129,140,248,0.16)';
+    ctx.fillStyle = `rgba(${pal.accentRgb},0.16)`;
     ctx.fill();
     drawCircularImage(ctx, portrait, width / 2, centerY, radius, entity.title);
 
@@ -816,7 +840,7 @@ const drawVerticalContent = (
     const placeName = isReview ? entity.subtitle : undefined;
     const city = entity.city || (!isReview ? entity.subtitle : undefined);
     if (placeName || city) {
-        cursorY -= placeSize + 4;
+        cursorY -= placeLineHeight(ctx, placeName, city, contentWidth, placeSize);
         drawPlaceLine(ctx, placeName, city, margin, cursorY, contentWidth, placeSize);
         cursorY -= isStory ? 26 : 18;
     }
@@ -844,15 +868,15 @@ const drawVerticalContent = (
 };
 
 const drawSidePhoto = (ctx: CanvasRenderingContext2D, image: HTMLImageElement | null, width: number, height: number, ratio: number) => {
-    ctx.fillStyle = BG;
+    ctx.fillStyle = pal.bg;
     ctx.fillRect(0, 0, width, height);
     const photoWidth = Math.round(width * ratio);
     if (image) drawCover(ctx, image, width - photoWidth, 0, photoWidth, height);
     const fade = ctx.createLinearGradient(0, 0, width, 0);
-    fade.addColorStop(0, 'rgba(11,16,33,1)');
-    fade.addColorStop(0.42, 'rgba(11,16,33,0.92)');
-    fade.addColorStop(0.7, 'rgba(11,16,33,0.25)');
-    fade.addColorStop(1, 'rgba(11,16,33,0.05)');
+    fade.addColorStop(0, bgA(1));
+    fade.addColorStop(0.42, bgA(0.92));
+    fade.addColorStop(0.7, bgA(0.25));
+    fade.addColorStop(1, bgA(0.05));
     ctx.fillStyle = fade;
     ctx.fillRect(0, 0, width, height);
 };
@@ -873,9 +897,9 @@ const drawLandscape = (
     const listWithTop = isList(entity) && (entity.rankItems?.length || 0) > 0;
 
     if (entity.type === 'profile') {
-        ctx.fillStyle = BG;
+        ctx.fillStyle = pal.bg;
         ctx.fillRect(0, 0, width, height);
-        drawGlow(ctx, 900, 200, 650, 'rgba(49,46,129,0.95)', width, height);
+        drawGlow(ctx, 900, 200, 650, pal.glow, width, height);
         drawBrand(ctx, logo, x, 50, 52);
         drawCircularImage(ctx, hero, 900, 300, 170, entity.title);
         drawChip(ctx, 'Perfil', x, 150, 24);
@@ -894,9 +918,9 @@ const drawLandscape = (
     }
 
     if (listWithTop) {
-        ctx.fillStyle = BG;
+        ctx.fillStyle = pal.bg;
         ctx.fillRect(0, 0, width, height);
-        drawGlow(ctx, 980, 120, 700, 'rgba(49,46,129,0.9)', width, height);
+        drawGlow(ctx, 980, 120, 700, pal.glow, width, height);
     } else {
         drawSidePhoto(ctx, hero, width, height, isReview ? 0.56 : 0.6);
     }
@@ -907,9 +931,10 @@ const drawLandscape = (
         drawAuthorRow(ctx, entity, avatar, x, 128, maxWidth, 46);
         const titleHeight = drawTitleBlock(ctx, entity.title, x, 248, maxWidth, 54, 40, 2);
         const placeY = 248 + titleHeight + 18;
-        drawPlaceLine(ctx, entity.subtitle, entity.city, x, placeY, maxWidth, 38);
+        const placeHeight = drawPlaceLine(ctx, entity.subtitle, entity.city, x, placeY, maxWidth, 38);
+        if (entity.subtitle && entity.city) drawCityTag(ctx, entity.city, width - 40, 40, 22, 360);
         if (hasScore(entity.score)) {
-            const pillY = Math.min(Math.max(placeY + 70, 450), height - 130);
+            const pillY = Math.min(Math.max(placeY + placeHeight + 28, 450), height - 130);
             const pillWidth = drawScorePill(ctx, entity.score, x, pillY, 72);
             if (entity.description) {
                 setFont(ctx, 500, 26, true);
@@ -965,7 +990,7 @@ const drawLandscape = (
             } else {
                 const rest = Math.max(0, (entity.elementCount || 0) - items.length);
                 setFont(ctx, 800, rest > 0 ? 52 : 34);
-                ctx.fillStyle = INDIGO_SOFT;
+                ctx.fillStyle = pal.accentSoft;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(rest > 0 ? `+${rest}` : 'Ver lista', cx + size / 2, cy + size / 2);
@@ -994,7 +1019,7 @@ const drawLandscape = (
     drawBottomBar(ctx, width, height, 10);
 };
 
-async function drawCard(entity: ShareEntityPayload, variant: ModernCardVariant): Promise<HTMLCanvasElement> {
+async function drawCard(entity: ShareEntityPayload, variant: ModernCardVariant, palette: CardPaletteId = 'dark'): Promise<HTMLCanvasElement> {
     const { width, height } = DIMENSIONS[variant];
     const canvas = document.createElement('canvas');
     canvas.width = width;
@@ -1013,6 +1038,7 @@ async function drawCard(entity: ShareEntityPayload, variant: ModernCardVariant):
         loadImage(BRAND_LOGO_URL),
         ...rankItems.map((item) => loadImage(item.imageUrl)),
     ]);
+    pal = CARD_PALETTES[palette] || CARD_PALETTES.dark;
 
     if (variant === 'landscape') {
         drawLandscape(ctx, entity, hero, avatar, logo, rankImages, width, height);
@@ -1023,6 +1049,10 @@ async function drawCard(entity: ShareEntityPayload, variant: ModernCardVariant):
     const margin = 64;
     paintBackground(ctx, hero, entity, width, height, isStory ? 0.62 : variant === 'portrait' ? 0.6 : 0.64);
     drawBrand(ctx, logo, margin, margin, isStory ? 70 : 56);
+    if (entity.type === 'review' && entity.subtitle && entity.city) {
+        const tagSize = isStory ? 30 : 24;
+        drawCityTag(ctx, entity.city, width - margin, margin + (isStory ? 70 : 56) / 2 - tagSize, tagSize, width * 0.5);
+    }
 
     const showFooter = variant !== 'square';
     const barHeight = 12;
@@ -1042,12 +1072,12 @@ async function drawCard(entity: ShareEntityPayload, variant: ModernCardVariant):
     return canvas;
 }
 
-const renderCard = async (entity: ShareEntityPayload, variant: ModernCardVariant): Promise<string> =>
-    (await drawCard(entity, variant)).toDataURL('image/png', 1.0);
+const renderCard = async (entity: ShareEntityPayload, variant: ModernCardVariant, palette: CardPaletteId): Promise<string> =>
+    (await drawCard(entity, variant, palette)).toDataURL('image/png', 1.0);
 
 /** Miniatura real de la tarjeta (la misma que se compartirá, en pequeño). */
-const renderThumb = async (entity: ShareEntityPayload, variant: ModernCardVariant, maxSide = 420): Promise<string> => {
-    const full = await drawCard(entity, variant);
+const renderThumb = async (entity: ShareEntityPayload, variant: ModernCardVariant, palette: CardPaletteId, maxSide = 420): Promise<string> => {
+    const full = await drawCard(entity, variant, palette);
     const scale = Math.min(1, maxSide / Math.max(full.width, full.height));
     const small = document.createElement('canvas');
     small.width = Math.round(full.width * scale);
@@ -1061,17 +1091,18 @@ interface ShareCardThumbProps {
     variant: ModernCardVariant;
     label: string;
     hint: string;
+    palette: CardPaletteId;
     onPick: () => void;
 }
 
 /** Botón con la vista previa real de un formato de tarjeta. */
-export const ShareCardThumb: React.FC<ShareCardThumbProps> = ({ entity, variant, label, hint, onPick }) => {
+export const ShareCardThumb: React.FC<ShareCardThumbProps> = ({ entity, variant, label, hint, palette, onPick }) => {
     const [thumb, setThumb] = useState<{ key: string; src: string | null } | null>(null);
-    const key = `${variant}|${entity.imageUrl || ''}|${entity.title}|${entity.scopeLabel || ''}`;
+    const key = `${variant}|${palette}|${entity.imageUrl || ''}|${entity.title}|${entity.scopeLabel || ''}`;
 
     useEffect(() => {
         let cancelled = false;
-        renderThumb(entity, variant)
+        renderThumb(entity, variant, palette)
             .then((src) => { if (!cancelled) setThumb({ key, src }); })
             .catch(() => { if (!cancelled) setThumb({ key, src: null }); });
         return () => { cancelled = true; };
@@ -1103,8 +1134,32 @@ export const ShareCardThumb: React.FC<ShareCardThumbProps> = ({ entity, variant,
     );
 };
 
-export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, variant, triggerRef, onRequestClose }) => {
+/** Fila de colores (los temas oscuros de la app) para la tarjeta. */
+export const CardPalettePicker: React.FC<{ value: CardPaletteId; onChange: (palette: CardPaletteId) => void }> = ({ value, onChange }) => (
+    <div className="flex items-center justify-center gap-2.5" role="radiogroup" aria-label="Colores de la tarjeta">
+        {CARD_PALETTE_IDS.map((id) => {
+            const p = CARD_PALETTES[id];
+            const active = id === value;
+            return (
+                <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={active}
+                    aria-label={p.label}
+                    title={p.label}
+                    onClick={() => onChange(id)}
+                    className={`h-8 w-8 rounded-full border-2 transition-transform ${active ? 'scale-110 border-white' : 'border-white/20 hover:scale-105'}`}
+                    style={{ background: `linear-gradient(135deg, ${p.bg} 0 38%, ${p.accent} 38% 70%, ${p.accent2} 70%)` }}
+                />
+            );
+        })}
+    </div>
+);
+
+export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, variant, triggerRef, palette, onPaletteChange, onRequestClose }) => {
     const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const [shownVariant, setShownVariant] = useState<ModernCardVariant>(variant);
     const [isOpen, setIsOpen] = useState(false);
     const [loading, setLoading] = useState(false);
     const [feedback, setFeedback] = useState<string | null>(null);
@@ -1116,7 +1171,8 @@ export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, varian
         setLoading(true);
         setFeedback(null);
         try {
-            const image = await renderCard(entity, picked || variant);
+            const image = await renderCard(entity, picked || variant, palette);
+            setShownVariant(picked || variant);
             setPreviewImage(image);
             setIsOpen(true);
         } catch (error) {
@@ -1127,6 +1183,17 @@ export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, varian
             setLoading(false);
         }
     };
+
+    // Al cambiar de color con la tarjeta abierta, se redibuja sin cerrarla.
+    useEffect(() => {
+        if (!isOpen) return;
+        let cancelled = false;
+        renderCard(entity, shownVariant, palette)
+            .then((image) => { if (!cancelled) setPreviewImage(image); })
+            .catch(() => { /* se queda la anterior */ });
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [palette]);
 
     const fileName = `listopic-${entity.type}-${(entity.id || 'card').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || 'share'}.png`;
 
@@ -1207,15 +1274,11 @@ export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, varian
                     alt="Tarjeta para compartir"
                     className="max-h-[70vh] w-full rounded-2xl border border-white/15 object-contain shadow-2xl"
                 />
+                <CardPalettePicker value={palette} onChange={onPaletteChange} />
                 {feedback && (
                     <p className="rounded-xl border border-white/15 bg-black/60 px-4 py-2 text-center text-xs font-bold text-white">
                         <Check className="mr-1 inline h-3.5 w-3.5 text-emerald-400" />
                         {feedback}
-                    </p>
-                )}
-                {!feedback && (
-                    <p className="text-center text-[11px] text-gray-300">
-                        Al compartir copiamos también el enlace, para que lo pegues en tu publicación.
                     </p>
                 )}
                 <div className="flex gap-2">
@@ -1244,6 +1307,11 @@ export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, varian
                         <X className="h-4 w-4" />
                     </button>
                 </div>
+                {!feedback && (
+                    <p className="text-center text-[11px] leading-snug text-gray-300">
+                        🔗 Al compartir se copia el enlace: pégalo en tu publicación o, en una historia de Instagram, con el sticker «Enlace».
+                    </p>
+                )}
             </div>
         </div>
     );

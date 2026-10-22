@@ -4,7 +4,9 @@ import { X, MessageSquare, Copy, Send, Search, Check, Share2 } from 'lucide-reac
 import { doc, getDoc } from 'firebase/firestore';
 
 import type { PlaceDetails } from '../hooks/usePlaceDetails';
-import { ShareCardModern, ShareCardThumb, type ModernCardVariant } from './ShareCardModern';
+import { CardPalettePicker, ShareCardModern, ShareCardThumb, type ModernCardVariant } from './ShareCardModern';
+import { defaultCardPalette, type CardPaletteId } from '../lib/shareCardPalettes';
+import { useTheme } from '../context/ThemeContext';
 import type { ReviewEntity } from '../hooks/useListDetails';
 import { useAuth } from '../context/AuthContext';
 import { ChatService, type Chat } from '../services/ChatService';
@@ -52,6 +54,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const { openAuthPrompt } = useAuthPrompt();
     useBodyScrollLock(isOpen);
     const shareCardTriggerRef = React.useRef<(variant?: ModernCardVariant) => void>(() => { });
+    const { theme } = useTheme();
+    const [cardPalette, setCardPalette] = React.useState<CardPaletteId>(() => defaultCardPalette(theme));
     const fallbackUrl = buildPublicUrl(url || (typeof window !== 'undefined' ? window.location.href : '/'));
 
     const [isChatPanelOpen, setIsChatPanelOpen] = React.useState(false);
@@ -543,6 +547,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 entity={cardEntity}
                 variant={selectedCardVariant || 'story'}
                 triggerRef={shareCardTriggerRef}
+                palette={cardPalette}
+                onPaletteChange={setCardPalette}
                 onRequestClose={handleRequestClose}
             />
 
@@ -656,6 +662,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                                 </div>
                             )}
 
+                            <CardPalettePicker value={cardPalette} onChange={setCardPalette} />
+
                             <div className="grid grid-cols-2 gap-2">
                                 {cardVariantOptions.map((option) => (
                                     <ShareCardThumb
@@ -664,6 +672,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                                         variant={option.id}
                                         label={option.label}
                                         hint={option.description}
+                                        palette={cardPalette}
                                         onPick={() => handleGenerateCard(option.id)}
                                     />
                                 ))}
