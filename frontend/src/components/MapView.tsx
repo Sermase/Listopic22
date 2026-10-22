@@ -110,6 +110,8 @@ export interface MapItem {
     reviewsCount?: number;
     emoji?: string;
     color?: string;
+    /** Línea bajo el nombre en la ficha (si no, el nº de reseñas). */
+    subtitle?: string;
     items?: {
         name: string;
         score: number;
@@ -290,6 +292,7 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
             reviewsCount: item.reviewsCount ?? item.reviewCount ?? item.count ?? 0,
             emoji: item.emoji,
             color: item.color,
+            subtitle: item.subtitle,
             items: item.items
         }];
     }), [items]);
@@ -343,7 +346,7 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                                 photoUrl={item.photoUrl}
                                 score={item.rating}
                                 sponsored={isSponsored}
-                                subtitle={item.reviewsCount ? `${item.reviewsCount} ${item.reviewsCount === 1 ? 'reseña' : 'reseñas'}` : null}
+                                subtitle={item.subtitle || (item.reviewsCount ? `${item.reviewsCount} ${item.reviewsCount === 1 ? 'reseña' : 'reseñas'}` : null)}
                                 onNavigate={() => {
                                     if (!isJefe) campaignIds.forEach((campaignId) => {
                                         void Promise.all([
