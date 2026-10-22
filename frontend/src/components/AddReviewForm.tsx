@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { HelpTip } from './HelpTip';
 import { createPortal } from 'react-dom';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc, Timestamp } from 'firebase/firestore';
+import { moveVisitedPlace } from '../lib/visitArchives';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc, setDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db, storage, functions } from '../firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject, getBlob } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
@@ -649,91 +650,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         setError(null);
 
         try {
-            // --- AUTOMATION: "Quiero ir" -> "Ya fui" (ARCHIVES) ---
-            // Requirement: "si hacemos una reseña de ... elemento en Quiero ir, se pase automáticamente a ya fui" (in Archives)
-
-            // 1. Ensure "Ya fui" archive exists
-            let yaFuiArchiveId: string | null = null;
-            let quieroIrArchiveId: string | null = null;
-
-            try {
-                // Determine user archive IDs
-                const qArchives = query(collection(db, 'users', user.uid, 'archives'));
-                const snapArchives = await getDocs(qArchives);
-
-                snapArchives.forEach(doc => {
-                    const data = doc.data();
-                    if (data.name === 'Ya fui') yaFuiArchiveId = doc.id;
-                    if (data.name === 'Quiero ir') quieroIrArchiveId = doc.id;
-                });
-
-                // Auto-create "Ya fui" if missing
-                if (!yaFuiArchiveId) {
-                    const newRef = await addDoc(collection(db, 'users', user.uid, 'archives'), {
-                        name: 'Ya fui',
-                        createdAt: serverTimestamp(),
-                        itemCount: 0
-                    });
-                    yaFuiArchiveId = newRef.id;
-                }
-                // Auto-create "Quiero ir" if missing (for consistency)
-                if (!quieroIrArchiveId) {
-                    const newRef = await addDoc(collection(db, 'users', user.uid, 'archives'), {
-                        name: 'Quiero ir',
-                        createdAt: serverTimestamp(),
-                        itemCount: 0
-                    });
-                    quieroIrArchiveId = newRef.id;
-                }
-
-                // 2. Check if the current place is in "Quiero ir"
-                // Place ID is critical here.
-                let finalPlaceId = selectedPlace?.id || prefillPlaceId || 'unknown';
-                if (selectedPlace) finalPlaceId = selectedPlace.id; // Correct preference
-
-                if (quieroIrArchiveId && finalPlaceId !== 'unknown') {
-                    // Los sitios guardados desde su ficha usan el placeId como id del
-                    // documento (y los antiguos no tienen campo placeId); los platos
-                    // guardados sí llevan placeId.
-                    const quieroIrItems = collection(db, 'users', user.uid, 'archives', quieroIrArchiveId, 'items');
-                    const directItem = await getDoc(doc(quieroIrItems, finalPlaceId));
-                    const matchRef = directItem.exists()
-                        ? directItem.ref
-                        : (await getDocs(query(quieroIrItems, where('placeId', '==', finalPlaceId)))).docs[0]?.ref;
-
-                    if (matchRef) {
-                        // Move logic:
-                        // A. Delete from Quiero ir
-                        await deleteDoc(matchRef);
-                        await updateDoc(doc(db, 'users', user.uid, 'archives', quieroIrArchiveId!), { itemCount: increment(-1) });
-
-                        // B. Add to Ya fui (As a Place Item)
-                        const placeName = selectedPlace?.name || prefillItemName || 'Lugar';
-                        const subtitle = selectedPlace?.address || '';
-                        // Nunca guardar una imagen en base64 dentro del documento.
-                        const photo = imagePreview && /^https?:/.test(imagePreview) ? imagePreview : '';
-
-                        // We use the Place ID as the doc ID in the new archive for uniqueness
-                        await setDoc(doc(db, 'users', user.uid, 'archives', yaFuiArchiveId!, 'items', finalPlaceId), {
-                            itemId: finalPlaceId,
-                            placeId: finalPlaceId,
-                            type: 'place',
-                            name: placeName,
-                            subtitle: subtitle,
-                            photoUrl: photo,
-                            savedAt: serverTimestamp(),
-                            route: `/place/${finalPlaceId}`
-                        });
-                        await updateDoc(doc(db, 'users', user.uid, 'archives', yaFuiArchiveId!), { itemCount: increment(1) });
-                    }
-                }
-
-            } catch (autoErr) {
-                console.error("Archive automation error:", autoErr);
-                // Non-blocking
-            }
-
-            // --- END AUTOMATION ---
 
             const placeName = selectedPlace?.name || 'Lugar Desconocido';
 
@@ -1059,6 +975,14 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             // El borrador se guarda con la lista elegida (en una Minilista no es finalListId).
             try { localStorage.removeItem(reviewDraftKey(internalListId)); } catch { /* sin almacenamiento */ }
             queryClient.invalidateQueries({ queryKey: ['placeElementsInList', internalListId] });
+            // «Quiero ir» → «Ya fui»: lo guardado de este sitio cambia de colección (sin bloquear).
+            if (isNew && finalPlaceId && finalPlaceId !== 'unknown') {
+                void moveVisitedPlace(db, user.uid, finalPlaceId)
+                    .then((moved) => {
+                        if (moved) showToast({ variant: 'success', message: '🧭 Lo tenías en «Quiero ir»: ya está en «Ya fui».' });
+                    })
+                    .catch((autoErr) => console.error('Archive automation error:', autoErr));
+            }
             onSuccess();
             onClose();
 

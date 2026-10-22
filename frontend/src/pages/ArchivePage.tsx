@@ -445,9 +445,12 @@ export const ArchivePage: React.FC = () => {
     }, [archives]);
 
     const openArchive = archives.find(a => a.id === openArchiveId) || null;
-    const visibleArchives = searchTerm.trim()
+    // «Quiero ir» y «Ya fui» primero; el resto, como venga.
+    const kindOrder = (kind?: string) => (kind === 'wantToGo' ? 0 : kind === 'visited' ? 1 : 2);
+    const visibleArchives = (searchTerm.trim()
         ? archives.filter(a => a.name.toLowerCase().includes(searchTerm.trim().toLowerCase()))
-        : archives;
+        : archives
+    ).slice().sort((a, b) => kindOrder(a.kind) - kindOrder(b.kind));
 
     const openCollection = (archiveId: string) => {
         setOpenArchiveId(archiveId);
