@@ -91,10 +91,24 @@ function buildListTagUpdate(listData, fromTag, toTag) {
   return { changed, updatePayload };
 }
 
+// Las reseñas guardan las etiquetas en `tags` (las nuevas) o `userTags` (las antiguas).
+const REVIEW_TAG_FIELDS = ['tags', 'userTags'];
+
 async function fetchReviewDocsByTag(tag) {
+  const byPath = new Map();
+  let usedFallback = false;
+  for (const field of REVIEW_TAG_FIELDS) {
+    const result = await fetchReviewDocsByTagField(tag, field);
+    usedFallback = usedFallback || result.usedFallback;
+    result.docs.forEach((doc) => byPath.set(doc.ref.path, doc));
+  }
+  return { docs: Array.from(byPath.values()), usedFallback };
+}
+
+async function fetchReviewDocsByTagField(tag, field) {
   try {
     const snapshot = await db.collectionGroup('reviews')
-      .where('userTags', 'array-contains', tag)
+      .where(field, 'array-contains', tag)
       .get();
     return { docs: snapshot.docs, usedFallback: false };
   } catch (error) {
@@ -109,7 +123,7 @@ async function fetchReviewDocsByTag(tag) {
       for (let i = 0; i < listRefs.length; i += chunkSize) {
         const chunk = listRefs.slice(i, i + chunkSize);
         const chunkSnapshots = await Promise.all(chunk.map(ref =>
-          ref.collection('reviews').where('userTags', 'array-contains', tag).get()
+          ref.collection('reviews').where(field, 'array-contains', tag).get()
         ));
         chunkSnapshots.forEach(chunkSnap => {
           chunkSnap.forEach(doc => docs.push(doc));
@@ -211,13 +225,17 @@ const adminReplaceTag = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (r
     const batchState = { batch: db.batch(), count: 0 };
     for (const doc of reviewDocs) {
       const reviewData = doc.data() || {};
-      const updated = replaceTagInArray(reviewData.userTags, fromTrimmed, toTrimmed);
-      if (!updated.changed) {
+      const reviewUpdate = {};
+      REVIEW_TAG_FIELDS.forEach((field) => {
+        const updated = replaceTagInArray(reviewData[field], fromTrimmed, toTrimmed);
+        if (updated.changed) reviewUpdate[field] = updated.value;
+      });
+      if (Object.keys(reviewUpdate).length === 0) {
         continue;
       }
       summary.reviewsMatched += 1;
       if (!shouldDryRun) {
-        batchState.batch.update(doc.ref, { userTags: updated.value });
+        batchState.batch.update(doc.ref, reviewUpdate);
         batchState.count += 1;
         if (batchState.count >= 450) {
           await commitBatchIfNeeded(batchState);
