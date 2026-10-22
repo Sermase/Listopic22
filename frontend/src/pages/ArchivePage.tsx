@@ -101,6 +101,8 @@ type ReviewPhotoSource = {
     data: Record<string, any>;
 };
 
+type PhotoGridItem = { kind: 'place'; photo: UploadedPlacePhoto } | { kind: 'review'; photo: UploadedReviewPhoto };
+
 type ArchiveSavedItem = SavedItemEntity & { photoFallbackUrls?: string[] };
 type ArchiveSection = 'collections' | 'photos';
 type PhotoFilter = 'all' | 'place' | 'review';
@@ -249,7 +251,8 @@ export const ArchivePage: React.FC = () => {
     const [uploadedReviewPhotos, setUploadedReviewPhotos] = useState<UploadedReviewPhoto[]>([]);
     const [loadingPlacePhotos, setLoadingPlacePhotos] = useState(false);
     const [loadingReviewPhotos, setLoadingReviewPhotos] = useState(false);
-    const [openPhotoMenu, setOpenPhotoMenu] = useState<string | null>(null);
+    const [viewerPhoto, setViewerPhoto] = useState<PhotoGridItem | null>(null);
+    const [mapSource, setMapSource] = useState<'saved' | 'photos'>('saved');
     const [editingPlacePhoto, setEditingPlacePhoto] = useState<UploadedPlacePhoto | null>(null);
     const [editingCaption, setEditingCaption] = useState('');
     const [editingReviewPhoto, setEditingReviewPhoto] = useState<UploadedReviewPhoto | null>(null);
@@ -273,7 +276,7 @@ export const ArchivePage: React.FC = () => {
     useEffect(() => { fetchArchives(); }, [fetchArchives]);
 
     useEffect(() => {
-        setOpenPhotoMenu(null);
+        setViewerPhoto(null);
     }, [activeSection, photoFilter, searchTerm]);
 
     useEffect(() => {
@@ -587,7 +590,8 @@ export const ArchivePage: React.FC = () => {
                 subtitle: data.subtitle,
                 photoUrl: data.thumbnailUrl || data.mainImageUrl || data.photoUrl || data.coverUrl || data.imageUrl,
                 route: route || '#',
-                placeId: data.placeId,
+                // Los sitios antiguos no tenían campo placeId: su id es el del sitio.
+                placeId: data.placeId || ((data.type || data.entityType) === 'place' ? data.itemId || iDoc.id : undefined),
                 listId: data.listId,
                 lat: coords?.lat,
                 lng: coords?.lng,
@@ -618,47 +622,82 @@ export const ArchivePage: React.FC = () => {
         finally { setLoadingItems(prev => ({ ...prev, [archiveId]: false })); }
     };
 
-    // Carga el mapa: sitios, platos y reseñas (las listas no tienen sitio). Sin fotos de
-    // respaldo, que eran decenas de consultas; las coordenadas que falten salen de
-    // places/, una lectura por sitio y todas a la vez.
+    // Carga el mapa. Una chincheta por sitio: si guardas el sitio y un plato suyo
+    // (o subes varias fotos), salen juntos en la misma, no una encima de otra.
+    // Las coordenadas y el nombre salen de places/, una lectura por sitio y todas a la vez.
     useEffect(() => {
         if (viewMode !== 'map') return;
         let cancelled = false;
-        const activeIds = mapSelectedArchives.length > 0 ? mapSelectedArchives : archives.map(a => a.id);
+        type Pin = { placeId?: string; lat?: number; lng?: number; label: string; photoUrl?: string; emoji: string; color: string; isPlace: boolean };
         const load = async () => {
             setLoadingMap(true);
             try {
-                const perArchive = await Promise.all(activeIds.map(async (archId) => {
-                    const arch = archives.find(a => a.id === archId);
-                    const raw = archiveItems[archId] ?? await loadLightItems(archId).catch(() => []);
-                    return raw
-                        .filter(item => item.type !== 'list' && (item.placeId || (item.lat && item.lng)))
-                        .map(item => ({ item, arch }));
-                }));
-                const entries = perArchive.flat();
-                const missing = Array.from(new Set(entries.filter(({ item }) => !(item.lat && item.lng)).map(({ item }) => item.placeId as string)));
-                const coordsByPlace = new Map<string, { lat: number; lng: number }>();
-                await Promise.all(missing.map(async (placeId) => {
+                let pins: Pin[] = [];
+                if (mapSource === 'photos') {
+                    pins = [
+                        ...uploadedPlacePhotos.map(photo => ({ placeId: photo.placeId, label: photo.caption || 'Foto', photoUrl: photo.url, emoji: '📸', color: '#ec4899', isPlace: false })),
+                        ...uploadedReviewPhotos.filter(photo => photo.placeId).map(photo => ({ placeId: photo.placeId, label: photo.itemName, photoUrl: photo.url, emoji: '📸', color: '#ec4899', isPlace: false })),
+                    ];
+                } else {
+                    const activeIds = mapSelectedArchives.length > 0 ? mapSelectedArchives : archives.map(a => a.id);
+                    const perArchive = await Promise.all(activeIds.map(async (archId) => {
+                        const arch = archives.find(a => a.id === archId);
+                        const raw = archiveItems[archId] ?? await loadLightItems(archId).catch(() => []);
+                        return raw
+                            .filter(item => item.type !== 'list' && (item.placeId || (item.lat && item.lng)))
+                            .map(item => ({
+                                placeId: item.placeId,
+                                lat: item.lat,
+                                lng: item.lng,
+                                label: item.name,
+                                photoUrl: item.photoUrl,
+                                emoji: arch?.emoji || '📍',
+                                color: arch?.color || '#6366f1',
+                                isPlace: item.type === 'place',
+                            }));
+                    }));
+                    pins = perArchive.flat();
+                }
+
+                const placeIds = Array.from(new Set(pins.map(pin => pin.placeId).filter((id): id is string => Boolean(id))));
+                const places = new Map<string, { name?: string; coords: { lat: number; lng: number } | null }>();
+                await Promise.all(placeIds.map(async (placeId) => {
                     try {
                         const snap = await getDoc(doc(db, 'places', placeId));
-                        const coords = snap.exists() ? extractCoords(snap.data() as Record<string, any>) : null;
-                        if (coords) coordsByPlace.set(placeId, coords);
-                    } catch { /* sin coords, se ignora */ }
+                        if (!snap.exists()) return;
+                        const data = snap.data() as Record<string, any>;
+                        places.set(placeId, { name: typeof data.name === 'string' ? data.name : undefined, coords: extractCoords(data) });
+                    } catch { /* sin datos del sitio, se ignora */ }
                 }));
-                const result: MapItem[] = [];
-                entries.forEach(({ item, arch }) => {
-                    const coords = item.lat && item.lng ? { lat: item.lat, lng: item.lng } : coordsByPlace.get(item.placeId || '');
+
+                const groups = new Map<string, { lat: number; lng: number; pins: Pin[] }>();
+                pins.forEach((pin) => {
+                    const coords = (pin.lat && pin.lng ? { lat: pin.lat, lng: pin.lng } : null) || places.get(pin.placeId || '')?.coords;
                     if (!coords) return;
+                    const key = pin.placeId || `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
+                    const group = groups.get(key) || { ...coords, pins: [] };
+                    group.pins.push(pin);
+                    groups.set(key, group);
+                });
+
+                const result: MapItem[] = [];
+                groups.forEach((group, key) => {
+                    // El icono, el del sitio guardado si lo hay; si no, el primero.
+                    const lead = group.pins.find(pin => pin.isPlace) || group.pins[0];
+                    const placeName = places.get(key)?.name || (lead.isPlace ? lead.label : undefined);
+                    const others = Array.from(new Set(group.pins.filter(pin => !pin.isPlace).map(pin => pin.label)));
                     result.push({
-                        // El mismo sitio puede estar en dos colecciones: id compuesto.
-                        id: `${arch?.id || 'x'}:${item.itemId}`,
-                        placeId: item.placeId,
-                        lat: coords.lat,
-                        lng: coords.lng,
-                        name: item.type === 'place' || !item.subtitle ? item.name : `${item.name} · ${item.subtitle}`,
-                        photoUrl: item.photoUrl,
-                        emoji: arch?.emoji || '📍',
-                        color: arch?.color || '#6366f1',
+                        id: key,
+                        placeId: group.pins.find(pin => pin.placeId)?.placeId,
+                        lat: group.lat,
+                        lng: group.lng,
+                        name: placeName || lead.label,
+                        photoUrl: group.pins.find(pin => pin.photoUrl)?.photoUrl,
+                        emoji: lead.emoji,
+                        color: lead.color,
+                        subtitle: mapSource === 'photos'
+                            ? `${group.pins.length} ${group.pins.length === 1 ? 'foto' : 'fotos'}`
+                            : others.length ? `Guardado: ${others.slice(0, 3).join(', ')}${others.length > 3 ? '…' : ''}` : 'Sitio guardado',
                     });
                 });
                 if (!cancelled) setMapItems(result);
@@ -668,10 +707,17 @@ export const ArchivePage: React.FC = () => {
         };
         load();
         return () => { cancelled = true; };
-    }, [viewMode, mapSelectedArchives, archives]);
+    }, [viewMode, mapSource, mapSelectedArchives, archives, uploadedPlacePhotos, uploadedReviewPhotos]);
 
     const openMap = (archiveIds?: string[]) => {
+        setMapSource('saved');
         setMapSelectedArchives(archiveIds || archives.map(a => a.id));
+        setShowMapFilters(false);
+        setViewMode('map');
+    };
+
+    const openPhotoMap = () => {
+        setMapSource('photos');
         setShowMapFilters(false);
         setViewMode('map');
     };
@@ -760,14 +806,31 @@ export const ArchivePage: React.FC = () => {
             .sort((a, b) => toMillis(b.photo.createdAt) - toMillis(a.photo.createdAt));
     }, [photoFilter, searchTerm, uploadedPlacePhotos, uploadedReviewPhotos]);
 
+    // Galería por meses («octubre de 2026»), de lo más nuevo a lo más viejo.
+    const photosByMonth = useMemo(() => {
+        const groups: { key: string; label: string; items: PhotoGridItem[] }[] = [];
+        photosForGrid.forEach((item) => {
+            const millis = toMillis(item.photo.createdAt);
+            const date = millis ? new Date(millis) : null;
+            const key = date ? `${date.getFullYear()}-${date.getMonth()}` : 'sin-fecha';
+            let group = groups.find(g => g.key === key);
+            if (!group) {
+                group = { key, label: date ? date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }) : 'Sin fecha', items: [] };
+                groups.push(group);
+            }
+            group.items.push(item);
+        });
+        return groups;
+    }, [photosForGrid]);
+
     const openPlacePhotoEdit = (photo: UploadedPlacePhoto) => {
-        setOpenPhotoMenu(null);
+        setViewerPhoto(null);
         setEditingPlacePhoto(photo);
         setEditingCaption(photo.caption || '');
     };
 
     const openReviewPhotoEdit = (photo: UploadedReviewPhoto) => {
-        setOpenPhotoMenu(null);
+        setViewerPhoto(null);
         setEditingReviewPhoto(photo);
     };
 
@@ -790,7 +853,7 @@ export const ArchivePage: React.FC = () => {
     };
 
     const deleteUploadedPlacePhoto = async (photo: UploadedPlacePhoto) => {
-        setOpenPhotoMenu(null);
+        setViewerPhoto(null);
         if (!await confirm({ title: '¿Borrar esta foto del sitio?', message: 'Dejará de verse en la ficha del sitio.', confirmLabel: 'Borrar', destructive: true })) return;
         try {
             if (photo.storagePath) {
@@ -800,7 +863,7 @@ export const ArchivePage: React.FC = () => {
             }
             await deleteDoc(makeDocRefFromPath(photo.docPath));
             setUploadedPlacePhotos(prev => prev.filter(item => item.docPath !== photo.docPath));
-            setOpenPhotoMenu(null);
+            setViewerPhoto(null);
         } catch (error) {
             console.error('Error deleting uploaded place photo', error);
             showToast({ variant: 'error', message: 'No se pudo borrar la foto.' });
@@ -808,7 +871,7 @@ export const ArchivePage: React.FC = () => {
     };
 
     const deleteUploadedReviewPhoto = async (photo: UploadedReviewPhoto) => {
-        setOpenPhotoMenu(null);
+        setViewerPhoto(null);
         if (!await confirm({ title: '¿Borrar esta foto de la reseña?', confirmLabel: 'Borrar', destructive: true })) return;
         try {
             if (photo.storagePath) {
@@ -847,7 +910,7 @@ export const ArchivePage: React.FC = () => {
             });
 
             setUploadedReviewPhotos(prev => prev.filter(item => item.docPath !== photo.docPath || item.url !== photo.url));
-            setOpenPhotoMenu(null);
+            setViewerPhoto(null);
         } catch (error) {
             console.error('Error deleting uploaded review photo', error);
             showToast({ variant: 'error', message: 'No se pudo borrar la foto.' });
@@ -866,7 +929,7 @@ export const ArchivePage: React.FC = () => {
                         <IconButton label="Cerrar mapa" icon={<X className="w-5 h-5" />} variant="ghost" onClick={() => setViewMode('grid')} />
                         <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-display font-bold text-[var(--lt-text)]">
-                                {mapSelectedArchives.length === 1
+                                {mapSource === 'photos' ? '📸 Tus fotos' : mapSelectedArchives.length === 1
                                     ? `${archives.find(a => a.id === mapSelectedArchives[0])?.emoji || '📁'} ${archives.find(a => a.id === mapSelectedArchives[0])?.name || ''}`
                                     : 'Tus guardados'}
                             </p>
@@ -874,7 +937,7 @@ export const ArchivePage: React.FC = () => {
                                 {loadingMap ? 'Buscando sitios…' : `${mapItems.length} ${mapItems.length === 1 ? 'sitio' : 'sitios'} en el mapa`}
                             </p>
                         </div>
-                        {archives.length > 1 && (
+                        {mapSource === 'saved' && archives.length > 1 && (
                             <Button
                                 onClick={() => setShowMapFilters(v => !v)}
                                 variant={showMapFilters ? 'primary' : 'secondary'}
@@ -896,7 +959,7 @@ export const ArchivePage: React.FC = () => {
                     )}
                     {!loadingMap && mapItems.length === 0 && (
                         <div className="absolute inset-x-4 top-4 z-[500] rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] px-4 py-3 text-center text-xs font-medium text-[var(--lt-text-muted)] shadow-xl">
-                            Aquí no hay sitios con ubicación. Las listas no salen en el mapa.
+                            {mapSource === 'photos' ? 'Tus fotos no tienen un sitio con ubicación.' : 'Aquí no hay sitios con ubicación. Las listas no salen en el mapa.'}
                         </div>
                     )}
                     <MapView items={mapItems} mode="global" showLayerControl={false} />
@@ -967,10 +1030,10 @@ export const ArchivePage: React.FC = () => {
                             variant={showSearch ? 'primary' : 'ghost'}
                             onClick={() => { setShowSearch(v => !v); if (showSearch) setSearchTerm(''); }}
                         />
-                        {activeSection === 'collections' && archives.length > 0 && (
+                        {((activeSection === 'collections' && archives.length > 0) || (activeSection === 'photos' && uploadedPlacePhotos.length + uploadedReviewPhotos.length > 0)) && (
                             <button
                                 type="button"
-                                onClick={() => openMap(openArchive ? [openArchive.id] : undefined)}
+                                onClick={() => activeSection === 'photos' ? openPhotoMap() : openMap(openArchive ? [openArchive.id] : undefined)}
                                 className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-3 py-1.5 text-xs font-bold text-[var(--lt-accent)] hover:opacity-80 transition-opacity"
                             >
                                 <MapIcon className="w-3.5 h-3.5" /> Mapa
@@ -1020,110 +1083,92 @@ export const ArchivePage: React.FC = () => {
                     )}
                 </header>
 
+                {/* Fotos: como la galería del móvil, por meses */}
                 {activeSection === 'photos' && (
-                    <Card className="overflow-hidden">
-                        <div className="px-4 py-3 border-b border-[var(--lt-border)] flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                                <h2 className="flex items-center gap-2 text-base font-display font-bold leading-tight text-[var(--lt-text)]">
-                                    <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
-                                        <ImageIcon className="w-3.5 h-3.5" />
-                                    </span>
-                                    Fotos
-                                </h2>
-                                <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Las que has subido a reseñas y sitios</p>
-                            </div>
-                            <span className="text-xs font-bold text-[var(--lt-accent)] bg-[var(--lt-accent-soft)] rounded-full px-2.5 py-1">
-                                {uploadedPlacePhotos.length + uploadedReviewPhotos.length}
-                            </span>
+                    loadingPlacePhotos || loadingReviewPhotos ? (
+                        <div className="flex items-center justify-center gap-2 py-12 text-[var(--lt-text-muted)] text-sm">
+                            <div className="animate-spin w-4 h-4 border-2 border-[var(--lt-accent-border)] border-t-transparent rounded-full" />
+                            Cargando fotos...
                         </div>
-                        {loadingPlacePhotos || loadingReviewPhotos ? (
-                            <div className="flex items-center justify-center gap-2 py-8 text-[var(--lt-text-muted)] text-sm">
-                                <div className="animate-spin w-4 h-4 border-2 border-[var(--lt-accent-border)] border-t-transparent rounded-full" />
-                                Cargando fotos...
+                    ) : photosForGrid.length === 0 ? (
+                        <div className="px-4 py-14 text-center">
+                            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                <ImageIcon className="w-7 h-7" />
                             </div>
-                        ) : photosForGrid.length === 0 ? (
-                            <div className="px-4 py-12 text-center">
-                                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
-                                    <ImageIcon className="w-7 h-7" />
-                                </div>
-                                <p className="text-sm font-bold text-[var(--lt-text)]">No hay fotos que coincidan.</p>
-                                <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Sube alguna al valorar y aparecerá aquí.</p>
-                            </div>
-                        ) : (
-                            <div className="p-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                                {photosForGrid.map(item => {
-                                    const menuId = item.kind === 'place'
-                                        ? `place:${item.photo.docPath}`
-                                        : `review:${item.photo.docPath}:${item.photo.url}`;
-                                    const title = item.kind === 'place' ? item.photo.placeName : item.photo.itemName;
-                                    const subtitle = item.kind === 'place' ? item.photo.caption : item.photo.placeName;
-                                    const route = item.kind === 'place'
-                                        ? `/place/${item.photo.placeId}`
-                                        : item.photo.placeId
-                                            ? `/place/${item.photo.placeId}`
-                                            : item.photo.listId
-                                                ? `/list/${item.photo.listId}`
-                                                : null;
-
-                                    return (
-                                        <div
-                                            key={menuId}
-                                            className="group relative rounded-2xl overflow-visible border border-[var(--lt-border)] hover:border-[var(--lt-border-strong)] transition-all bg-[var(--lt-card)] flex flex-col"
-                                        >
-                                            <Link to={route || ''} onClick={(event) => { if (!route) event.preventDefault(); }} className="lt-media-card aspect-square bg-[var(--lt-card-strong)] relative block rounded-t-2xl overflow-hidden">
-                                                <UploadedPhotoImage photo={item.photo} kind={item.kind} alt={title} />
-                                                <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-bold uppercase tracking-wide ${item.kind === 'place' ? 'text-emerald-300' : 'text-purple-300'}`}>
-                                                    {item.kind === 'place' ? <MapPin className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
-                                                    {item.kind === 'place' ? 'Sitio' : 'Reseña'}
-                                                </span>
-                                            </Link>
-                                            <div className="absolute top-1.5 right-1.5 z-20">
+                            <p className="text-sm font-bold text-[var(--lt-text)]">{uploadedPlacePhotos.length + uploadedReviewPhotos.length ? 'No hay fotos que coincidan.' : 'Aún no has subido fotos.'}</p>
+                            <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Las que subas al reseñar o en un sitio aparecerán aquí.</p>
+                        </div>
+                    ) : (
+                        <div className="-mx-4 sm:mx-0 space-y-5">
+                            {photosByMonth.map(group => (
+                                <section key={group.key}>
+                                    <h2 className="mb-2 px-4 sm:px-0 text-sm font-display font-bold text-[var(--lt-text)] first-letter:uppercase">
+                                        {group.label}
+                                        <span className="ml-2 text-xs font-medium text-[var(--lt-text-muted)]">{group.items.length}</span>
+                                    </h2>
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-0.5 sm:gap-1">
+                                        {group.items.map(item => {
+                                            const title = item.kind === 'place' ? item.photo.placeName : item.photo.itemName;
+                                            return (
                                                 <button
+                                                    key={`${item.kind}:${item.photo.docPath}:${item.photo.url}`}
                                                     type="button"
-                                                    onClick={(event) => {
-                                                        event.preventDefault();
-                                                        event.stopPropagation();
-                                                        setOpenPhotoMenu(prev => prev === menuId ? null : menuId);
-                                                    }}
-                                                    className="p-1 rounded-md bg-black/65 text-gray-200 hover:text-white transition-colors"
-                                                    title="Opciones"
+                                                    onClick={() => setViewerPhoto(item)}
+                                                    aria-label={title}
+                                                    className="relative aspect-square overflow-hidden bg-[var(--lt-card-strong)] sm:rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lt-accent)]"
                                                 >
-                                                    <MoreVertical className="w-3.5 h-3.5" />
+                                                    <UploadedPhotoImage photo={item.photo} kind={item.kind} alt={title} />
                                                 </button>
-                                                {openPhotoMenu === menuId && (
-                                                    <div className="absolute right-0 mt-1 w-32 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-2xl overflow-hidden">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => item.kind === 'place'
-                                                                ? openPlacePhotoEdit(item.photo)
-                                                                : openReviewPhotoEdit(item.photo)}
-                                                            className="w-full px-3 py-2 text-left text-xs font-bold text-[var(--lt-text)] hover:bg-[var(--lt-card)] flex items-center gap-2"
-                                                        >
-                                                            <Edit2 className="w-3.5 h-3.5" /> Editar
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => item.kind === 'place'
-                                                                ? deleteUploadedPlacePhoto(item.photo)
-                                                                : deleteUploadedReviewPhoto(item.photo)}
-                                                            className="w-full px-3 py-2 text-left text-xs font-bold text-red-300 hover:bg-red-500/10 flex items-center gap-2"
-                                                        >
-                                                            <Trash2 className="w-3.5 h-3.5" /> Eliminar
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <Link to={route || ''} onClick={(event) => { if (!route) event.preventDefault(); }} className="p-2 flex-1 min-w-0 hover:bg-[var(--lt-card-strong)] transition-colors rounded-b-2xl">
-                                                <MarqueeText text={title} className="block text-[var(--lt-text)] text-xs font-semibold leading-tight" />
-                                                {subtitle && <p className="text-[var(--lt-accent)] text-[10px] truncate mt-0.5">{subtitle}</p>}
-                                            </Link>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </Card>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            ))}
+                        </div>
+                    )
                 )}
+
+                {/* Una foto en grande, con lo que se puede hacer con ella */}
+                {viewerPhoto && (() => {
+                    const item = viewerPhoto;
+                    const title = item.kind === 'place' ? item.photo.placeName : item.photo.itemName;
+                    const subtitle = item.kind === 'place' ? item.photo.caption : item.photo.placeName;
+                    const route = item.photo.placeId ? `/place/${item.photo.placeId}` : item.kind === 'review' && item.photo.listId ? `/list/${item.photo.listId}` : null;
+                    const date = toMillis(item.photo.createdAt);
+                    return (
+                        <div className="fixed inset-0 z-[10001] flex flex-col bg-black/95" onClick={() => setViewerPhoto(null)}>
+                            <div className="pt-safe-top flex items-center gap-2 px-3 py-2.5 text-white" onClick={event => event.stopPropagation()}>
+                                <IconButton label="Cerrar" icon={<X className="w-5 h-5" />} variant="ghost" className="text-white" onClick={() => setViewerPhoto(null)} />
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-bold">{title}</p>
+                                    <p className="truncate text-[11px] text-gray-400">
+                                        {[subtitle, date ? new Date(date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : ''].filter(Boolean).join(' · ')}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex min-h-0 flex-1 items-center justify-center p-2">
+                                <img src={item.photo.url} alt={title} className="max-h-full max-w-full rounded-lg object-contain" onClick={event => event.stopPropagation()} />
+                            </div>
+                            <div className="pb-safe-bottom flex items-center justify-center gap-2 px-4 py-4" onClick={event => event.stopPropagation()}>
+                                {route && (
+                                    <Button size="sm" leftIcon={<MapPin className="w-4 h-4" />} onClick={() => { setViewerPhoto(null); navigate(route); }}>
+                                        Ver el sitio
+                                    </Button>
+                                )}
+                                <Button size="sm" variant="secondary" leftIcon={<Edit2 className="w-4 h-4" />} onClick={() => { setViewerPhoto(null); if (item.kind === 'place') openPlacePhotoEdit(item.photo); else openReviewPhotoEdit(item.photo); }}>
+                                    Editar
+                                </Button>
+                                <IconButton
+                                    label="Eliminar foto"
+                                    icon={<Trash2 className="w-4 h-4" />}
+                                    variant="secondary"
+                                    className="text-[var(--lt-danger)]"
+                                    onClick={() => { setViewerPhoto(null); if (item.kind === 'place') void deleteUploadedPlacePhoto(item.photo); else void deleteUploadedReviewPhoto(item.photo); }}
+                                />
+                            </div>
+                        </div>
+                    );
+                })()}
 
                 {/* Colecciones: portadas en rejilla; al tocar una, su contenido */}
                 {activeSection === 'collections' && !openArchive && (archives.length === 0 ? (
