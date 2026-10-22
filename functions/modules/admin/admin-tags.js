@@ -270,4 +270,4 @@ const adminReplaceTag = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (r
   return summary;
 });
 
-module.exports = { adminReplaceTag, replaceTagInArray };
+module.exports = { adminReplaceTag };
