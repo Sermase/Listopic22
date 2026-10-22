@@ -69,6 +69,10 @@ function hasGlutenFreeTag(tags: unknown) {
     });
 }
 
+function hasVeganTag(tags: unknown) {
+    return (Array.isArray(tags) ? tags : []).some(tag => normalizeFilterToken(tag).includes('vegan'));
+}
+
 function hasVegetarianTag(tags: unknown) {
     return (Array.isArray(tags) ? tags : []).some(tag => {
         const normalized = normalizeFilterToken(tag);
@@ -96,10 +100,17 @@ function extractAccessibilityKeys(...values: unknown[]) {
         if (value && typeof value === 'object') {
             Object.entries(value as Record<string, unknown>).forEach(([key, enabled]) => {
                 if (enabled === true || enabled === 'true') keys.add(key);
+                // Consta que no (Google o el local): «no:clave». Sirve a «Mis preferencias».
+                else if (enabled === false) keys.add(`no:${key}`);
             });
         }
     });
     return Array.from(keys).sort();
+}
+
+/** «Mis preferencias» de movilidad: fuera solo lo que consta que no es accesible. */
+function lacksAccessibility(keys: string[] | undefined, wanted: readonly string[]) {
+    return wanted.some(key => keys?.includes(`no:${key}`) && !keys.includes(key));
 }
 
 function extractPetKeys(...values: unknown[]) {
@@ -599,13 +610,26 @@ export const ListPage: React.FC = () => {
 
     // «Mis preferencias» (dieta) se aplican solas; se pueden quitar solo en esta lista.
     const { prefs } = usePreferences();
-    const [ignoredDiet, setIgnoredDiet] = useState<{ glutenFree?: boolean; vegetarian?: boolean }>({});
-    const dietGluten = filters.glutenFree || (prefs.glutenFree && !ignoredDiet.glutenFree);
-    const dietVeg = prefs.vegetarian && !ignoredDiet.vegetarian;
-    const activeDietChips = [
-        ...(prefs.glutenFree && !ignoredDiet.glutenFree ? [{ key: 'glutenFree' as const, label: '🌾 Sin gluten' }] : []),
-        ...(dietVeg ? [{ key: 'vegetarian' as const, label: '🥦 Vegetariano' }] : []),
-    ];
+    type PrefFilterKey = 'glutenFree' | 'vegetarian' | 'vegan' | 'stepFree' | 'accessibleRestroom' | 'petFriendly';
+    const [ignoredDiet, setIgnoredDiet] = useState<Partial<Record<PrefFilterKey, boolean>>>({});
+    const prefOn = (key: PrefFilterKey) => prefs[key] && !ignoredDiet[key];
+    const dietGluten = filters.glutenFree || prefOn('glutenFree');
+    const dietVeg = prefOn('vegetarian');
+    const dietVegan = prefOn('vegan');
+    const petsWanted = filters.petFriendly || prefOn('petFriendly');
+    const needsStepFree = prefOn('stepFree');
+    const needsRestroom = prefOn('accessibleRestroom');
+    const mobilityNeeds = useMemo(() => [
+        ...(needsStepFree ? ['wheelchairAccessibleEntrance'] : []),
+        ...(needsRestroom ? ['wheelchairAccessibleRestroom'] : []),
+    ], [needsStepFree, needsRestroom]);
+    const PREF_CHIP_LABELS: Record<PrefFilterKey, string> = {
+        glutenFree: '🌾 Sin gluten', vegetarian: '🥦 Vegetariano', vegan: '🌱 Vegano',
+        stepFree: '♿ Sin escalones', accessibleRestroom: '♿ Baño adaptado', petFriendly: '🐾 Mascotas',
+    };
+    const activeDietChips = (Object.keys(PREF_CHIP_LABELS) as PrefFilterKey[])
+        .filter(prefOn)
+        .map((key) => ({ key, label: PREF_CHIP_LABELS[key] }));
 
     // Cuántos filtros hay activos (el botón lo enseña; ordenar no cuenta).
     const activeFilterCount = [
@@ -809,7 +833,13 @@ export const ListPage: React.FC = () => {
         if (dietVeg) {
             result = result.filter(item => hasVegetarianTag(item.allTags || item.tags));
         }
-        if (filters.petFriendly) {
+        if (dietVegan) {
+            result = result.filter(item => hasVeganTag(item.allTags || item.tags));
+        }
+        if (mobilityNeeds.length > 0) {
+            result = result.filter(item => !lacksAccessibility(item.accessibilityOptions, mobilityNeeds));
+        }
+        if (petsWanted) {
             result = result.filter(item => hasPetFriendlySignal(item.petOptions));
         }
         if (filters.visited) {
@@ -862,7 +892,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg]);
+    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, petsWanted, mobilityNeeds]);
 
     const filteredMapItems = useMemo(() => {
         // Filter mapItems based on the SAME criteria as the list (or at least search/range)
@@ -891,7 +921,13 @@ export const ListPage: React.FC = () => {
         if (dietVeg) {
             result = result.filter(item => hasVegetarianTag(item.allTags));
         }
-        if (filters.petFriendly) {
+        if (dietVegan) {
+            result = result.filter(item => hasVeganTag(item.allTags));
+        }
+        if (mobilityNeeds.length > 0) {
+            result = result.filter(item => !lacksAccessibility(item.accessibilityOptions, mobilityNeeds));
+        }
+        if (petsWanted) {
             result = result.filter(item => hasPetFriendlySignal(item.petOptions));
         }
         const selectedAccessibility = Object.entries(filters.accessibility || {})
@@ -919,7 +955,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [mapItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg]);
+    }, [mapItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, petsWanted, mobilityNeeds]);
 
     const hasListMapCandidates = useMemo(() => {
         return mapItems.some((item: any) => !!item?.lat && !!item?.lng);

@@ -938,6 +938,7 @@ const updateBusinessInfoSection = onCall(async (request) => {
     tx.set(publicRef, projection, { merge: false });
     tx.set(placeRef, {
       businessPetOptions: projection.pets || FieldValue.delete(),
+      businessAccessibility: businessAccessibilityFlags(projection.accessibility) || FieldValue.delete(),
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
   });
@@ -945,6 +946,26 @@ const updateBusinessInfoSection = onCall(async (request) => {
   logger.info("businessInfo: seccion actualizada", { placeId, section, actorUid: uid, version: nextVersion, changed: didChange });
   return { ok: true, section, version: nextVersion };
 });
+
+/**
+ * Accesibilidad que marca el local, con las claves de Google (las que leen los
+ * filtros de las listas y de Buscar). Solo lo que el local ha marcado.
+ */
+function businessAccessibilityFlags(accessibility) {
+  if (!accessibility || typeof accessibility !== "object") return null;
+  const map = {
+    stepFreeEntrance: "wheelchairAccessibleEntrance",
+    accessibleBathroom: "wheelchairAccessibleRestroom",
+    wheelchairFriendlyTables: "wheelchairAccessibleSeating",
+    accessibleParking: "wheelchairAccessibleParking",
+    hearingLoop: "hearingLoop",
+  };
+  const out = {};
+  Object.entries(map).forEach(([from, to]) => {
+    if (typeof accessibility[from] === "boolean") out[to] = accessibility[from];
+  });
+  return Object.keys(out).length ? out : null;
+}
 
 module.exports = {
   onBusinessClaimCreated,

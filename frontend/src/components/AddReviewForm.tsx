@@ -1018,46 +1018,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             return next;
         });
     };
-    // Sugerencias para empezar a escribir, sacadas de las propias notas.
-    const scored = ponderableCriteria
-        .filter((c) => typeof criteriaScores[c.id] === 'number')
-        .map((c) => ({ label: c.label || c.id, score: criteriaScores[c.id] as number }))
-        .sort((a, b) => b.score - a.score);
-    const fmtScore = (n: number) => Number(n.toFixed(1)).toLocaleString('es-ES');
-    const opinionStarters = [
-        ...(scored.length > 0 ? [`Lo mejor, ${scored[0].label.toLowerCase()} (${fmtScore(scored[0].score)}): `] : []),
-        ...(scored.length > 1 && scored[0].score - scored[scored.length - 1].score >= 1
-            ? [`Lo peor, ${scored[scored.length - 1].label.toLowerCase()} (${fmtScore(scored[scored.length - 1].score)}): `]
-            : []),
-        '¿Repetiría? ',
-    ];
-    const addStarter = (starter: string) => {
-        setComment((prev) => (prev.trim() ? `${prev.trimEnd()}\n${starter}` : starter));
-        // Aquí sí hay intención de escribir: se abre el teclado.
-        window.setTimeout(() => {
-            const el = commentRef.current;
-            if (!el) return;
-            el.focus();
-            el.setSelectionRange(el.value.length, el.value.length);
-        }, 0);
-    };
     const opinionBlock = (
         <div className="space-y-3">
             <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-accent)] flex items-center gap-1.5">
                 <span>💬</span> Tu opinión <span className="normal-case font-normal tracking-normal text-[var(--lt-text-muted)]">· opcional, pero es lo que más se lee al decidir</span>
             </p>
-            <div className="flex flex-wrap gap-1.5">
-                {opinionStarters.map((starter) => (
-                    <button
-                        key={starter}
-                        type="button"
-                        onClick={() => addStarter(starter)}
-                        className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-2.5 py-1 text-xs font-semibold text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)]"
-                    >
-                        {starter.trim().endsWith('?') ? starter.trim() : `${starter.replace(/[:\s]+$/, '')}…`}
-                    </button>
-                ))}
-            </div>
             <textarea
                 ref={commentRef}
                 value={comment}

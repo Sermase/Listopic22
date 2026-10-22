@@ -306,6 +306,9 @@ describe('V4 · Un usuario no puede ascenderse a sí mismo', () => {
     await assertSucceeds(setDoc(ref, { uxPreferences: { glutenFree: true, vegetarian: false, showHelpTips: true } }, { merge: true }));
     await assertFails(setDoc(ref, { uxPreferences: { glutenFree: 'sí' } }, { merge: true }));
     await assertFails(setDoc(ref, { uxPreferences: { isAdmin: true } }, { merge: true }));
+    await assertSucceeds(setDoc(ref, { uxPreferences: { vegan: true, allergens: ['gluten', 'huevo'], stepFree: true, accessibleRestroom: false, petFriendly: true } }, { merge: true }));
+    await assertFails(setDoc(ref, { uxPreferences: { allergens: 'gluten' } }, { merge: true }));
+    await assertFails(setDoc(ref, { uxPreferences: { allergens: Array.from({ length: 15 }, (_, i) => `a${i}`) } }, { merge: true }));
   });
 
   it('✅ alta de perfil con el payload real de UserProfileService', async () => {

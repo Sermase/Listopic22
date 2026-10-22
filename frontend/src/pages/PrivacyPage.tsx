@@ -21,6 +21,7 @@ export const PrivacyPage: React.FC = () => (
         <LegalSection title="2. Qué datos tratamos">
             <p><LegalStrong>Cuenta:</LegalStrong> nombre, correo electrónico y foto de perfil (de Google si entras con Google). La contraseña la gestiona Firebase Authentication y nunca la vemos.</p>
             <p><LegalStrong>Perfil:</LegalStrong> nombre de usuario, nombre y apellidos si los añades, biografía, localidad y tus preferencias (tema, mapa, distancia, notificaciones).</p>
+            <p><LegalStrong>Mis preferencias (opcional):</LegalStrong> filtros que eliges para que la app te enseñe solo lo que te sirve: sin gluten, vegetariano o vegano, alérgenos, entrada sin escalones, baño adaptado o ir con mascota. Algunos pueden revelar datos de salud. Son privados: no se muestran a nadie, no se usan para nada más que filtrar lo que ves y puedes quitarlos cuando quieras.</p>
             <p><LegalStrong>Lo que publicas y haces:</LegalStrong> listas, reseñas, reseñas, fotos, comentarios, reacciones, mensajes en chats y foros, a quién sigues y quién te sigue, y tus archivos de lugares.</p>
             <p><LegalStrong>Ubicación:</LegalStrong> solo si das permiso en tu dispositivo, para mostrarte lugares cercanos. Para estadísticas solo se envía una zona aproximada (redondeada a unos 10 km), nunca tu posición exacta.</p>
             <p><LegalStrong>Notificaciones push:</LegalStrong> el identificador de tu dispositivo para enviártelas, si las activas.</p>
@@ -33,6 +34,7 @@ export const PrivacyPage: React.FC = () => (
             <ul className="list-disc list-inside space-y-2">
                 <Purpose what="Crear y gestionar tu cuenta, mostrar tu perfil y tu contenido, chats y funciones sociales" basis="ejecución del contrato que aceptas al registrarte (art. 6.1.b RGPD)." />
                 <Purpose what="Mostrarte lugares cercanos con tu ubicación y enviarte notificaciones push" basis="tu consentimiento, que das y retiras desde los permisos del dispositivo (art. 6.1.a)." />
+                <Purpose what="Filtrar lo que ves según «Mis preferencias» (dieta, alérgenos, movilidad, mascotas)" basis="tu consentimiento explícito, que das al activar cada filtro y retiras al quitarlo (art. 6.1.a y 9.2.a)." />
                 <Purpose what="Seguridad, prevención de abusos, corrección de errores y copias de seguridad" basis="interés legítimo en mantener el servicio seguro y funcionando (art. 6.1.f)." />
                 <Purpose what="Estadísticas agregadas de uso" basis="interés legítimo en saber qué partes de la app se usan, sin identificarte (art. 6.1.f)." />
                 <Purpose what="Atender denuncias de contenido y moderar" basis="interés legítimo y cumplimiento de las obligaciones legales de los servicios de alojamiento (art. 6.1.c y f)." />
@@ -42,7 +44,7 @@ export const PrivacyPage: React.FC = () => (
         </LegalSection>
 
         <LegalSection title="4. Qué es público">
-            <p>Son visibles para cualquiera: tu nombre de usuario, nombre visible, foto, biografía, localidad, estadísticas, tus listas públicas, reseñas, fotos y comentarios. Tu correo electrónico nunca es público. Los chats privados solo los ven sus participantes.</p>
+            <p>Son visibles para cualquiera: tu nombre de usuario, nombre visible, foto, biografía, localidad, estadísticas, tus listas públicas, reseñas, fotos y comentarios. Tu correo electrónico y «Mis preferencias» nunca son públicos. Los chats privados solo los ven sus participantes.</p>
         </LegalSection>
 
         <LegalSection title="5. Con quién compartimos datos">

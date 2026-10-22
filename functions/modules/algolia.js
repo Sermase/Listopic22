@@ -607,7 +607,7 @@ async function transformPlaceRecord(data, docId) {
         country: data.country || "",
         types: Array.isArray(data.types) ? data.types : [],
         serviceOptions: trueObjectKeys(data.serviceOptions),
-        accessibilityOptions: trueObjectKeys(data.accessibilityOptions || data.accessibility),
+        accessibilityOptions: trueObjectKeys(data.businessAccessibility ? { ...(data.accessibility || {}), ...data.businessAccessibility } : (data.accessibilityOptions || data.accessibility)),
         petOptions: trueObjectKeys(data.businessPetOptions || data.petOptions || data.pets),
         closedStatus,
         googleBusinessStatus: data.googleBusinessStatus || null,

@@ -62,6 +62,9 @@ import { scoreBadgeStyle, scoreTextColor } from '../lib/scoreScale';
 import { todayHours } from '../lib/openingHours';
 import { NO_PUBLIC_RATING_LABEL } from '../lib/placeRating';
 import { closedStatusKind } from '../utils/placeStatus';
+import { usePreferences } from '../context/PreferencesContext';
+import { matchingAllergens, userAllergens } from '../lib/allergens';
+import { AllergenGuideModal } from '../components/place/AllergenGuideModal';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
@@ -194,6 +197,10 @@ export const PlacePage: React.FC = () => {
 
     const [isMoreActionsOpen, setIsMoreActionsOpen] = useState(false);
     const [quickDish, setQuickDish] = useState<DishQuickSheetDish | null>(null);
+    // «Mis preferencias»: alérgenos que pliegan La Carta (se puede quitar un momento).
+    const { prefs } = usePreferences();
+    const [ignoreMyAllergens, setIgnoreMyAllergens] = useState(false);
+    const [allergenGuideOpen, setAllergenGuideOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes' | 'photos' | 'stats'>('dishes');
     const [reviewViewMode, setReviewViewMode] = useState<'list' | 'full' | 'gallery'>('list');
     const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
@@ -735,6 +742,20 @@ export const PlacePage: React.FC = () => {
     const hasContactInfo = Boolean(place.phone || place.email || place.instagram);
     const todaysHours = todayHours(place.openingHours);
     const dietary = place.resolvedBusinessInfo?.dietary;
+    const myAllergens = ignoreMyAllergens ? [] : userAllergens(prefs);
+    const officialMenuItems = sectionedMenu ? sectionedMenu.flatMap((section) => section.items) : [];
+    const hiddenByAllergens = officialMenuItems.filter((item) => matchingAllergens(item, myAllergens).length > 0);
+    const menuHasAllergenData = officialMenuItems.some((item) => item.allergens.length > 0);
+    // Solo para quien tiene «Sin gluten»: lo que el local dice del gluten, en una línea.
+    const glutenNote = prefs.glutenFree && dietary ? [
+        dietary.glutenFreeMenu ? '🌾 Carta sin gluten' : dietary.glutenFreeOptions ? '🌾 Opciones sin gluten' : '',
+        dietary.crossContaminationRisk && dietary.crossContaminationRisk !== 'unknown'
+            ? (() => {
+                const option = findOptionByValue(CROSS_CONTAMINATION_OPTIONS, dietary.crossContaminationRisk);
+                return option ? `${option.emoji} ${option.short || option.label}` : '';
+            })()
+            : '',
+    ].filter(Boolean).join(' · ') : '';
     const pets = place.resolvedBusinessInfo?.pets;
     const petOptions = place.petOptions;
     const accessibilityInfo = place.resolvedBusinessInfo?.accessibility;
@@ -1833,8 +1854,28 @@ export const PlacePage: React.FC = () => {
                                             </span>
                                         ) : null}
                                     </div>
+                                    {(menuHasAllergenData || myAllergens.length > 0 || glutenNote) && (
+                                        <div className="basis-full flex flex-wrap items-center gap-1.5 pt-1.5">
+                                            {menuHasAllergenData && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAllergenGuideOpen(true)}
+                                                    className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-2.5 py-1 text-xs font-semibold text-[var(--lt-text)] hover:border-[var(--lt-accent-border)]"
+                                                >
+                                                    Alérgenos
+                                                </button>
+                                            )}
+                                            {myAllergens.length > 0 && (
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] py-1 pl-2.5 pr-1 text-xs font-semibold text-[var(--lt-text)]">
+                                                    Sin {myAllergens.map((value) => allergenLabel(value).split(' ').slice(1).join(' ').toLowerCase()).join(', ')}
+                                                    <button type="button" onClick={() => setIgnoreMyAllergens(true)} aria-label="Ver la carta entera esta vez" className="rounded-full px-1.5 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">✕</button>
+                                                </span>
+                                            )}
+                                            {glutenNote && <span className="text-xs text-[var(--lt-text-muted)]">{glutenNote}</span>}
+                                        </div>
+                                    )}
                                 </div>
-                                {sectionedMenu.map((section) => (
+                                {sectionedMenu.filter((section) => section.items.some((item) => matchingAllergens(item, myAllergens).length === 0)).map((section) => (
                                     <div key={section.name || 'general'}>
                                         {section.name && (
                                             <div className="px-4 sm:px-5 py-2.5 bg-[var(--lt-card)] border-b border-[var(--lt-border)]">
@@ -1844,7 +1885,7 @@ export const PlacePage: React.FC = () => {
                                             </div>
                                         )}
                                         <div className="divide-y divide-[var(--lt-border)]">
-                                            {section.items.map((item) => {
+                                            {section.items.filter((item) => matchingAllergens(item, myAllergens).length === 0).map((item) => {
                                                 const unavailable = item.available === false;
                                                 const content = (
                                                     <>
@@ -1871,6 +1912,9 @@ export const PlacePage: React.FC = () => {
                                                                 )}
                                                                 {unavailable && (
                                                                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/25">No disponible</span>
+                                                                )}
+                                                                {myAllergens.length > 0 && item.allergens.length === 0 && (
+                                                                    <span title="El local no ha indicado sus alérgenos" aria-label="Alérgenos sin indicar" className="rounded-full border border-amber-500/30 px-1.5 text-xs font-bold text-amber-400">?</span>
                                                                 )}
                                                             </div>
                                                             {/* Descripción, ingredientes y alérgenos, en la ficha rápida del plato. */}
@@ -1923,6 +1967,22 @@ export const PlacePage: React.FC = () => {
                                         </div>
                                     </div>
                                 ))}
+                                {hiddenByAllergens.length > 0 && (
+                                    <details className="group border-t border-[var(--lt-border)]">
+                                        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 sm:px-5 py-3 text-sm font-semibold text-[var(--lt-text-muted)]">
+                                            <span className="flex-1">Ocultos por tus alérgenos ({hiddenByAllergens.length})</span>
+                                            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                                        </summary>
+                                        <ul className="divide-y divide-[var(--lt-border)] pb-2">
+                                            {hiddenByAllergens.map((item) => (
+                                                <li key={item.id} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-2 text-sm text-[var(--lt-text-muted)]">
+                                                    <span className="min-w-0 truncate">{item.name}</span>
+                                                    <span className="shrink-0 text-xs">Lleva {matchingAllergens(item, myAllergens).map((value) => allergenLabel(value)).join(', ')}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </details>
+                                )}
                             </div>
                         </div>
                     )}
@@ -2371,6 +2431,13 @@ export const PlacePage: React.FC = () => {
                 targetType="place"
             />
 
+            {allergenGuideOpen && (
+                <AllergenGuideModal
+                    dishes={officialMenuItems.map((item) => ({ id: item.id, name: item.name, allergens: item.allergens }))}
+                    initialSelected={userAllergens(prefs)}
+                    onClose={() => setAllergenGuideOpen(false)}
+                />
+            )}
             {quickDish && placeId && (
                 <DishQuickSheet placeId={placeId} dish={quickDish} reviews={place.reviews} onClose={() => setQuickDish(null)} />
             )}

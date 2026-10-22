@@ -4,35 +4,48 @@ import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 
 /**
- * «Mis preferencias»: dieta que se aplica sola en toda la app y las ayudas ⓘ.
- * Se guardan en el navegador y, con sesión, en la cuenta (users/{uid}.uxPreferences)
- * para que sigan en otro dispositivo.
+ * «Mis preferencias»: filtros que se aplican solos (dieta, alérgenos, movilidad,
+ * mascotas) y las ayudas ⓘ. Son privados: se guardan en el navegador y, con sesión,
+ * en la cuenta (users/{uid}.uxPreferences) para que sigan en otro dispositivo.
  */
 export interface UxPreferences {
     glutenFree: boolean;
     vegetarian: boolean;
+    vegan: boolean;
+    /** Alérgenos de la UE (valores de ALLERGEN_OPTIONS) que se pliegan en La Carta. */
+    allergens: string[];
+    stepFree: boolean;
+    accessibleRestroom: boolean;
+    petFriendly: boolean;
     showHelpTips: boolean;
 }
 
-const DEFAULTS: UxPreferences = { glutenFree: false, vegetarian: false, showHelpTips: true };
+const DEFAULTS: UxPreferences = {
+    glutenFree: false, vegetarian: false, vegan: false, allergens: [],
+    stepFree: false, accessibleRestroom: false, petFriendly: false, showHelpTips: true,
+};
+
+const BOOL_KEYS = ['glutenFree', 'vegetarian', 'vegan', 'stepFree', 'accessibleRestroom', 'petFriendly', 'showHelpTips'] as const;
+const MAX_ALLERGENS = 14;
 const STORAGE_KEY = 'listopic_ux_prefs';
 
 const readLocal = (): UxPreferences => {
     try {
         const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
-        return sanitize(saved);
+        return sanitizeUxPreferences(saved);
     } catch {
         return DEFAULTS;
     }
 };
 
-const sanitize = (value: unknown): UxPreferences => {
+export const sanitizeUxPreferences = (value: unknown): UxPreferences => {
     const v = (value && typeof value === 'object' ? value : {}) as Partial<Record<keyof UxPreferences, unknown>>;
-    return {
-        glutenFree: typeof v.glutenFree === 'boolean' ? v.glutenFree : DEFAULTS.glutenFree,
-        vegetarian: typeof v.vegetarian === 'boolean' ? v.vegetarian : DEFAULTS.vegetarian,
-        showHelpTips: typeof v.showHelpTips === 'boolean' ? v.showHelpTips : DEFAULTS.showHelpTips,
-    };
+    const out = { ...DEFAULTS };
+    BOOL_KEYS.forEach((key) => { if (typeof v[key] === 'boolean') out[key] = v[key] as boolean; });
+    if (Array.isArray(v.allergens)) {
+        out.allergens = Array.from(new Set(v.allergens.filter((a): a is string => typeof a === 'string' && a.length > 0 && a.length <= 30))).slice(0, MAX_ALLERGENS);
+    }
+    return out;
 };
 
 interface PreferencesContextValue {
@@ -56,7 +69,7 @@ export const PreferencesProvider: React.FC<{ children: React.ReactNode }> = ({ c
             .then((snap) => {
                 const remote = snap.exists() ? snap.data().uxPreferences : undefined;
                 if (cancelled || !remote) return;
-                const next = sanitize(remote);
+                const next = sanitizeUxPreferences(remote);
                 setPrefs(next);
                 try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* opcional */ }
             })
