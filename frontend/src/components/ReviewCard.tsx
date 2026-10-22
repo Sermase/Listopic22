@@ -16,7 +16,6 @@ import { ReportModal } from './ReportModal';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db } from '../firebase';
-import { NonPonderableGauge } from './NonPonderableGauge';
 import { buildShareCriteriaGroups } from '../utils/shareCriteria';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { CategoryService } from '../services/CategoryService';
@@ -154,7 +153,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 key,
                 label: getLabel(key),
                 score: scores[key] || 0,
-                isPonderable: def ? (def.ponderable !== false && def.isPonderable !== false) : true
+                isPonderable: def ? (def.ponderable !== false && def.isPonderable !== false && def.weight !== 0) : true
             };
         });
 
@@ -186,21 +185,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         checkLike();
     }, [user, review.id, review.listId]);
 
-    const [showAllScores, setShowAllScores] = useState(expanded);
     const hasVisual = Boolean(review.photoUrls?.length || review.photoUrl || review.placeMainImage);
-    // Lo mejor y lo peor de los criterios que cuentan (si hay diferencia que contar).
-    const highlights = React.useMemo(() => {
-        if (ponderable.length < 2) return [];
-        const sorted = [...ponderable].sort((a, b) => b.score - a.score);
-        const best = sorted[0];
-        const worst = sorted[sorted.length - 1];
-        if (best.score - worst.score < 1) return [{ kind: 'best' as const, label: best.label, score: best.score }];
-        return [
-            { kind: 'best' as const, label: best.label, score: best.score },
-            { kind: 'worst' as const, label: worst.label, score: worst.score },
-        ];
-    }, [ponderable]);
-
     const handleCardClick = () => {
         if (review.placeId && review.itemName) {
             navigate(`/group/${review.placeId}/${encodeURIComponent(review.itemName)}`);
@@ -422,68 +407,43 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         <ExpandableText text={review.comment} lines={4} defaultExpanded={expanded} className="text-[15px] leading-relaxed text-[var(--lt-text)]" />
                     )}
 
-                    {/* Lo mejor y lo peor; el detalle de notas, en un desplegable */}
-                    {highlights.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1.5">
-                            {highlights.map((h) => (
-                                <span key={h.label} className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-border)] px-2.5 py-1 text-xs text-[var(--lt-text-muted)]">
-                                    <span aria-hidden="true">{h.kind === 'best' ? '👍' : '👎'}</span>
-                                    <span className="font-semibold text-[var(--lt-text)]">{h.label}</span>
-                                    <span className="font-display font-bold" style={{ color: scoreTextColor(h.score) }}>{h.score.toFixed(1)}</span>
-                                </span>
+                    {/* Notas de criterios, siempre a la vista */}
+                    {ponderable.length > 0 && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                            {ponderable.map((crit) => (
+                                <div key={crit.key} className="flex min-w-0 flex-col">
+                                    <div className="flex justify-between items-end gap-1.5 text-[11px] mb-1">
+                                        <span className="text-[var(--lt-text-muted)] font-medium truncate">{crit.label}</span>
+                                        <span className="font-display font-bold" style={{ color: scoreTextColor(crit.score) }}>
+                                            {crit.score.toFixed(1)}
+                                        </span>
+                                    </div>
+                                    <div className="h-1 bg-[var(--lt-border)] rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full rounded-full"
+                                            style={{ width: `${crit.score * 10}%`, backgroundColor: scoreBadge(crit.score).bg }}
+                                        />
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     )}
-                    {(ponderable.length + nonPonderable.length) > 0 && (
-                        <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setShowAllScores((v) => !v); }}
-                            aria-expanded={showAllScores}
-                            className="text-xs font-bold text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
-                        >
-                            {showAllScores ? 'Ocultar notas ▴' : `Ver las ${ponderable.length + nonPonderable.length} notas ▾`}
-                        </button>
-                    )}
 
-                    {/* Criteria Bars (Grouped) */}
-                    {showAllScores && (ponderable.length > 0 || nonPonderable.length > 0) && (
-                        <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] p-3 space-y-3">
-
-                            {/* Ponderable (Standard) - Grid */}
-                            {ponderable.length > 0 && (
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-                                    {ponderable.map((crit, idx) => {
-
-                                        return (
-                                            <div key={idx} className="flex min-w-0 flex-col">
-                                                <div className="flex justify-between items-end gap-1.5 text-[11px] mb-1">
-                                                    <span className="text-[var(--lt-text-muted)] font-medium truncate">{crit.label}</span>
-                                                    <span className="font-display font-bold" style={{ color: scoreTextColor(crit.score) }}>
-                                                        {crit.score.toFixed(1)}
-                                                    </span>
-                                                </div>
-                                                <div className="h-1 bg-[var(--lt-border)] rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full rounded-full"
-                                                        style={{ width: `${crit.score * 10}%`, backgroundColor: scoreBadge(crit.score).bg }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
+                    {/* Informativos (no cuentan en la nota): posición en una escala gris, sin bueno ni malo */}
+                    {nonPonderable.length > 0 && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2" aria-label="Datos informativos, no cuentan en la nota">
+                            {nonPonderable.map((crit) => (
+                                <div key={crit.key} className="flex min-w-0 items-center gap-2 text-[11px] text-[var(--lt-text-muted)]" title="Informativo: no cuenta en la nota">
+                                    <span className="truncate italic">{crit.label}</span>
+                                    <span className="relative h-px flex-1 min-w-[2rem] bg-[var(--lt-border)]" aria-hidden="true">
+                                        <span
+                                            className="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--lt-text-muted)]"
+                                            style={{ left: `${Math.min(100, Math.max(0, crit.score * 10))}%` }}
+                                        />
+                                    </span>
+                                    <span className="tabular-nums">{crit.score % 1 === 0 ? crit.score : crit.score.toFixed(1)}</span>
                                 </div>
-                            )}
-
-                            {/* Non-Ponderable (Extras) - Gauges Grid */}
-                            {nonPonderable.length > 0 && (
-                                <div className="pt-2 border-t border-[var(--lt-border)]">
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                                        {nonPonderable.map((crit, idx) => (
-                                            <NonPonderableGauge key={idx} score={crit.score} label={crit.label} size={60} />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
+                            ))}
                         </div>
                     )}
 
