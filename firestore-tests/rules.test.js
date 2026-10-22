@@ -312,6 +312,15 @@ describe('V4 · Un usuario no puede ascenderse a sí mismo', () => {
     await assertFails(setDoc(ref, { uxPreferences: { allergens: Array.from({ length: 15 }, (_, i) => `a${i}`) } }, { merge: true }));
   });
 
+  it('✅/❌ dieta por defecto de una lista: solo vegetarian o none', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'lists/dietList'), { name: 'Tortillas', visibility: 'public', isPublic: true, userId: 'alice' });
+    });
+    await assertSucceeds(updateDoc(doc(as('alice'), 'lists/dietList'), { defaultDiet: 'vegetarian' }));
+    await assertSucceeds(updateDoc(doc(as('alice'), 'lists/dietList'), { defaultDiet: 'none' }));
+    await assertFails(updateDoc(doc(as('alice'), 'lists/dietList'), { defaultDiet: 'carnivoro' }));
+  });
+
   it('✅/❌ «Apto para»: respuestas privadas solo de reseñas propias', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       const db = ctx.firestore();

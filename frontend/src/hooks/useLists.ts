@@ -6,6 +6,8 @@ export interface ListEntity {
     id: string;
     name: string;
     description?: string;
+    /** «Casi todo vegetariano»: se marca lo que lleva carne o pescado (lib/categoryTags). */
+    defaultDiet?: 'vegetarian' | 'none';
     userId: string;
     authorName?: string;
     photoUrl?: string;

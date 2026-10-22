@@ -29,7 +29,8 @@ function replaceTagInArray(values, fromTag, toTag) {
       next = toTrimmed;
       changed = true;
     }
-    acc.push(next);
+    // Sin etiqueta destino, la etiqueta se quita.
+    if (next) acc.push(next);
     return acc;
   }, []);
 
@@ -91,10 +92,24 @@ function buildListTagUpdate(listData, fromTag, toTag) {
   return { changed, updatePayload };
 }
 
+// Las reseñas guardan las etiquetas en `tags` (las nuevas) o `userTags` (las antiguas).
+const REVIEW_TAG_FIELDS = ['tags', 'userTags'];
+
 async function fetchReviewDocsByTag(tag) {
+  const byPath = new Map();
+  let usedFallback = false;
+  for (const field of REVIEW_TAG_FIELDS) {
+    const result = await fetchReviewDocsByTagField(tag, field);
+    usedFallback = usedFallback || result.usedFallback;
+    result.docs.forEach((doc) => byPath.set(doc.ref.path, doc));
+  }
+  return { docs: Array.from(byPath.values()), usedFallback };
+}
+
+async function fetchReviewDocsByTagField(tag, field) {
   try {
     const snapshot = await db.collectionGroup('reviews')
-      .where('userTags', 'array-contains', tag)
+      .where(field, 'array-contains', tag)
       .get();
     return { docs: snapshot.docs, usedFallback: false };
   } catch (error) {
@@ -109,7 +124,7 @@ async function fetchReviewDocsByTag(tag) {
       for (let i = 0; i < listRefs.length; i += chunkSize) {
         const chunk = listRefs.slice(i, i + chunkSize);
         const chunkSnapshots = await Promise.all(chunk.map(ref =>
-          ref.collection('reviews').where('userTags', 'array-contains', tag).get()
+          ref.collection('reviews').where(field, 'array-contains', tag).get()
         ));
         chunkSnapshots.forEach(chunkSnap => {
           chunkSnap.forEach(doc => docs.push(doc));
@@ -138,14 +153,15 @@ const adminReplaceTag = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (r
     throw new HttpsError('internal', 'Error al verificar permisos.');
   }
 
-  const { fromTag, toTag, targets, dryRun } = request.data || {};
+  const { fromTag, toTag, targets, dryRun, remove } = request.data || {};
+  const shouldRemove = remove === true;
   await writeAuditLog(contextAuth.uid, 'adminReplaceTag', {
-    fromTag, toTag, targets, dryRun: !!dryRun,
+    fromTag, toTag, targets, dryRun: !!dryRun, remove: shouldRemove,
   });
   const fromTrimmed = typeof fromTag === 'string' ? fromTag.trim() : '';
-  const toTrimmed = typeof toTag === 'string' ? toTag.trim() : '';
+  const toTrimmed = shouldRemove ? '' : (typeof toTag === 'string' ? toTag.trim() : '');
 
-  if (!fromTrimmed || !toTrimmed) {
+  if (!fromTrimmed || (!toTrimmed && !shouldRemove)) {
     throw new HttpsError('invalid-argument', 'fromTag y toTag son obligatorios.');
   }
   if (fromTrimmed === toTrimmed) {
@@ -163,6 +179,8 @@ const adminReplaceTag = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (r
     dryRun: shouldDryRun,
     listsMatched: 0,
     listsUpdated: 0,
+    remove: shouldRemove,
+    categoriesMatched: 0,
     reviewsMatched: 0,
     reviewsUpdated: 0
   };
@@ -202,6 +220,17 @@ const adminReplaceTag = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (r
     }
   }
 
+  if (applyLists) {
+    // Etiquetas fijas de las categorías («Hmm...»: Vegetariano, Sin gluten…).
+    const categoriesSnapshot = await db.collection('categories').get();
+    for (const doc of categoriesSnapshot.docs) {
+      const fixed = replaceTagInArray(doc.data()?.['fixed-tags'], fromTrimmed, toTrimmed);
+      if (!fixed.changed) continue;
+      summary.categoriesMatched += 1;
+      if (!shouldDryRun) await doc.ref.update({ 'fixed-tags': fixed.value });
+    }
+  }
+
   if (applyReviews) {
     const { docs: reviewDocs, usedFallback } = await fetchReviewDocsByTag(fromTrimmed);
     if (usedFallback) {
@@ -211,13 +240,17 @@ const adminReplaceTag = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (r
     const batchState = { batch: db.batch(), count: 0 };
     for (const doc of reviewDocs) {
       const reviewData = doc.data() || {};
-      const updated = replaceTagInArray(reviewData.userTags, fromTrimmed, toTrimmed);
-      if (!updated.changed) {
+      const reviewUpdate = {};
+      REVIEW_TAG_FIELDS.forEach((field) => {
+        const updated = replaceTagInArray(reviewData[field], fromTrimmed, toTrimmed);
+        if (updated.changed) reviewUpdate[field] = updated.value;
+      });
+      if (Object.keys(reviewUpdate).length === 0) {
         continue;
       }
       summary.reviewsMatched += 1;
       if (!shouldDryRun) {
-        batchState.batch.update(doc.ref, { userTags: updated.value });
+        batchState.batch.update(doc.ref, reviewUpdate);
         batchState.count += 1;
         if (batchState.count >= 450) {
           await commitBatchIfNeeded(batchState);
@@ -237,4 +270,4 @@ const adminReplaceTag = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (r
   return summary;
 });
 
-module.exports = { adminReplaceTag };
+module.exports = { adminReplaceTag, replaceTagInArray };

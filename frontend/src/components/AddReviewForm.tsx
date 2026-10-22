@@ -8,7 +8,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject, getBlob } from 'firebas
 import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
 import { usePreferences } from '../context/PreferencesContext';
-import { APT_KEYS, APT_QUESTIONS, type AptAnswer, type AptKey } from '../lib/aptFor';
+import { APT_CONTRIBUTE_KEYS, APT_QUESTIONS, type AptAnswer, type AptKey } from '../lib/aptFor';
 import { useToast } from '../context/ToastContext';
 import { Loader2, X, MapPin as MapPinIcon, CheckCircle2, Lock, Trash2, Star } from 'lucide-react';
 import { PhotoEditorModal, type ProcessedPhoto } from './PhotoEditorModal';
@@ -23,7 +23,7 @@ import { computeReviewScore, criterionWeight, isComputingCriterion } from '../li
 import { formatScore, SCORE_BADGE, SCORE_BAND_EMOJI, SCORE_BAND_LABEL, scoreBand, scoreTextColor } from '../lib/scoreScale';
 import { CriterionRating } from './CriterionRating';
 import { orderedCriteriaEntries } from '../lib/criteria';
-import { withCategoryTags } from '../lib/categoryTags';
+import { isDefaultVegetarian, listTagsWithDiet } from '../lib/categoryTags';
 import { CategoryService } from '../services/CategoryService';
 import { parseReviewDraft, reviewDraftKey, REVIEW_DRAFT_VERSION, shouldRestoreReviewDraft } from '../lib/reviewDraft';
 import { usePlaceElementsInList } from '../hooks/usePlaceElementsInList';
@@ -178,7 +178,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const { user } = useAuth();
     // «Apto para»: solo para quien aporta en algo (Mis preferencias). Respuestas privadas.
     const { prefs } = usePreferences();
-    const contributeKeys = APT_KEYS.filter((key) => prefs.contribute.includes(key));
+    const contributeKeys = APT_CONTRIBUTE_KEYS.filter((key) => prefs.contribute.includes(key));
     const [aptAnswers, setAptAnswers] = useState<Partial<Record<AptKey, AptAnswer>>>({});
     const { showToast } = useToast();
     const queryClient = useQueryClient();
@@ -571,7 +571,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     // Las fijas de la categoría (Vegetariano, Sin gluten… en «Hmm...») salen
                     // siempre, también en listas creadas antes de fijarlas.
                     const categoryTags = await CategoryService.getFixedTags(data.categoryId);
-                    setListAvailableTags(withCategoryTags(categoryTags, data.availableTags));
+                    setListAvailableTags(listTagsWithDiet(categoryTags, data.availableTags, isDefaultVegetarian(data)));
                 }
             } catch (e) {
                 console.error("Error fetching list definition", e);

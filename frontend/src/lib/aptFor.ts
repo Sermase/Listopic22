@@ -14,6 +14,9 @@ export type AptFor = {
 export const APT_ITEM_KEYS: AptKey[] = ['glutenFree', 'lactoseFree', 'vegetarian', 'vegan'];
 export const APT_PLACE_KEYS: AptKey[] = ['stepFree', 'accessibleRestroom', 'petFriendly'];
 export const APT_KEYS: AptKey[] = [...APT_ITEM_KEYS, ...APT_PLACE_KEYS];
+/** Lo que se pregunta al valorar: lo que solo sabe quien lo come o va. Vegetariano y
+ * vegano se ven en el plato y van como etiqueta. */
+export const APT_CONTRIBUTE_KEYS: AptKey[] = APT_KEYS.filter((key) => key !== 'vegetarian' && key !== 'vegan');
 
 /** Pregunta del formulario y cómo se lee el recuento. */
 export const APT_QUESTIONS: Record<AptKey, { emoji: string; question: string; yes: string; no: string; who: string }> = {

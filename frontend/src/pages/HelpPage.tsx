@@ -5,7 +5,7 @@ import { HELP_TOPICS } from '../lib/helpTopics';
 import { usePreferences, type UxPreferences } from '../context/PreferencesContext';
 import { reopenWelcome } from '../lib/welcome';
 import { ALLERGEN_OPTIONS } from '../services/BusinessProService';
-import type { AptKey } from '../lib/aptFor';
+import { APT_CONTRIBUTE_KEYS, type AptKey } from '../lib/aptFor';
 
 const Toggle: React.FC<{ label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }> = ({ label, hint, checked, onChange }) => (
     <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-2.5">
@@ -34,15 +34,15 @@ const Pill: React.FC<{ on: boolean; onClick: () => void; children: React.ReactNo
 
 /** Una necesidad con dos casillas: filtrar lo que ves y aportar al valorar. */
 const NeedRow: React.FC<{
-    label: string; hint: string; filter: boolean; contribute: boolean;
-    onFilter: (v: boolean) => void; onContribute: (v: boolean) => void;
+    label: string; hint: string; filter: boolean; contribute?: boolean;
+    onFilter: (v: boolean) => void; onContribute?: (v: boolean) => void;
 }> = ({ label, hint, filter, contribute, onFilter, onContribute }) => (
     <div className="rounded-xl border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-2.5">
         <span className="block text-sm font-semibold text-[var(--lt-text)]">{label}</span>
         <span className="mt-0.5 block text-xs leading-snug text-[var(--lt-text-muted)]">{hint}</span>
         <div className="mt-2 flex flex-wrap gap-1.5">
             <Pill on={filter} onClick={() => onFilter(!filter)} label={`Filtrar: ${label}`}>👁️ Filtrar</Pill>
-            <Pill on={contribute} onClick={() => onContribute(!contribute)} label={`Aportar: ${label}`}>✍️ Aportar</Pill>
+            {onContribute && <Pill on={!!contribute} onClick={() => onContribute(!contribute)} label={`Aportar: ${label}`}>✍️ Aportar</Pill>}
         </div>
     </div>
 );
@@ -82,20 +82,23 @@ export const HelpPage: React.FC<{ section?: 'ayuda' | 'preferencias' }> = ({ sec
         'contribute',
         on ? Array.from(new Set([...prefs.contribute, key])) : prefs.contribute.filter((k) => k !== key),
     );
-    const need = (key: AptKey & BoolPref, label: string, hint: string) => (
-        <NeedRow
-            label={label}
-            hint={hint}
-            filter={prefs[key]}
-            contribute={prefs.contribute.includes(key)}
-            onFilter={(v) => {
-                setPref(key, v);
-                if (v && !prefs.contribute.includes(key)) setContribute(key, true);
-            }}
-            onContribute={(v) => setContribute(key, v)}
-        />
-    );
-    const active = (keys: AptKey[]) => keys.filter((key) => prefs[key] || prefs.contribute.includes(key)).length;
+    const need = (key: AptKey & BoolPref, label: string, hint: string) => {
+        const canContribute = APT_CONTRIBUTE_KEYS.includes(key);
+        return (
+            <NeedRow
+                label={label}
+                hint={hint}
+                filter={prefs[key]}
+                contribute={canContribute && prefs.contribute.includes(key)}
+                onFilter={(v) => {
+                    setPref(key, v);
+                    if (canContribute && v && !prefs.contribute.includes(key)) setContribute(key, true);
+                }}
+                onContribute={canContribute ? (v) => setContribute(key, v) : undefined}
+            />
+        );
+    };
+    const active = (keys: AptKey[]) => keys.filter((key) => prefs[key] || (APT_CONTRIBUTE_KEYS.includes(key) && prefs.contribute.includes(key))).length;
     const foodCount = active(['glutenFree', 'lactoseFree', 'vegetarian', 'vegan']) + prefs.allergens.length;
     const mobilityCount = active(['stepFree', 'accessibleRestroom']);
 
@@ -115,8 +118,8 @@ export const HelpPage: React.FC<{ section?: 'ayuda' | 'preferencias' }> = ({ sec
             ]}>
                 {need('glutenFree', '🌾 Sin gluten', 'Listas y Buscar enseñan solo lo apto sin gluten; en La Carta se pliega lo que lleva gluten.')}
                 {need('lactoseFree', '🥛 Sin lactosa', 'Listas enseñan solo lo apto sin lactosa; en La Carta se pliega lo que lleva lácteos.')}
-                {need('vegetarian', '🥦 Vegetariano', 'Solo lo marcado como vegetariano o vegano.')}
-                {need('vegan', '🌱 Vegano', 'Solo lo marcado como vegano.')}
+                {need('vegetarian', '🥦 Vegetariano', 'Solo lo que lleva la etiqueta Vegetariano o Vegano. En tortillas, bravas o tartas, todo menos lo marcado con 🥩.')}
+                {need('vegan', '🌱 Vegano', 'Solo lo que lleva la etiqueta Vegano.')}
                 <div className="rounded-xl border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-2.5">
                     <span className="block text-sm font-semibold text-[var(--lt-text)]">Soy alérgico o intolerante a…</span>
                     <span className="mt-0.5 block text-xs leading-snug text-[var(--lt-text-muted)]">En las cartas de los locales, los platos que lo llevan se pliegan.</span>
