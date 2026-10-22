@@ -94,6 +94,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: [
             'Aquí va todo lo que guardas: sitios, platos, listas y reseñas.',
             'Puedes ordenarlo en colecciones («Pendientes», «Para ir con niños»…) y verlo en el mapa.',
+            'Tienes dos colecciones especiales: «Quiero ir» y «Ya fui». Guarda en «Quiero ir» los sitios que te apetecen; cuando publiques una reseña de uno, pasa solo a «Ya fui».',
         ],
     },
     {

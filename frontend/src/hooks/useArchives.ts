@@ -11,6 +11,8 @@ export interface ArchiveEntity {
     itemCount: number;
     emoji?: string;
     color?: string;
+    /** «Quiero ir» / «Ya fui» (lib/visitArchives). */
+    kind?: 'wantToGo' | 'visited';
 }
 
 export interface SavedItemEntity {

@@ -7,12 +7,13 @@ const CARDS = [
     { emoji: '🏆', title: 'Rankings de cosas concretas', text: 'Cada lista es un ranking: las mejores bravas, tortillas, cocidos… según la gente.' },
     { emoji: '📍', title: 'Lo bueno, cerca', text: 'En Inicio ves lo mejor valorado a tu alrededor. Toca cualquier plato o sitio para ver más.' },
     { emoji: '➕', title: 'Valora con el botón central', text: 'Puntúa cada criterio, cuenta qué tal en una frase y sube una foto si quieres.' },
+    { emoji: 'ⓘ', title: 'Ayuda a mano', text: 'Por la app verás iconos ⓘ: tócalos y te explican esa parte. Si ya no los necesitas, apágalos desde el propio ⓘ o en Menú → Ayuda.' },
 ];
 
 // Solo en pantallas de descubrir; nunca encima de un formulario o un enlace compartido.
 const SHOW_ON = /^\/($|search|list\/|place\/|group\/)/;
 
-/** Tres tarjetas la primera vez que alguien entra. Se pueden saltar y volver a ver desde Ayuda. */
+/** Cuatro tarjetas la primera vez que alguien entra. Se pueden saltar y volver a ver desde Ayuda. */
 export const WelcomeCards: React.FC = () => {
     const { pathname } = useLocation();
     // Se decide en cada ruta: quien entra por /login o /ayuda las ve al llegar a Inicio.
