@@ -30,6 +30,7 @@ const syncAptReport = onDocumentWritten('users/{uid}/aptReports/{reviewId}', asy
     const data = review.exists ? review.data() : null;
     if (data && data.userId === uid && typeof data.placeId === 'string' && data.placeId) {
       nextCounted = {
+        listId: after.listId,
         placeId: data.placeId,
         itemKey: aptItemKey(data),
         answers: cleanAnswers(after.answers),

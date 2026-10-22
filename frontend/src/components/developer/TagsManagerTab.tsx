@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { db } from '../../firebase';
 import { adminSearchReviews } from '../../services/developerAdmin';
 import { doc, updateDoc, getDoc, writeBatch } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { RefreshCw, Tag, AlertCircle, CheckCircle, Wrench, ChevronDown, ChevronRight, Pencil, X, Save } from 'lucide-react';
 
 interface TagRow {
@@ -176,6 +177,24 @@ export const TagsManagerTab: React.FC = () => {
             addLog(`Error: ${err.message}`);
         } finally {
             setScanning(false);
+        }
+    };
+
+    // Quita una etiqueta de todas las reseñas (y listas) en vez de rescatarla.
+    const [removingTag, setRemovingTag] = useState<string | null>(null);
+    const removeTagEverywhere = async (tag: string) => {
+        if (!confirm(`¿Quitar «${tag}» de todas las reseñas y listas?`)) return;
+        setRemovingTag(tag);
+        try {
+            const fn = httpsCallable(getFunctions(undefined, 'europe-west1'), 'adminReplaceTag');
+            const { data } = await fn({ fromTag: tag, remove: true, targets: 'lists-reviews', dryRun: false });
+            const summary = data as { listsMatched: number; reviewsMatched: number };
+            addLog(`✓ «${tag}» quitada: ${summary.listsMatched} listas y ${summary.reviewsMatched} reseñas.`);
+            await scanTags();
+        } catch (err) {
+            addLog(`Error al quitar «${tag}»: ${err instanceof Error ? err.message : String(err)}`);
+        } finally {
+            setRemovingTag(null);
         }
     };
 
@@ -369,10 +388,15 @@ export const TagsManagerTab: React.FC = () => {
                                 <div className="px-4 pb-4 pt-2 space-y-3 bg-black/20">
                                     {p.missingTags.length > 0 && (
                                         <div>
-                                            <p className="text-xs font-bold text-amber-400 mb-1.5">Tags en reseñas pero no en la lista (a rescatar):</p>
+                                            <p className="text-xs font-bold text-amber-400 mb-1.5">Tags en reseñas pero no en la lista (a rescatar, o ✕ para quitarlos del todo):</p>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {p.missingTags.map(t => (
-                                                    <span key={t} className="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded-full text-xs border border-amber-500/20">{t}</span>
+                                                    <span key={t} className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded-full text-xs border border-amber-500/20">
+                                                        {t}
+                                                        <button type="button" onClick={() => removeTagEverywhere(t)} disabled={removingTag !== null} aria-label={`Quitar ${t} del todo`} className="rounded-full p-0.5 hover:bg-amber-500/30 disabled:opacity-40">
+                                                            {removingTag === t ? <span className="block w-3 h-3 border-2 border-amber-300/30 border-t-amber-300 rounded-full animate-spin" /> : <X className="w-3 h-3" />}
+                                                        </button>
+                                                    </span>
                                                 ))}
                                             </div>
                                         </div>
