@@ -125,6 +125,7 @@ async function deleteKnownUserSubcollections(userId, state) {
     'archives',
     'archiveIndex',
     'obtainedBadges',
+    'aptReports',
   ];
 
   let deleted = 0;

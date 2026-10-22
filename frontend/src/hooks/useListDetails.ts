@@ -5,6 +5,20 @@ import { db } from '../firebase';
 import { firstUsablePlaceImage } from '../utils/placeImages';
 import { type ListEntity } from './useLists';
 import { placeClosedStatus, placeGeoFields } from '../lib/listElements';
+import { crowdPlaceSignals, itemAptOk, type AptKey } from '../lib/aptFor';
+import { reviewItemId } from '../lib/placeItems';
+
+/** Une mapas de sí/no; los que van después mandan, pero un null («no se sabe») no borra nada. */
+const mergeKnown = (...maps: unknown[]): Record<string, unknown> => {
+    const out: Record<string, unknown> = {};
+    maps.forEach((map) => {
+        if (!map || typeof map !== 'object' || Array.isArray(map)) return;
+        Object.entries(map as Record<string, unknown>).forEach(([key, value]) => {
+            if (value !== null && value !== undefined) out[key] = value;
+        });
+    });
+    return out;
+};
 
 export interface ReviewEntity {
     id: string;
@@ -57,6 +71,8 @@ export interface ReviewEntity {
     tags?: string[];
     userTags?: string[];
     visibility?: string;
+    /** «Apto para»: lo que la gente da por apto en este elemento (sin gluten…). */
+    aptOk?: AptKey[];
 }
 
 const toMillis = (value: any): number => {
@@ -179,6 +195,9 @@ export async function fetchListDetails(listId: string): Promise<{ list: ListEnti
 
         // Misma zona que Buscar (lib/listElements ↔ functions/modules/lib/list-elements.js).
         const geo = placeGeoFields(place);
+        // «Apto para»: la gente cubre lo que no dicen Google ni el local.
+        const crowd = crowdPlaceSignals(place?.aptFor);
+        const officialPets = place?.businessPetOptions || place?.petOptions || place?.pets;
 
         return {
             ...review,
@@ -194,11 +213,12 @@ export async function fetchListDetails(listId: string): Promise<{ list: ListEnti
             placeMainImage: firstUsablePlaceImage(place?.userPhotoUrl, place?.mainImageUrl, place?.photos),
             placeAverageRating: place?.averageRating ?? place?.rating ?? place?.avgScore,
             placeClosedStatus: placeClosedStatus(place),
-            placePetOptions: place?.businessPetOptions || place?.petOptions || place?.pets,
-            // Accesibilidad de Google y, encima, la que indica el propio local.
-            placeAccessibility: place?.accessibility || place?.businessAccessibility
-                ? { ...(place?.accessibility || {}), ...(place?.businessAccessibility || {}) }
+            placePetOptions: officialPets || (Object.keys(crowd.pets).length ? crowd.pets : undefined),
+            // Lo que dice la gente; encima, Google y, encima de todo, el propio local.
+            placeAccessibility: place?.accessibility || place?.businessAccessibility || Object.keys(crowd.accessibility).length
+                ? mergeKnown(crowd.accessibility, place?.accessibility, place?.businessAccessibility)
                 : undefined,
+            aptOk: itemAptOk(place?.aptFor, reviewItemId(review)),
             authorName: user?.username || user?.displayName || user?.name || review.authorName,
             authorPhoto: user?.photoUrl || user?.photoURL || review.authorPhoto,
             lat: place?.location?.latitude || legacyReview.lat || review.lat,

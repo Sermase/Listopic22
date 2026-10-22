@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
+import { APT_KEYS, type AptKey } from '../lib/aptFor';
 
 /**
  * «Mis preferencias»: filtros que se aplican solos (dieta, alérgenos, movilidad,
@@ -10,6 +11,7 @@ import { useAuth } from './AuthContext';
  */
 export interface UxPreferences {
     glutenFree: boolean;
+    lactoseFree: boolean;
     vegetarian: boolean;
     vegan: boolean;
     /** Alérgenos de la UE (valores de ALLERGEN_OPTIONS) que se pliegan en La Carta. */
@@ -17,15 +19,17 @@ export interface UxPreferences {
     stepFree: boolean;
     accessibleRestroom: boolean;
     petFriendly: boolean;
+    /** «Apto para»: en qué quiere aportar (al valorar sale su pregunta). */
+    contribute: AptKey[];
     showHelpTips: boolean;
 }
 
 const DEFAULTS: UxPreferences = {
-    glutenFree: false, vegetarian: false, vegan: false, allergens: [],
-    stepFree: false, accessibleRestroom: false, petFriendly: false, showHelpTips: true,
+    glutenFree: false, lactoseFree: false, vegetarian: false, vegan: false, allergens: [],
+    stepFree: false, accessibleRestroom: false, petFriendly: false, contribute: [], showHelpTips: true,
 };
 
-const BOOL_KEYS = ['glutenFree', 'vegetarian', 'vegan', 'stepFree', 'accessibleRestroom', 'petFriendly', 'showHelpTips'] as const;
+const BOOL_KEYS = ['glutenFree', 'lactoseFree', 'vegetarian', 'vegan', 'stepFree', 'accessibleRestroom', 'petFriendly', 'showHelpTips'] as const;
 const MAX_ALLERGENS = 14;
 const STORAGE_KEY = 'listopic_ux_prefs';
 
@@ -44,6 +48,9 @@ export const sanitizeUxPreferences = (value: unknown): UxPreferences => {
     BOOL_KEYS.forEach((key) => { if (typeof v[key] === 'boolean') out[key] = v[key] as boolean; });
     if (Array.isArray(v.allergens)) {
         out.allergens = Array.from(new Set(v.allergens.filter((a): a is string => typeof a === 'string' && a.length > 0 && a.length <= 30))).slice(0, MAX_ALLERGENS);
+    }
+    if (Array.isArray(v.contribute)) {
+        out.contribute = APT_KEYS.filter((key) => (v.contribute as unknown[]).includes(key));
     }
     return out;
 };

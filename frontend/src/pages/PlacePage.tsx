@@ -64,6 +64,7 @@ import { NO_PUBLIC_RATING_LABEL } from '../lib/placeRating';
 import { closedStatusKind } from '../utils/placeStatus';
 import { usePreferences } from '../context/PreferencesContext';
 import { matchingAllergens, userAllergens } from '../lib/allergens';
+import { APT_PLACE_KEYS, aptSummary } from '../lib/aptFor';
 import { AllergenGuideModal } from '../components/place/AllergenGuideModal';
 
 type PlaceReview = ReviewEntity & {
@@ -1536,6 +1537,17 @@ export const PlacePage: React.FC = () => {
                             </div>
                         )}
 
+                        {(() => {
+                            const placeApt = place.aptFor?.place || {};
+                            const lines = APT_PLACE_KEYS.map((key) => aptSummary(key, placeApt[key])).filter(Boolean);
+                            return lines.length > 0 ? (
+                                <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)] p-4 text-xs text-[var(--lt-text)]">
+                                    <p className="mb-1.5 font-bold">Según quien ha ido</p>
+                                    {lines.map((line) => <p key={line}>{line}</p>)}
+                                </div>
+                            ) : null;
+                        })()}
+
                         {hasFamilyInfo && (
                             <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)] p-4">
                                 <button
@@ -2439,7 +2451,7 @@ export const PlacePage: React.FC = () => {
                 />
             )}
             {quickDish && placeId && (
-                <DishQuickSheet placeId={placeId} dish={quickDish} reviews={place.reviews} onClose={() => setQuickDish(null)} />
+                <DishQuickSheet placeId={placeId} dish={quickDish} reviews={place.reviews} aptFor={place.aptFor} onClose={() => setQuickDish(null)} />
             )}
         </div >
     );

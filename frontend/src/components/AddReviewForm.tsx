@@ -7,6 +7,8 @@ import { db, storage, functions } from '../firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject, getBlob } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
+import { usePreferences } from '../context/PreferencesContext';
+import { APT_KEYS, APT_QUESTIONS, type AptAnswer, type AptKey } from '../lib/aptFor';
 import { useToast } from '../context/ToastContext';
 import { Loader2, X, MapPin as MapPinIcon, CheckCircle2, Lock, Trash2, Star } from 'lucide-react';
 import { PhotoEditorModal, type ProcessedPhoto } from './PhotoEditorModal';
@@ -174,6 +176,10 @@ const fileFromExistingPhoto = async (url: string, index: number, storagePath?: s
 export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId, lockList = false, onClose, onSuccess, suggestedListIds }) => {
     useBodyScrollLock(true);
     const { user } = useAuth();
+    // «Apto para»: solo para quien aporta en algo (Mis preferencias). Respuestas privadas.
+    const { prefs } = usePreferences();
+    const contributeKeys = APT_KEYS.filter((key) => prefs.contribute.includes(key));
+    const [aptAnswers, setAptAnswers] = useState<Partial<Record<AptKey, AptAnswer>>>({});
     const { showToast } = useToast();
     const queryClient = useQueryClient();
 
@@ -332,6 +338,19 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
         return currentData !== originalData;
     }, [isNew, itemName, comment, criteriaScores, customTags, existingPhotoUrls, processedPhotos.length, originalData, internalListId]);
+
+    // Respuestas «Apto para» que ya dio en esta reseña.
+    useEffect(() => {
+        if (!editReviewId || !user?.uid) return;
+        let cancelled = false;
+        getDoc(doc(db, 'users', user.uid, 'aptReports', editReviewId))
+            .then((snap) => {
+                const answers = snap.exists() ? snap.data().answers : null;
+                if (!cancelled && answers && typeof answers === 'object') setAptAnswers(answers as Partial<Record<AptKey, AptAnswer>>);
+            })
+            .catch(() => { /* opcional */ });
+        return () => { cancelled = true; };
+    }, [editReviewId, user?.uid]);
 
     // Fetch Review Data for Editing
     useEffect(() => {
@@ -919,6 +938,21 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 }
             }
 
+            // «Apto para»: la respuesta privada; el servidor la suma sin nombres en el sitio.
+            const savedReviewId = newReviewId ?? editReviewId;
+            if (user?.uid && savedReviewId && finalListId && (contributeKeys.length > 0 || editReviewId)) {
+                const aptRef = doc(db, 'users', user.uid, 'aptReports', savedReviewId);
+                try {
+                    if (Object.keys(aptAnswers).length > 0) {
+                        await setDoc(aptRef, { listId: finalListId, answers: aptAnswers, updatedAt: serverTimestamp() });
+                    } else if (editReviewId) {
+                        await deleteDoc(aptRef);
+                    }
+                } catch (aptErr) {
+                    console.warn('No se pudo guardar «Apto para»:', aptErr);
+                }
+            }
+
             // Optimistic cache update — avoids Firestore local-cache latency on refetch
             const optimisticReview = {
                 id: newReviewId ?? editReviewId ?? '',
@@ -1018,6 +1052,50 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             return next;
         });
     };
+    const setAptAnswer = (key: AptKey, value: AptAnswer) => setAptAnswers((prev) => {
+        const next = { ...prev };
+        if (next[key] === value) delete next[key];
+        else next[key] = value;
+        return next;
+    });
+    const aptAnswered = contributeKeys.filter((key) => aptAnswers[key]).length;
+    const aptBlock = contributeKeys.length > 0 && user ? (
+        <details open={aptAnswered > 0} className="group rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)]">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3">
+                <span className="flex-1 text-sm font-bold text-[var(--lt-text)]">✍️ Apto para</span>
+                {aptAnswered > 0 && <span className="rounded-full bg-[var(--lt-accent-soft)] px-2 py-0.5 text-xs font-bold text-[var(--lt-accent)]">{aptAnswered}</span>}
+                <span className="text-xs text-[var(--lt-text-muted)]">opcional</span>
+            </summary>
+            <div className="space-y-3 px-4 pb-4">
+                <p className="text-xs leading-snug text-[var(--lt-text-muted)]">🔒 Privado: nadie ve tu respuesta, solo el recuento sin nombres. Ayuda a quien busca lo mismo que tú.</p>
+                {contributeKeys.map((key) => {
+                    const q = APT_QUESTIONS[key];
+                    return (
+                        <div key={key}>
+                            <p className="mb-1.5 text-sm font-semibold text-[var(--lt-text)]"><span aria-hidden="true">{q.emoji}</span> {q.question}</p>
+                            <div className="flex flex-wrap gap-1.5" role="group" aria-label={q.question}>
+                                {(['yes', 'no'] as const).map((value) => {
+                                    const on = aptAnswers[key] === value;
+                                    return (
+                                        <button
+                                            key={value}
+                                            type="button"
+                                            aria-pressed={on}
+                                            onClick={() => setAptAnswer(key, value)}
+                                            className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${on ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-text)]' : 'border-[var(--lt-border)] text-[var(--lt-text-muted)]'}`}
+                                        >
+                                            {value === 'yes' ? `✅ ${q.yes}` : `⚠️ ${q.no}`}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </details>
+    ) : null;
+
     const opinionBlock = (
         <div className="space-y-3">
             <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-accent)] flex items-center gap-1.5">
@@ -1311,6 +1389,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                     {/* La opinión, justo después de las notas que cuentan */}
                                     <div className="border-t border-[var(--lt-border)] pt-5">{opinionBlock}</div>
 
+                                    {aptBlock}
+
                                     {/* Detalles opcionales: no cuentan para la nota */}
                                     {nonPonderableCriteria.length > 0 && (
                                         <div className="border-t border-[var(--lt-border)] pt-5 space-y-6">
@@ -1348,6 +1428,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             {!(criteriaLoaded && hasComputingCriteria) && (
                                 <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">{opinionBlock}</div>
                             )}
+                            {!(criteriaLoaded && hasComputingCriteria) && aptBlock}
 
                             {/* ── Sección: Fotos ──────────────────────── */}
                             <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">

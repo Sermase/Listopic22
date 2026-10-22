@@ -9,6 +9,7 @@ import { useAuthPrompt } from '../../context/AuthPromptContext';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { dishReviewUrl } from './dishReviewUrl';
 import { reviewItemId, type ReviewItemRef } from '../../lib/placeItems';
+import { APT_ITEM_KEYS, aptSummary, itemAptCounts } from '../../lib/aptFor';
 
 export interface DishQuickSheetDish {
     name: string;
@@ -43,6 +44,8 @@ interface DishQuickSheetProps {
     placeId: string;
     dish: DishQuickSheetDish;
     reviews: SheetReview[];
+    /** places/{placeId}.aptFor: lo que aportan celíacos, intolerantes… sin nombres. */
+    aptFor?: unknown;
     onClose: () => void;
 }
 
@@ -53,7 +56,7 @@ const norm = (value: string | undefined) => (value ?? '').trim().toLowerCase();
  * Ficha rápida de un plato de La Carta: lo esencial de un vistazo sin salir del
  * sitio. Lo que no existe (datos del dueño, puestos, reseñas) simplemente no sale.
  */
-export const DishQuickSheet: React.FC<DishQuickSheetProps> = ({ placeId, dish, reviews, onClose }) => {
+export const DishQuickSheet: React.FC<DishQuickSheetProps> = ({ placeId, dish, reviews, aptFor, onClose }) => {
     useBodyScrollLock(true);
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -117,6 +120,22 @@ export const DishQuickSheet: React.FC<DishQuickSheetProps> = ({ placeId, dish, r
                             {dish.available === false && <span className="rounded border border-red-500/25 bg-red-500/15 px-1.5 py-0.5 text-[11px] font-bold text-red-300">No disponible</span>}
                         </div>
                     )}
+
+                    {(() => {
+                        // «Apto para»: el primer id del elemento que tenga recuento.
+                        const lines = APT_ITEM_KEYS
+                            .map((key) => {
+                                const id = (dish.itemIds || []).find((itemId) => itemAptCounts(aptFor, itemId)[key]);
+                                return id ? aptSummary(key, itemAptCounts(aptFor, id)[key]) : '';
+                            })
+                            .filter(Boolean);
+                        return lines.length > 0 ? (
+                            <div className="space-y-1 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-2 text-xs text-[var(--lt-text)]">
+                                {lines.map((line) => <p key={line}>{line}</p>)}
+                                <p className="text-[var(--lt-text-muted)]">Lo dice la gente que lo ha probado. Confírmalo siempre con el local.</p>
+                            </div>
+                        ) : null;
+                    })()}
 
                     {lists.size > 0 && (
                         <ElementRanks placeId={placeId} itemName={dish.name} listIds={[...lists.keys()]} listNames={Object.fromEntries(lists)} />

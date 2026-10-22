@@ -6,9 +6,13 @@ export interface AllergenDish {
     allergens: readonly string[];
 }
 
-/** Alérgenos que pliegan La Carta: los elegidos y, con «Sin gluten», el gluten. */
-export function userAllergens(prefs: { allergens: readonly string[]; glutenFree: boolean }): string[] {
-    return Array.from(new Set([...(prefs.glutenFree ? ['gluten'] : []), ...prefs.allergens]));
+/** Alérgenos que pliegan La Carta: los elegidos y, con «Sin gluten» o «Sin lactosa», el gluten o los lácteos. */
+export function userAllergens(prefs: { allergens: readonly string[]; glutenFree: boolean; lactoseFree?: boolean }): string[] {
+    return Array.from(new Set([
+        ...(prefs.glutenFree ? ['gluten'] : []),
+        ...(prefs.lactoseFree ? ['lacteos'] : []),
+        ...prefs.allergens,
+    ]));
 }
 
 export function matchingAllergens(dish: AllergenDish, selected: readonly string[]): string[] {

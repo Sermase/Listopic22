@@ -61,7 +61,9 @@ service cloud.firestore {
     // Preferencias de uso (Mis preferencias y ayudas): interruptores y la lista de alérgenos.
     function uxPreferencesIsValid(value) {
       return value is map &&
-             value.keys().hasOnly(['glutenFree', 'vegetarian', 'vegan', 'allergens', 'stepFree', 'accessibleRestroom', 'petFriendly', 'showHelpTips']) &&
+             value.keys().hasOnly(['glutenFree', 'lactoseFree', 'vegetarian', 'vegan', 'allergens', 'stepFree', 'accessibleRestroom', 'petFriendly', 'contribute', 'showHelpTips']) &&
+             (!('lactoseFree' in value) || value.lactoseFree is bool) &&
+             (!('contribute' in value) || (value.contribute is list && value.contribute.size() <= 7)) &&
              (!('glutenFree' in value) || value.glutenFree is bool) &&
              (!('vegetarian' in value) || value.vegetarian is bool) &&
              (!('vegan' in value) || value.vegan is bool) &&
@@ -70,6 +72,23 @@ service cloud.firestore {
              (!('accessibleRestroom' in value) || value.accessibleRestroom is bool) &&
              (!('petFriendly' in value) || value.petFriendly is bool) &&
              (!('showHelpTips' in value) || value.showHelpTips is bool);
+    }
+
+    function aptAnswerOk(answers, key) {
+      return !(key in answers) || answers[key] in ['yes', 'no'];
+    }
+
+    function aptReportIsValid(data, uid, reviewId) {
+      return data.keys().hasOnly(['listId', 'answers', 'updatedAt']) &&
+             data.listId is string && data.listId.size() > 0 && data.listId.size() <= 200 &&
+             data.updatedAt == request.time &&
+             data.answers is map &&
+             data.answers.keys().hasOnly(['glutenFree', 'lactoseFree', 'vegetarian', 'vegan', 'stepFree', 'accessibleRestroom', 'petFriendly']) &&
+             aptAnswerOk(data.answers, 'glutenFree') && aptAnswerOk(data.answers, 'lactoseFree') &&
+             aptAnswerOk(data.answers, 'vegetarian') && aptAnswerOk(data.answers, 'vegan') &&
+             aptAnswerOk(data.answers, 'stepFree') && aptAnswerOk(data.answers, 'accessibleRestroom') &&
+             aptAnswerOk(data.answers, 'petFriendly') &&
+             get(/databases/$(database)/documents/lists/$(data.listId)/reviews/$(reviewId)).data.userId == uid;
     }
 
     function userUpdateUxPreferencesOk() {
@@ -550,6 +569,15 @@ service cloud.firestore {
       }
 
       // Regla para las medallas obtenidas
+      // «Apto para»: respuestas privadas de quien aporta (sin gluten, movilidad…).
+      // Solo las ve su autor; el servidor las cuenta de forma anónima en el sitio.
+      match /aptReports/{reviewId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow delete: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null && request.auth.uid == userId &&
+                              aptReportIsValid(request.resource.data, userId, reviewId);
+      }
+
       match /obtainedBadges/{badgeId} {
         allow read: if true;
         allow write: if request.auth != null && isJefe(request.auth.uid);
