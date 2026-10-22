@@ -23,7 +23,7 @@ import { computeReviewScore, criterionWeight, isComputingCriterion } from '../li
 import { formatScore, SCORE_BADGE, SCORE_BAND_EMOJI, SCORE_BAND_LABEL, scoreBand, scoreTextColor } from '../lib/scoreScale';
 import { CriterionRating } from './CriterionRating';
 import { orderedCriteriaEntries } from '../lib/criteria';
-import { withCategoryTags } from '../lib/categoryTags';
+import { isDefaultVegetarian, listTagsWithDiet } from '../lib/categoryTags';
 import { CategoryService } from '../services/CategoryService';
 import { parseReviewDraft, reviewDraftKey, REVIEW_DRAFT_VERSION, shouldRestoreReviewDraft } from '../lib/reviewDraft';
 import { usePlaceElementsInList } from '../hooks/usePlaceElementsInList';
@@ -571,7 +571,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     // Las fijas de la categoría (Vegetariano, Sin gluten… en «Hmm...») salen
                     // siempre, también en listas creadas antes de fijarlas.
                     const categoryTags = await CategoryService.getFixedTags(data.categoryId);
-                    setListAvailableTags(withCategoryTags(categoryTags, data.availableTags));
+                    setListAvailableTags(listTagsWithDiet(categoryTags, data.availableTags, isDefaultVegetarian(data)));
                 }
             } catch (e) {
                 console.error("Error fetching list definition", e);

@@ -136,7 +136,7 @@ service cloud.firestore {
         'updatedAt', 'itemCount', 'groupedItemsCount', 'viewCount', 'likes',
         'followersCount', 'commentsCount', 'reviewCount', 'averageRating',
         'criteriaAverages', 'criteriaAveragesUpdatedAt', 'reactions',
-        'lastActivityAt', 'lastReviewAt', 'scoringWeights'
+        'lastActivityAt', 'lastReviewAt', 'scoringWeights', 'defaultDiet'
       ];
     }
 
@@ -151,16 +151,21 @@ service cloud.firestore {
         'followersCount', 'commentsCount', 'reviewCount', 'averageRating',
         'criteriaAverages', 'criteriaAveragesUpdatedAt', 'reactions',
         'lastActivityAt', 'lastReviewAt', 'ownerId', 'mainImagePath', 'slug',
-        'deletedAt', 'scoringWeights'
+        'deletedAt', 'scoringWeights', 'defaultDiet'
       ];
     }
 
+    // «Dieta por defecto» de una lista: 'vegetarian' (todo vegetariano salvo lo marcado) o 'none'.
+    function listDefaultDietOk() {
+      return !('defaultDiet' in request.resource.data) || request.resource.data.defaultDiet in ['vegetarian', 'none'];
+    }
+
     function listCreateHasOnlyAllowedFields() {
-      return request.resource.data.keys().hasOnly(listAllowedCreateKeys());
+      return request.resource.data.keys().hasOnly(listAllowedCreateKeys()) && listDefaultDietOk();
     }
 
     function listUpdateChangesOnlyAllowedFields() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(listAllowedUpdateKeys());
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(listAllowedUpdateKeys()) && listDefaultDietOk();
     }
 
     // Métricas de una lista: las mantienen Cloud Functions a partir de las

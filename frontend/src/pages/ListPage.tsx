@@ -35,6 +35,7 @@ import { AREA_STORAGE_KEY, buildAreaOptions, contextualRanks, decodeArea, distan
 import { exploreSearchUrl } from '../lib/searchZones';
 import { AreaSelect } from '../components/AreaSelect';
 import { recordListVisit } from '../lib/searchLandingStorage';
+import { isDefaultVegetarian, isMeatTag } from '../lib/categoryTags';
 
 export interface FilterState {
     minRating: number;
@@ -625,6 +626,8 @@ export const ListPage: React.FC = () => {
     const prefOn = (key: PrefFilterKey) => prefs[key] && !ignoredDiet[key];
     const dietGluten = filters.glutenFree || prefOn('glutenFree');
     const dietVeg = prefOn('vegetarian');
+    // Listas «casi todo vegetariano» (tortillas…): fuera solo lo marcado con carne o pescado.
+    const vegByDefault = isDefaultVegetarian(list);
     const dietVegan = prefOn('vegan');
     const dietLactose = prefOn('lactoseFree');
     const petsWanted = filters.petFriendly || prefOn('petFriendly');
@@ -845,7 +848,9 @@ export const ListPage: React.FC = () => {
             result = result.filter(item => hasGlutenFreeTag(item.allTags || item.tags) || item.aptOk.includes('glutenFree'));
         }
         if (dietVeg) {
-            result = result.filter(item => hasVegetarianTag(item.allTags || item.tags) || item.aptOk.includes('vegetarian') || item.aptOk.includes('vegan'));
+            result = result.filter(item => vegByDefault
+                ? !(item.allTags || item.tags || []).some(isMeatTag)
+                : hasVegetarianTag(item.allTags || item.tags) || item.aptOk.includes('vegetarian') || item.aptOk.includes('vegan'));
         }
         if (dietVegan) {
             result = result.filter(item => hasVeganTag(item.allTags || item.tags) || item.aptOk.includes('vegan'));
@@ -909,7 +914,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds]);
+    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault]);
 
     const filteredMapItems = useMemo(() => {
         // Filter mapItems based on the SAME criteria as the list (or at least search/range)
@@ -936,7 +941,9 @@ export const ListPage: React.FC = () => {
             result = result.filter(item => hasGlutenFreeTag(item.allTags) || item.aptOk.includes('glutenFree'));
         }
         if (dietVeg) {
-            result = result.filter(item => hasVegetarianTag(item.allTags) || item.aptOk.includes('vegetarian') || item.aptOk.includes('vegan'));
+            result = result.filter(item => vegByDefault
+                ? !item.allTags.some(isMeatTag)
+                : hasVegetarianTag(item.allTags) || item.aptOk.includes('vegetarian') || item.aptOk.includes('vegan'));
         }
         if (dietVegan) {
             result = result.filter(item => hasVeganTag(item.allTags) || item.aptOk.includes('vegan'));
@@ -975,7 +982,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [mapItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds]);
+    }, [mapItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault]);
 
     const hasListMapCandidates = useMemo(() => {
         return mapItems.some((item: any) => !!item?.lat && !!item?.lng);

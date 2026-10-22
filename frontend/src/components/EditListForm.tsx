@@ -28,7 +28,7 @@ import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
 import { deriveScoringWeights } from '../lib/scoring';
 import { isPermissionDeniedError, writeWithOptionalFields } from '../lib/optionalFields';
 import { listVisibility, syncListReviewVisibility } from '../lib/reviewVisibility';
-import { lockedCategoryTags, withCategoryTags } from '../lib/categoryTags';
+import { dietFixedTags, isDefaultVegetarian, listTagsWithDiet, lockedCategoryTags } from '../lib/categoryTags';
 import { CategoryService } from '../services/CategoryService';
 
 type CriteriaDefinitionValue = {
@@ -57,6 +57,7 @@ interface EditableListData {
     criteriaDefinition?: CriteriaDefinitionMap;
     reviewCount?: number;
     scoringWeights?: Record<string, number>;
+    defaultDiet?: 'vegetarian' | 'none';
 }
 
 interface EditListFormProps {
@@ -110,6 +111,14 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     const [inheritedTags, setInheritedTags] = useState<string[]>([]);
     // Fijas de la categoría (Vegetariano, Sin gluten… en «Hmm...»): no se quitan ni se renombran.
     const [categoryLockedTags, setCategoryLockedTags] = useState<string[]>([]);
+    const [categoryTags, setCategoryTags] = useState<string[]>([]);
+    const [vegetarianByDefault, setVegetarianByDefault] = useState(false);
+    // Al cambiar la dieta por defecto, las fijas cambian («Vegetariano» ↔ «Lleva carne o pescado»).
+    const changeVegetarianByDefault = (on: boolean) => {
+        setVegetarianByDefault(on);
+        setCustomTags((prev) => listTagsWithDiet(categoryTags, prev.filter((tag) => !categoryLockedTags.includes(tag)), on));
+        setCategoryLockedTags(lockedCategoryTags(dietFixedTags(categoryTags, on), customTags));
+    };
     const isLockedTag = (tag: string) => inheritedTags.includes(tag) || categoryLockedTags.includes(tag);
     const [showMigration, setShowMigration] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
@@ -144,9 +153,12 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 setPublicAccess(data.publicAccess || 'reader');
                 const pListId = data.parentListId || null;
                 setParentListId(pListId);
-                const categoryTags = await CategoryService.getFixedTags(data.categoryId);
-                setCustomTags(withCategoryTags(categoryTags, data.availableTags));
-                setCategoryLockedTags(lockedCategoryTags(categoryTags, data.availableTags));
+                const fixedTags = await CategoryService.getFixedTags(data.categoryId);
+                const vegDefault = isDefaultVegetarian(data);
+                setCategoryTags(fixedTags);
+                setVegetarianByDefault(vegDefault);
+                setCustomTags(listTagsWithDiet(fixedTags, data.availableTags, vegDefault));
+                setCategoryLockedTags(lockedCategoryTags(dietFixedTags(fixedTags, vegDefault), data.availableTags));
 
                 if (pListId) {
                     try {
@@ -309,7 +321,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 publicAccess: isPublic ? publicAccess : 'reader',
                 visibility: newVisibility,
                 criteriaDefinition: criteriaDefinitionMap,
-                ...(includeWeights ? { scoringWeights } : {}),
+                ...(includeWeights ? { scoringWeights, defaultDiet: vegetarianByDefault ? 'vegetarian' : 'none' } : {}),
                 availableTags: finalTags
             }));
 
@@ -508,6 +520,14 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 )}
 
                 <div className="border-t border-white/5 pt-6" />
+
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-2.5">
+                    <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-[var(--lt-text)]">🥔 Casi todo es vegetariano</span>
+                        <span className="mt-0.5 block text-xs leading-snug text-[var(--lt-text-muted)]">Para tortillas, tartas de queso… Se marca solo lo que lleva carne o pescado (🥩) y quien filtra por vegetariano ve el resto. El gluten nunca se da por hecho.</span>
+                    </span>
+                    <input type="checkbox" className="h-5 w-5 shrink-0 accent-[var(--lt-accent)]" checked={vegetarianByDefault} onChange={(e) => changeVegetarianByDefault(e.target.checked)} />
+                </label>
 
                 <div>
                     <h3 className="text-lg font-bold text-white mb-2">Etiquetas</h3>
