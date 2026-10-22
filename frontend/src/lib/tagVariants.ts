@@ -10,7 +10,8 @@ export interface TagVariantGroup {
     variants: Array<{ tag: string; lists: number }>;
 }
 
-export function groupTagVariants(lists: Array<{ availableTags?: unknown }>): TagVariantGroup[] {
+/** Con `all`, también las etiquetas escritas de una sola forma (para quitarlas). */
+export function groupTagVariants(lists: Array<{ availableTags?: unknown }>, all = false): TagVariantGroup[] {
     const byKey = new Map<string, Map<string, number>>();
     lists.forEach((list) => {
         const tags = Array.isArray(list.availableTags) ? list.availableTags : [];
@@ -24,7 +25,7 @@ export function groupTagVariants(lists: Array<{ availableTags?: unknown }>): Tag
             });
     });
     return Array.from(byKey.entries())
-        .filter(([, variants]) => variants.size > 1)
+        .filter(([, variants]) => all || variants.size > 1)
         .map(([key, variants]) => ({
             key,
             variants: Array.from(variants.entries())
