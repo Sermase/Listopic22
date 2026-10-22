@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { searchPreferenceRules } from './searchPreferences';
+import type { UxPreferences } from '../context/PreferencesContext';
 
-const base = {
-    glutenFree: false, vegetarian: false, vegan: false, allergens: [],
-    stepFree: false, accessibleRestroom: false, petFriendly: false, showHelpTips: true,
+const base: UxPreferences = {
+    glutenFree: false, lactoseFree: false, vegetarian: false, vegan: false, allergens: [],
+    stepFree: false, accessibleRestroom: false, petFriendly: false, contribute: [], showHelpTips: true,
 };
 
 describe('searchPreferenceRules', () => {

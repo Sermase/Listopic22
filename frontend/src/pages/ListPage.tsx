@@ -69,6 +69,13 @@ function hasGlutenFreeTag(tags: unknown) {
     });
 }
 
+function hasLactoseFreeTag(tags: unknown) {
+    return (Array.isArray(tags) ? tags : []).some(tag => {
+        const normalized = normalizeFilterToken(tag);
+        return normalized.includes('sin lactosa') || normalized.includes('lactose free') || normalized.includes('lactose-free');
+    });
+}
+
 function hasVeganTag(tags: unknown) {
     return (Array.isArray(tags) ? tags : []).some(tag => normalizeFilterToken(tag).includes('vegan'));
 }
@@ -414,6 +421,7 @@ export const ListPage: React.FC = () => {
             photoBestReviewAt: number;
             maxScore: number; // Track max score for the pin
             allTags: string[]; // For consensus calculation
+            aptOk: string[];
             tags: string[]; // Final consensus tags
         }> = {};
 
@@ -447,6 +455,7 @@ export const ListPage: React.FC = () => {
                     photoBestReviewAt: 0,
                     maxScore: 0,
                     allTags: [],
+                    aptOk: [],
                     tags: [],
                     placeClosedStatus: review.placeClosedStatus || null,
                     accessibilityOptions: extractAccessibilityKeys(
@@ -525,6 +534,7 @@ export const ListPage: React.FC = () => {
             if (review.userTags && Array.isArray(review.userTags)) {
                 g.allTags.push(...review.userTags);
             }
+            (review.aptOk || []).forEach((key) => { if (!g.aptOk.includes(key)) g.aptOk.push(key); });
 
             extractAccessibilityKeys(
                 review.accessibilityOptions,
@@ -610,12 +620,13 @@ export const ListPage: React.FC = () => {
 
     // «Mis preferencias» (dieta) se aplican solas; se pueden quitar solo en esta lista.
     const { prefs } = usePreferences();
-    type PrefFilterKey = 'glutenFree' | 'vegetarian' | 'vegan' | 'stepFree' | 'accessibleRestroom' | 'petFriendly';
+    type PrefFilterKey = 'glutenFree' | 'lactoseFree' | 'vegetarian' | 'vegan' | 'stepFree' | 'accessibleRestroom' | 'petFriendly';
     const [ignoredDiet, setIgnoredDiet] = useState<Partial<Record<PrefFilterKey, boolean>>>({});
     const prefOn = (key: PrefFilterKey) => prefs[key] && !ignoredDiet[key];
     const dietGluten = filters.glutenFree || prefOn('glutenFree');
     const dietVeg = prefOn('vegetarian');
     const dietVegan = prefOn('vegan');
+    const dietLactose = prefOn('lactoseFree');
     const petsWanted = filters.petFriendly || prefOn('petFriendly');
     const needsStepFree = prefOn('stepFree');
     const needsRestroom = prefOn('accessibleRestroom');
@@ -624,7 +635,7 @@ export const ListPage: React.FC = () => {
         ...(needsRestroom ? ['wheelchairAccessibleRestroom'] : []),
     ], [needsStepFree, needsRestroom]);
     const PREF_CHIP_LABELS: Record<PrefFilterKey, string> = {
-        glutenFree: '🌾 Sin gluten', vegetarian: '🥦 Vegetariano', vegan: '🌱 Vegano',
+        glutenFree: '🌾 Sin gluten', lactoseFree: '🥛 Sin lactosa', vegetarian: '🥦 Vegetariano', vegan: '🌱 Vegano',
         stepFree: '♿ Sin escalones', accessibleRestroom: '♿ Baño adaptado', petFriendly: '🐾 Mascotas',
     };
     const activeDietChips = (Object.keys(PREF_CHIP_LABELS) as PrefFilterKey[])
@@ -728,6 +739,7 @@ export const ListPage: React.FC = () => {
             maxScore: number;
             items: { name: string; score: number }[];
             allTags: string[];
+            aptOk: string[];
             accessibilityOptions: string[];
             petOptions: string[];
             reviewsCount: number;
@@ -750,6 +762,7 @@ export const ListPage: React.FC = () => {
                     maxScore: 0,
                     items: [],
                     allTags: [],
+                    aptOk: [],
                     accessibilityOptions: extractAccessibilityKeys(
                         review.accessibilityOptions,
                         review.accessibility,
@@ -774,6 +787,7 @@ export const ListPage: React.FC = () => {
             g.reviewsCount++;
             if (Array.isArray(review.tags)) g.allTags.push(...review.tags);
             if (Array.isArray(review.userTags)) g.allTags.push(...review.userTags);
+            (review.aptOk || []).forEach((key) => { if (!g.aptOk.includes(key)) g.aptOk.push(key); });
             extractAccessibilityKeys(
                 review.accessibilityOptions,
                 review.accessibility,
@@ -828,13 +842,16 @@ export const ListPage: React.FC = () => {
             result = result.filter(item => !!item.photoUrl);
         }
         if (dietGluten) {
-            result = result.filter(item => hasGlutenFreeTag(item.allTags || item.tags));
+            result = result.filter(item => hasGlutenFreeTag(item.allTags || item.tags) || item.aptOk.includes('glutenFree'));
         }
         if (dietVeg) {
-            result = result.filter(item => hasVegetarianTag(item.allTags || item.tags));
+            result = result.filter(item => hasVegetarianTag(item.allTags || item.tags) || item.aptOk.includes('vegetarian') || item.aptOk.includes('vegan'));
         }
         if (dietVegan) {
-            result = result.filter(item => hasVeganTag(item.allTags || item.tags));
+            result = result.filter(item => hasVeganTag(item.allTags || item.tags) || item.aptOk.includes('vegan'));
+        }
+        if (dietLactose) {
+            result = result.filter(item => hasLactoseFreeTag(item.allTags || item.tags) || item.aptOk.includes('lactoseFree'));
         }
         if (mobilityNeeds.length > 0) {
             result = result.filter(item => !lacksAccessibility(item.accessibilityOptions, mobilityNeeds));
@@ -892,7 +909,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, petsWanted, mobilityNeeds]);
+    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds]);
 
     const filteredMapItems = useMemo(() => {
         // Filter mapItems based on the SAME criteria as the list (or at least search/range)
@@ -916,13 +933,16 @@ export const ListPage: React.FC = () => {
             result = result.filter(item => !!item.photoUrl);
         }
         if (dietGluten) {
-            result = result.filter(item => hasGlutenFreeTag(item.allTags));
+            result = result.filter(item => hasGlutenFreeTag(item.allTags) || item.aptOk.includes('glutenFree'));
         }
         if (dietVeg) {
-            result = result.filter(item => hasVegetarianTag(item.allTags));
+            result = result.filter(item => hasVegetarianTag(item.allTags) || item.aptOk.includes('vegetarian') || item.aptOk.includes('vegan'));
         }
         if (dietVegan) {
-            result = result.filter(item => hasVeganTag(item.allTags));
+            result = result.filter(item => hasVeganTag(item.allTags) || item.aptOk.includes('vegan'));
+        }
+        if (dietLactose) {
+            result = result.filter(item => hasLactoseFreeTag(item.allTags) || item.aptOk.includes('lactoseFree'));
         }
         if (mobilityNeeds.length > 0) {
             result = result.filter(item => !lacksAccessibility(item.accessibilityOptions, mobilityNeeds));
@@ -955,7 +975,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [mapItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, petsWanted, mobilityNeeds]);
+    }, [mapItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds]);
 
     const hasListMapCandidates = useMemo(() => {
         return mapItems.some((item: any) => !!item?.lat && !!item?.lng);

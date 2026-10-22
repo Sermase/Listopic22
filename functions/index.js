@@ -32,6 +32,7 @@ module.exports = {
     ...require('./modules/ssr-meta'),
     ...require('./modules/canonical-items'),
     ...require('./modules/reviews-consolidation'),
+    ...require('./modules/apt-for'),
     ...require('./modules/media'),
     ...require('./modules/admin/admin-tags'),
     ...require('./modules/admin/admin-users'),

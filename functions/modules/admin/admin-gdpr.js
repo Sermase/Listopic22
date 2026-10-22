@@ -29,7 +29,7 @@ const BATCH_LIMIT = 450;
 
 const USER_SUBCOLLECTIONS = [
   'following', 'followers', 'followingLists', 'followingPlaces',
-  'notifications', 'archives', 'archiveIndex', 'obtainedBadges',
+  'notifications', 'archives', 'archiveIndex', 'obtainedBadges', 'aptReports',
 ];
 
 class BatchWriter {

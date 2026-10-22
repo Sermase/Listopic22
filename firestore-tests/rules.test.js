@@ -307,8 +307,27 @@ describe('V4 · Un usuario no puede ascenderse a sí mismo', () => {
     await assertFails(setDoc(ref, { uxPreferences: { glutenFree: 'sí' } }, { merge: true }));
     await assertFails(setDoc(ref, { uxPreferences: { isAdmin: true } }, { merge: true }));
     await assertSucceeds(setDoc(ref, { uxPreferences: { vegan: true, allergens: ['gluten', 'huevo'], stepFree: true, accessibleRestroom: false, petFriendly: true } }, { merge: true }));
+    await assertSucceeds(setDoc(ref, { uxPreferences: { lactoseFree: true, contribute: ['glutenFree', 'stepFree'] } }, { merge: true }));
     await assertFails(setDoc(ref, { uxPreferences: { allergens: 'gluten' } }, { merge: true }));
     await assertFails(setDoc(ref, { uxPreferences: { allergens: Array.from({ length: 15 }, (_, i) => `a${i}`) } }, { merge: true }));
+  });
+
+  it('✅/❌ «Apto para»: respuestas privadas solo de reseñas propias', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'lists/l1'), { name: 'L', visibility: 'public', userId: 'alice' });
+      await setDoc(doc(db, 'lists/l1/reviews/r1'), { userId: 'alice', placeId: 'p1', itemName: 'Bravas' });
+      await setDoc(doc(db, 'lists/l1/reviews/r2'), { userId: 'bob', placeId: 'p1', itemName: 'Bravas' });
+    });
+    const ok = { listId: 'l1', answers: { glutenFree: 'yes', stepFree: 'no' }, updatedAt: serverTimestamp() };
+    await assertSucceeds(setDoc(doc(as('alice'), 'users/alice/aptReports/r1'), ok));
+    await assertSucceeds(getDoc(doc(as('alice'), 'users/alice/aptReports/r1')));
+    await assertFails(getDoc(doc(as('bob'), 'users/alice/aptReports/r1')));
+    await assertFails(setDoc(doc(as('alice'), 'users/alice/aptReports/r2'), ok));
+    await assertFails(setDoc(doc(as('bob'), 'users/alice/aptReports/r1'), ok));
+    await assertFails(setDoc(doc(as('alice'), 'users/alice/aptReports/r1'), { ...ok, answers: { glutenFree: 'mucho' } }));
+    await assertFails(setDoc(doc(as('alice'), 'users/alice/aptReports/r1'), { ...ok, answers: { isAdmin: 'yes' } }));
+    await assertSucceeds(deleteDoc(doc(as('alice'), 'users/alice/aptReports/r1')));
   });
 
   it('✅ alta de perfil con el payload real de UserProfileService', async () => {
