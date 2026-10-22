@@ -298,6 +298,15 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         : '/';
     const reviewShareUrl = buildPublicRouteUrl(reviewRoute);
 
+    const createdLabel = (() => {
+        const date = review.createdAt;
+        let dateObj: Date | null = null;
+        if (date && typeof date.toDate === 'function') dateObj = date.toDate();
+        else if (date instanceof Date) dateObj = date;
+        else if (typeof date === 'string' || typeof date === 'number') dateObj = new Date(date);
+        return dateObj ? `hace ${formatDistanceToNow(dateObj, { locale: es })}` : 'Reciente';
+    })();
+
     return (
         <>
             <article
@@ -345,21 +354,6 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                         </span>
                                     )}
                                 </div>
-                                <Link
-                                    to={review.listId && review.id ? `/review/${review.listId}/${review.id}` : '#'}
-                                    onClick={(e) => e.stopPropagation()}
-                                    title="Abrir la reseña"
-                                    className="shrink-0 text-[11px] text-[var(--lt-text-muted)] whitespace-nowrap hover:text-[var(--lt-accent)] hover:underline"
-                                >
-                                    {(() => {
-                                        const date = review.createdAt;
-                                        let dateObj: Date | null = null;
-                                        if (date && typeof date.toDate === 'function') dateObj = date.toDate();
-                                        else if (date instanceof Date) dateObj = date;
-                                        else if (typeof date === 'string' || typeof date === 'number') dateObj = new Date(date);
-                                        return dateObj ? `hace ${formatDistanceToNow(dateObj, { locale: es })}` : 'Reciente';
-                                    })()}
-                                </Link>
                             </div>
                         </div>
 
@@ -390,14 +384,19 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     {/* Title & Item */}
                     <div>
                         {review.placeName && (
-                            <div className="flex items-center gap-2 min-w-0 mb-0.5">
+                            <div className="flex items-start gap-2 min-w-0 mb-0.5">
                                 <Link
                                     to={`/place/${review.placeId}`}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="min-w-0 font-display font-bold text-lg sm:text-xl text-[var(--lt-text)] hover:text-[var(--lt-accent)] transition-colors leading-tight"
+                                    className="min-w-0 line-clamp-2 font-display font-bold text-lg sm:text-xl text-[var(--lt-text)] hover:text-[var(--lt-accent)] transition-colors leading-tight"
                                 >
-                                    <MarqueeText text={review.placeName} />
+                                    {review.placeName}
                                 </Link>
+                                {!hasVisual && (review as any).placeCity && (
+                                    <span className="ml-auto mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--lt-border)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--lt-text-muted)]">
+                                        <MapPin className="h-3 w-3" />{(review as any).placeCity}
+                                    </span>
+                                )}
                                 {closedKind && (
                                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${closedKind === 'permanent'
                                         ? 'bg-[var(--lt-danger-soft)] border-[var(--lt-danger)]/30 text-[var(--lt-danger)]'
@@ -532,6 +531,15 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {/* La fecha, discreta junto a guardar: arriba cortaba el nombre */}
+                        <Link
+                            to={review.listId && review.id ? `/review/${review.listId}/${review.id}` : '#'}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Abrir la reseña"
+                            className="text-[11px] text-[var(--lt-text-muted)] whitespace-nowrap hover:text-[var(--lt-accent)] hover:underline"
+                        >
+                            {createdLabel}
+                        </Link>
                         <button
                             aria-label="Guardar en una colección"
                             className="text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)] transition-colors p-1"
