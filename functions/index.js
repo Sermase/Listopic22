@@ -46,4 +46,4 @@ module.exports = {
     ...require('./modules/admin/admin-backup'),
     ...require('./modules/admin/admin-gdpr'),
 };
-// Force redeploy
+// Force redeploy: 2026-10-22 (reconstruir todas tras el despliegue a medias)
