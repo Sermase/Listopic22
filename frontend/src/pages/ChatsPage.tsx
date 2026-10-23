@@ -16,12 +16,16 @@ import { EmojiPanel } from '../components/chat/EmojiPanel';
 import { EventCard } from '../components/chat/EventCard';
 import { EventSheet } from '../components/chat/EventSheet';
 import { PollCard } from '../components/chat/PollCard';
+import { DatePollCard } from '../components/chat/DatePollCard';
+import { DatePollSheet } from '../components/chat/DatePollSheet';
 import { InviteSheet, DateSheet } from '../components/chat/InviteSheet';
 import { PollSheet } from '../components/chat/PollSheet';
 import { RouletteSheet } from '../components/chat/RouletteSheet';
 import { PinnedEvents } from '../components/chat/PinnedEvents';
 import { NewChatSheet } from '../components/chat/NewChatSheet';
 import { Avatar, type Person } from '../components/chat/Avatars';
+import { JoinLinkBox } from '../components/chat/JoinLinkBox';
+import { JoinRequests } from '../components/chat/JoinRequests';
 import {
     QUEDADA_MS,
     chatDayLabel,
@@ -38,8 +42,9 @@ import {
 } from '../lib/chatExtras';
 
 type ChatTool =
-    | { kind: 'invite'; dish?: PlaceRef | null }
+    | { kind: 'invite'; dish?: PlaceRef | null; when?: number; pollId?: string }
     | { kind: 'poll' }
+    | { kind: 'datepoll' }
     | { kind: 'roulette' }
     | { kind: 'date'; messageId: string; mode: 'propose' | 'change' }
     | null;
@@ -421,8 +426,8 @@ export const ChatsPage: React.FC = () => {
         const sharedEntity = parseSharedEntity(msg);
         const isShareMessage = (msg.type === 'share' || msg.type === 'review-share') && Boolean(sharedEntity);
         const shareLabel = sharedEntity ? (sharedEntity.badgeLabel || getShareEntityLabel(sharedEntity.type)) : 'Contenido';
-        const bigEmoji = msg.type !== 'invite' && msg.type !== 'poll' && !isShareMessage && !msg.replyTo && isEmojiOnly(msg.text);
-        const isCard = (msg.type === 'invite' && msg.invite) || (msg.type === 'poll' && msg.poll);
+        const bigEmoji = msg.type !== 'invite' && msg.type !== 'poll' && msg.type !== 'datepoll' && !isShareMessage && !msg.replyTo && isEmojiOnly(msg.text);
+        const isCard = (msg.type === 'invite' && msg.invite) || (msg.type === 'poll' && msg.poll) || (msg.type === 'datepoll' && msg.datePoll);
         const corner = isOwnMessage
             ? (joinsNext ? 'rounded-br-lg' : 'rounded-br-md') + (joinsPrev ? ' rounded-tr-lg' : '')
             : (joinsNext ? 'rounded-bl-lg' : 'rounded-bl-md') + (joinsPrev ? ' rounded-tl-lg' : '');
@@ -449,6 +454,20 @@ export const ChatsPage: React.FC = () => {
                     nameOf={nameOf}
                     onVote={(optionId) => runChatAction(() => ChatService.votePoll(activeChat, msg.id!, user.uid, optionId))}
                     onInviteWinner={(dish) => setTool({ kind: 'invite', dish })}
+                />
+            );
+        } else if (msg.type === 'datepoll' && msg.datePoll) {
+            const datePoll = msg.datePoll;
+            body = (
+                <DatePollCard
+                    poll={datePoll}
+                    uid={user.uid}
+                    participants={participants}
+                    personOf={personOf}
+                    nameOf={nameOf}
+                    onVote={(optionId, vote) => runChatAction(() => ChatService.voteDate(activeChat, msg.id!, user.uid, optionId, vote))}
+                    onConvert={(row) => setTool({ kind: 'invite', dish: datePoll.place ?? null, when: row.when, pollId: msg.id })}
+                    onOpenEvent={(id) => setOpenEvent({ id })}
                 />
             );
         } else if (bigEmoji) {
@@ -638,6 +657,7 @@ export const ChatsPage: React.FC = () => {
                         </div>
 
                         <PinnedEvents events={pinned} onOpen={(id) => setOpenEvent({ id })} />
+                        {activeChatObj?.type === 'group' && <JoinRequests key={activeChatObj.id} chatId={activeChatObj.id} me={me()} />}
 
                         <div className="relative flex-1 min-h-0">
                             <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto px-3 pt-2 pb-4">
@@ -675,9 +695,10 @@ export const ChatsPage: React.FC = () => {
                                 </div>
                             )}
                             {toolsOpen && (
-                                <div className="grid grid-cols-3 gap-2 px-3 pt-3 animate-fade-in">
+                                <div className="grid grid-cols-4 gap-2 px-3 pt-3 animate-fade-in">
                                     {[
                                         { label: 'Invitar a comer', icon: '🍽️', open: () => setTool({ kind: 'invite' }) },
+                                        { label: '¿Cuándo quedamos?', icon: '📅', open: () => setTool({ kind: 'datepoll' }) },
                                         { label: '¿Dónde comemos?', icon: '🗳️', open: () => setTool({ kind: 'poll' }) },
                                         { label: 'Ruleta del antojo', icon: '🎰', open: () => setTool({ kind: 'roulette' }) },
                                     ].map((t) => (
@@ -759,14 +780,24 @@ export const ChatsPage: React.FC = () => {
             {user && activeChat && tool?.kind === 'invite' && (
                 <InviteSheet
                     initial={tool.dish}
+                    initialWhen={tool.when}
                     onClose={() => setTool(null)}
-                    onSend={(invite) => runChatAction(() => ChatService.sendInvite(activeChat, user.uid, invite), 'No se pudo enviar la invitación.')}
+                    onSend={(invite) => runChatAction(async () => {
+                        const id = await ChatService.sendInvite(activeChat, user.uid, invite);
+                        if (tool.pollId) await ChatService.linkDatePollInvite(activeChat, tool.pollId, id);
+                    }, 'No se pudo enviar la invitación.')}
                 />
             )}
             {user && activeChat && tool?.kind === 'poll' && (
                 <PollSheet
                     onClose={() => setTool(null)}
                     onSend={(options) => runChatAction(() => ChatService.sendPoll(activeChat, user.uid, options), 'No se pudo enviar la encuesta.')}
+                />
+            )}
+            {user && activeChat && tool?.kind === 'datepoll' && (
+                <DatePollSheet
+                    onClose={() => setTool(null)}
+                    onSend={(whens, place) => runChatAction(() => ChatService.sendDatePoll(activeChat, user.uid, whens, place), 'No se pudo enviar la encuesta.')}
                 />
             )}
             {user && activeChat && tool?.kind === 'roulette' && (
@@ -827,7 +858,7 @@ export const ChatsPage: React.FC = () => {
                                         className="flex gap-2 mb-5"
                                         onSubmit={(e) => {
                                             e.preventDefault();
-                                            if (groupNameDraft.trim()) void runChatAction(() => ChatService.renameGroup(activeChatObj.id, groupNameDraft));
+                                            if (groupNameDraft.trim()) void runChatAction(() => ChatService.renameGroup(activeChatObj.id, groupNameDraft, activeChatObj.joinCode));
                                         }}
                                     >
                                         <input
@@ -845,6 +876,8 @@ export const ChatsPage: React.FC = () => {
                                     <h3 className="text-xl font-bold text-white mb-5">{getChatName(activeChatObj)}</h3>
                                 )}
                             </div>
+
+                            {activeChatObj.type === 'group' && <JoinLinkBox chat={activeChatObj} byName={me().name} />}
 
                             <h4 className="text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Participantes ({participants.length})</h4>
                             <div className="space-y-1 max-h-48 overflow-y-auto pr-1 mb-5">

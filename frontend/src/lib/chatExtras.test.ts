@@ -22,6 +22,9 @@ import {
     invitePreviewText,
     inviteTitle,
     summarizeReactions,
+    datePollTally,
+    datePollOptions,
+    makeJoinCode,
     type ChatInvite,
 } from './chatExtras';
 
@@ -169,5 +172,27 @@ describe('chatExtras', () => {
         expect(ics).toContain('BEGIN:VEVENT');
         expect(ics).toContain('UID:m1@listopic.es');
         expect(ics).toContain(String.raw`DESCRIPTION:Pago yo\, tú\; la charla`);
+    });
+});
+
+describe('¿Cuándo quedamos? y enlace de invitación', () => {
+    it('ordena fechas, cuenta ✅/🤔 y elige la mejor (empate: la más temprana)', () => {
+        const options = datePollOptions([3000, 1000, 2000, 1000]);
+        expect(options).toEqual([{ id: 'd1', when: 1000 }, { id: 'd2', when: 2000 }, { id: 'd3', when: 3000 }]);
+        const { rows, bestId, voters } = datePollTally({
+            options,
+            votes: { ana: { d1: 'yes', d3: 'yes' }, luis: { d3: 'maybe', d1: 'maybe' }, eva: {} },
+        });
+        expect(rows.map((r) => [r.id, r.yes, r.maybe])).toEqual([['d1', ['ana'], ['luis']], ['d2', [], []], ['d3', ['ana'], ['luis']]]);
+        expect(bestId).toBe('d1');
+        expect(voters).toEqual(['ana', 'luis']);
+        expect(datePollTally({ options, votes: { ana: { d2: 'maybe' } } }).bestId).toBeNull();
+    });
+
+    it('el código del enlace tiene 10 caracteres sin letras que se confundan', () => {
+        const code = makeJoinCode();
+        expect(code).toMatch(/^[a-hjkmnp-z2-9]{10}$/);
+        expect(makeJoinCode(() => new Uint8Array(10))).toBe('aaaaaaaaaa');
+        expect(eventNoteText({ kind: 'joined' }, 'Marta')).toBe('👋 Marta se ha unido con el enlace');
     });
 });
