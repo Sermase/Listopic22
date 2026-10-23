@@ -8,6 +8,7 @@ const SHOTS = process.env.CHAT_SHOTS_DIR;
 const shot = async (page: Page, name: string) => {
   if (!SHOTS) return;
   mkdirSync(SHOTS, { recursive: true });
+  await page.waitForTimeout(400); // deja terminar las transiciones
   await page.screenshot({ path: `${SHOTS}/${name}.png` });
 };
 

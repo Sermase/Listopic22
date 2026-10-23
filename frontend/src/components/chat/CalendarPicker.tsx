@@ -17,7 +17,8 @@ export const CalendarPicker: React.FC<{ value: number | null; onChange: (ms: num
     const [day, setDay] = useState<number | null>(value ? startOfDay(value) : null);
     const [time, setTime] = useState<string | null>(value ? formatTime(value) : null);
 
-    const monthLabel = new Date(view.year, view.month, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    const monthName = new Date(view.year, view.month, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    const monthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
     const canGoBack = view.year > new Date(now).getFullYear() || (view.year === new Date(now).getFullYear() && view.month > new Date(now).getMonth());
     const move = (delta: number) => setView(({ year, month }) => {
         const d = new Date(year, month + delta, 1);
@@ -40,7 +41,7 @@ export const CalendarPicker: React.FC<{ value: number | null; onChange: (ms: num
                     <button type="button" onClick={() => move(-1)} disabled={!canGoBack} className="p-1.5 rounded-full text-gray-300 hover:bg-white/10 disabled:opacity-25" aria-label="Mes anterior">
                         <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <span className="text-sm font-bold text-white capitalize">{monthLabel}</span>
+                    <span className="text-sm font-bold text-white">{monthLabel}</span>
                     <button type="button" onClick={() => move(1)} className="p-1.5 rounded-full text-gray-300 hover:bg-white/10" aria-label="Mes siguiente">
                         <ChevronRight className="w-4 h-4" />
                     </button>
