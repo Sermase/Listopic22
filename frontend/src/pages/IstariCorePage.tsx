@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Mail, Sparkles, Target, Heart, ExternalLink } from 'lucide-react';
 import { Footer } from '../components/Footer';
 import { useAppConfig } from '../context/AppConfigContext';
+import { isLabAppVisible } from '../lib/labApps';
 
 const ValueCard: React.FC<{ emoji: string; title: string; text: string }> = ({ emoji, title, text }) => (
     <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6 flex flex-col gap-3 hover:border-[var(--lt-accent-border)] transition-colors">
@@ -124,7 +125,7 @@ export const IstariCorePage: React.FC = () => {
 
                         {/* Pachote: app independiente (su propio proyecto de Firebase). Solo se enlaza.
                             De momento, visible solo con el laboratorio activado (beta). */}
-                        {config.showLab && (
+                        {isLabAppVisible(config, 'pachote') && (
                             <a
                                 href="https://pachote-78042.web.app"
                                 target="_blank"
@@ -147,7 +148,7 @@ export const IstariCorePage: React.FC = () => {
                             </a>
                         )}
 
-                        {config.showLab && (
+                        {isLabAppVisible(config, 'apegos') && (
                             <Link
                                 to="/lab"
                                 className="flex items-center justify-between group hover:opacity-80 transition-opacity pt-4 border-t border-white/5"

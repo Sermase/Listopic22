@@ -28,6 +28,7 @@ import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import { FeaturedListCard } from '../components/home/FeaturedListCard';
 import { HomeRanking, type RankingRow } from '../components/home/HomeRanking';
 import { HomeFeedCard } from '../components/home/HomeFeedCard';
+import { buildSoulmateFeed } from '../lib/soulmateFeed';
 import { buildHomeFeeds, homeFeedAreaKey, isJunkName, isPermanentlyClosed, type HomeFeedCard as HomeFeedCardData, type HomeFeedReview } from '../lib/homeFeeds';
 import {
     completeUserProfileSetup,
@@ -1004,6 +1005,15 @@ export const HomePage: React.FC = () => {
             .slice(0, 12);
     }, [botUserIds, ownTasteReviews, reviewsInRange, topUsers, user?.uid]);
 
+    // «Les encantó»: los platos top de tus almas gemelas que tú aún no has probado (lib/soulmateFeed).
+    const soulmateCards = useMemo(() => {
+        if (affinityUsers.length === 0) return [];
+        const own = ownTasteReviews.length > 0
+            ? ownTasteReviews
+            : reviewsInRange.filter((review: any) => (review.userId || review.authorId) === user?.uid);
+        return buildSoulmateFeed(affinityUsers, reviewsInRange as HomeFeedReview[], own as HomeFeedReview[]);
+    }, [affinityUsers, ownTasteReviews, reviewsInRange, user?.uid]);
+
     // 7. Lists with Range Stats
     const listsWithRangeStats = useMemo(() => {
         // Map lists to attach dynamic review count based on reviewsInRange
@@ -1635,6 +1645,19 @@ export const HomePage: React.FC = () => {
                                             </div>
                                         </Link>
                                     )}
+                                />
+                            )}
+
+                            {appConfig.showAffinityCarousel && soulmateCards.length > 0 && (
+                                <CardCarousel
+                                    title="Les encantó"
+                                    subtitle="Platos top de tus almas gemelas."
+                                    viewAllLink={buildCarouselSearchLink('users')}
+                                    items={soulmateCards}
+                                    itemClassName="w-auto"
+                                    icon={<HeartHandshake className="w-5 h-5 text-pink-300" />}
+                                    accentClass="bg-pink-500/20"
+                                    renderItem={(card: HomeFeedCardData) => <HomeFeedCard card={card} />}
                                 />
                             )}
 

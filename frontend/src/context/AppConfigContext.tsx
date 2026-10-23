@@ -22,6 +22,8 @@ export interface AppConfig {
     showProfileAffinity: boolean;
     homeReviewsMonths: number; // 0 = sin límite de tiempo, >0 = meses hacia atrás
     showLab: boolean;
+    /** Apps del laboratorio ocultadas una a una (lib/labApps): `false` = oculta. */
+    labApps: Partial<Record<string, boolean>>;
     showWeeklyDuel: boolean;
     showTastePassport: boolean;
     /** Página de Lista: título = sitio y segunda línea = elemento (false: al revés). */
@@ -45,6 +47,7 @@ const defaultConfig: AppConfig = {
     showProfileAffinity: true,
     homeReviewsMonths: 12,
     showLab: false,
+    labApps: {},
     showWeeklyDuel: false,
     showTastePassport: false,
     listTitlePlaceFirst: true,
@@ -86,6 +89,7 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                     showLab: typeof data.showLab === 'boolean'
                         ? data.showLab
                         : defaultConfig.showLab,
+                    labApps: data.labApps && typeof data.labApps === 'object' ? data.labApps : {},
                     showWeeklyDuel: typeof data.showWeeklyDuel === 'boolean'
                         ? data.showWeeklyDuel
                         : defaultConfig.showWeeklyDuel,
