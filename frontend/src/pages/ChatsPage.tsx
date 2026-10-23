@@ -11,6 +11,24 @@ import { getShareEntityLabel } from '../types/share';
 import { getLocalRouteFromUrl } from '../utils/publicUrl';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useToast } from '../context/ToastContext';
+import { MessageBubble } from '../components/chat/MessageBubble';
+import { EmojiPanel } from '../components/chat/EmojiPanel';
+import { InviteCard } from '../components/chat/InviteCard';
+import { PollCard } from '../components/chat/PollCard';
+import { InviteSheet, DateSheet } from '../components/chat/InviteSheet';
+import { PollSheet } from '../components/chat/PollSheet';
+import { RouletteSheet } from '../components/chat/RouletteSheet';
+import { DuelModal } from '../components/chat/DuelModal';
+import { buildPublicRouteUrl } from '../utils/publicUrl';
+import { dishRoute, inviteAttendees, isEmojiOnly, type DishRef, type ReplyRef } from '../lib/chatExtras';
+
+type ChatTool =
+    | { kind: 'invite'; dish?: DishRef | null }
+    | { kind: 'poll' }
+    | { kind: 'roulette' }
+    | { kind: 'date'; message: Message; mode: 'propose' | 'change' }
+    | { kind: 'duel'; message: Message }
+    | null;
 
 export const ChatsPage: React.FC = () => {
     const { user } = useAuth();
@@ -36,6 +54,11 @@ export const ChatsPage: React.FC = () => {
 
     // Search State
     const [searchResults, setSearchResults] = useState<any[]>([]);
+    // Chat «con vida»
+    const [replyingTo, setReplyingTo] = useState<ReplyRef | null>(null);
+    const [emojiOpen, setEmojiOpen] = useState(false);
+    const [toolsOpen, setToolsOpen] = useState(false);
+    const [tool, setTool] = useState<ChatTool>(null);
     const [isSearching, setIsSearching] = useState(false);
     useBodyScrollLock(isGroupModalOpen || isInfoModalOpen);
 
@@ -67,12 +90,13 @@ export const ChatsPage: React.FC = () => {
     useEffect(() => {
         if (!user || chats.length === 0) return;
 
-        const privateTargets = Array.from(new Set(
-            chats
+        // Privados (nombre y foto en la lista) y todos los del chat abierto (invitaciones, encuestas, grupos).
+        const privateTargets = Array.from(new Set([
+            ...chats
                 .filter(c => c.type === 'private')
-                .map(c => c.participants.find(p => p !== user.uid))
-                .filter(Boolean)
-        )) as string[];
+                .map(c => c.participants.find(p => p !== user.uid)),
+            ...(chats.find(c => c.id === activeChat)?.participants || []).filter(p => p !== user.uid)
+        ].filter(Boolean))) as string[];
 
         if (privateTargets.length === 0) return;
 
@@ -93,7 +117,7 @@ export const ChatsPage: React.FC = () => {
         return () => {
             unsubs.forEach(unsub => unsub());
         };
-    }, [chats, user]);
+    }, [chats, user, activeChat]);
 
     // Initial load of chats
     useEffect(() => {
@@ -122,6 +146,9 @@ export const ChatsPage: React.FC = () => {
     // Load messages for active chat
     useEffect(() => {
         if (!activeChat) return;
+        setReplyingTo(null);
+        setEmojiOpen(false);
+        setToolsOpen(false);
         const unsubscribe = ChatService.subscribeToMessages(activeChat, (data) => {
             setMessages(data);
             setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
@@ -148,11 +175,57 @@ export const ChatsPage: React.FC = () => {
         if (!user || !activeChat || !newMessage.trim()) return;
 
         try {
-            await ChatService.sendMessage(activeChat, user.uid, newMessage);
+            await ChatService.sendMessage(activeChat, user.uid, newMessage, 'text', undefined, replyingTo ? { replyTo: replyingTo } : undefined);
             setNewMessage('');
+            setReplyingTo(null);
         } catch (error) {
             console.error("Error sending message:", error);
         }
+    };
+
+    const nameOf = (uid: string) => {
+        if (uid === user?.uid) return 'Tú';
+        const p = usersMap[uid];
+        return (p?.displayName || p?.username || p?.name || 'Alguien').split(' ')[0];
+    };
+
+    const runChatAction = async (action: () => Promise<void>, errorMessage = 'No se pudo hacer. Inténtalo otra vez.') => {
+        try {
+            await action();
+        } catch (error) {
+            console.error('Chat:', error);
+            showToast({ variant: 'error', message: errorMessage });
+        }
+    };
+
+    const startReply = (msg: Message) => {
+        if (!msg.id) return;
+        const text = (msg.text || '').trim();
+        setReplyingTo({ id: msg.id, senderId: msg.senderId, text: text.length > 140 ? `${text.slice(0, 140)}…` : text });
+    };
+
+    const scrollToMessage = (id: string) => {
+        const el = document.getElementById(`msg-${id}`);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('animate-pulse');
+        setTimeout(() => el.classList.remove('animate-pulse'), 1200);
+    };
+
+    const shareDishToChat = async (dish: DishRef) => {
+        if (!user || !activeChat) return;
+        const route = dishRoute(dish) || '';
+        await ChatService.sendMessage(activeChat, user.uid, '🎰 Me ha salido esto en la ruleta', 'share', {
+            share: {
+                type: 'group',
+                title: `${dish.itemName} · ${dish.placeName}`,
+                subtitle: [dish.placeCity, dish.listName].filter(Boolean).join(' · ') || undefined,
+                route: route || undefined,
+                url: buildPublicRouteUrl(route || '/'),
+                imageUrl: dish.imageUrl,
+                score: dish.score,
+            } as ShareEntityPayload,
+        });
     };
 
     const getChatName = (chat: Chat) => {
@@ -378,89 +451,197 @@ export const ChatsPage: React.FC = () => {
                         </div>
 
                         {/* Messages */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                            {messages.map((msg) => (
-                                <div key={msg.id} className={`flex ${msg.senderId === user?.uid ? 'justify-end' : 'justify-start'}`}>
-                                    {(() => {
-                                        const isOwnMessage = msg.senderId === user?.uid;
-                                        const sharedEntity = parseSharedEntity(msg);
-                                        const isShareMessage = (msg.type === 'share' || msg.type === 'review-share') && Boolean(sharedEntity);
-                                        const shareLabel = sharedEntity
-                                            ? (sharedEntity.badgeLabel || getShareEntityLabel(sharedEntity.type))
-                                            : 'Contenido';
-                                        const shareCardClass = isOwnMessage
-                                            ? 'bg-[var(--lt-accent-soft)] border-indigo-300/30 hover:bg-[var(--lt-accent)]/40'
-                                            : 'bg-[var(--lt-bg-deep)] border-white/10 hover:bg-[var(--lt-card)]';
+                        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-2">
+                            {messages.map((msg, index) => {
+                                if (!msg.id || !user) return null;
+                                const isOwnMessage = msg.senderId === user.uid;
+                                const prev = messages[index - 1];
+                                const showSenderName = activeChatObj?.type === 'group' && !isOwnMessage && prev?.senderId !== msg.senderId;
+                                const sharedEntity = parseSharedEntity(msg);
+                                const isShareMessage = (msg.type === 'share' || msg.type === 'review-share') && Boolean(sharedEntity);
+                                const shareLabel = sharedEntity
+                                    ? (sharedEntity.badgeLabel || getShareEntityLabel(sharedEntity.type))
+                                    : 'Contenido';
+                                const shareCardClass = isOwnMessage
+                                    ? 'bg-white/10 border-white/20 hover:bg-white/15'
+                                    : 'bg-[var(--lt-bg-deep)] border-white/10 hover:bg-[var(--lt-card)]';
+                                const time = msg.createdAt?.seconds ? new Date(msg.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...';
+                                const bigEmoji = msg.type !== 'invite' && msg.type !== 'poll' && !isShareMessage && !msg.replyTo && isEmojiOnly(msg.text);
+                                const isCard = (msg.type === 'invite' && msg.invite) || (msg.type === 'poll' && msg.poll);
 
-                                        return (
-                                            <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${isOwnMessage
-                                        ? 'bg-[var(--lt-accent)] text-white rounded-br-none shadow-lg shadow-[var(--lt-accent-shadow)]'
-                                        : 'bg-[var(--lt-card)] text-gray-200 rounded-bl-none border border-white/5'
-                                        }`}>
-                                                {isShareMessage && sharedEntity ? (
-                                                    <div className="space-y-2">
-                                                        {msg.text?.trim() && <p className="whitespace-pre-wrap break-words">{msg.text}</p>}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => openSharedEntity(sharedEntity)}
-                                                            className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${shareCardClass}`}
-                                                        >
-                                                            <div className="flex items-start gap-3">
-                                                                {sharedEntity.imageUrl ? (
-                                                                    <img
-                                                                        src={sharedEntity.imageUrl}
-                                                                        alt={sharedEntity.title}
-                                                                        className="w-12 h-12 rounded-lg object-cover border border-white/10 shrink-0"
-                                                                    />
-                                                                ) : (
-                                                                    <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center text-xs font-bold shrink-0">
-                                                                        {shareLabel.slice(0, 2).toUpperCase()}
-                                                                    </div>
-                                                                )}
-                                                                <div className="min-w-0 flex-1">
-                                                                    <div className="text-[10px] uppercase tracking-wider opacity-75 font-bold">{shareLabel}</div>
-                                                                    <div className="text-sm font-bold truncate">{sharedEntity.title}</div>
-                                                                    {sharedEntity.subtitle && (
-                                                                        <div className="text-xs opacity-80 truncate">{sharedEntity.subtitle}</div>
-                                                                    )}
+                                let body: React.ReactNode;
+                                if (msg.type === 'invite' && msg.invite) {
+                                    const invite = msg.invite;
+                                    body = (
+                                        <InviteCard
+                                            invite={invite}
+                                            messageId={msg.id}
+                                            senderId={msg.senderId}
+                                            uid={user.uid}
+                                            nameOf={nameOf}
+                                            onRespond={(status) => runChatAction(() => ChatService.respondInvite(activeChat, msg, user.uid, status))}
+                                            onProposeDate={() => setTool({ kind: 'date', message: msg, mode: 'propose' })}
+                                            onChangeDate={() => setTool({ kind: 'date', message: msg, mode: 'change' })}
+                                            onAcceptProposal={(from, when) => runChatAction(() => ChatService.changeInviteDate(activeChat, msg, when, from))}
+                                            onOpenDuel={() => setTool({ kind: 'duel', message: msg })}
+                                        />
+                                    );
+                                } else if (msg.type === 'poll' && msg.poll) {
+                                    body = (
+                                        <PollCard
+                                            poll={msg.poll}
+                                            uid={user.uid}
+                                            isMine={isOwnMessage}
+                                            nameOf={nameOf}
+                                            onVote={(optionId) => runChatAction(() => ChatService.votePoll(activeChat, msg.id!, user.uid, optionId))}
+                                            onInviteWinner={(dish) => setTool({ kind: 'invite', dish })}
+                                        />
+                                    );
+                                } else if (bigEmoji) {
+                                    body = <p className="text-5xl leading-tight px-1 animate-fade-in" title={time}>{msg.text.trim()}</p>;
+                                } else {
+                                    body = (
+                                        <div className={`rounded-3xl px-3.5 py-2 ${isOwnMessage
+                                            ? 'bg-[var(--lt-accent)] text-white rounded-br-md shadow-md shadow-[var(--lt-accent-shadow)]'
+                                            : 'bg-[var(--lt-card-strong)] text-gray-100 rounded-bl-md border border-white/5'
+                                            }`}>
+                                            {msg.replyTo && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => scrollToMessage(msg.replyTo!.id)}
+                                                    className={`block w-full text-left mb-1 pl-2 border-l-2 rounded-sm text-xs ${isOwnMessage ? 'border-white/60 text-white/80' : 'border-[var(--lt-accent)] text-gray-400'}`}
+                                                >
+                                                    <span className="font-bold">{nameOf(msg.replyTo.senderId)}</span>
+                                                    <span className="block truncate">{msg.replyTo.text || '…'}</span>
+                                                </button>
+                                            )}
+                                            {isShareMessage && sharedEntity ? (
+                                                <div className="space-y-2">
+                                                    {msg.text?.trim() && <p className="whitespace-pre-wrap break-words">{msg.text}</p>}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openSharedEntity(sharedEntity)}
+                                                        className={`w-full text-left rounded-xl border px-3 py-2 transition-colors ${shareCardClass}`}
+                                                    >
+                                                        <div className="flex items-start gap-3">
+                                                            {sharedEntity.imageUrl ? (
+                                                                <img
+                                                                    src={sharedEntity.imageUrl}
+                                                                    alt={sharedEntity.title}
+                                                                    className="w-12 h-12 rounded-lg object-cover border border-white/10 shrink-0"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-12 h-12 rounded-lg border border-white/10 bg-white/5 flex items-center justify-center text-xs font-bold shrink-0">
+                                                                    {shareLabel.slice(0, 2).toUpperCase()}
                                                                 </div>
-                                                                <ExternalLink className="w-3.5 h-3.5 opacity-70 shrink-0 mt-0.5" />
+                                                            )}
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="text-[10px] uppercase tracking-wider opacity-75 font-bold">{shareLabel}</div>
+                                                                <div className="text-sm font-bold truncate">{sharedEntity.title}</div>
+                                                                {sharedEntity.subtitle && (
+                                                                    <div className="text-xs opacity-80 truncate">{sharedEntity.subtitle}</div>
+                                                                )}
                                                             </div>
-                                                        </button>
-                                                    </div>
-                                                ) : (
-                                                    <p className="whitespace-pre-wrap break-words">{msg.text}</p>
-                                                )}
-                                                <span className="text-[10px] opacity-50 block text-right mt-1">
-                                                    {msg.createdAt?.seconds ? new Date(msg.createdAt.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
-                                                </span>
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-                            ))}
+                                                            <ExternalLink className="w-3.5 h-3.5 opacity-70 shrink-0 mt-0.5" />
+                                                        </div>
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <p className="whitespace-pre-wrap break-words">{msg.text}</p>
+                                            )}
+                                            <span className="text-[10px] opacity-50 block text-right mt-0.5">{time}</span>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div key={msg.id}>
+                                        {showSenderName && <p className="text-[11px] text-gray-500 ml-3 mb-0.5 mt-2">{nameOf(msg.senderId)}</p>}
+                                        <MessageBubble
+                                            messageId={msg.id}
+                                            isOwn={isOwnMessage}
+                                            uid={user.uid}
+                                            reactions={msg.reactions}
+                                            onReact={(emoji) => runChatAction(() => ChatService.setReaction(activeChat, msg.id!, user.uid, emoji))}
+                                            onReply={() => startReply(msg)}
+                                        >
+                                            {body}
+                                        </MessageBubble>
+                                        {isCard && <p className={`text-[10px] text-gray-500 mt-0.5 ${isOwnMessage ? 'text-right mr-1' : 'ml-1'}`}>{time}</p>}
+                                    </div>
+                                );
+                            })}
                             <div ref={messagesEndRef} />
                         </div>
 
                         {/* Input */}
-                        <form onSubmit={handleSendMessage} className="p-4 bg-[var(--lt-card-strong)] border-t border-white/10">
-                            <div className="flex items-center gap-2">
+                        <div className="bg-[var(--lt-card-strong)] border-t border-white/10">
+                            {replyingTo && (
+                                <div className="flex items-center gap-2 px-4 pt-2">
+                                    <div className="flex-1 min-w-0 pl-2 border-l-2 border-[var(--lt-accent)] text-xs">
+                                        <p className="font-bold text-[var(--lt-accent)]">Respondiendo a {nameOf(replyingTo.senderId)}</p>
+                                        <p className="text-gray-400 truncate">{replyingTo.text || '…'}</p>
+                                    </div>
+                                    <button type="button" onClick={() => setReplyingTo(null)} className="p-1 text-gray-400 hover:text-white" aria-label="Cancelar respuesta">
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
+                            {toolsOpen && (
+                                <div className="grid grid-cols-3 gap-2 px-3 pt-3">
+                                    {[
+                                        { label: 'Invitar a comer', icon: '🍽️', open: () => setTool({ kind: 'invite' }) },
+                                        { label: '¿Dónde comemos?', icon: '🗳️', open: () => setTool({ kind: 'poll' }) },
+                                        { label: 'Ruleta del antojo', icon: '🎰', open: () => setTool({ kind: 'roulette' }) },
+                                    ].map((t) => (
+                                        <button
+                                            key={t.label}
+                                            type="button"
+                                            onClick={() => { setToolsOpen(false); t.open(); }}
+                                            className="flex flex-col items-center gap-1 rounded-2xl bg-white/5 hover:bg-white/10 py-3 text-[11px] font-semibold text-gray-200"
+                                        >
+                                            <span className="text-2xl">{t.icon}</span>
+                                            {t.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                            {emojiOpen && <EmojiPanel onPick={(emoji) => setNewMessage((m) => m + emoji)} />}
+                            <form onSubmit={handleSendMessage} className="flex items-center gap-1.5 p-3">
+                                <button
+                                    type="button"
+                                    onClick={() => { setEmojiOpen((v) => !v); setToolsOpen(false); }}
+                                    className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-xl transition-colors ${emojiOpen ? 'bg-white/15' : 'hover:bg-white/10'}`}
+                                    aria-label="Emojis"
+                                >
+                                    😊
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setToolsOpen((v) => !v); setEmojiOpen(false); }}
+                                    className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-xl transition-colors ${toolsOpen ? 'bg-white/15' : 'hover:bg-white/10'}`}
+                                    aria-label="Invitar, encuesta o ruleta"
+                                >
+                                    🍽️
+                                </button>
                                 <input
                                     type="text"
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
+                                    onFocus={() => { setEmojiOpen(false); setToolsOpen(false); }}
                                     placeholder="Escribe un mensaje..."
-                                    className="flex-1 bg-[var(--lt-bg)] border border-white/10 rounded-full px-4 py-3 text-white focus:outline-none focus:border-[var(--lt-accent-border)] focus:ring-1 focus:ring-[var(--lt-accent)]"
+                                    className="flex-1 min-w-0 bg-[var(--lt-bg)] border border-white/10 rounded-full px-4 py-2.5 text-white focus:outline-none focus:border-[var(--lt-accent-border)]"
                                 />
                                 <button
                                     type="submit"
                                     disabled={!newMessage.trim()}
-                                    className="p-3 bg-[var(--lt-accent)] text-white rounded-full hover:bg-[var(--lt-accent)] disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+                                    className="w-10 h-10 shrink-0 flex items-center justify-center bg-[var(--lt-accent)] text-white rounded-full disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-90"
+                                    aria-label="Enviar"
                                 >
-                                    <Send className="w-5 h-5" />
+                                    <Send className="w-4 h-4" />
                                 </button>
-                            </div>
-                        </form>
+                            </form>
+                        </div>
                     </>
                 ) : (
                     <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-4 text-center">
@@ -632,6 +813,46 @@ export const ChatsPage: React.FC = () => {
                         </div>
                     </div>
                 )}
+
+            {user && activeChat && tool?.kind === 'invite' && (
+                <InviteSheet
+                    initialDish={tool.dish}
+                    onClose={() => setTool(null)}
+                    onSend={(invite) => runChatAction(() => ChatService.sendInvite(activeChat, user.uid, invite), 'No se pudo enviar la invitación.')}
+                />
+            )}
+            {user && activeChat && tool?.kind === 'poll' && (
+                <PollSheet
+                    onClose={() => setTool(null)}
+                    onSend={(options) => runChatAction(() => ChatService.sendPoll(activeChat, user.uid, options), 'No se pudo enviar la encuesta.')}
+                />
+            )}
+            {user && activeChat && tool?.kind === 'roulette' && (
+                <RouletteSheet
+                    onClose={() => setTool(null)}
+                    onInvite={(dish) => setTool({ kind: 'invite', dish })}
+                    onShare={(dish) => runChatAction(() => shareDishToChat(dish))}
+                />
+            )}
+            {user && activeChat && tool?.kind === 'date' && tool.message.invite && (
+                <DateSheet
+                    title={tool.mode === 'change' ? '📅 Cambiar fecha' : '🗓️ Proponer otro día'}
+                    initial={tool.mode === 'change' ? tool.message.invite.when : undefined}
+                    onClose={() => setTool(null)}
+                    onSend={(when) => runChatAction(() => tool.mode === 'change'
+                        ? ChatService.changeInviteDate(activeChat, tool.message, when)
+                        : ChatService.respondInvite(activeChat, tool.message, user.uid, 'other', when))}
+                />
+            )}
+            {user && tool?.kind === 'duel' && tool.message.invite && (
+                <DuelModal
+                    invite={tool.message.invite}
+                    attendees={inviteAttendees(tool.message.invite, tool.message.senderId)}
+                    uid={user.uid}
+                    nameOf={nameOf}
+                    onClose={() => setTool(null)}
+                />
+            )}
         </div >
     );
 };
