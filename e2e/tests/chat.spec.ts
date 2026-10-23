@@ -25,6 +25,13 @@ test('chat: emoji, reacción, respuesta, quedada con respuesta y notas de la mes
   await login(page, 'ana');
   await page.goto('/chats/comilona');
 
+  // En el móvil la barra de escribir se ve entera y abajo del todo.
+  const composer = page.getByPlaceholder('Escribe un mensaje...');
+  await expect(composer).toBeVisible();
+  const box = (await composer.boundingBox())!;
+  expect(box.height).toBeGreaterThanOrEqual(38);
+  expect(box.y + box.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+
   // Quedada pasada: notas de la mesa (ana 9, luis 8,5, eva 6) en su ficha.
   const quedada = page.locator('#msg-quedada');
   await expect(quedada.getByRole('button', { name: '⭐ Valorar', exact: true })).toBeVisible();
