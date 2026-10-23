@@ -19,12 +19,16 @@ import type { ShareEntityPayload } from '../types/share';
 import { getShareEntityLabel } from '../types/share';
 import {
     compact,
-    formatWhen,
+    eventNoteText,
+    inviteTitle,
     invitePreviewText,
+    pinnedFromInvite,
+    type ChatEventNote,
     type ChatInvite,
     type ChatPoll,
     type DishRef,
     type InviteStatus,
+    type PinnedEvent,
     type ReactionMap,
     type ReplyRef,
 } from '../lib/chatExtras';
@@ -41,9 +45,10 @@ export interface Message {
     replyTo?: ReplyRef;
     invite?: ChatInvite;
     poll?: ChatPoll;
+    event?: ChatEventNote;
 }
 
-export type MessageType = 'text' | 'image' | 'share' | 'review-share' | 'invite' | 'poll';
+export type MessageType = 'text' | 'image' | 'share' | 'review-share' | 'invite' | 'poll' | 'event';
 
 export interface ShareMessageMetadata {
     share: ShareEntityPayload;
@@ -60,6 +65,8 @@ export interface Chat {
     type: 'private' | 'group';
     groupName?: string;
     groupPhoto?: string;
+    /** Quedadas abiertas, fijadas arriba del chat (id del mensaje → resumen). */
+    events?: Record<string, PinnedEvent>;
 }
 
 interface FirestoreTimestampLike {
@@ -122,7 +129,7 @@ export const ChatService = {
         text: string,
         type: MessageType = 'text',
         metadata?: MessageMetadata,
-        extra?: Pick<Message, 'replyTo' | 'invite' | 'poll'>
+        extra?: Pick<Message, 'replyTo' | 'invite' | 'poll' | 'event'>
     ) => {
         const messagesRef = collection(db, 'chats', chatId, 'messages');
         const safeText = typeof text === 'string' ? text : '';
@@ -140,8 +147,9 @@ export const ChatService = {
         if (extra?.replyTo) payload.replyTo = compact(extra.replyTo);
         if (extra?.invite) payload.invite = compact(extra.invite);
         if (extra?.poll) payload.poll = extra.poll;
+        if (extra?.event) payload.event = compact(extra.event);
 
-        await addDoc(messagesRef, {
+        const messageRef = await addDoc(messagesRef, {
             ...payload
         });
 
@@ -173,6 +181,7 @@ export const ChatService = {
             lastMessageTimestamp: serverTimestamp(),
             updatedAt: serverTimestamp()
         });
+        return messageRef;
     },
 
     // Listen to user's chats
@@ -233,7 +242,7 @@ export const ChatService = {
         );
     },
 
-    addParticipant: async (chatId: string, newUserId: string) => {
+    addParticipant: async (chatId: string, newUserId: string, by?: { uid: string; name: string; targetName: string }) => {
         const chatRef = doc(db, 'chats', chatId);
         const chatSnap = await getDoc(chatRef);
 
@@ -253,6 +262,14 @@ export const ChatService = {
         }
 
         await updateDoc(chatRef, updates);
+        if (by) {
+            const event: ChatEventNote = { kind: 'added', targetId: newUserId };
+            await ChatService.sendMessage(chatId, by.uid, eventNoteText(event, by.name, by.targetName), 'event', undefined, { event });
+        }
+    },
+
+    renameGroup: async (chatId: string, groupName: string) => {
+        await updateDoc(doc(db, 'chats', chatId), { groupName: groupName.trim().slice(0, 60), updatedAt: serverTimestamp() });
     },
 
     /** Una reacción por persona; la misma otra vez la quita. */
@@ -262,44 +279,55 @@ export const ChatService = {
         });
     },
 
+    /** La quedada se envía y se fija arriba del chat hasta que pase. */
     sendInvite: async (chatId: string, senderId: string, invite: ChatInvite) => {
-        await ChatService.sendMessage(chatId, senderId, invitePreviewText(invite), 'invite', undefined, {
+        const ref = await ChatService.sendMessage(chatId, senderId, invitePreviewText(invite), 'invite', undefined, {
             invite: { ...invite, responses: {} }
         });
+        await updateDoc(doc(db, 'chats', chatId), { [`events.${ref.id}`]: pinnedFromInvite(invite) }).catch(() => undefined);
+        return ref.id;
     },
 
-    /** Voy / No puedo / Otro día (con fecha). Deja además un mensaje que responde a la invitación. */
+    /** Voy / En duda / Otro día (con fecha) / No. Deja un aviso en gris. */
     respondInvite: async (
         chatId: string,
         message: Message,
-        userId: string,
+        user: { uid: string; name: string },
         status: InviteStatus,
         proposedAt?: number
     ) => {
         if (!message.id || !message.invite) return;
         await updateDoc(doc(db, 'chats', chatId, 'messages', message.id), {
-            [`invite.responses.${userId}`]: compact({ status, proposedAt, at: Date.now() })
+            [`invite.responses.${user.uid}`]: compact({ status, proposedAt, at: Date.now() })
         });
-        const text = status === 'yes'
-            ? '✅ ¡Voy!'
-            : status === 'no'
-                ? '❌ Esta vez no puedo'
-                : `🗓️ ¿Y el ${formatWhen(proposedAt ?? message.invite.when)}?`;
-        await ChatService.sendMessage(chatId, userId, text, 'text', undefined, {
-            replyTo: { id: message.id, senderId: message.senderId, text: message.text }
-        });
+        const event: ChatEventNote = compact({ kind: status, inviteId: message.id, title: inviteTitle(message.invite), when: proposedAt });
+        await ChatService.sendMessage(chatId, user.uid, eventNoteText(event, user.name), 'event', undefined, { event });
     },
 
     /** Quien invita cambia la fecha (o acepta la propuesta de alguien): las respuestas vuelven a empezar. */
-    changeInviteDate: async (chatId: string, message: Message, when: number, acceptedFrom?: string) => {
+    changeInviteDate: async (chatId: string, message: Message, sender: { uid: string; name: string }, when: number, acceptedFrom?: string) => {
         if (!message.id || !message.invite) return;
         await updateDoc(doc(db, 'chats', chatId, 'messages', message.id), {
             'invite.when': when,
             'invite.responses': acceptedFrom ? { [acceptedFrom]: { status: 'yes', at: Date.now() } } : {}
         });
-        await ChatService.sendMessage(chatId, message.senderId, `📅 Nueva fecha: ${formatWhen(when)}`, 'text', undefined, {
-            replyTo: { id: message.id, senderId: message.senderId, text: message.text }
-        });
+        await updateDoc(doc(db, 'chats', chatId), { [`events.${message.id}`]: pinnedFromInvite({ ...message.invite, when }) }).catch(() => undefined);
+        const event: ChatEventNote = { kind: 'date', inviteId: message.id, title: inviteTitle(message.invite), when };
+        await ChatService.sendMessage(chatId, sender.uid, eventNoteText(event, sender.name), 'event', undefined, { event });
+    },
+
+    cancelInvite: async (chatId: string, message: Message, sender: { uid: string; name: string }) => {
+        if (!message.id || !message.invite) return;
+        await updateDoc(doc(db, 'chats', chatId, 'messages', message.id), { 'invite.cancelled': true });
+        await updateDoc(doc(db, 'chats', chatId), { [`events.${message.id}`]: deleteField() }).catch(() => undefined);
+        const event: ChatEventNote = { kind: 'cancel', inviteId: message.id, title: inviteTitle(message.invite) };
+        await ChatService.sendMessage(chatId, sender.uid, eventNoteText(event, sender.name), 'event', undefined, { event });
+    },
+
+    /** Quita del chat las quedadas fijadas que ya pasaron. */
+    prunePastEvents: async (chatId: string, ids: string[]) => {
+        if (!ids.length) return;
+        await updateDoc(doc(db, 'chats', chatId), Object.fromEntries(ids.map((id) => [`events.${id}`, deleteField()])));
     },
 
     sendPoll: async (chatId: string, senderId: string, options: DishRef[]) => {

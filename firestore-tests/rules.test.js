@@ -503,6 +503,20 @@ describe('V6b · Chat con vida: reacciones, invitaciones y encuestas', () => {
     await assertFails(updateDoc(doc(db, 'chats/c1/messages/inv'), { 'invite.responses.bob': { status: 'quizás', at: 1 } }));
   });
 
+  it('✅ bob está en duda; ✅ alice cancela; ❌ bob cancela la de alice', async () => {
+    await assertSucceeds(updateDoc(doc(as('bob'), 'chats/c1/messages/inv'), { 'invite.responses.bob': { status: 'maybe', at: 5 } }));
+    await assertFails(updateDoc(doc(as('bob'), 'chats/c1/messages/inv'), { 'invite.cancelled': true }));
+    await assertFails(updateDoc(doc(as('alice'), 'chats/c1/messages/inv'), { 'invite.cancelled': 'sí' }));
+    await assertSucceeds(updateDoc(doc(as('alice'), 'chats/c1/messages/inv'), { 'invite.cancelled': true }));
+  });
+
+  it('✅ bob fija una quedada en el chat y bob deja un aviso en gris', async () => {
+    await assertSucceeds(updateDoc(doc(as('bob'), 'chats/c1'), { 'events.inv': { title: 'Bravas', when: 1000 } }));
+    await assertSucceeds(setDoc(doc(as('bob'), 'chats/c1/messages/aviso'), {
+      text: '✅ Bob va', senderId: 'bob', type: 'event', readBy: ['bob'], event: { kind: 'yes', inviteId: 'inv' },
+    }));
+  });
+
   it('✅ alice (quien invita) acepta otra fecha y reinicia las respuestas', async () => {
     await assertSucceeds(updateDoc(doc(as('alice'), 'chats/c1/messages/inv'), {
       'invite.when': 2000, 'invite.responses': { bob: { status: 'yes', at: 3 } },

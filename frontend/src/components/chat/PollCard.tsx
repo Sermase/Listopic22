@@ -17,7 +17,7 @@ export const PollCard: React.FC<{
     const winner = poll.options.find((o) => o.id === winnerId);
 
     return (
-        <div className="w-[min(18rem,78vw)] rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-3 text-gray-100 shadow-lg">
+        <div className="w-[min(20rem,calc(100vw-5rem))] rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-3 text-gray-100 shadow-lg">
             <p className="text-[10px] font-bold tracking-widest text-[var(--lt-accent)]">🗳️ ENCUESTA</p>
             <p className="text-base font-extrabold mb-2">{poll.question}</p>
             <div className="space-y-1.5">

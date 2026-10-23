@@ -1,10 +1,12 @@
 /**
- * Chat «con vida»: reacciones, respuestas, invitaciones a comer, encuestas
- * «¿Dónde comemos?» y el duelo de notas de la mesa. Aquí solo hay lógica pura
- * (sin Firebase) para poder probarla.
+ * Chat «con vida»: reacciones, respuestas, quedadas (invitaciones a comer),
+ * encuestas «¿Dónde comemos?» y el duelo de notas de la mesa. Aquí solo hay
+ * lógica pura (sin Firebase) para poder probarla.
  */
 
 export const QUICK_REACTIONS = ['😋', '🔥', '😂', '❤️', '👍', '🤢'] as const;
+/** Doble toque en un mensaje. */
+export const DOUBLE_TAP_REACTION = '😋';
 
 export const EMOJI_GROUPS: ReadonlyArray<{ label: string; emojis: string[] }> = [
     { label: 'Comida', emojis: ['🍕', '🍔', '🍟', '🌮', '🌯', '🥙', '🍣', '🍜', '🍝', '🥘', '🍳', '🥗', '🍤', '🥩', '🍗', '🧀', '🥐', '🍰', '🍩', '🍦', '🍫', '🍺', '🍷', '☕'] },
@@ -20,7 +22,8 @@ export interface ReplyRef {
     text: string;
 }
 
-export type InviteStatus = 'yes' | 'no' | 'other';
+/** yes = voy · maybe = en duda · other = en duda y propone otra fecha · no = no voy. */
+export type InviteStatus = 'yes' | 'maybe' | 'other' | 'no';
 
 export interface InviteResponse {
     status: InviteStatus;
@@ -29,10 +32,10 @@ export interface InviteResponse {
     at: number;
 }
 
-/** Plato de un sitio (sale del índice de elementos agrupados). */
-export interface DishRef {
-    itemName: string;
+/** Un sitio y, si hay, un plato concreto. */
+export interface PlaceRef {
     placeName: string;
+    itemName?: string;
     placeId?: string;
     placeCity?: string;
     listId?: string;
@@ -44,11 +47,17 @@ export interface DishRef {
     lng?: number;
 }
 
-export interface ChatInvite extends DishRef {
+/** Plato de un sitio (sale del índice de elementos agrupados). */
+export interface DishRef extends PlaceRef {
+    itemName: string;
+}
+
+export interface ChatInvite extends PlaceRef {
     /** Fecha y hora (ms). */
     when: number;
     note?: string;
     responses?: Record<string, InviteResponse>;
+    cancelled?: boolean;
 }
 
 export interface PollOption extends DishRef {
@@ -59,6 +68,28 @@ export interface ChatPoll {
     question: string;
     options: PollOption[];
     votes?: Record<string, string>;
+}
+
+/** Aviso en gris dentro del chat: lo que le pasa a una quedada o al grupo. */
+export type ChatEventKind = 'yes' | 'maybe' | 'other' | 'no' | 'date' | 'cancel' | 'added';
+
+export interface ChatEventNote {
+    kind: ChatEventKind;
+    /** Id del mensaje de la quedada. */
+    inviteId?: string;
+    title?: string;
+    when?: number;
+    /** Para «added»: a quién se añadió. */
+    targetId?: string;
+}
+
+/** Resumen de una quedada guardado en el chat para fijarla arriba. */
+export interface PinnedEvent {
+    title: string;
+    when: number;
+    placeName?: string;
+    imageUrl?: string;
+    cancelled?: boolean;
 }
 
 /** Hit del índice `grouped_items` → plato. */
@@ -127,43 +158,81 @@ export function summarizeReactions(reactions: ReactionMap | undefined | null, ui
 // ── Fechas ──────────────────────────────────────────────────────────────
 
 const pad = (n: number) => String(n).padStart(2, '0');
+const DAY_MS = 86_400_000;
+
+export const formatTime = (ms: number) => {
+    const d = new Date(ms);
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
 
 /** «sáb 25 oct · 14:00» */
 export function formatWhen(ms: number): string {
+    const day = new Date(ms).toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '').replace(',', '');
+    return `${day} · ${formatTime(ms)}`;
+}
+
+/** «Sábado 25 de octubre» */
+export function formatLongDay(ms: number): string {
+    const text = new Date(ms).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '');
+    return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+export const startOfDay = (ms: number) => {
     const d = new Date(ms);
-    const day = d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '').replace(',', '');
-    return `${day} · ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-/** Valor para <input type="datetime-local"> en hora local. */
-export function toDatetimeLocal(ms: number): string {
-    const d = new Date(ms);
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-export function fromDatetimeLocal(value: string): number | null {
-    if (!value) return null;
-    const ms = new Date(value).getTime();
-    return Number.isFinite(ms) ? ms : null;
-}
-
-const at = (base: Date, addDays: number, hour: number, minute = 0) => {
-    const d = new Date(base);
-    d.setDate(d.getDate() + addDays);
-    d.setHours(hour, minute, 0, 0);
+    d.setHours(0, 0, 0, 0);
     return d.getTime();
 };
 
-/** Atajos de fecha: hoy a cenar, mañana a comer o cenar y el sábado a comer. */
-export function quickWhenOptions(now: number = Date.now()): Array<{ label: string; ms: number }> {
-    const base = new Date(now);
-    const options: Array<{ label: string; ms: number }> = [];
-    if (base.getHours() < 20) options.push({ label: 'Hoy 21:00', ms: at(base, 0, 21) });
-    options.push({ label: 'Mañana 14:00', ms: at(base, 1, 14) });
-    options.push({ label: 'Mañana 21:00', ms: at(base, 1, 21) });
-    const toSaturday = (6 - base.getDay() + 7) % 7 || 7;
-    if (toSaturday > 1) options.push({ label: 'Sábado 14:00', ms: at(base, toSaturday, 14) });
-    return options;
+const dayDiff = (ms: number, now: number) => Math.round((startOfDay(ms) - startOfDay(now)) / DAY_MS);
+
+/** Separadores del chat: «Hoy», «Ayer», «Lunes», «20 oct» o «20 oct 2025». */
+export function chatDayLabel(ms: number, now: number = Date.now()): string {
+    const diff = dayDiff(ms, now);
+    if (diff === 0) return 'Hoy';
+    if (diff === -1) return 'Ayer';
+    const d = new Date(ms);
+    if (diff > -7 && diff < 0) {
+        const name = d.toLocaleDateString('es-ES', { weekday: 'long' });
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    }
+    const sameYear = d.getFullYear() === new Date(now).getFullYear();
+    return d.toLocaleDateString('es-ES', sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' }).replace(/\./g, '');
+}
+
+/** «Hoy», «Mañana», «En 3 días», «Ya pasó». */
+export function countdownLabel(when: number, now: number = Date.now()): string {
+    if (inviteIsPast({ when }, now)) return 'Ya pasó';
+    if (when <= now) return '¡Ahora!';
+    const diff = dayDiff(when, now);
+    if (diff === 0) {
+        const hours = Math.round((when - now) / 3_600_000);
+        return hours <= 1 ? 'En un rato' : `Hoy, en ${hours} h`;
+    }
+    if (diff === 1) return 'Mañana';
+    return `En ${diff} días`;
+}
+
+/** Semanas del mes (lunes primero) para el calendario; null = hueco. */
+export function monthMatrix(year: number, month: number): Array<Array<number | null>> {
+    const first = new Date(year, month, 1);
+    const offset = (first.getDay() + 6) % 7;
+    const days = new Date(year, month + 1, 0).getDate();
+    const cells: Array<number | null> = [...Array(offset).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)];
+    while (cells.length % 7) cells.push(null);
+    const weeks: Array<Array<number | null>> = [];
+    for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+    return weeks;
+}
+
+/** Horas de comida y cena para elegir de un toque. */
+export const MEAL_TIMES = ['13:00', '13:30', '14:00', '14:30', '15:00', '20:30', '21:00', '21:30', '22:00'];
+
+/** Junta un día (ms de cualquier hora) con «HH:MM». */
+export function atTime(dayMs: number, time: string): number {
+    const [h, m] = time.split(':').map(Number);
+    const d = new Date(dayMs);
+    d.setHours(h || 0, m || 0, 0, 0);
+    return d.getTime();
 }
 
 /** La quedada ya pasó (2 h de margen para comer tranquilos). */
@@ -173,31 +242,32 @@ export const inviteIsPast = (invite: Pick<ChatInvite, 'when'>, now: number = Dat
 
 // ── Enlaces ─────────────────────────────────────────────────────────────
 
-export const dishRoute = (dish: DishRef) =>
-    dish.placeId ? `/group/${dish.placeId}/${encodeURIComponent(dish.itemName)}` : null;
+export const dishRoute = (ref: PlaceRef) =>
+    ref.placeId && ref.itemName ? `/group/${ref.placeId}/${encodeURIComponent(ref.itemName)}` : null;
 
-export const placeRoute = (dish: DishRef) => (dish.placeId ? `/place/${dish.placeId}` : null);
+export const placeRoute = (ref: PlaceRef) => (ref.placeId ? `/place/${ref.placeId}` : null);
 
-export function mapsUrl(dish: DishRef): string {
-    if (dish.googleMapsUrl) return dish.googleMapsUrl;
-    const q = encodeURIComponent([dish.placeName, dish.placeCity].filter(Boolean).join(' '));
-    const placeParam = dish.placeId && dish.placeId.startsWith('ChIJ') ? `&query_place_id=${dish.placeId}` : '';
+export function mapsUrl(ref: PlaceRef): string {
+    if (ref.googleMapsUrl) return ref.googleMapsUrl;
+    const q = encodeURIComponent([ref.placeName, ref.placeCity].filter(Boolean).join(' '));
+    const placeParam = ref.placeId && ref.placeId.startsWith('ChIJ') ? `&query_place_id=${ref.placeId}` : '';
     return `https://www.google.com/maps/search/?api=1&query=${q}${placeParam}`;
 }
 
-export function reviewRoute(dish: DishRef): string {
+export function reviewRoute(ref: PlaceRef): string {
     const params = new URLSearchParams();
-    if (dish.listId) params.set('listId', dish.listId);
-    if (dish.placeId) params.set('placeId', dish.placeId);
-    params.set('itemName', dish.itemName);
+    if (ref.listId) params.set('listId', ref.listId);
+    if (ref.placeId) params.set('placeId', ref.placeId);
+    if (ref.itemName) params.set('itemName', ref.itemName);
     return `/create-review?${params.toString()}`;
 }
 
 const icsDate = (ms: number) => new Date(ms).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 const icsText = (s: string) => s.replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/([,;])/g, '\\$1');
 
-export function inviteTitle(invite: DishRef): string {
-    return `${invite.itemName} en ${invite.placeName}`;
+/** «Bravas en Docamar» o, sin plato, «Docamar». */
+export function inviteTitle(ref: PlaceRef): string {
+    return ref.itemName ? `${ref.itemName} en ${ref.placeName}` : ref.placeName;
 }
 
 export function googleCalendarUrl(invite: ChatInvite): string {
@@ -229,7 +299,7 @@ export function buildIcs(invite: ChatInvite, uid: string): string {
     ].filter(Boolean).join('\r\n');
 }
 
-// ── Invitación ──────────────────────────────────────────────────────────
+// ── Quedada ─────────────────────────────────────────────────────────────
 
 /** Quién va: quien invita y quien dijo «Voy». */
 export function inviteAttendees(invite: ChatInvite, senderId: string): string[] {
@@ -239,6 +309,33 @@ export function inviteAttendees(invite: ChatInvite, senderId: string): string[] 
     return [senderId, ...yes];
 }
 
+export interface InviteGroups {
+    going: string[];
+    maybe: Array<{ uid: string; proposedAt?: number }>;
+    no: string[];
+    pending: string[];
+}
+
+/** Van / dudas / no van / sin responder (quien invita, siempre va). */
+export function groupResponses(invite: ChatInvite, senderId: string, participants: string[] = []): InviteGroups {
+    const responses = invite.responses || {};
+    const groups: InviteGroups = { going: [senderId], maybe: [], no: [], pending: [] };
+    Object.entries(responses)
+        .filter(([uid]) => uid !== senderId)
+        .sort(([, a], [, b]) => (a?.at || 0) - (b?.at || 0))
+        .forEach(([uid, r]) => {
+            if (r?.status === 'yes') groups.going.push(uid);
+            else if (r?.status === 'no') groups.no.push(uid);
+            else if (r?.status === 'maybe' || r?.status === 'other') {
+                groups.maybe.push(r.status === 'other' && typeof r.proposedAt === 'number' && r.proposedAt !== invite.when
+                    ? { uid, proposedAt: r.proposedAt }
+                    : { uid });
+            }
+        });
+    groups.pending = participants.filter((uid) => uid !== senderId && !(uid in responses));
+    return groups;
+}
+
 /** Propuestas de otra fecha pendientes (la más reciente primero). */
 export function pendingProposals(invite: ChatInvite): Array<{ uid: string; proposedAt: number }> {
     return Object.entries(invite.responses || {})
@@ -246,6 +343,56 @@ export function pendingProposals(invite: ChatInvite): Array<{ uid: string; propo
         .map(([uid, r]) => ({ uid, proposedAt: r.proposedAt as number, at: r.at }))
         .sort((a, b) => b.at - a.at)
         .map(({ uid, proposedAt }) => ({ uid, proposedAt }));
+}
+
+export function invitePreviewText(ref: PlaceRef): string {
+    return ref.itemName ? `🍽️ Te invito a comer ${inviteTitle(ref)}` : `🍽️ Te invito a comer en ${ref.placeName}`;
+}
+
+export function pinnedFromInvite(invite: ChatInvite): PinnedEvent {
+    return compact({
+        title: inviteTitle(invite),
+        when: invite.when,
+        placeName: invite.placeName,
+        imageUrl: invite.imageUrl,
+        cancelled: invite.cancelled || undefined,
+    });
+}
+
+/**
+ * Quedadas que aún no han pasado, por fecha. Junta lo guardado en el chat
+ * (`events`) con las invitaciones cargadas (las antiguas no estaban guardadas).
+ */
+export function upcomingEvents(
+    stored: Record<string, PinnedEvent> | undefined | null,
+    loaded: Array<{ id: string; invite: ChatInvite }>,
+    now: number = Date.now(),
+): Array<{ id: string } & PinnedEvent> {
+    const byId = new Map<string, PinnedEvent>();
+    Object.entries(stored || {}).forEach(([id, e]) => {
+        if (e && typeof e.when === 'number') byId.set(id, e);
+    });
+    loaded.forEach(({ id, invite }) => byId.set(id, pinnedFromInvite(invite)));
+    return Array.from(byId.entries())
+        .map(([id, e]) => ({ id, ...e }))
+        .filter((e) => !e.cancelled && !inviteIsPast(e, now))
+        .sort((a, b) => a.when - b.when);
+}
+
+/** Texto del aviso en gris. `who` ya viene resuelto («Ana» o «Tú»). */
+export function eventNoteText(note: ChatEventNote, who: string, target?: string): string {
+    const me = who === 'Tú';
+    const title = note.title ? ` a ${note.title}` : '';
+    switch (note.kind) {
+        case 'yes': return `✅ ${who} ${me ? 'vas' : 'va'}${title}`;
+        case 'maybe': return `🤔 ${who} ${me ? 'estás' : 'está'} en duda`;
+        case 'other': return `🗓️ ${who} ${me ? 'propones' : 'propone'} ${note.when ? formatWhen(note.when) : 'otro día'}`;
+        case 'no': return `❌ ${who} no ${me ? 'puedes' : 'puede'} ir`;
+        case 'date': return `📅 ${who} ${me ? 'has cambiado' : 'ha cambiado'} la fecha${note.when ? `: ${formatWhen(note.when)}` : ''}`;
+        case 'cancel': return `🚫 ${who} ${me ? 'has cancelado' : 'ha cancelado'} la quedada${note.title ? ` (${note.title})` : ''}`;
+        case 'added': return `👋 ${who} ${me ? 'has añadido' : 'ha añadido'} a ${target || 'alguien'}`;
+        default: return who;
+    }
 }
 
 // ── Encuesta ────────────────────────────────────────────────────────────
@@ -269,7 +416,53 @@ export function pollTally(poll: ChatPoll): { counts: Record<string, number>; tot
     return { counts, total, winnerId };
 }
 
-// ── Duelo de notas ──────────────────────────────────────────────────────
+// ── Platos del sitio y duelo de notas ───────────────────────────────────
+
+const fold = (value: unknown) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+export const sameItemName = (a: unknown, b: unknown) => fold(a) === fold(b) && fold(a) !== '';
+
+export interface PlaceReviewLike {
+    userId?: string;
+    itemName?: string;
+    overallRating?: number;
+    photoUrl?: string;
+    listId?: string;
+    scores?: Record<string, unknown>;
+    createdAt?: unknown;
+}
+
+export interface PlaceDishSummary {
+    itemName: string;
+    avg: number;
+    count: number;
+    photoUrl?: string;
+    listId?: string;
+}
+
+/** Platos de un sitio con su media (de sus reseñas públicas), mejor nota primero. */
+export function summarizePlaceDishes(reviews: PlaceReviewLike[]): PlaceDishSummary[] {
+    type Acc = { name: string; sum: number; count: number; photoUrl?: string; lists: Map<string, number> };
+    const byKey = new Map<string, Acc>();
+    reviews.forEach((r) => {
+        const key = fold(r.itemName);
+        if (!key || typeof r.overallRating !== 'number' || !Number.isFinite(r.overallRating)) return;
+        const entry: Acc = byKey.get(key) || { name: String(r.itemName).trim(), sum: 0, count: 0, lists: new Map() };
+        entry.sum += r.overallRating;
+        entry.count += 1;
+        if (!entry.photoUrl && r.photoUrl) entry.photoUrl = r.photoUrl;
+        if (r.listId) entry.lists.set(r.listId, (entry.lists.get(r.listId) || 0) + 1);
+        byKey.set(key, entry);
+    });
+    return Array.from(byKey.values())
+        .map((e) => ({
+            itemName: e.name,
+            avg: Math.round((e.sum / e.count) * 10) / 10,
+            count: e.count,
+            photoUrl: e.photoUrl,
+            listId: Array.from(e.lists.entries()).sort((a, b) => b[1] - a[1])[0]?.[0],
+        }))
+        .sort((a, b) => b.avg - a.avg || b.count - a.count);
+}
 
 export interface DuelCriterion {
     label?: string;
@@ -300,23 +493,53 @@ const bestOf = (values: Array<number | null>) => {
     return values.flatMap((v, i) => (v === max ? [i] : []));
 };
 
+const numOrNull = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
 /** Filas criterio × comensal; la última es la nota final. */
 export function buildDuelRows(
     criteria: Array<[string, DuelCriterion]>,
     reviews: DuelReview[],
 ): DuelRow[] {
-    const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
     const rows: DuelRow[] = criteria.map(([id, def]) => {
-        const values = reviews.map((r) => num(r.scores?.[id]));
+        const values = reviews.map((r) => numOrNull(r.scores?.[id]));
         const informative = def.isPonderable === false || def.weight === 0;
         return { id, label: def.label || id, informative, values, best: informative ? [] : bestOf(values) };
     }).filter((row) => row.values.some((v) => v !== null));
-    const overall = reviews.map((r) => num(r.overallRating));
+    const overall = reviews.map((r) => numOrNull(r.overallRating));
     rows.push({ id: '__overall', label: 'Nota final', informative: false, values: overall, best: bestOf(overall) });
     return rows;
 }
 
-/** Texto de la burbuja (vista previa y notificación). */
-export function invitePreviewText(invite: DishRef): string {
-    return `🍽️ Te invito a comer ${inviteTitle(invite)}`;
+const createdMs = (value: unknown): number => {
+    const v = value as { toMillis?: () => number; seconds?: number } | null;
+    if (v && typeof v.toMillis === 'function') return v.toMillis();
+    if (v && typeof v.seconds === 'number') return v.seconds * 1000;
+    return 0;
+};
+
+/** La última reseña de cada comensal (de un plato o de todo el sitio). */
+export function latestByUser<T extends PlaceReviewLike>(reviews: T[], users: string[], itemName?: string): Map<string, T> {
+    const latest = new Map<string, T>();
+    reviews.forEach((r) => {
+        if (!r.userId || !users.includes(r.userId)) return;
+        if (itemName && !sameItemName(r.itemName, itemName)) return;
+        const key = itemName ? r.userId : `${r.userId}__${fold(r.itemName)}`;
+        const prev = latest.get(key);
+        if (prev && createdMs(prev.createdAt) >= createdMs(r.createdAt)) return;
+        latest.set(key, r);
+    });
+    return latest;
+}
+
+/** Duelo de un sitio sin plato fijo: filas = platos, columnas = comensales. */
+export function buildPlaceDuelRows(reviews: PlaceReviewLike[], users: string[]): DuelRow[] {
+    const latest = latestByUser(reviews, users);
+    const dishes = new Map<string, string>();
+    latest.forEach((r) => {
+        if (!dishes.has(fold(r.itemName))) dishes.set(fold(r.itemName), String(r.itemName).trim());
+    });
+    return Array.from(dishes.entries()).map(([key, label]) => {
+        const values = users.map((u) => numOrNull(latest.get(`${u}__${key}`)?.overallRating));
+        return { id: key, label, informative: false, values, best: bestOf(values) };
+    }).filter((row) => row.values.some((v) => v !== null));
 }

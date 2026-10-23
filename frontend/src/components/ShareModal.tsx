@@ -19,6 +19,9 @@ import { buildShareText } from '../utils/shareTexts';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useAuthPrompt } from '../context/AuthPromptContext';
 import { recordShareEvent, type AnalyticsShareChannel } from '../services/AnalyticsService';
+import { useNavigate } from 'react-router-dom';
+import { InviteSheet } from './chat/InviteSheet';
+import type { PlaceRef } from '../lib/chatExtras';
 
 interface ShareModalProps {
     isOpen: boolean;
@@ -29,6 +32,10 @@ interface ShareModalProps {
     place?: PlaceDetails;
     review?: ReviewEntity;
     shareEntity?: ShareEntityPayload;
+    /** Sitio o plato al que se puede invitar a comer desde aquí. */
+    inviteTarget?: PlaceRef;
+    /** Platos del sitio para concretar la invitación. */
+    inviteDishOptions?: Array<{ itemName: string; listId?: string }>;
 }
 
 interface UserSearchHit {
@@ -49,8 +56,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     place,
     review,
     shareEntity,
+    inviteTarget,
+    inviteDishOptions,
 }) => {
     const { user } = useAuth();
+    const navigate = useNavigate();
+    const [isInviteOpen, setIsInviteOpen] = React.useState(false);
     const { openAuthPrompt } = useAuthPrompt();
     useBodyScrollLock(isOpen);
     const shareCardTriggerRef = React.useRef<(variant?: ModernCardVariant) => void>(() => { });
@@ -566,6 +577,19 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 mt-5">
+                    {inviteTarget && (
+                        <button
+                            type="button"
+                            onClick={() => (user ? setIsInviteOpen(true) : openAuthPrompt('invitar a comer'))}
+                            className="col-span-2 flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-[var(--lt-accent)] to-[var(--lt-accent)]/70 text-white shadow-lg shadow-[var(--lt-accent-shadow)] active:scale-[0.99] transition-transform text-left"
+                        >
+                            <span className="text-3xl">🍽️</span>
+                            <span className="flex flex-col">
+                                <span className="font-bold text-sm">Invitar a comer aquí</span>
+                                <span className="text-xs opacity-85">Elige a quién y el día; le llega al chat</span>
+                            </span>
+                        </button>
+                    )}
                     <button
                         onClick={() => void handleShare('whatsapp')}
                         className="flex flex-col items-center justify-center p-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/20 transition-all"
@@ -835,6 +859,24 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             </div>
         </div>
     );
+
+    if (isInviteOpen && inviteTarget && user) {
+        return (
+            <InviteSheet
+                initial={inviteTarget}
+                pickRecipientFor={user.uid}
+                dishOptions={inviteTarget.itemName ? [] : inviteDishOptions}
+                onClose={() => setIsInviteOpen(false)}
+                onSend={async (invite, target) => {
+                    if (!target) return;
+                    const chatId = 'chatId' in target ? target.chatId : await ChatService.createPrivateChat(user.uid, target.userId);
+                    await ChatService.sendInvite(chatId, user.uid, invite);
+                    onClose();
+                    navigate(`/chats/${chatId}`);
+                }}
+            />
+        );
+    }
 
     if (typeof document === 'undefined') {
         return modalContent;

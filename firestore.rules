@@ -1035,7 +1035,7 @@ service cloud.firestore {
                        && request.resource.data.senderId == request.auth.uid;
         // Un mensaje no se reescribe. Solo cambia lo «vivo»: la reacción propia,
         // la respuesta propia a una invitación, el voto propio en una encuesta y,
-        // si invitas tú, la fecha de tu invitación.
+        // si invitas tú, la fecha de tu invitación o cancelarla.
         allow update: if request.auth != null
                        && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions', 'invite', 'poll'])
@@ -1059,13 +1059,14 @@ service cloud.firestore {
           return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['invite'])
             || (resource.data.invite is map && request.resource.data.invite is map && (
                   (resource.data.senderId == request.auth.uid
-                    && request.resource.data.invite.diff(resource.data.invite).affectedKeys().hasOnly(['when', 'responses'])
+                    && request.resource.data.invite.diff(resource.data.invite).affectedKeys().hasOnly(['when', 'responses', 'cancelled'])
                     && request.resource.data.invite.when is number
-                    && request.resource.data.invite.responses is map)
+                    && request.resource.data.invite.responses is map
+                    && request.resource.data.invite.get('cancelled', false) is bool)
                   || (request.resource.data.invite.diff(resource.data.invite).affectedKeys().hasOnly(['responses'])
                     && onlyOwnKeyChanged(request.resource.data.invite.get('responses', {}), resource.data.invite.get('responses', {}))
                     && (!(request.auth.uid in request.resource.data.invite.get('responses', {}))
-                        || request.resource.data.invite.responses[request.auth.uid].status in ['yes', 'no', 'other']))
+                        || request.resource.data.invite.responses[request.auth.uid].status in ['yes', 'maybe', 'other', 'no']))
                 ));
         }
 

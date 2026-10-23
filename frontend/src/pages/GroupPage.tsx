@@ -1142,6 +1142,15 @@ export const GroupPage: React.FC = () => {
                 title={`Compartir ${decodedName}`}
                 text={`Mira lo que dicen sobre ${decodedName} en ${placeName}!`}
                 url={groupShareUrl}
+                inviteTarget={{
+                    itemName: decodedName,
+                    placeName: placeName || decodedName,
+                    placeId,
+                    placeCity: placeCity || undefined,
+                    listId: lockedListId || undefined,
+                    imageUrl: stats?.mainPhoto || undefined,
+                    score: stats?.avg || undefined,
+                }}
                 shareEntity={{
                     type: 'group',
                     id: `${placeId}_${decodedName}`,
