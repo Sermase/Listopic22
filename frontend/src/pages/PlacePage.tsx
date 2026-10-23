@@ -66,6 +66,7 @@ import { usePreferences } from '../context/PreferencesContext';
 import { matchingAllergens, userAllergens } from '../lib/allergens';
 import { APT_PLACE_KEYS, aptSummary } from '../lib/aptFor';
 import { AllergenGuideModal } from '../components/place/AllergenGuideModal';
+import { summarizePlaceDishes } from '../lib/chatExtras';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
@@ -2433,6 +2434,17 @@ export const PlacePage: React.FC = () => {
                 onClose={() => setIsShareModalOpen(false)}
                 title={`Compartir ${place.name}`}
                 place={place}
+                inviteTarget={{
+                    placeName: place.name,
+                    placeId: place.placeId,
+                    placeCity: place.city,
+                    imageUrl: place.photoUrl,
+                    googleMapsUrl: place.googleMapsUri,
+                    lat: place.coords?.lat,
+                    lng: place.coords?.lng,
+                    score: place.avgScore > 0 ? place.avgScore : undefined,
+                }}
+                inviteDishOptions={summarizePlaceDishes(place.reviews).map(({ itemName, listId }) => ({ itemName, listId }))}
             />
 
             <ReportModal
