@@ -70,8 +70,24 @@ export interface ChatPoll {
     votes?: Record<string, string>;
 }
 
+/** «¿Cuándo quedamos?»: cada uno marca las fechas que le valen (tipo Doodle). */
+export type DateVote = 'yes' | 'maybe';
+
+export interface DatePollOption {
+    id: string;
+    when: number;
+}
+
+export interface ChatDatePoll {
+    place?: PlaceRef;
+    options: DatePollOption[];
+    votes?: Record<string, Record<string, DateVote>>;
+    /** Quedada creada con la fecha elegida (id del mensaje). */
+    inviteId?: string;
+}
+
 /** Aviso en gris dentro del chat: lo que le pasa a una quedada o al grupo. */
-export type ChatEventKind = 'yes' | 'maybe' | 'other' | 'no' | 'date' | 'cancel' | 'added';
+export type ChatEventKind = 'yes' | 'maybe' | 'other' | 'no' | 'date' | 'cancel' | 'added' | 'joined';
 
 export interface ChatEventNote {
     kind: ChatEventKind;
@@ -391,8 +407,53 @@ export function eventNoteText(note: ChatEventNote, who: string, target?: string)
         case 'date': return `📅 ${who} ${me ? 'has cambiado' : 'ha cambiado'} la fecha${note.when ? `: ${formatWhen(note.when)}` : ''}`;
         case 'cancel': return `🚫 ${who} ${me ? 'has cancelado' : 'ha cancelado'} la quedada${note.title ? ` (${note.title})` : ''}`;
         case 'added': return `👋 ${who} ${me ? 'has añadido' : 'ha añadido'} a ${target || 'alguien'}`;
+        case 'joined': return `👋 ${who} ${me ? 'te has unido' : 'se ha unido'} con el enlace`;
         default: return who;
     }
+}
+
+// ── Enlace de invitación al grupo ───────────────────────────────────────
+
+const JOIN_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+
+/** Código del enlace /g/{código}: 10 caracteres sin letras que se confundan. */
+export function makeJoinCode(random: (n: number) => Uint8Array = (n) => crypto.getRandomValues(new Uint8Array(n))): string {
+    return Array.from(random(10), (b) => JOIN_ALPHABET[b % JOIN_ALPHABET.length]).join('');
+}
+
+// ── ¿Cuándo quedamos? ───────────────────────────────────────────────────
+
+export interface DatePollRow extends DatePollOption {
+    yes: string[];
+    maybe: string[];
+}
+
+/** Filas ordenadas por fecha y la mejor: más ✅ (un 🤔 vale medio); empate, la más temprana. */
+export function datePollTally(poll: ChatDatePoll): { rows: DatePollRow[]; bestId: string | null; voters: string[] } {
+    const votes = poll.votes || {};
+    const rows = [...poll.options]
+        .sort((a, b) => a.when - b.when)
+        .map((option) => ({
+            ...option,
+            yes: Object.keys(votes).filter((uid) => votes[uid]?.[option.id] === 'yes'),
+            maybe: Object.keys(votes).filter((uid) => votes[uid]?.[option.id] === 'maybe'),
+        }));
+    let bestId: string | null = null;
+    let bestScore = 0;
+    rows.forEach((row) => {
+        const score = row.yes.length * 2 + row.maybe.length;
+        if (row.yes.length > 0 && score > bestScore) {
+            bestScore = score;
+            bestId = row.id;
+        }
+    });
+    const voters = Object.keys(votes).filter((uid) => Object.keys(votes[uid] || {}).length > 0);
+    return { rows, bestId, voters };
+}
+
+/** Opciones de la encuesta a partir de las fechas elegidas (sin repetir y en orden). */
+export function datePollOptions(whens: number[]): DatePollOption[] {
+    return [...new Set(whens)].sort((a, b) => a - b).slice(0, 6).map((when, i) => ({ id: `d${i + 1}`, when }));
 }
 
 // ── Encuesta ────────────────────────────────────────────────────────────

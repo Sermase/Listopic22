@@ -23,12 +23,14 @@ export const InviteSheet: React.FC<{
     pickRecipientFor?: string;
     /** Platos del sitio para concretar (invitación desde la página del sitio). */
     dishOptions?: Array<{ itemName: string; listId?: string }>;
+    /** Fecha ya elegida (p. ej. la ganadora del «¿Cuándo quedamos?»). */
+    initialWhen?: number;
     onClose: () => void;
     onSend: (invite: ChatInvite, target: ChatTarget | null) => Promise<void>;
-}> = ({ initial = null, pickRecipientFor, dishOptions = [], onClose, onSend }) => {
+}> = ({ initial = null, pickRecipientFor, dishOptions = [], initialWhen, onClose, onSend }) => {
     const [place, setPlace] = useState<PlaceRef | null>(initial);
     const [target, setTarget] = useState<ChatTarget | null>(null);
-    const [when, setWhen] = useState<number | null>(null);
+    const [when, setWhen] = useState<number | null>(initialWhen ?? null);
     const [note, setNote] = useState('');
     const [sending, setSending] = useState(false);
     const fixedPlace = Boolean(initial);
