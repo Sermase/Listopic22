@@ -110,6 +110,15 @@ async function seed() {
     await put('places/p2', { name: 'Playa', reviewsCount: 0, averageRating: null, followersCount: 0 });
 
     await put('chats/c1', { participants: ['alice', 'bob'], type: 'private', unreadCount: { alice: 0, bob: 0 } });
+    await put('chats/c1/messages/hola', { text: 'Hola', senderId: 'alice', type: 'text', readBy: ['alice'] });
+    await put('chats/c1/messages/inv', {
+      text: '🍽️ Te invito', senderId: 'alice', type: 'invite', readBy: ['alice'],
+      invite: { itemName: 'Bravas', placeName: 'Docamar', when: 1000, responses: {} },
+    });
+    await put('chats/c1/messages/encuesta', {
+      text: '🗳️', senderId: 'alice', type: 'poll', readBy: ['alice'],
+      poll: { question: '¿Dónde comemos?', options: [{ id: 'o1', itemName: 'a', placeName: 'A' }, { id: 'o2', itemName: 'b', placeName: 'B' }], votes: {} },
+    });
 
     await put('users/alice/archives/a1', { name: 'Quiero ir', itemCount: 1 });
     await put('users/alice/archives/a1/items/place_p1', { itemId: 'p1', type: 'place', name: 'Bar Manolo', route: '/place/p1' });
@@ -461,6 +470,51 @@ describe('V6 · Chats: no se puede expulsar ni reescribir participantes', () => 
       participants: arrayUnion('carol'), 'unreadCount.carol': 0, type: 'group', groupName: 'Nuevo Grupo',
       updatedAt: serverTimestamp(),
     }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('V6b · Chat con vida: reacciones, invitaciones y encuestas', () => {
+  it('✅ bob reacciona, cambia y quita su reacción', async () => {
+    const db = as('bob');
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/hola'), { 'reactions.bob': '😋' }));
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/hola'), { 'reactions.bob': '🔥' }));
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/hola'), { 'reactions.bob': deleteField() }));
+  });
+
+  it('❌ bob reacciona por alice, reescribe el texto o alguien ajeno reacciona', async () => {
+    await assertFails(updateDoc(doc(as('bob'), 'chats/c1/messages/hola'), { 'reactions.alice': '🤢' }));
+    await assertFails(updateDoc(doc(as('bob'), 'chats/c1/messages/hola'), { text: 'Adiós' }));
+    await assertFails(updateDoc(doc(as('bob'), 'chats/c1/messages/hola'), { 'reactions.bob': 'x'.repeat(40) }));
+    await assertFails(updateDoc(doc(as('mallory'), 'chats/c1/messages/hola'), { 'reactions.mallory': '😂' }));
+  });
+
+  it('✅ bob responde a la invitación (voy / otra fecha)', async () => {
+    const db = as('bob');
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/inv'), { 'invite.responses.bob': { status: 'yes', at: 1 } }));
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/inv'), { 'invite.responses.bob': { status: 'other', proposedAt: 2000, at: 2 } }));
+  });
+
+  it('❌ bob responde por alice, cambia la fecha o el plato', async () => {
+    const db = as('bob');
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/inv'), { 'invite.responses.alice': { status: 'no', at: 1 } }));
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/inv'), { 'invite.when': 5000 }));
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/inv'), { 'invite.itemName': 'Nada' }));
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/inv'), { 'invite.responses.bob': { status: 'quizás', at: 1 } }));
+  });
+
+  it('✅ alice (quien invita) acepta otra fecha y reinicia las respuestas', async () => {
+    await assertSucceeds(updateDoc(doc(as('alice'), 'chats/c1/messages/inv'), {
+      'invite.when': 2000, 'invite.responses': { bob: { status: 'yes', at: 3 } },
+    }));
+  });
+
+  it('✅ bob vota y quita su voto; ❌ vota por alice o cambia las opciones', async () => {
+    const db = as('bob');
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/encuesta'), { 'poll.votes.bob': 'o2' }));
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/encuesta'), { 'poll.votes.bob': deleteField() }));
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/encuesta'), { 'poll.votes.alice': 'o1' }));
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/encuesta'), { 'poll.options': [] }));
   });
 });
 

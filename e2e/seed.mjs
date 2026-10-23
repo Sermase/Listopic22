@@ -134,6 +134,21 @@ async function seed() {
       createdAt: Timestamp.fromMillis(1_790_000_000_000 + createdAtMs * 1000),
     });
   }
+
+  // Chat de chat.spec.ts: un grupo con una quedada que ya pasó (para el duelo de notas).
+  await db.doc('chats/comilona').set({
+    participants: ['ana', 'luis', 'eva'], type: 'group', groupName: 'Comilona',
+    unreadCount: { ana: 0, luis: 0, eva: 0 }, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
+  });
+  await db.doc('chats/comilona/messages/quedada').set({
+    text: '🍽️ Te invito a comer Bravas en Bar Uno', senderId: 'ana', type: 'invite', readBy: ['ana'],
+    createdAt: Timestamp.fromMillis(Date.now() - 3 * 86_400_000),
+    invite: {
+      itemName: 'Bravas', placeName: 'Bar Uno', placeId: 'p_vll1', placeCity: 'Valladolid', listId: 'bravas',
+      when: Date.now() - 2 * 86_400_000, note: 'Las mejores de Valladolid, dicen',
+      responses: { luis: { status: 'yes', at: 1 }, eva: { status: 'yes', at: 2 } },
+    },
+  });
 }
 
 async function idToken(email) {

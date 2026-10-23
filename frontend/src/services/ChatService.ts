@@ -11,11 +11,23 @@ import {
     getDocs,
     limit,
     getDoc,
-    arrayUnion
+    arrayUnion,
+    deleteField
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { ShareEntityPayload } from '../types/share';
 import { getShareEntityLabel } from '../types/share';
+import {
+    compact,
+    formatWhen,
+    invitePreviewText,
+    type ChatInvite,
+    type ChatPoll,
+    type DishRef,
+    type InviteStatus,
+    type ReactionMap,
+    type ReplyRef,
+} from '../lib/chatExtras';
 
 export interface Message {
     id?: string;
@@ -23,9 +35,15 @@ export interface Message {
     senderId: string;
     createdAt?: FirestoreTimestampLike | null;
     readBy?: string[];
-    type?: 'text' | 'image' | 'share' | 'review-share';
+    type?: MessageType;
     metadata?: MessageMetadata;
+    reactions?: ReactionMap;
+    replyTo?: ReplyRef;
+    invite?: ChatInvite;
+    poll?: ChatPoll;
 }
+
+export type MessageType = 'text' | 'image' | 'share' | 'review-share' | 'invite' | 'poll';
 
 export interface ShareMessageMetadata {
     share: ShareEntityPayload;
@@ -102,8 +120,9 @@ export const ChatService = {
         chatId: string,
         senderId: string,
         text: string,
-        type: 'text' | 'image' | 'share' | 'review-share' = 'text',
-        metadata?: MessageMetadata
+        type: MessageType = 'text',
+        metadata?: MessageMetadata,
+        extra?: Pick<Message, 'replyTo' | 'invite' | 'poll'>
     ) => {
         const messagesRef = collection(db, 'chats', chatId, 'messages');
         const safeText = typeof text === 'string' ? text : '';
@@ -118,6 +137,9 @@ export const ChatService = {
         if (metadata) {
             payload.metadata = metadata;
         }
+        if (extra?.replyTo) payload.replyTo = compact(extra.replyTo);
+        if (extra?.invite) payload.invite = compact(extra.invite);
+        if (extra?.poll) payload.poll = extra.poll;
 
         await addDoc(messagesRef, {
             ...payload
@@ -231,6 +253,68 @@ export const ChatService = {
         }
 
         await updateDoc(chatRef, updates);
+    },
+
+    /** Una reacción por persona; la misma otra vez la quita. */
+    setReaction: async (chatId: string, messageId: string, userId: string, emoji: string | null) => {
+        await updateDoc(doc(db, 'chats', chatId, 'messages', messageId), {
+            [`reactions.${userId}`]: emoji ? emoji : deleteField()
+        });
+    },
+
+    sendInvite: async (chatId: string, senderId: string, invite: ChatInvite) => {
+        await ChatService.sendMessage(chatId, senderId, invitePreviewText(invite), 'invite', undefined, {
+            invite: { ...invite, responses: {} }
+        });
+    },
+
+    /** Voy / No puedo / Otro día (con fecha). Deja además un mensaje que responde a la invitación. */
+    respondInvite: async (
+        chatId: string,
+        message: Message,
+        userId: string,
+        status: InviteStatus,
+        proposedAt?: number
+    ) => {
+        if (!message.id || !message.invite) return;
+        await updateDoc(doc(db, 'chats', chatId, 'messages', message.id), {
+            [`invite.responses.${userId}`]: compact({ status, proposedAt, at: Date.now() })
+        });
+        const text = status === 'yes'
+            ? '✅ ¡Voy!'
+            : status === 'no'
+                ? '❌ Esta vez no puedo'
+                : `🗓️ ¿Y el ${formatWhen(proposedAt ?? message.invite.when)}?`;
+        await ChatService.sendMessage(chatId, userId, text, 'text', undefined, {
+            replyTo: { id: message.id, senderId: message.senderId, text: message.text }
+        });
+    },
+
+    /** Quien invita cambia la fecha (o acepta la propuesta de alguien): las respuestas vuelven a empezar. */
+    changeInviteDate: async (chatId: string, message: Message, when: number, acceptedFrom?: string) => {
+        if (!message.id || !message.invite) return;
+        await updateDoc(doc(db, 'chats', chatId, 'messages', message.id), {
+            'invite.when': when,
+            'invite.responses': acceptedFrom ? { [acceptedFrom]: { status: 'yes', at: Date.now() } } : {}
+        });
+        await ChatService.sendMessage(chatId, message.senderId, `📅 Nueva fecha: ${formatWhen(when)}`, 'text', undefined, {
+            replyTo: { id: message.id, senderId: message.senderId, text: message.text }
+        });
+    },
+
+    sendPoll: async (chatId: string, senderId: string, options: DishRef[]) => {
+        const poll: ChatPoll = {
+            question: '¿Dónde comemos?',
+            options: options.map((o, i) => ({ ...compact(o), id: `o${i + 1}` })),
+            votes: {}
+        };
+        await ChatService.sendMessage(chatId, senderId, '🗳️ ¿Dónde comemos? Vota', 'poll', undefined, { poll });
+    },
+
+    votePoll: async (chatId: string, messageId: string, userId: string, optionId: string | null) => {
+        await updateDoc(doc(db, 'chats', chatId, 'messages', messageId), {
+            [`poll.votes.${userId}`]: optionId ? optionId : deleteField()
+        });
     },
 
     markChatAsRead: async (chatId: string, userId: string) => {
