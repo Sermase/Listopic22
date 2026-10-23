@@ -69,6 +69,8 @@ const SharedLinkRedirect = () => {
 const NavbarWrapper = () => {
   const location = useRouterLocation();
   if (location.pathname.startsWith('/lab')) return null;
+  // Dentro de una conversación, en el móvil manda la cabecera del chat (como WhatsApp).
+  if (/^\/chats\/[^/]+/.test(location.pathname)) return <div className="hidden md:block"><Navbar /></div>;
   return <Navbar />;
 };
 

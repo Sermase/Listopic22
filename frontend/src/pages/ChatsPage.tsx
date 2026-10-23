@@ -10,6 +10,7 @@ import type { ShareEntityPayload } from '../types/share';
 import { getShareEntityLabel } from '../types/share';
 import { getLocalRouteFromUrl, buildPublicRouteUrl } from '../utils/publicUrl';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useVisualViewport } from '../hooks/useVisualViewport';
 import { useToast } from '../context/ToastContext';
 import { MessageBubble } from '../components/chat/MessageBubble';
 import { EmojiPanel } from '../components/chat/EmojiPanel';
@@ -97,6 +98,7 @@ export const ChatsPage: React.FC = () => {
     const pendingJumpRef = useRef(true);
 
     useBodyScrollLock(isInfoModalOpen);
+    const viewport = useVisualViewport();
 
     // Buscar gente para añadir al grupo
     useEffect(() => {
@@ -296,8 +298,10 @@ export const ChatsPage: React.FC = () => {
         const el = textareaRef.current;
         if (!el) return;
         el.style.height = 'auto';
-        el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
-    }, [newMessage]);
+        // Oculto (lista de chats en el móvil) mide 0: se ajusta al mostrarse. El borde también cuenta.
+        if (!el.scrollHeight) return;
+        el.style.height = `${Math.min(el.scrollHeight + el.offsetHeight - el.clientHeight, 120)}px`;
+    }, [newMessage, activeChat, mobileView]);
     const onComposerKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
         if (e.key === 'Enter' && !e.shiftKey && !coarse) {
@@ -550,7 +554,13 @@ export const ChatsPage: React.FC = () => {
     const dateTool = tool?.kind === 'date' ? findMessage(tool.messageId) : null;
 
     return (
-        <div className="min-h-screen bg-[var(--bg-primary)] pt-safe-20 flex h-screen overflow-hidden">
+        // Ocupa justo lo visible (sin barras del navegador ni teclado) para que la barra de escribir no se corte.
+        <div
+            className={`fixed inset-x-0 top-0 h-[100dvh] bg-[var(--lt-bg)] flex overflow-hidden ${mobileView === 'chat'
+                ? 'pt-[env(safe-area-inset-top)] md:pt-[calc(env(safe-area-inset-top)+5rem)]'
+                : 'pt-[calc(env(safe-area-inset-top)+5rem)]'}`}
+            style={viewport ? { height: viewport.height, top: viewport.top } : undefined}
+        >
             {/* Lista de chats */}
             <div className={`w-full md:w-80 lg:w-96 bg-[var(--lt-card-strong)] border-r border-white/10 flex flex-col ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
                 <div className="px-4 pt-4 pb-3 flex justify-between items-center">
@@ -715,7 +725,7 @@ export const ChatsPage: React.FC = () => {
                                 </div>
                             )}
                             {emojiOpen && <EmojiPanel onPick={(emoji) => setNewMessage((m) => m + emoji)} />}
-                            <form onSubmit={handleSendMessage} className="flex items-end gap-1.5 p-2.5">
+                            <form onSubmit={handleSendMessage} className={`flex items-end gap-1.5 p-2.5 ${viewport?.keyboard ? '' : 'pb-[calc(0.625rem+env(safe-area-inset-bottom))]'}`}>
                                 <button
                                     type="button"
                                     onClick={() => { setEmojiOpen((v) => !v); setToolsOpen(false); }}
