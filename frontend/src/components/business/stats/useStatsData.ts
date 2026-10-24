@@ -1,6 +1,6 @@
 /**
  * Datos de 📊 Estadísticas, cada fuente con su propia carga y su propio error
- * (T4): si falla la analítica, las valoraciones y la carta se siguen viendo, y
+ * (T4): si falla la analítica, las reseñas y la carta se siguen viendo, y
  * nunca se pinta un 0 en lugar de un error.
  *
  *   const { traffic, reviews, items, campaigns, rating, refreshAll } = useStatsData(placeId, ratingProp);

@@ -6,6 +6,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { LegalAcceptanceGate } from './components/legal/LegalAcceptanceGate';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
+import { WelcomeCards } from './components/WelcomeCards';
 import { App as CapApp } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Capacitor } from '@capacitor/core';
@@ -23,6 +24,8 @@ import { useScrollRestoration } from './hooks/useScrollRestoration';
 
 // Lazy Load Pages
 const HomePage = React.lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
+const HelpPage = React.lazy(() => import('./pages/HelpPage').then(m => ({ default: m.HelpPage })));
+const ReviewPage = React.lazy(() => import('./pages/ReviewPage').then(m => ({ default: m.ReviewPage })));
 const PlansPage = React.lazy(() => import('./pages/PlansPage').then(m => ({ default: m.PlansPage })));
 const SearchPage = React.lazy(() => import('./pages/SearchPage').then(m => ({ default: m.SearchPage })));
 const ListPage = React.lazy(() => import('./pages/ListPage').then(m => ({ default: m.ListPage })));
@@ -39,6 +42,7 @@ const ArchivePage = React.lazy(() => import('./pages/ArchivePage').then(m => ({ 
 const BusinessDashboardPage = React.lazy(() => import('./pages/BusinessDashboardPage').then(m => ({ default: m.BusinessDashboardPage })));
 const BusinessManagePage = React.lazy(() => import('./pages/BusinessManagePage').then(m => ({ default: m.BusinessManagePage })));
 const ChatsPage = React.lazy(() => import('./pages/ChatsPage').then(m => ({ default: m.ChatsPage })));
+const JoinGroupPage = React.lazy(() => import('./pages/JoinGroupPage').then(m => ({ default: m.JoinGroupPage })));
 const CreateReviewPage = React.lazy(() => import('./pages/CreateReviewPage').then(m => ({ default: m.CreateReviewPage })));
 const AboutPage = React.lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const PrivacyPage = React.lazy(() => import('./pages/PrivacyPage').then(m => ({ default: m.PrivacyPage })));
@@ -65,6 +69,8 @@ const SharedLinkRedirect = () => {
 const NavbarWrapper = () => {
   const location = useRouterLocation();
   if (location.pathname.startsWith('/lab')) return null;
+  // Dentro de una conversación, en el móvil manda la cabecera del chat (como WhatsApp).
+  if (/^\/chats\/[^/]+/.test(location.pathname)) return <div className="hidden md:block"><Navbar /></div>;
   return <Navbar />;
 };
 
@@ -250,10 +256,14 @@ const AppRoutes = () => {
               <Route path="/businesses/:placeId/manage" element={<ProtectedRoute><BusinessManagePage /></ProtectedRoute>} />
               <Route path="/chats" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
               <Route path="/chats/:chatId" element={<ProtectedRoute><ChatsPage /></ProtectedRoute>} />
+              <Route path="/g/:code" element={<JoinGroupPage />} />
 
               {/* Public info pages */}
               <Route path="/planes" element={<PlansPage />} />
               <Route path="/about" element={<AboutPage />} />
+              <Route path="/ayuda" element={<HelpPage />} />
+              <Route path="/preferencias" element={<HelpPage section="preferencias" />} />
+              <Route path="/review/:listId/:reviewId" element={<ReviewPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/child-safety" element={<ChildSafetyPage />} />
               <Route path="/istari-core" element={<IstariCorePage />} />
@@ -294,6 +304,7 @@ function App() {
               <NotificationBanner />
               <AppRoutes />
               <BottomNav />
+              <WelcomeCards />
               <PushSetup />
               <LegalAcceptanceGate />
             </div>

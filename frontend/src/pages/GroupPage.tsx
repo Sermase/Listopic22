@@ -24,6 +24,8 @@ import { useAuthPrompt } from '../context/AuthPromptContext';
 import { itemNameKey, resolvePlaceItemByName, reviewItemId, type PlaceItemLike } from '../lib/placeItems';
 
 import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
+import { FeaturedQuote } from '../components/FeaturedQuote';
+import { HelpTip } from '../components/HelpTip';
 
 
 // react-router ya entrega el parámetro decodificado: un segundo decode rompe
@@ -431,7 +433,7 @@ export const GroupPage: React.FC = () => {
 
     const openAddReviewFlow = () => {
         if (!user) {
-            openAuthPrompt('añadir una valoración');
+            openAuthPrompt('añadir una reseña');
             return;
         }
         setSelectedListId(lockedListId);
@@ -608,7 +610,7 @@ export const GroupPage: React.FC = () => {
         );
     }
 
-    // Sin sitio y sin valoraciones: no hay nada que enseñar (ni que valorar).
+    // Sin sitio y sin reseñas: no hay nada que enseñar (ni que valorar).
     if (placeMissing && reviews.length === 0) {
         return (
             <div className="min-h-screen pt-safe-32 px-4 text-center bg-[var(--lt-bg)]">
@@ -698,14 +700,14 @@ export const GroupPage: React.FC = () => {
                                 <div className="flex items-center gap-2">
                                     <span
                                         className="flex min-w-0 items-center gap-2 pl-1 pr-3 py-1 rounded-full text-sm font-bold border border-[var(--lt-border-strong)] bg-[var(--lt-glass)] backdrop-blur-md text-[var(--lt-text)]"
-                                        title="Media de las valoraciones de este elemento en sus Listas."
+                                        title="Media de las reseñas de este elemento en sus Listas."
                                     >
                                         <span className="inline-flex shrink-0 items-center gap-1 px-2 py-0.5 rounded-full" style={scoreBadgeStyle(stats.avg)}>
                                             <Star className="w-3.5 h-3.5 fill-current" aria-hidden />
                                             {stats.avg.toFixed(1)}
                                         </span>
                                         <span className="truncate text-xs font-semibold text-[var(--lt-text-muted)]">
-                                            {stats.count} {stats.count === 1 ? 'valoración' : 'valoraciones'}
+                                            {stats.count} {stats.count === 1 ? 'reseña' : 'reseñas'}
                                         </span>
                                     </span>
                                     <button
@@ -746,30 +748,21 @@ export const GroupPage: React.FC = () => {
                         />
                     )}
 
-                    {/* Acciones (compactas, como en la ficha del sitio) */}
-                    <div className="grid grid-cols-3 gap-2 sm:gap-3">
-                        <button
-                            onClick={openSaveModal}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all"
-                        >
-                            <Bookmark className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
-                            <span className="max-w-full truncate text-[11px] font-bold leading-tight">Guardar</span>
+                    {/* Acciones: pequeñas, en una fila */}
+                    <div className="flex items-center gap-2">
+                        <button type="button" onClick={openSaveModal} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
+                            <Bookmark className="h-4 w-4 text-[var(--lt-accent)]" /> Guardar
                         </button>
-                        <button
-                            onClick={() => setIsShareModalOpen(true)}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all"
-                        >
-                            <Share2 className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
-                            <span className="max-w-full truncate text-[11px] font-bold leading-tight">Compartir</span>
+                        <button type="button" onClick={() => setIsShareModalOpen(true)} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
+                            <Share2 className="h-4 w-4 text-[var(--lt-accent)]" /> Compartir
                         </button>
-                        <button
-                            onClick={openReportModal}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:bg-[var(--lt-danger-soft)] hover:text-[var(--lt-danger)] transition-all"
-                        >
-                            <Flag className="w-5 h-5 mb-1 text-[var(--lt-danger)] opacity-70" />
-                            <span className="max-w-full truncate text-[11px] font-bold leading-tight">Reportar</span>
+                        <button type="button" onClick={openReportModal} aria-label="Reportar" title="Reportar" className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--lt-text-muted)] transition-colors hover:bg-[var(--lt-danger-soft)] hover:text-[var(--lt-danger)]">
+                            <Flag className="h-4 w-4" />
                         </button>
                     </div>
+
+                    {/* Una frase de la gente, antes de las notas */}
+                    <FeaturedQuote reviews={reviews} onSeeAll={() => document.getElementById('resenas')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
 
                     {/* 1. Detailed Stats (Refactored) */}
                     {stats && (stats.ponderable.length > 0 || stats.nonPonderable.length > 0) && (
@@ -780,6 +773,7 @@ export const GroupPage: React.FC = () => {
                                         <BarChart3 className="w-3.5 h-3.5" />
                                     </span>
                                     Puntuaciones
+                                    <HelpTip topic="criterios" />
                                 </h3>
                                 {listStats && primaryListName && (
                                     <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-[var(--lt-text-muted)]">
@@ -894,7 +888,7 @@ export const GroupPage: React.FC = () => {
                 </div>
 
                 {/* Main Content (Left) */}
-                <div className="order-2 lg:col-span-8 lg:order-first">
+                <div id="resenas" className="order-2 lg:col-span-8 lg:order-first scroll-mt-24">
 
                     {/* Cabecera de sección: pestañas y vista en una fila (las pestañas ya titulan la sección) */}
                     <div className="flex items-center justify-between gap-2 mb-4">
@@ -907,7 +901,7 @@ export const GroupPage: React.FC = () => {
                                     }`}
                                 style={groupActiveTab === 'reviews' ? { backgroundImage: 'var(--lt-accent-grad)' } : undefined}
                             >
-                                <MessageSquare className="w-3.5 h-3.5" /> Valoraciones ({reviews.length})
+                                <MessageSquare className="w-3.5 h-3.5" /> Reseñas ({reviews.length})
                             </button>
                             {stats && stats.photos.length > 0 && (
                                 <button
@@ -1018,10 +1012,10 @@ export const GroupPage: React.FC = () => {
                                                     <button
                                                         onClick={() => setExpandedReviewId(null)}
                                                         className="self-center mb-3 flex items-center gap-2 px-4 py-1.5 bg-[var(--lt-accent-soft)] hover:opacity-80 text-[var(--lt-accent)] text-sm font-bold rounded-full transition-opacity border border-[var(--lt-accent-border)]"
-                                                        aria-label="Plegar valoración"
+                                                        aria-label="Plegar reseña"
                                                     >
                                                         <ChevronUp className="w-4 h-4" />
-                                                        <span>Cerrar valoración</span>
+                                                        <span>Cerrar reseña</span>
                                                     </button>
                                                     <ReviewCard review={review} onDelete={handleDeleteReview} onEdit={handleEditReview} placeClosedStatus={placeClosedStatus || undefined} />
                                                 </div>
@@ -1094,7 +1088,7 @@ export const GroupPage: React.FC = () => {
                                     <MessageSquare className="w-7 h-7 text-[var(--lt-accent)]" />
                                 </span>
                                 <h3 className="text-lg font-display font-bold text-[var(--lt-text)] mb-1.5">Sé el primero en opinar</h3>
-                                <p className="text-[var(--lt-text-muted)] mb-5 text-sm max-w-xs mx-auto">Nadie ha escrito una valoración detallada sobre este plato aún.</p>
+                                <p className="text-[var(--lt-text-muted)] mb-5 text-sm max-w-xs mx-auto">Nadie ha escrito una reseña detallada sobre este plato aún.</p>
                                 <button
                                     onClick={openAddReviewFlow}
                                     className="inline-flex items-center gap-2 px-5 py-2.5 lt-on-accent rounded-xl text-sm font-bold transition-opacity hover:opacity-90 shadow-lg shadow-[var(--lt-accent-shadow)]"
@@ -1148,6 +1142,15 @@ export const GroupPage: React.FC = () => {
                 title={`Compartir ${decodedName}`}
                 text={`Mira lo que dicen sobre ${decodedName} en ${placeName}!`}
                 url={groupShareUrl}
+                inviteTarget={{
+                    itemName: decodedName,
+                    placeName: placeName || decodedName,
+                    placeId,
+                    placeCity: placeCity || undefined,
+                    listId: lockedListId || undefined,
+                    imageUrl: stats?.mainPhoto || undefined,
+                    score: stats?.avg || undefined,
+                }}
                 shareEntity={{
                     type: 'group',
                     id: `${placeId}_${decodedName}`,

@@ -27,6 +27,7 @@ import { Footer } from '../components/Footer';
 import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import { FeaturedListCard } from '../components/home/FeaturedListCard';
 import { HomeRanking, type RankingRow } from '../components/home/HomeRanking';
+import { formatDistance } from '../utils/formatDistance';
 import { HomeFeedCard } from '../components/home/HomeFeedCard';
 import { buildSoulmateFeed } from '../lib/soulmateFeed';
 import { buildHomeFeeds, homeFeedAreaKey, isJunkName, isPermanentlyClosed, type HomeFeedCard as HomeFeedCardData, type HomeFeedReview } from '../lib/homeFeeds';
@@ -154,6 +155,20 @@ const HIDDEN_GEM_MIN_RATING = 8.4;
 // Carruseles antiguos de la Home (listas, joyas, recientes, usuarios, que gustan).
 // Apagados desde que llegaron los de lib/homeFeeds; poner a true para recuperarlos.
 const SHOW_LEGACY_HOME_CAROUSELS = false;
+// Carruseles de lib/homeFeeds que se pintan. Apagados (no borrados) para dejar
+// la Home en 4 bloques; poner a true para recuperar cada uno.
+const HOME_FEEDS_VISIBLE: Record<string, boolean> = {
+    platos: false,
+    recuerdos: false,
+    ranking: false,
+    joyas: false,
+    listas: false,
+    novedades: false,
+    resenas: true,
+};
+// Si cerca hay menos sitios que esto, la Home amplía el radio un escalón.
+const MIN_NEARBY_PLACES = 5;
+const MAX_AUTO_RANGE_KM = 10;
 
 // Aspecto y enlace «Ver todo» de cada carrusel de lib/homeFeeds.
 const HOME_FEED_LOOK: Record<string, { icon: React.ReactNode; accentClass: string; searchType: 'lists' | 'places' | 'items'; searchSort?: string }> = {
@@ -167,6 +182,7 @@ const HOME_FEED_LOOK: Record<string, { icon: React.ReactNode; accentClass: strin
     default: { icon: <Star className="w-5 h-5 text-amber-400" />, accentClass: 'bg-amber-500/20', searchType: 'items' },
 };
 const FAVORITE_REVIEW_MIN_RATING = 7.5;
+const formatRangeKm = (km: number): string => (km < 1 ? `${Math.round(km * 1000)} m` : `${km} km`);
 
 export const HomePage: React.FC = () => {
     // No se espera a la sesión para pintar: el contenido público carga en
@@ -183,7 +199,13 @@ export const HomePage: React.FC = () => {
     const [activeFilter, setActiveFilter] = useState('Todo'); // Category Filter
 
     // Global Distance Range State
-    const { range, setRange } = useFilters();
+    const { range: chosenRange, setRange } = useFilters();
+    // Si cerca hay poco, la Home amplía el radio por su cuenta: la elección guardada no se toca.
+    const [widenedRange, setWidenedRange] = useState<number | null | undefined>(undefined);
+    // Si el usuario elige la distancia a mano, se respeta aunque salga poco.
+    const userPickedRangeRef = React.useRef(false);
+    useEffect(() => { setWidenedRange(undefined); }, [chosenRange]);
+    const range = widenedRange !== undefined ? widenedRange : chosenRange;
 
     // Zona (compartida con la Lista): radio o tu ciudad / comunidad / país.
     const [area, setArea] = useState<ListArea>(() => {
@@ -628,6 +650,8 @@ export const HomePage: React.FC = () => {
         return areaOptions[area.kind].some((o) => o.value === area.value) ? area : { kind: 'near' };
     }, [area, areaOptions]);
     const handleAreaSelect = (value: string) => {
+        setWidenedRange(undefined);
+        userPickedRangeRef.current = true;
         if (value.startsWith('r:')) {
             const raw = value.slice(2);
             setArea({ kind: 'near' });
@@ -694,7 +718,7 @@ export const HomePage: React.FC = () => {
         }
 
         // "Mejor en Listopic": ranking único (lib/scoring) con la nota del sitio y
-        // su número de valoraciones; si el sitio aún no tiene nota, la de la valoración.
+        // su número de reseñas; si el sitio aún no tiene nota, la de la reseña.
         const rankStats = (r: { placeAverageRating?: unknown; placeReviewsCount?: unknown; overallRating?: unknown }) => (typeof r.placeAverageRating === 'number'
             ? { average: r.placeAverageRating, count: r.placeReviewsCount ?? 1 }
             : { average: r.overallRating, count: 1 });
@@ -901,13 +925,15 @@ export const HomePage: React.FC = () => {
         if (areaFilter.kind !== 'near' || range === null || !location) return;
         if (loadingReviews) return;
         if (!hasHomeMapCandidates) return;
-        if (filteredPlaces.length > 0) return;
+        if (filteredPlaces.length >= MIN_NEARBY_PLACES) return;
+        if (userPickedRangeRef.current) return;
 
+        // Se amplía escalón a escalón, pero nunca más allá de MAX_AUTO_RANGE_KM: el Inicio sigue siendo «cerca».
         const nextRange = getExpandedRangeValue(range);
-        if (nextRange !== range) {
-            setRange(nextRange);
+        if (nextRange !== null && nextRange <= MAX_AUTO_RANGE_KM && nextRange !== range) {
+            setWidenedRange(nextRange);
         }
-    }, [activeTab, range, location, loadingReviews, hasHomeMapCandidates, filteredPlaces.length, setRange, areaFilter.kind]);
+    }, [activeTab, range, location, loadingReviews, hasHomeMapCandidates, filteredPlaces.length, areaFilter.kind]);
 
     // 6. Derived Users (Synthesized from content IN RANGE)
     const activeUsersInRange = useMemo(() => {
@@ -1127,7 +1153,7 @@ export const HomePage: React.FC = () => {
                 label: `${review.itemName} · ${review.placeName || 'Grupo'}`,
                 reason: likes > 0
                     ? `${rating ? rating.toFixed(1) : 'Buena nota'} y ${likes} me gusta`
-                    : `${rating ? rating.toFixed(1) : 'Buena nota'} en una valoración cercana`,
+                    : `${rating ? rating.toFixed(1) : 'Buena nota'} en una reseña cercana`,
                 score,
                 badge: likes >= 3 ? 'Está gustando' : undefined,
             });
@@ -1146,8 +1172,8 @@ export const HomePage: React.FC = () => {
                 route: `/place/${placeId}`,
                 label: place?.name || 'Sitio sorpresa',
                 reason: isHiddenGem
-                    ? `Joya oculta: ${rating.toFixed(1)} con pocas valoraciones`
-                    : `${rating ? rating.toFixed(1) : 'Buena pinta'} · ${reviewsCount || 1} ${reviewsCount === 1 ? 'valoración' : 'valoraciones'}`,
+                    ? `Joya oculta: ${rating.toFixed(1)} con pocas reseñas`
+                    : `${rating ? rating.toFixed(1) : 'Buena pinta'} · ${reviewsCount || 1} ${reviewsCount === 1 ? 'reseña' : 'reseñas'}`,
                 score,
                 badge: isHiddenGem ? 'Joya oculta' : undefined,
             });
@@ -1163,7 +1189,7 @@ export const HomePage: React.FC = () => {
                 route: `/list/${list.id}`,
                 label: list?.name || 'Lista sorpresa',
                 reason: reviewsCount > 0
-                    ? `${reviewsCount} ${reviewsCount === 1 ? 'valoración' : 'valoraciones'} en esta lista`
+                    ? `${reviewsCount} ${reviewsCount === 1 ? 'reseña' : 'reseñas'} en esta lista`
                     : 'Lista con buena actividad',
                 score,
                 badge: followers >= 5 ? 'Popular' : undefined,
@@ -1221,9 +1247,19 @@ export const HomePage: React.FC = () => {
         return `/search?${params.toString()}`;
     }, [range]);
 
-    // Ranking de platos: cada plato (sitio + nombre) con su media y nº de valoraciones.
+    // Ranking de platos: cada plato (sitio + nombre) con su media y nº de reseñas.
     const rankedDishes = useMemo<RankingRow[]>(() => {
-        const groups = new Map<string, { row: RankingRow; sum: number; count: number }>();
+        const groups = new Map<string, { row: RankingRow; sum: number; count: number; friendScore: number }>();
+        const following = new Set(followingIds);
+        // «Tu colega X le dio un 9»: la mejor nota de alguien a quien sigues.
+        const noteFriend = (group: { row: RankingRow; friendScore: number }, r: { userId?: string; authorId?: string; authorName?: string; userName?: string; overallRating: number }) => {
+            const uid = r.userId || r.authorId;
+            if (!uid || uid === user?.uid || !following.has(uid) || r.overallRating <= group.friendScore) return;
+            const name = String(r.authorName || r.userName || '').trim();
+            if (!name) return;
+            group.friendScore = r.overallRating;
+            group.row.friendNote = `Tu colega ${name} le dio un ${Number(r.overallRating.toFixed(1)).toLocaleString('es-ES')}`;
+        };
         reviewsInRange.forEach((r: any) => {
             if (!r.placeId || typeof r.overallRating !== 'number' || !Number.isFinite(r.overallRating)) return;
             if (r.visibility && r.visibility !== 'public') return;
@@ -1236,11 +1272,15 @@ export const HomePage: React.FC = () => {
                 existing.sum += r.overallRating;
                 existing.count += 1;
                 if (!existing.row.imageUrl && (r.photoUrl || r.placeMainImage)) existing.row.imageUrl = r.photoUrl || r.placeMainImage;
+                noteFriend(existing, r);
                 return;
             }
-            groups.set(key, {
+            const lat = r.placeLat || r.lat;
+            const lng = r.placeLng || r.lng;
+            const group = {
                 sum: r.overallRating,
                 count: 1,
+                friendScore: -1,
                 row: {
                     key,
                     to: `/group/${r.placeId}/${encodeURIComponent(name)}`,
@@ -1248,15 +1288,18 @@ export const HomePage: React.FC = () => {
                     subtitle: r.placeName && r.placeName !== name ? r.placeName : (r.placeCity || undefined),
                     imageUrl: r.photoUrl || r.placeMainImage || undefined,
                     score: null,
-                },
-            });
+                    distanceLabel: location && lat && lng ? formatDistance(calculateDistance(lat, lng)) : undefined,
+                } as RankingRow,
+            };
+            noteFriend(group, r);
+            groups.set(key, group);
         });
         return Array.from(groups.values())
             .map((g) => ({ ...g, average: g.sum / g.count }))
             .sort((a, b) => compareByRank({ average: a.average, count: a.count }, { average: b.average, count: b.count }))
             .slice(0, 10)
             .map((g) => ({ ...g.row, score: g.average }));
-    }, [reviewsInRange]);
+    }, [reviewsInRange, followingIds, user?.uid, location, calculateDistance]);
 
     const rankedPlaces = useMemo<RankingRow[]>(() => filteredPlaces.slice(0, 10).map((place: any) => ({
         key: place.id,
@@ -1265,7 +1308,8 @@ export const HomePage: React.FC = () => {
         subtitle: place.address?.split(',')[0] || undefined,
         imageUrl: place.photoUrl || undefined,
         score: typeof place.rating === 'number' ? place.rating : null,
-    })), [filteredPlaces]);
+        distanceLabel: location && place.lat && place.lng ? formatDistance(calculateDistance(place.lat, place.lng)) : undefined,
+    })), [filteredPlaces, location, calculateDistance]);
 
     const homeFeeds = useMemo(() => buildHomeFeeds({
         reviews: reviewsInRange as unknown as HomeFeedReview[],
@@ -1295,8 +1339,11 @@ export const HomePage: React.FC = () => {
                     {/* Cabecera: saludo, frase con gancho y buscador */}
                     <div className="max-w-4xl mx-auto pt-2 sm:pt-6 relative z-10">
                         <div className="absolute -top-16 right-0 w-72 h-72 rounded-full blur-[90px] pointer-events-none -z-10 opacity-80" style={{ backgroundColor: 'var(--lt-accent-soft)' }} />
-                        <p className="text-sm font-semibold text-[var(--lt-text-muted)]">{greeting}</p>
-                        <h1 className="mt-1 text-[1.9rem] leading-[1.12] md:text-5xl font-bold tracking-tight text-[var(--lt-text)] [text-wrap:balance]">
+                        <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[var(--lt-text)]">
+                            {user ? `${greeting} 👋` : greeting}
+                        </h1>
+                        {/* Con sesión basta el saludo; sin sesión, la frase en una línea pequeña. */}
+                        {!user && <p className="mt-0.5 text-sm font-medium text-[var(--lt-text-muted)] [text-wrap:balance]">
                             {parsedHeroSubtitle.map((segment) => (
                                 segment.isHighlight ? (
                                     <span key={segment.key} className={segment.className}>
@@ -1306,7 +1353,7 @@ export const HomePage: React.FC = () => {
                                     <React.Fragment key={segment.key}>{segment.text}</React.Fragment>
                                 )
                             ))}
-                        </h1>
+                        </p>}
                         <form
                             role="search"
                             onSubmit={(event) => {
@@ -1314,7 +1361,7 @@ export const HomePage: React.FC = () => {
                                 const q = homeSearch.trim();
                                 navigate(q ? `/search?q=${encodeURIComponent(q)}` : '/search');
                             }}
-                            className="mt-5 flex items-center gap-2 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] pl-4 pr-1.5 py-1.5 backdrop-blur-xl transition-colors focus-within:border-[var(--lt-accent-border)]"
+                            className="mt-4 flex items-center gap-2 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] pl-4 pr-1.5 py-1.5 backdrop-blur-xl transition-colors focus-within:border-[var(--lt-accent-border)]"
                         >
                             <Search className="w-5 h-5 shrink-0 text-[var(--lt-accent)]" aria-hidden="true" />
                             <label htmlFor="home-search" className="sr-only">Buscar en Listopic</label>
@@ -1437,6 +1484,13 @@ export const HomePage: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Aviso cuando la Home ha ampliado el radio porque cerca había poco */}
+                    {activeTab === 'explore' && widenedRange !== undefined && chosenRange !== null && (
+                        <p className="max-w-4xl mx-auto mt-2 px-1 text-xs font-medium text-[var(--lt-text-muted)]">
+                            🔭 Poco a {formatRangeKm(chosenRange)}: te enseño hasta {widenedRange === null ? 'cualquier distancia' : formatRangeKm(widenedRange)}.
+                        </p>
+                    )}
+
                     {/* Duelo de la semana (flag en Developer → Otros) */}
                     {activeTab === 'explore' && appConfig.showWeeklyDuel && <WeeklyDuelBanner />}
 
@@ -1446,8 +1500,7 @@ export const HomePage: React.FC = () => {
 
                     {/* Portada y ranking: lo primero que se ve al bajar */}
                     {activeTab === 'explore' && (
-                        <div className="max-w-4xl mx-auto mt-8 mb-8 space-y-8">
-                            {homeFeeds.featuredList && <FeaturedListCard list={homeFeeds.featuredList} />}
+                        <div className="max-w-4xl mx-auto mt-6 mb-8 space-y-8">
                             <HomeRanking
                                 dishes={rankedDishes}
                                 places={rankedPlaces}
@@ -1463,7 +1516,7 @@ export const HomePage: React.FC = () => {
 
                         {activeTab === 'explore' && (<>
                             {/* Carruseles nuevos (lib/homeFeeds): en tu zona y rotando cada día. */}
-                            {homeFeeds.feeds.map((feed) => {
+                            {homeFeeds.feeds.filter((feed) => HOME_FEEDS_VISIBLE[feed.id] ?? false).map((feed) => {
                                 const look = HOME_FEED_LOOK[feed.id] ?? HOME_FEED_LOOK.default;
                                 return (
                                     <CardCarousel
@@ -1479,6 +1532,12 @@ export const HomePage: React.FC = () => {
                                     />
                                 );
                             })}
+
+                            {homeFeeds.featuredList && (
+                                <div className="max-w-4xl mx-auto pt-6">
+                                    <FeaturedListCard list={homeFeeds.featuredList} />
+                                </div>
+                            )}
 
                             {/* 1. Listas */}
                             {SHOW_LEGACY_HOME_CAROUSELS && <CardCarousel
@@ -1513,7 +1572,7 @@ export const HomePage: React.FC = () => {
 
                                             {/* Stats Row: Reviews, Followers */}
                                             <div className="flex items-center gap-4 opacity-90 text-xs text-gray-300 font-medium">
-                                                <div className="flex items-center gap-1.5" title="Valoraciones dentro de tu rango de distancia">
+                                                <div className="flex items-center gap-1.5" title="Reseñas dentro de tu rango de distancia">
                                                     <MessageCircle className="w-3.5 h-3.5 text-[var(--lt-accent)]" />
                                                     <span>{list.reviewsInRangeCount !== undefined ? list.reviewsInRangeCount : (list.reviewCount || list.reviewsCount || 0)}</span>
                                                 </div>
@@ -1530,7 +1589,7 @@ export const HomePage: React.FC = () => {
                             {/* 2b. Joyas ocultas */}
                             {SHOW_LEGACY_HOME_CAROUSELS && <CardCarousel
                                 title="Joyas ocultas"
-                                subtitle="Buena nota y pocas valoraciones."
+                                subtitle="Buena nota y pocas reseñas."
                                 viewAllLink={buildCarouselSearchLink('places', 'rating')}
                                 items={hiddenGemPlaces}
                                 loading={loadingReviews}
@@ -1570,7 +1629,7 @@ export const HomePage: React.FC = () => {
                                                         {place.name || 'Sitio por descubrir'}
                                                     </h3>
                                                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-gray-200 sm:mt-2 sm:gap-2 sm:text-xs">
-                                                        <span>{place.reviewsCount} {place.reviewsCount === 1 ? 'valoración' : 'valoraciones'}</span>
+                                                        <span>{place.reviewsCount} {place.reviewsCount === 1 ? 'reseña' : 'reseñas'}</span>
                                                         {place.distanceKm !== null && (
                                                             <>
                                                                 <span className="text-gray-500">·</span>
@@ -1592,7 +1651,7 @@ export const HomePage: React.FC = () => {
 
                             {/* 3. Reseñas Recientes */}
                             {SHOW_LEGACY_HOME_CAROUSELS && <CardCarousel
-                                title="Valoraciones recientes"
+                                title="Reseñas recientes"
                                 viewAllLink={buildCarouselSearchLink('items', 'latest')}
                                 items={recentReviewsInRange}
                                 loading={loadingReviews}
@@ -1639,7 +1698,7 @@ export const HomePage: React.FC = () => {
                                                         {u.affinityReason}
                                                     </p>
                                                     <p className="mt-2 text-[10px] font-bold text-[var(--lt-accent)]">
-                                                        {u.reviewsInRangeCount ?? 0} {u.reviewsInRangeCount === 1 ? 'valoración' : 'valoraciones'} en el radar
+                                                        {u.reviewsInRangeCount ?? 0} {u.reviewsInRangeCount === 1 ? 'reseña' : 'reseñas'} en el radar
                                                     </p>
                                                 </div>
                                             </div>
@@ -1682,7 +1741,7 @@ export const HomePage: React.FC = () => {
                                             <h4 className="text-white font-bold text-xs truncate w-full">{u.displayName}</h4>
                                             <p className="text-gray-500 text-[10px] truncate">@{u.username || 'user'}</p>
                                             <p className="text-[9px] text-[var(--lt-accent)] font-medium mt-0.5">
-                                                {u.reviewsInRangeCount ?? 0} Valoraciones
+                                                {u.reviewsInRangeCount ?? 0} Reseñas
                                             </p>
                                         </div>
                                     </Link>
@@ -1702,7 +1761,7 @@ export const HomePage: React.FC = () => {
                                 ) : filteredItems.length === 0 ? (
                                     <div className="text-gray-500 py-10 border border-white/5 rounded-xl bg-white/5 mx-4 px-4">
                                         <p className="font-bold text-white mb-1 text-center">Tu feed está tranquilo</p>
-                                        <p className="text-sm text-center mb-4">Sigue a estas personas para ver sus valoraciones aquí</p>
+                                        <p className="text-sm text-center mb-4">Sigue a estas personas para ver sus reseñas aquí</p>
                                         {topUsers.length > 0 && !loadingUsers && (
                                             <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                                                 {topUsers
@@ -1743,7 +1802,7 @@ export const HomePage: React.FC = () => {
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className={feedViewMode === 'list' ? 'flex flex-col gap-3' : 'space-y-8'} key="feed">
+                                    <div className={feedViewMode === 'list' ? 'flex flex-col gap-3' : 'space-y-5 sm:space-y-8'} key="feed">
                                         {filteredItems.slice(0, visibleCount).map((review: any) => (
                                             feedViewMode === 'list'
                                                 ? <ReviewCardList key={review.id} review={review} />
@@ -1760,7 +1819,7 @@ export const HomePage: React.FC = () => {
                         ) : SHOW_LEGACY_HOME_CAROUSELS ? (
 
                             <CardCarousel
-                                title="Valoraciones que gustan"
+                                title="Reseñas que gustan"
                                 viewAllLink={buildCarouselSearchLink('items', 'top_liked')}
                                 items={carouselReviews}
                                 loading={loadingReviews}

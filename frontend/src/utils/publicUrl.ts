@@ -40,7 +40,7 @@ export const buildPublicUrl = (pathOrUrl: string | undefined, fallbackPath = '/'
 
 export const buildPublicRouteUrl = (route: string): string => buildPublicUrl(route);
 
-// URL de compartir: para lugares, listas, platos, perfiles y valoraciones usa
+// URL de compartir: para lugares, listas, platos, perfiles y reseñas usa
 // /s/... — una Cloud Function (ssrMeta) que sirve Open Graph real (título y una
 // imagen con foto, nota y marca) a los bots de WhatsApp/Twitter y redirige al
 // instante a la ruta normal para humanos.

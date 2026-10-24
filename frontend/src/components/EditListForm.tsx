@@ -28,7 +28,7 @@ import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
 import { deriveScoringWeights } from '../lib/scoring';
 import { isPermissionDeniedError, writeWithOptionalFields } from '../lib/optionalFields';
 import { listVisibility, syncListReviewVisibility } from '../lib/reviewVisibility';
-import { lockedCategoryTags, withCategoryTags } from '../lib/categoryTags';
+import { dietFixedTags, isDefaultVegetarian, listTagsWithDiet, lockedCategoryTags } from '../lib/categoryTags';
 import { CategoryService } from '../services/CategoryService';
 
 type CriteriaDefinitionValue = {
@@ -57,6 +57,7 @@ interface EditableListData {
     criteriaDefinition?: CriteriaDefinitionMap;
     reviewCount?: number;
     scoringWeights?: Record<string, number>;
+    defaultDiet?: 'vegetarian' | 'none';
 }
 
 interface EditListFormProps {
@@ -102,7 +103,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     const [showEditEmojiPicker, setShowEditEmojiPicker] = useState(false);
     const [tagRenames, setTagRenames] = useState<Map<string, string>>(new Map());
     const [inheritedCriteriaIds, setInheritedCriteriaIds] = useState<string[]>([]);
-    // Con valoraciones, los criterios existentes no se quitan ni cambian de peso.
+    // Con reseñas, los criterios existentes no se quitan ni cambian de peso.
     const [scoringLockedIds, setScoringLockedIds] = useState<string[]>([]);
     const [existingWeights, setExistingWeights] = useState<Record<string, number> | null>(null);
     // Criterios de otro tipo (no deslizador): se conservan tal cual al guardar.
@@ -110,6 +111,14 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     const [inheritedTags, setInheritedTags] = useState<string[]>([]);
     // Fijas de la categoría (Vegetariano, Sin gluten… en «Hmm...»): no se quitan ni se renombran.
     const [categoryLockedTags, setCategoryLockedTags] = useState<string[]>([]);
+    const [categoryTags, setCategoryTags] = useState<string[]>([]);
+    const [vegetarianByDefault, setVegetarianByDefault] = useState(false);
+    // Al cambiar la dieta por defecto, las fijas cambian («Vegetariano» ↔ «Lleva carne o pescado»).
+    const changeVegetarianByDefault = (on: boolean) => {
+        setVegetarianByDefault(on);
+        setCustomTags((prev) => listTagsWithDiet(categoryTags, prev.filter((tag) => !categoryLockedTags.includes(tag)), on));
+        setCategoryLockedTags(lockedCategoryTags(dietFixedTags(categoryTags, on), customTags));
+    };
     const isLockedTag = (tag: string) => inheritedTags.includes(tag) || categoryLockedTags.includes(tag);
     const [showMigration, setShowMigration] = useState(false);
     const [reloadKey, setReloadKey] = useState(0);
@@ -144,9 +153,12 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 setPublicAccess(data.publicAccess || 'reader');
                 const pListId = data.parentListId || null;
                 setParentListId(pListId);
-                const categoryTags = await CategoryService.getFixedTags(data.categoryId);
-                setCustomTags(withCategoryTags(categoryTags, data.availableTags));
-                setCategoryLockedTags(lockedCategoryTags(categoryTags, data.availableTags));
+                const fixedTags = await CategoryService.getFixedTags(data.categoryId);
+                const vegDefault = isDefaultVegetarian(data);
+                setCategoryTags(fixedTags);
+                setVegetarianByDefault(vegDefault);
+                setCustomTags(listTagsWithDiet(fixedTags, data.availableTags, vegDefault));
+                setCategoryLockedTags(lockedCategoryTags(dietFixedTags(fixedTags, vegDefault), data.availableTags));
 
                 if (pListId) {
                     try {
@@ -296,7 +308,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 };
             });
 
-            // Pesos de la nota: ×1 lo que cuenta, ×0 lo que no. Con valoraciones se
+            // Pesos de la nota: ×1 lo que cuenta, ×0 lo que no. Con reseñas se
             // conservan los ya guardados (cambiarlos exige una migración).
             const scoringWeights = deriveScoringWeights(criteriaDefinitionMap, {
                 ...weightsFromCriteria(criteria),
@@ -309,7 +321,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 publicAccess: isPublic ? publicAccess : 'reader',
                 visibility: newVisibility,
                 criteriaDefinition: criteriaDefinitionMap,
-                ...(includeWeights ? { scoringWeights } : {}),
+                ...(includeWeights ? { scoringWeights, defaultDiet: vegetarianByDefault ? 'vegetarian' : 'none' } : {}),
                 availableTags: finalTags
             }));
 
@@ -358,7 +370,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                 }
             }
 
-            // Las valoraciones siguen la visibilidad de su lista (ver lib/reviewVisibility).
+            // Las reseñas siguen la visibilidad de su lista (ver lib/reviewVisibility).
             await syncListReviewVisibility(listId, parentListId, newVisibility);
 
             queryClient.invalidateQueries({ queryKey: ['listDetails', listId] });
@@ -459,7 +471,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                                 className="w-4 h-4 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] border-gray-600" />
                             <div>
                                 <span className="block text-sm font-medium text-white">Solo Lectura</span>
-                                <span className="block text-xs text-gray-500">Los visitantes pueden ver pero solo editores añaden valoraciones.</span>
+                                <span className="block text-xs text-gray-500">Los visitantes pueden ver pero solo editores añaden reseñas.</span>
                             </div>
                         </label>
                         <label className="flex items-center gap-3 cursor-pointer">
@@ -467,7 +479,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                                 className="w-4 h-4 text-[var(--lt-accent)] focus:ring-[var(--lt-accent)] bg-[var(--lt-bg)] border-gray-600" />
                             <div>
                                 <span className="block text-sm font-medium text-white">Colaborativa (Escritura)</span>
-                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir valoraciones.</span>
+                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir reseñas.</span>
                             </div>
                         </label>
                     </div>
@@ -509,9 +521,17 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
                 <div className="border-t border-white/5 pt-6" />
 
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-2.5">
+                    <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-[var(--lt-text)]">🥔 Casi todo es vegetariano</span>
+                        <span className="mt-0.5 block text-xs leading-snug text-[var(--lt-text-muted)]">Para tortillas, tartas de queso… Se marca solo lo que lleva carne o pescado (🥩) y quien filtra por vegetariano ve el resto. El gluten nunca se da por hecho.</span>
+                    </span>
+                    <input type="checkbox" className="h-5 w-5 shrink-0 accent-[var(--lt-accent)]" checked={vegetarianByDefault} onChange={(e) => changeVegetarianByDefault(e.target.checked)} />
+                </label>
+
                 <div>
                     <h3 className="text-lg font-bold text-white mb-2">Etiquetas</h3>
-                    <p className="text-sm text-gray-400 mb-3">Define qué etiquetas estarán disponibles para clasificar las valoraciones.</p>
+                    <p className="text-sm text-gray-400 mb-3">Define qué etiquetas estarán disponibles para clasificar las reseñas.</p>
                     <div className="flex flex-wrap gap-2 mb-3">
                         {customTags.map(tag => {
                             const isLocked = isLockedTag(tag);

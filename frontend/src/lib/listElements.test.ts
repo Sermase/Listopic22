@@ -36,7 +36,7 @@ describe('rankListElements', () => {
         expect(ranked.map((e) => e.itemName)).toEqual(['C']);
     });
 
-    it('en la madre, la valoración de Minilista cuenta sin sus criterios propios', () => {
+    it('en la madre, la reseña de Minilista cuenta sin sus criterios propios', () => {
         const ranked = rankListElements([
             { ...review('p1', 'A', 8), sublistId: 'mini', scores: { sabor: 6, relleno: 10 } },
         ], list);

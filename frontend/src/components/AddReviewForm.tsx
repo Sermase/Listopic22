@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { HelpTip } from './HelpTip';
 import { createPortal } from 'react-dom';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, increment, getDoc, setDoc, query, where, getDocs, deleteDoc, Timestamp } from 'firebase/firestore';
+import { moveVisitedPlace } from '../lib/visitArchives';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc, getDocs, setDoc, deleteDoc, Timestamp, query, where } from 'firebase/firestore';
 import { db, storage, functions } from '../firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject, getBlob } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
 import { useAuth } from '../context/AuthContext';
+import { usePreferences } from '../context/PreferencesContext';
+import { APT_CONTRIBUTE_KEYS, APT_QUESTIONS, type AptAnswer, type AptKey } from '../lib/aptFor';
 import { useToast } from '../context/ToastContext';
 import { Loader2, X, MapPin as MapPinIcon, CheckCircle2, Lock, Trash2, Star } from 'lucide-react';
 import { PhotoEditorModal, type ProcessedPhoto } from './PhotoEditorModal';
@@ -19,7 +23,7 @@ import { computeReviewScore, criterionWeight, isComputingCriterion } from '../li
 import { formatScore, SCORE_BADGE, SCORE_BAND_EMOJI, SCORE_BAND_LABEL, scoreBand, scoreTextColor } from '../lib/scoreScale';
 import { CriterionRating } from './CriterionRating';
 import { orderedCriteriaEntries } from '../lib/criteria';
-import { withCategoryTags } from '../lib/categoryTags';
+import { isDefaultVegetarian, listTagsWithDiet } from '../lib/categoryTags';
 import { CategoryService } from '../services/CategoryService';
 import { parseReviewDraft, reviewDraftKey, REVIEW_DRAFT_VERSION, shouldRestoreReviewDraft } from '../lib/reviewDraft';
 import { usePlaceElementsInList } from '../hooks/usePlaceElementsInList';
@@ -40,7 +44,7 @@ interface AddReviewFormProps {
 
 const REVIEW_CREATE_TOASTS = [
     'Tu veredicto ya está en la mesa.',
-    'Valoración publicada: criterio fino y sin titubeos.',
+    'Reseña publicada: criterio fino y sin titubeos.',
     'Nuevo punto en el mapa del buen gusto.',
     'Anotado. El ranking acaba de ponerse interesante.',
 ] as const;
@@ -186,6 +190,10 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     // Editable aquí: si ya tienes reseña de ese plato, «Editar la mía» la abre en este mismo formulario.
     const [editReviewId, setEditReviewId] = useState<string | undefined>(editReviewIdProp);
     useEffect(() => { setEditReviewId(editReviewIdProp); }, [editReviewIdProp]);
+    // «Apto para»: solo para quien aporta en algo (Mis preferencias). Respuestas privadas.
+    const { prefs } = usePreferences();
+    const contributeKeys = APT_CONTRIBUTE_KEYS.filter((key) => prefs.contribute.includes(key));
+    const [aptAnswers, setAptAnswers] = useState<Partial<Record<AptKey, AptAnswer>>>({});
     const { showToast } = useToast();
     const queryClient = useQueryClient();
 
@@ -195,7 +203,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null);
 
     const [comment, setComment] = useState('');
-    // Nota guardada al editar (solo se usa si la valoración antigua no tiene puntuaciones).
+    // Nota guardada al editar (solo se usa si la reseña antigua no tiene puntuaciones).
     const [storedOverallRating, setStoredOverallRating] = useState<number | null>(null);
 
     // Changed: Store full definition list to preserve ORDER
@@ -226,6 +234,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const [originalData, setOriginalData] = useState<string>(''); // JSON string for deep comparison
 
     const scrollRef = useRef<HTMLDivElement>(null);
+    const commentRef = useRef<HTMLTextAreaElement>(null);
     const handlePointerDown = (e: React.PointerEvent) => {
         // If the user taps on something that is NOT a text input/textarea, blur the active element.
         // This dismisses the mobile keyboard immediately and prevents browser scroll jumps.
@@ -247,7 +256,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const isNew = !editReviewId;
 
     // Borrador: va atado a lista + sitio y solo se recupera al elegir ese mismo
-    // sitio (lib/reviewDraft). Antes salía en cualquier valoración de la lista.
+    // sitio (lib/reviewDraft). Antes salía en cualquier reseña de la lista.
     const selectedPlaceId = selectedPlace?.id || null;
     const draftCheckedFor = useRef<string | null>(null);
     useEffect(() => {
@@ -358,6 +367,19 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
         return currentData !== originalData;
     }, [isNew, itemName, comment, criteriaScores, customTags, existingPhotoUrls, processedPhotos.length, originalData, internalListId]);
+
+    // Respuestas «Apto para» que ya dio en esta reseña.
+    useEffect(() => {
+        if (!editReviewId || !user?.uid) return;
+        let cancelled = false;
+        getDoc(doc(db, 'users', user.uid, 'aptReports', editReviewId))
+            .then((snap) => {
+                const answers = snap.exists() ? snap.data().answers : null;
+                if (!cancelled && answers && typeof answers === 'object') setAptAnswers(answers as Partial<Record<AptKey, AptAnswer>>);
+            })
+            .catch(() => { /* opcional */ });
+        return () => { cancelled = true; };
+    }, [editReviewId, user?.uid]);
 
     // Fetch Review Data for Editing
     useEffect(() => {
@@ -473,7 +495,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 );
             } catch (e) {
                 console.error("Error fetching review for edit:", e);
-                setError("Error cargando la valoración para editar");
+                setError("Error cargando la reseña para editar");
             }
         };
 
@@ -564,7 +586,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             });
                         }
 
-                        // Valoración nueva: ningún criterio viene puntuado. Solo se
+                        // Reseña nueva: ningún criterio viene puntuado. Solo se
                         // conservan notas de esta lista (p. ej. de un borrador).
                         if (!editReviewId) {
                             const ids = new Set(cList.map(c => c.id));
@@ -578,7 +600,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     // Las fijas de la categoría (Vegetariano, Sin gluten… en «Hmm...») salen
                     // siempre, también en listas creadas antes de fijarlas.
                     const categoryTags = await CategoryService.getFixedTags(data.categoryId);
-                    setListAvailableTags(withCategoryTags(categoryTags, data.availableTags));
+                    setListAvailableTags(listTagsWithDiet(categoryTags, data.availableTags, isDefaultVegetarian(data)));
                 }
             } catch (e) {
                 console.error("Error fetching list definition", e);
@@ -690,91 +712,6 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         setError(null);
 
         try {
-            // --- AUTOMATION: "Quiero ir" -> "Ya fui" (ARCHIVES) ---
-            // Requirement: "si hacemos una reseña de ... elemento en Quiero ir, se pase automáticamente a ya fui" (in Archives)
-
-            // 1. Ensure "Ya fui" archive exists
-            let yaFuiArchiveId: string | null = null;
-            let quieroIrArchiveId: string | null = null;
-
-            try {
-                // Determine user archive IDs
-                const qArchives = query(collection(db, 'users', user.uid, 'archives'));
-                const snapArchives = await getDocs(qArchives);
-
-                snapArchives.forEach(doc => {
-                    const data = doc.data();
-                    if (data.name === 'Ya fui') yaFuiArchiveId = doc.id;
-                    if (data.name === 'Quiero ir') quieroIrArchiveId = doc.id;
-                });
-
-                // Auto-create "Ya fui" if missing
-                if (!yaFuiArchiveId) {
-                    const newRef = await addDoc(collection(db, 'users', user.uid, 'archives'), {
-                        name: 'Ya fui',
-                        createdAt: serverTimestamp(),
-                        itemCount: 0
-                    });
-                    yaFuiArchiveId = newRef.id;
-                }
-                // Auto-create "Quiero ir" if missing (for consistency)
-                if (!quieroIrArchiveId) {
-                    const newRef = await addDoc(collection(db, 'users', user.uid, 'archives'), {
-                        name: 'Quiero ir',
-                        createdAt: serverTimestamp(),
-                        itemCount: 0
-                    });
-                    quieroIrArchiveId = newRef.id;
-                }
-
-                // 2. Check if the current place is in "Quiero ir"
-                // Place ID is critical here.
-                let finalPlaceId = selectedPlace?.id || prefillPlaceId || 'unknown';
-                if (selectedPlace) finalPlaceId = selectedPlace.id; // Correct preference
-
-                if (quieroIrArchiveId && finalPlaceId !== 'unknown') {
-                    // Los sitios guardados desde su ficha usan el placeId como id del
-                    // documento (y los antiguos no tienen campo placeId); los platos
-                    // guardados sí llevan placeId.
-                    const quieroIrItems = collection(db, 'users', user.uid, 'archives', quieroIrArchiveId, 'items');
-                    const directItem = await getDoc(doc(quieroIrItems, finalPlaceId));
-                    const matchRef = directItem.exists()
-                        ? directItem.ref
-                        : (await getDocs(query(quieroIrItems, where('placeId', '==', finalPlaceId)))).docs[0]?.ref;
-
-                    if (matchRef) {
-                        // Move logic:
-                        // A. Delete from Quiero ir
-                        await deleteDoc(matchRef);
-                        await updateDoc(doc(db, 'users', user.uid, 'archives', quieroIrArchiveId!), { itemCount: increment(-1) });
-
-                        // B. Add to Ya fui (As a Place Item)
-                        const placeName = selectedPlace?.name || prefillItemName || 'Lugar';
-                        const subtitle = selectedPlace?.address || '';
-                        // Nunca guardar una imagen en base64 dentro del documento.
-                        const photo = imagePreview && /^https?:/.test(imagePreview) ? imagePreview : '';
-
-                        // We use the Place ID as the doc ID in the new archive for uniqueness
-                        await setDoc(doc(db, 'users', user.uid, 'archives', yaFuiArchiveId!, 'items', finalPlaceId), {
-                            itemId: finalPlaceId,
-                            placeId: finalPlaceId,
-                            type: 'place',
-                            name: placeName,
-                            subtitle: subtitle,
-                            photoUrl: photo,
-                            savedAt: serverTimestamp(),
-                            route: `/place/${finalPlaceId}`
-                        });
-                        await updateDoc(doc(db, 'users', user.uid, 'archives', yaFuiArchiveId!), { itemCount: increment(1) });
-                    }
-                }
-
-            } catch (autoErr) {
-                console.error("Archive automation error:", autoErr);
-                // Non-blocking
-            }
-
-            // --- END AUTOMATION ---
 
             const placeName = selectedPlace?.name || 'Lugar Desconocido';
 
@@ -1044,6 +981,21 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 }
             }
 
+            // «Apto para»: la respuesta privada; el servidor la suma sin nombres en el sitio.
+            const savedReviewId = newReviewId ?? editReviewId;
+            if (user?.uid && savedReviewId && finalListId && (contributeKeys.length > 0 || editReviewId)) {
+                const aptRef = doc(db, 'users', user.uid, 'aptReports', savedReviewId);
+                try {
+                    if (Object.keys(aptAnswers).length > 0) {
+                        await setDoc(aptRef, { listId: finalListId, answers: aptAnswers, updatedAt: serverTimestamp() });
+                    } else if (editReviewId) {
+                        await deleteDoc(aptRef);
+                    }
+                } catch (aptErr) {
+                    console.warn('No se pudo guardar «Apto para»:', aptErr);
+                }
+            }
+
             // Optimistic cache update — avoids Firestore local-cache latency on refetch
             const optimisticReview = {
                 id: newReviewId ?? editReviewId ?? '',
@@ -1094,12 +1046,20 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
             showToast({
                 variant: 'success',
-                title: isNew ? 'Valoración publicada' : 'Cambios guardados',
+                title: isNew ? 'Reseña publicada' : 'Cambios guardados',
                 message: isNew ? pickRandom(REVIEW_CREATE_TOASTS) : pickRandom(REVIEW_EDIT_TOASTS),
             });
             // El borrador se guarda con la lista elegida (en una Minilista no es finalListId).
             try { localStorage.removeItem(reviewDraftKey(internalListId)); } catch { /* sin almacenamiento */ }
             queryClient.invalidateQueries({ queryKey: ['placeElementsInList', internalListId] });
+            // «Quiero ir» → «Ya fui»: lo guardado de este sitio cambia de colección (sin bloquear).
+            if (isNew && finalPlaceId && finalPlaceId !== 'unknown') {
+                void moveVisitedPlace(db, user.uid, finalPlaceId)
+                    .then((moved) => {
+                        if (moved) showToast({ variant: 'success', message: '🧭 Lo tenías en «Quiero ir»: ya está en «Ya fui».' });
+                    })
+                    .catch((autoErr) => console.error('Archive automation error:', autoErr));
+            }
             onSuccess();
             onClose();
 
@@ -1109,7 +1069,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             showToast({
                 variant: 'error',
                 title: 'No se pudo guardar',
-                message: 'Hubo un problema al guardar la valoración. Inténtalo de nuevo en unos segundos.',
+                message: 'Hubo un problema al guardar la reseña. Inténtalo de nuevo en unos segundos.',
             });
         } finally {
             setLoading(false);
@@ -1135,6 +1095,69 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             return next;
         });
     };
+    const setAptAnswer = (key: AptKey, value: AptAnswer) => setAptAnswers((prev) => {
+        const next = { ...prev };
+        if (next[key] === value) delete next[key];
+        else next[key] = value;
+        return next;
+    });
+    const aptAnswered = contributeKeys.filter((key) => aptAnswers[key]).length;
+    const aptBlock = contributeKeys.length > 0 && user ? (
+        <details open={aptAnswered > 0} className="group rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)]">
+            <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3">
+                <span className="flex-1 text-sm font-bold text-[var(--lt-text)]">✍️ Apto para</span>
+                {aptAnswered > 0 && <span className="rounded-full bg-[var(--lt-accent-soft)] px-2 py-0.5 text-xs font-bold text-[var(--lt-accent)]">{aptAnswered}</span>}
+                <span className="text-xs text-[var(--lt-text-muted)]">opcional</span>
+            </summary>
+            <div className="space-y-3 px-4 pb-4">
+                <p className="text-xs leading-snug text-[var(--lt-text-muted)]">🔒 Privado: nadie ve tu respuesta, solo el recuento sin nombres. Ayuda a quien busca lo mismo que tú.</p>
+                {contributeKeys.map((key) => {
+                    const q = APT_QUESTIONS[key];
+                    return (
+                        <div key={key}>
+                            <p className="mb-1.5 text-sm font-semibold text-[var(--lt-text)]"><span aria-hidden="true">{q.emoji}</span> {q.question}</p>
+                            <div className="flex flex-wrap gap-1.5" role="group" aria-label={q.question}>
+                                {(['yes', 'no'] as const).map((value) => {
+                                    const on = aptAnswers[key] === value;
+                                    return (
+                                        <button
+                                            key={value}
+                                            type="button"
+                                            aria-pressed={on}
+                                            onClick={() => setAptAnswer(key, value)}
+                                            className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${on ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-text)]' : 'border-[var(--lt-border)] text-[var(--lt-text-muted)]'}`}
+                                        >
+                                            {value === 'yes' ? `✅ ${q.yes}` : `⚠️ ${q.no}`}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </details>
+    ) : null;
+
+    const opinionBlock = (
+        <div className="space-y-3">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-accent)] flex items-center gap-1.5">
+                <span>💬</span> Tu opinión <span className="normal-case font-normal tracking-normal text-[var(--lt-text-muted)]">· opcional, pero es lo que más se lee al decidir</span>
+            </p>
+            <textarea
+                ref={commentRef}
+                value={comment}
+                onChange={e => setComment(e.target.value)}
+                maxLength={2000}
+                placeholder="¿Qué te pareció? Los detalles que hacen la diferencia..."
+                rows={3}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all placeholder:text-gray-600 resize-none"
+            />
+            {comment.length > 0 && (
+                <p className={`text-right text-[10px] ${comment.length > 1800 ? 'text-amber-500' : 'text-gray-600'}`}>{comment.length}/2000</p>
+            )}
+        </div>
+    );
     const overallBand = scoreBand(overallRating);
     const overallBadge = SCORE_BADGE[overallBand];
     const scoringProgress = scoreSummary.requiredCount > 0 ? scoreSummary.scoredCount / scoreSummary.requiredCount : 0;
@@ -1166,7 +1189,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             </div>
                             <div>
                                 <h2 className="text-base font-bold text-white font-display leading-tight">
-                                    {isNew ? 'Nueva valoración' : 'Editar valoración'}
+                                    {isNew ? 'Nueva reseña' : 'Editar reseña'}
                                 </h2>
                                 {listData?.name && (
                                     <p className="text-xs text-[var(--lt-accent)]/60 mt-0.5">en {listData.name}</p>
@@ -1280,7 +1303,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                                     >
                                                         {selected && <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-[var(--lt-accent)]" />}
                                                         <span className="truncate">{element.name}</span>
-                                                        <span className="text-[10px] font-bold tabular-nums text-[var(--lt-text-muted)]" title={`${element.count} ${element.count === 1 ? 'valoración' : 'valoraciones'}`}>
+                                                        <span className="text-[10px] font-bold tabular-nums text-[var(--lt-text-muted)]" title={`${element.count} ${element.count === 1 ? 'reseña' : 'reseñas'}`}>
                                                             {element.count}
                                                         </span>
                                                     </button>
@@ -1349,12 +1372,12 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                 </div>
                             )}
 
-                            {/* ── Sección: Valoración ─────────────────── */}
+                            {/* ── Sección: Reseña ─────────────────── */}
                             {criteriaLoaded && hasComputingCriteria ? (
                                 <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-4 space-y-5">
                                     <div className="flex items-center justify-between gap-3">
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-accent)] flex items-center gap-1.5">
-                                            <span aria-hidden>⭐</span> Valoración
+                                            <span aria-hidden>⭐</span> Reseña <HelpTip topic="nota" />
                                         </p>
                                         <span
                                             className={`text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full ${scoreSummary.complete
@@ -1421,6 +1444,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                         ))}
                                     </div>
 
+                                    {/* La opinión, justo después de las notas que cuentan */}
+                                    <div className="border-t border-[var(--lt-border)] pt-5">{opinionBlock}</div>
+
+                                    {aptBlock}
+
                                     {/* Detalles opcionales: no cuentan para la nota */}
                                     {nonPonderableCriteria.length > 0 && (
                                         <div className="border-t border-[var(--lt-border)] pt-5 space-y-6">
@@ -1454,23 +1482,11 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                 </div>
                             )}
 
-                            {/* ── Sección: Tu opinión ─────────────────── */}
-                            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--lt-accent)] flex items-center gap-1.5">
-                                    <span>💬</span> Tu opinión
-                                </p>
-                                <textarea
-                                    value={comment}
-                                    onChange={e => setComment(e.target.value)}
-                                    maxLength={2000}
-                                    placeholder="¿Qué te pareció? Los detalles que hacen la diferencia..."
-                                    rows={3}
-                                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/20 transition-all placeholder:text-gray-600 resize-none"
-                                />
-                                {comment.length > 0 && (
-                                    <p className={`text-right text-[10px] ${comment.length > 1800 ? 'text-amber-500' : 'text-gray-600'}`}>{comment.length}/2000</p>
-                                )}
-                            </div>
+                            {/* ── Sección: Tu opinión (si la lista no tiene criterios que cuenten) ── */}
+                            {!(criteriaLoaded && hasComputingCriteria) && (
+                                <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">{opinionBlock}</div>
+                            )}
+                            {!(criteriaLoaded && hasComputingCriteria) && aptBlock}
 
                             {/* ── Sección: Fotos ──────────────────────── */}
                             <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4 space-y-3">
@@ -1638,7 +1654,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             >
                                 {loading
                                     ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando...</>
-                                    : isNew ? '✨ Publicar valoración' : '💾 Guardar Cambios'
+                                    : isNew ? '✨ Publicar reseña' : '💾 Guardar Cambios'
                                 }
                             </button>
                         </div>

@@ -82,7 +82,7 @@ export const SharesCard: React.FC<SharesCardProps> = ({ status, summary, onRetry
         );
     }
     return (
-        <StatsCard emoji="📤" title="¿Cómo te comparten?" help="Tu ficha, tus platos y sus valoraciones." busy={busy} className={className}>
+        <StatsCard emoji="📤" title="¿Cómo te comparten?" help="Tu ficha, tus platos y sus reseñas." busy={busy} className={className}>
             {body}
         </StatsCard>
     );

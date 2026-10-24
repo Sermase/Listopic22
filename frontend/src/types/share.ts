@@ -60,6 +60,8 @@ export interface ShareEntityPayload {
     rankItems?: ShareRankItem[];
     /** Listas: nº de elementos (sitios o platos) de la lista. */
     elementCount?: number;
+    /** Listas: zona elegida al compartir («a menos de 1 km, en Madrid», «en Valladolid»). */
+    scopeLabel?: string;
 }
 
 const SHARE_ENTITY_LABELS: Record<ShareEntityType, string> = {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { categoryFixedTags, lockedCategoryTags, tagKey, withCategoryTags } from './categoryTags';
+import { categoryFixedTags, dietFixedTags, isDefaultVegetarian, isMeatTag, listTagsWithDiet, lockedCategoryTags, MEAT_TAG, tagKey, withCategoryTags } from './categoryTags';
 
 const HMM = ['🥕 Vegetariano', '🚫🌾 Sin gluten'];
 
@@ -24,5 +24,17 @@ describe('categoryTags', () => {
 
     it('las bloqueadas son las versiones que se ven', () => {
         expect(lockedCategoryTags(HMM, ['sin gluten'])).toEqual(['🥕 Vegetariano', 'sin gluten']);
+    });
+});
+
+describe('dieta por defecto vegetariana', () => {
+    it('quita «Vegetariano» y añade «Lleva carne o pescado» fija', () => {
+        const fixed = ['🥦 Vegetariano', '🚫🌾 Sin gluten'];
+        expect(dietFixedTags(fixed, false)).toEqual(fixed);
+        expect(dietFixedTags(fixed, true)).toEqual([MEAT_TAG, '🚫🌾 Sin gluten']);
+        expect(listTagsWithDiet(fixed, ['Vegetariano', 'Picante'], true)).toEqual([MEAT_TAG, '🚫🌾 Sin gluten', 'Picante']);
+        expect(isMeatTag('lleva carne o pescado')).toBe(true);
+        expect(isDefaultVegetarian({ defaultDiet: 'vegetarian' })).toBe(true);
+        expect(isDefaultVegetarian({})).toBe(false);
     });
 });

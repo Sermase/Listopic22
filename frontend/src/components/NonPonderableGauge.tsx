@@ -16,15 +16,8 @@ export const NonPonderableGauge: React.FC<NonPonderableGaugeProps> = ({ score, l
     const percentage = Math.min(100, Math.max(0, (score / 10) * 100));
     const offset = circumference - (percentage / 100) * circumference;
 
-    // Determine color based on score (Optional: can be neutral or dynamic)
-    const getColor = (s: number) => {
-        if (s >= 8) return 'text-emerald-400';
-        if (s >= 6) return 'text-[var(--lt-accent)]';
-        if (s >= 4) return 'text-yellow-400';
-        return 'text-rose-400';
-    };
-
-    const colorClass = getColor(score);
+    // Informativo: color neutro, la escala no es buena ni mala
+    const colorClass = 'text-[var(--lt-text-muted)]';
 
     return (
         <div className="flex flex-col items-center justify-center p-3 bg-[#1e2538] rounded-2xl border border-white/5 shadow-sm hover:border-white/10 transition-all group">

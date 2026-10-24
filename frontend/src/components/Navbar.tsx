@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Archive, Bell, Building2, Dice5, Eye, Home, Info, Menu, MessageSquare, Plus, Search, Sparkles, User, X } from 'lucide-react';
+import { Bookmark, Bell, Building2, ChevronRight, Dice5, Eye, Info, LifeBuoy, Menu, MessageSquare, Plus, Search, SlidersHorizontal, Sparkles, User, X } from 'lucide-react';
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig, useAppConfigLoading } from '../context/AppConfigContext';
@@ -55,12 +55,31 @@ const NavItem = ({ to, icon: Icon, label, badge, count, isActive, onClick }: { t
     );
 };
 
+/** Casilla del menú móvil: icono grande y etiqueta corta. */
+const MenuTile = ({ to, icon: Icon, label, badge, highlight, onClick }: { to?: string; icon: React.ElementType; label: string; badge?: number; highlight?: boolean; onClick?: React.MouseEventHandler<HTMLElement> }) => {
+    const className = `relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-2 py-3.5 text-center text-xs font-bold transition-colors active:scale-[0.97] ${highlight
+        ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-text)]'
+        : 'border-[var(--lt-border)] bg-[var(--lt-glass)] text-[var(--lt-text)] hover:border-[var(--lt-accent-border)]'}`;
+    const content = (
+        <>
+            <Icon className="h-5 w-5 text-[var(--lt-accent)]" />
+            <span className="leading-tight">{label}</span>
+            {badge !== undefined && badge > 0 && (
+                <span className="absolute right-2 top-2 min-w-[18px] rounded-full bg-red-500 px-1 text-[10px] font-bold leading-[18px] text-white">{badge > 9 ? '9+' : badge}</span>
+            )}
+        </>
+    );
+    return to
+        ? <Link to={to} onClick={onClick} className={className}>{content}</Link>
+        : <button type="button" onClick={onClick} className={className}>{content}</button>;
+};
+
 export const Navbar: React.FC = () => {
     const { user, isJefe } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
     const config = useAppConfig();
     const isConfigLoading = useAppConfigLoading();
-    const { theme } = useTheme();
+    const { theme, setTheme, themes } = useTheme();
     const location = useLocation();
 
     const themeLogoUrls: Record<ThemeId, string | undefined> = {
@@ -81,7 +100,7 @@ export const Navbar: React.FC = () => {
     const [showPageAnalytics, setShowPageAnalytics] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
     const [unreadChatCount, setUnreadChatCount] = useState(0);
-    const { count: managedBusinessCount } = useManagedBusinesses(user?.uid);
+    const { count: managedBusinessCount, hasPro } = useManagedBusinesses(user?.uid);
     const [profileUsername, setProfileUsername] = useState('');
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
     const [profilePhotoRetryUrl, setProfilePhotoRetryUrl] = useState('');
@@ -206,7 +225,6 @@ export const Navbar: React.FC = () => {
     }, [user]);
 
     const profileLabel = profileUsername ? `@${profileUsername}` : (user?.displayName || 'Mi cuenta');
-    const mobileCreateButtonClass = "w-full flex items-center justify-center gap-3 rounded-2xl px-5 py-4 text-lg font-bold text-white shadow-lg transition-all";
     const guardProtectedLink = (action: string): React.MouseEventHandler<HTMLAnchorElement> => (event) => {
         if (user) return;
         event.preventDefault();
@@ -247,7 +265,7 @@ export const Navbar: React.FC = () => {
                     <nav className="lt-nav-pill hidden md:flex items-center bg-white/5 backdrop-blur-xl rounded-full px-2 py-1.5 border border-white/5 shadow-inner">
                         <NavItem to="/search" icon={Search} label="Buscar" isActive={location.pathname === '/search'} />
                         <div className="w-px h-4 bg-white/10 mx-1" />
-                        <NavItem to="/archive" icon={Archive} label="Colecciones" isActive={location.pathname === '/archive'} onClick={guardProtectedLink('ver tus colecciones')} />
+                        <NavItem to="/archive" icon={Bookmark} label="Guardados" isActive={location.pathname === '/archive'} onClick={guardProtectedLink('ver tus guardados')} />
                         {user && managedBusinessCount > 0 && (
                             <NavItem to="/businesses" icon={Building2} label="Negocios" isActive={location.pathname === '/businesses'} />
                         )}
@@ -340,6 +358,16 @@ export const Navbar: React.FC = () => {
                                 <Eye className="h-5 w-5" />
                             </button>
                         )}
+                        {/* Business Pro: acceso directo junto al avatar (la barra inferior es igual para todos) */}
+                        {user && hasPro && (
+                            <Link
+                                to="/businesses"
+                                className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-black lt-on-accent shadow-md transition-transform active:scale-95"
+                                style={{ backgroundImage: 'linear-gradient(135deg, #f59e0b, #ec4899 55%, #8b5cf6)' }}
+                            >
+                                <Sparkles className="h-3.5 w-3.5" /> Mi negocio
+                            </Link>
+                        )}
                         {user && (
                             <Link to={`/profile/${user.uid}`} className="relative shrink-0 group">
                                 <div className="w-9 h-9 rounded-full p-[2px] transition-transform group-active:scale-95 shadow-md" style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 2px 8px var(--lt-accent-shadow)' }}>
@@ -359,111 +387,103 @@ export const Navbar: React.FC = () => {
                             className="p-2 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors z-50 relative"
                         >
                             {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                            {!isMenuOpen && (unreadChatCount > 0 || unreadCount > 0) && (
+                                <span aria-hidden="true" className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full border-2 border-[var(--lt-bg)] bg-red-500" />
+                            )}
                         </button>
                     </div>
                 </div>
             </div>
 
             {isMenuOpen && (
-                <div className="fixed inset-x-0 bottom-0 bg-[var(--lt-bg-deep)]/95 z-40 px-4 sm:px-6 pb-6 animate-fade-in flex flex-col backdrop-blur-3xl pointer-events-auto overflow-y-auto rounded-t-3xl" style={{ top: 'calc(env(safe-area-inset-top) + 68px)' }}>
-                    <div className="space-y-4 bg-[var(--lt-card-strong)]/60 p-6 rounded-[2rem] border border-white/10 shadow-2xl ring-1 ring-white/5 mt-4">
+                <div className="md:hidden fixed inset-0 z-40 pointer-events-auto">
+                    {/* Fondo: tocar fuera cierra */}
+                    <button type="button" aria-label="Cerrar menú" onClick={() => setIsMenuOpen(false)} className="absolute inset-0 bg-black/55 backdrop-blur-sm animate-fade-in" />
+                    {/* Hoja que sube desde abajo. No repite lo que ya está en la barra inferior. */}
+                    <div
+                        role="dialog"
+                        aria-label="Menú"
+                        className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-[2rem] border-t border-[var(--lt-border)] bg-[var(--lt-card-strong)] px-4 pt-2 shadow-[0_-12px_40px_rgba(0,0,0,0.45)] animate-slide-up"
+                        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
+                    >
+                        <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-[var(--lt-border)]" aria-hidden="true" />
+
                         {user ? (
-                            <Link to={`/profile/${user.uid}`} className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--lt-text)]">
-                                <div className="w-12 h-12 rounded-full overflow-hidden bg-[var(--lt-bg)] border border-white/10 shrink-0">
+                            <Link to={`/profile/${user.uid}`} onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 rounded-2xl p-2 text-[var(--lt-text)] transition-colors hover:bg-[var(--lt-glass)]">
+                                <div className="h-12 w-12 shrink-0 overflow-hidden rounded-full border border-[var(--lt-border)] bg-[var(--lt-bg)]">
                                     {displayProfilePhotoUrl ? (
-                                        <img src={displayProfilePhotoUrl} onError={handleProfileImageError} alt="Perfil" className="w-full h-full object-cover" />
+                                        <img src={displayProfilePhotoUrl} onError={handleProfileImageError} alt="Perfil" className="h-full w-full object-cover" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center">
-                                            <User className="w-5 h-5 text-[var(--lt-accent)]" />
-                                        </div>
+                                        <div className="flex h-full w-full items-center justify-center"><User className="h-5 w-5 text-[var(--lt-accent)]" /></div>
                                     )}
                                 </div>
-                                <div className="min-w-0">
-                                    <div className="text-xs uppercase tracking-[0.18em] text-[var(--lt-text-muted)]">Perfil</div>
-                                    <div className="font-bold truncate">{profileLabel}</div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="truncate font-bold">{profileLabel}</div>
+                                    <div className="text-xs text-[var(--lt-text-muted)]">Ver tu perfil</div>
                                 </div>
+                                <ChevronRight className="h-5 w-5 text-[var(--lt-text-muted)]" />
                             </Link>
                         ) : (
-                            <Link to="/login" className="flex items-center gap-3 p-4 rounded-2xl bg-white/5 border border-white/10 text-[var(--lt-text)]">
-                                <User className="w-5 h-5 text-[var(--lt-accent)]" />
-                                <span className="font-bold">Iniciar sesión</span>
+                            <Link to="/login" onClick={() => setIsMenuOpen(false)} className="flex items-center justify-center gap-2 rounded-2xl py-3.5 font-bold lt-on-accent" style={{ backgroundImage: 'var(--lt-accent-grad)' }}>
+                                <User className="h-5 w-5" /> Entrar o crear cuenta
                             </Link>
                         )}
 
-                        <div className="grid grid-cols-1 gap-3">
-                            <Link to="/create-sublist" onClick={guardProtectedLink('crear una minilista')} className={mobileCreateButtonClass} style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' }}>
-                                <Plus className="w-6 h-6" /> Crear Minilista
-                            </Link>
-                            <Link to="/create-review" onClick={guardProtectedLink('crear una valoración')} className={mobileCreateButtonClass} style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 4px 14px 0 var(--lt-accent-shadow)' }}>
-                                <Plus className="w-6 h-6" /> Nueva valoración
-                            </Link>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Link to="/" className="flex items-center gap-3 p-4 rounded-xl bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-text)]">
-                                <Home className="w-5 h-5 text-[var(--lt-accent)]" /> Inicio
-                            </Link>
-                            <Link to="/search" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
-                                <Search className="w-5 h-5 text-[var(--lt-accent)]" /> Buscar
-                            </Link>
-                            <Link to="/chats" onClick={guardProtectedLink('abrir tus chats')} className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)] justify-between">
-                                <div className="flex items-center gap-3">
-                                    <MessageSquare className="w-5 h-5 text-[var(--lt-accent)]" /> Chats
-                                </div>
-                                {unreadChatCount > 0 && (
-                                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                                        {unreadChatCount}
-                                    </span>
-                                )}
-                            </Link>
+                        <div className="mt-4 grid grid-cols-3 gap-2">
+                            {user && managedBusinessCount > 0 && (
+                                <MenuTile to="/businesses" icon={hasPro ? Sparkles : Building2} label={managedBusinessCount > 1 ? 'Mis negocios' : 'Mi negocio'} onClick={() => setIsMenuOpen(false)} highlight />
+                            )}
+                            <MenuTile to="/chats" icon={MessageSquare} label="Chats" badge={unreadChatCount} onClick={guardProtectedLink('abrir tus chats')} />
                             {user && (
-                                <button
-                                    type="button"
+                                <MenuTile
+                                    icon={Bell}
+                                    label="Avisos"
+                                    badge={unreadCount}
                                     onClick={() => {
                                         setNotificationPanelMode('mobile');
                                         setIsMenuOpen(false);
                                         setShowNotifications(true);
                                     }}
-                                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)] justify-between"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <Bell className="w-5 h-5 text-[var(--lt-accent)]" /> Notificaciones
-                                    </div>
-                                    {unreadCount > 0 && (
-                                        <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full min-w-[24px] text-center">
-                                            {unreadCount > 9 ? '9+' : unreadCount}
-                                        </span>
-                                    )}
-                                </button>
+                                />
+                            )}
+                            <MenuTile to="/create-sublist" icon={Plus} label="Crear minilista" onClick={guardProtectedLink('crear una minilista')} />
+                            <MenuTile to="/planes" icon={Sparkles} label="Planes" onClick={() => setIsMenuOpen(false)} />
+                            <MenuTile to="/preferencias" icon={SlidersHorizontal} label="Preferencias" onClick={() => setIsMenuOpen(false)} />
+                            <MenuTile to="/ayuda" icon={LifeBuoy} label="Ayuda" onClick={() => setIsMenuOpen(false)} />
+                            {config.showRandomChoiceButton && (
+                                <MenuTile to="/?surprise=1" icon={Dice5} label="Sorpréndeme" onClick={() => setIsMenuOpen(false)} />
                             )}
                             {isJefe && isTrackableAnalyticsPath(location.pathname) && (
-                                <button
-                                    type="button"
+                                <MenuTile
+                                    icon={Eye}
+                                    label="Ojo mágico"
                                     onClick={() => {
                                         setIsMenuOpen(false);
                                         setShowPageAnalytics(true);
                                     }}
-                                    className="w-full flex items-center gap-3 p-4 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-200"
-                                >
-                                    <Eye className="w-5 h-5" /> Ojo mágico · Estadísticas
-                                </button>
+                                />
                             )}
-                            <Link to="/archive" onClick={guardProtectedLink('ver tus colecciones')} className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
-                                <Archive className="w-5 h-5 text-[var(--lt-accent)]" /> Colecciones
-                            </Link>
-                            <Link to="/planes" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]">
-                                <Sparkles className="w-5 h-5 text-[var(--lt-accent)]" /> Planes · beta gratis
-                            </Link>
-                            {user && managedBusinessCount > 0 && (
-                                <Link to="/businesses" className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)] justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <Building2 className="w-5 h-5 text-[var(--lt-accent)]" /> Mis negocios
-                                    </div>
-                                    <span className="bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] text-xs font-bold px-2 py-0.5 rounded-full">
-                                        {managedBusinessCount}
-                                    </span>
-                                </Link>
-                            )}
+                        </div>
+
+                        <div className="mt-5">
+                            <p className="mb-2 px-1 text-[11px] font-bold uppercase tracking-widest text-[var(--lt-text-muted)]">Tema</p>
+                            <div className="flex gap-2 overflow-x-auto pb-1">
+                                {themes.map((t) => (
+                                    <button
+                                        key={t.id}
+                                        type="button"
+                                        onClick={() => { void setTheme(t.id); }}
+                                        aria-pressed={theme === t.id}
+                                        className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-bold transition-colors ${theme === t.id ? 'border-[var(--lt-accent)] text-[var(--lt-text)]' : 'border-[var(--lt-border)] text-[var(--lt-text-muted)]'}`}
+                                    >
+                                        <span className="h-4 w-4 rounded-full border border-white/20" style={{ background: `linear-gradient(135deg, ${t.preview.bg} 45%, ${t.preview.accent} 55%)` }} />
+                                        {t.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="mt-5 flex flex-wrap justify-center gap-x-4 gap-y-1 border-t border-[var(--lt-border)] pt-4 text-xs text-[var(--lt-text-muted)]">
                             <button
                                 type="button"
                                 onClick={() => {
@@ -474,23 +494,15 @@ export const Navbar: React.FC = () => {
                                         window.location.href = '/about';
                                     }
                                 }}
-                                className="w-full flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/5 text-[var(--lt-text)]"
+                                className="inline-flex items-center gap-1 hover:text-[var(--lt-text)]"
                             >
-                                <Info className="w-5 h-5 text-[var(--lt-accent)]" /> Sobre Listopic
+                                <Info className="h-3.5 w-3.5" /> Sobre Listopic
                             </button>
-                            {config.showRandomChoiceButton && (
-                                <Link
-                                    to="/?surprise=1"
-                                    className="mt-3 w-full flex items-center justify-center gap-3 p-4 rounded-2xl border border-amber-300/40 bg-amber-400/10 text-amber-100 font-black shadow-lg shadow-amber-500/10"
-                                >
-                                    <Dice5 className="w-5 h-5" /> Voy a tener suerte
-                                </Link>
-                            )}
+                            <Link to="/privacy" onClick={() => setIsMenuOpen(false)} className="hover:text-[var(--lt-text)]">Privacidad</Link>
+                            <Link to="/terms" onClick={() => setIsMenuOpen(false)} className="hover:text-[var(--lt-text)]">Términos</Link>
+                            <Link to="/aviso-legal" onClick={() => setIsMenuOpen(false)} className="hover:text-[var(--lt-text)]">Aviso legal</Link>
                         </div>
-                    </div>
-
-                    <div className="pt-2 pb-2 text-center flex-shrink-0">
-                        <p className="text-[var(--lt-text-muted)] text-xs">{new Date().getFullYear()} Istari Core</p>
+                        <p className="mt-2 text-center text-[11px] text-[var(--lt-text-muted)]">{new Date().getFullYear()} Istari Core</p>
                     </div>
                 </div>
             )}

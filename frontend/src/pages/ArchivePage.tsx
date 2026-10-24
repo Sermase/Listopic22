@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { HelpTip } from '../components/HelpTip';
 import { useArchives, type SavedItemEntity } from '../hooks/useArchives';
-import { Folder, MapPin, MessageSquare, List as ListIcon, Trash2, Map as MapIcon, X, Filter, Edit2, Search, Check, MoreVertical, Image as ImageIcon, ChevronRight, Plus } from 'lucide-react';
+import { Folder, MapPin, MessageSquare, List as ListIcon, Trash2, Map as MapIcon, X, Filter, Edit2, Search, Check, MoreVertical, Image as ImageIcon, ArrowLeft, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { collection, collectionGroup, deleteDoc, deleteField, getDocs, limit, orderBy, query, doc, getDoc, updateDoc, where } from 'firebase/firestore';
@@ -41,7 +42,7 @@ const TYPE_CONFIG: Record<string, { label: string; color: string; bg: string; ic
         icon: <MapPin className="w-3 h-3" />,
     },
     review: {
-        label: 'Valoración',
+        label: 'Reseña',
         color: 'text-purple-300',
         bg: 'bg-purple-500/20',
         icon: <MessageSquare className="w-3 h-3" />,
@@ -100,6 +101,8 @@ type ReviewPhotoSource = {
     data: Record<string, any>;
 };
 
+type PhotoGridItem = { kind: 'place'; photo: UploadedPlacePhoto } | { kind: 'review'; photo: UploadedReviewPhoto };
+
 type ArchiveSavedItem = SavedItemEntity & { photoFallbackUrls?: string[] };
 type ArchiveSection = 'collections' | 'photos';
 type PhotoFilter = 'all' | 'place' | 'review';
@@ -113,7 +116,7 @@ const SECTION_TABS = [
 const PHOTO_FILTER_TABS = [
     { value: 'all' as const, label: 'Todas' },
     { value: 'place' as const, label: 'Sitios' },
-    { value: 'review' as const, label: 'Valoraciones' },
+    { value: 'review' as const, label: 'Reseñas' },
 ];
 
 const COLLECTION_FILTER_TABS = [
@@ -121,7 +124,7 @@ const COLLECTION_FILTER_TABS = [
     { value: 'place' as const, label: 'Sitios' },
     { value: 'list' as const, label: 'Listas' },
     { value: 'group' as const, label: 'Platos' },
-    { value: 'review' as const, label: 'Valoraciones' },
+    { value: 'review' as const, label: 'Reseñas' },
 ];
 
 function toMillis(value: any): number {
@@ -238,14 +241,18 @@ export const ArchivePage: React.FC = () => {
     const [photoFilter, setPhotoFilter] = useState<PhotoFilter>('all');
     const [filterType, setFilterType] = useState<CollectionFilter>('all');
     const [searchTerm, setSearchTerm] = useState('');
-    const [expandedIds, setExpandedIds] = useState<string[]>([]);
+    const [openArchiveId, setOpenArchiveId] = useState<string | null>(null);
+    const [covers, setCovers] = useState<Record<string, string[]>>({});
+    const [showSearch, setShowSearch] = useState(false);
+    const [itemMenu, setItemMenu] = useState<{ item: ArchiveSavedItem; archiveId: string } | null>(null);
     const [archiveItems, setArchiveItems] = useState<Record<string, ArchiveSavedItem[]>>({});
     const [loadingItems, setLoadingItems] = useState<Record<string, boolean>>({});
     const [uploadedPlacePhotos, setUploadedPlacePhotos] = useState<UploadedPlacePhoto[]>([]);
     const [uploadedReviewPhotos, setUploadedReviewPhotos] = useState<UploadedReviewPhoto[]>([]);
     const [loadingPlacePhotos, setLoadingPlacePhotos] = useState(false);
     const [loadingReviewPhotos, setLoadingReviewPhotos] = useState(false);
-    const [openPhotoMenu, setOpenPhotoMenu] = useState<string | null>(null);
+    const [viewerPhoto, setViewerPhoto] = useState<PhotoGridItem | null>(null);
+    const [mapSource, setMapSource] = useState<'saved' | 'photos'>('saved');
     const [editingPlacePhoto, setEditingPlacePhoto] = useState<UploadedPlacePhoto | null>(null);
     const [editingCaption, setEditingCaption] = useState('');
     const [editingReviewPhoto, setEditingReviewPhoto] = useState<UploadedReviewPhoto | null>(null);
@@ -269,7 +276,7 @@ export const ArchivePage: React.FC = () => {
     useEffect(() => { fetchArchives(); }, [fetchArchives]);
 
     useEffect(() => {
-        setOpenPhotoMenu(null);
+        setViewerPhoto(null);
     }, [activeSection, photoFilter, searchTerm]);
 
     useEffect(() => {
@@ -396,7 +403,7 @@ export const ArchivePage: React.FC = () => {
                                 reviewId: reviewDoc.id,
                                 listId,
                                 placeId: typeof data.placeId === 'string' ? data.placeId : undefined,
-                                itemName: typeof data.itemName === 'string' && data.itemName.trim() ? data.itemName.trim() : 'Valoración',
+                                itemName: typeof data.itemName === 'string' && data.itemName.trim() ? data.itemName.trim() : 'Reseña',
                                 placeName: typeof data.placeName === 'string' && data.placeName.trim() ? data.placeName.trim() : undefined,
                                 url: trimmedUrl,
                                 storagePath: explicitStoragePath || getStoragePathFromUrl(trimmedUrl),
@@ -422,10 +429,46 @@ export const ArchivePage: React.FC = () => {
     }, [user, photoReloadKey]);
 
     useEffect(() => {
-        expandedIds.forEach(id => {
-            if (!archiveItems[id] && !loadingItems[id]) fetchItemsForArchive(id);
+        if (openArchiveId && !archiveItems[openArchiveId] && !loadingItems[openArchiveId]) fetchItemsForArchive(openArchiveId);
+    }, [openArchiveId]);
+
+    // Portadas: las fotos de lo último guardado en cada colección.
+    useEffect(() => {
+        let cancelled = false;
+        archives.forEach((arch) => {
+            if (covers[arch.id]) return;
+            loadLightItems(arch.id, 8)
+                .then((items) => {
+                    const photos = Array.from(new Set(items.map(item => item.photoUrl).filter((url): url is string => typeof url === 'string' && url.length > 0))).slice(0, 4);
+                    if (!cancelled) setCovers(prev => ({ ...prev, [arch.id]: photos }));
+                })
+                .catch(() => { if (!cancelled) setCovers(prev => ({ ...prev, [arch.id]: [] })); });
         });
-    }, [expandedIds]);
+        return () => { cancelled = true; };
+    }, [archives]);
+
+    const openArchive = archives.find(a => a.id === openArchiveId) || null;
+    // «Quiero ir» y «Ya fui» primero; el resto, como venga.
+    const kindOrder = (kind?: string) => (kind === 'wantToGo' ? 0 : kind === 'visited' ? 1 : 2);
+    const visibleArchives = (searchTerm.trim()
+        ? archives.filter(a => a.name.toLowerCase().includes(searchTerm.trim().toLowerCase()))
+        : archives
+    ).slice().sort((a, b) => kindOrder(a.kind) - kindOrder(b.kind));
+
+    const openCollection = (archiveId: string) => {
+        setOpenArchiveId(archiveId);
+        setFilterType('all');
+        setSearchTerm('');
+        setShowSearch(false);
+        window.scrollTo({ top: 0 });
+    };
+
+    const closeCollection = () => {
+        setOpenArchiveId(null);
+        setFilterType('all');
+        setSearchTerm('');
+        setShowSearch(false);
+    };
 
     const getReviewPhotoCandidatesForPlace = async (placeId?: string, itemName?: string): Promise<string[]> => {
         if (!placeId) return [];
@@ -523,9 +566,11 @@ export const ArchivePage: React.FC = () => {
         return photos;
     };
 
-    const loadRawItems = async (archiveId: string): Promise<ArchiveSavedItem[]> => {
+    /** Lo guardado tal cual (sin buscar fotos de respaldo): para portadas y mapa. */
+    const loadLightItems = async (archiveId: string, max?: number): Promise<SavedItemEntity[]> => {
         if (!user) return [];
-        const q = query(collection(db, 'users', user.uid, 'archives', archiveId, 'items'), orderBy('savedAt', 'desc'));
+        const base = collection(db, 'users', user.uid, 'archives', archiveId, 'items');
+        const q = max ? query(base, orderBy('savedAt', 'desc'), limit(max)) : query(base, orderBy('savedAt', 'desc'));
         const snap = await getDocs(q);
         const rawItems = snap.docs.map(iDoc => {
             const data = iDoc.data();
@@ -545,14 +590,19 @@ export const ArchivePage: React.FC = () => {
                 subtitle: data.subtitle,
                 photoUrl: data.thumbnailUrl || data.mainImageUrl || data.photoUrl || data.coverUrl || data.imageUrl,
                 route: route || '#',
-                placeId: data.placeId,
+                // Los sitios antiguos no tenían campo placeId: su id es el del sitio.
+                placeId: data.placeId || ((data.type || data.entityType) === 'place' ? data.itemId || iDoc.id : undefined),
                 listId: data.listId,
                 lat: coords?.lat,
                 lng: coords?.lng,
                 savedAt: data.savedAt || data.createdAt,
             } as SavedItemEntity;
         });
+        return rawItems;
+    };
 
+    const loadRawItems = async (archiveId: string): Promise<ArchiveSavedItem[]> => {
+        const rawItems = await loadLightItems(archiveId);
         return Promise.all(rawItems.map(async (item): Promise<ArchiveSavedItem> => {
             const photoCandidates = await getArchiveItemPhotoCandidates(item);
             return {
@@ -572,72 +622,132 @@ export const ArchivePage: React.FC = () => {
         finally { setLoadingItems(prev => ({ ...prev, [archiveId]: false })); }
     };
 
-    // Carga el mapa: busca coords en el item, si no las tiene las busca en places/
+    // Carga el mapa. Una chincheta por sitio: si guardas el sitio y un plato suyo
+    // (o subes varias fotos), salen juntos en la misma, no una encima de otra.
+    // Las coordenadas y el nombre salen de places/, una lectura por sitio y todas a la vez.
     useEffect(() => {
         if (viewMode !== 'map') return;
+        let cancelled = false;
+        type Pin = { placeId?: string; lat?: number; lng?: number; label: string; photoUrl?: string; emoji: string; color: string; isPlace: boolean };
         const load = async () => {
             setLoadingMap(true);
-            const activeIds = mapSelectedArchives.length > 0 ? mapSelectedArchives : archives.map(a => a.id);
-            if (mapSelectedArchives.length === 0) setMapSelectedArchives(archives.map(a => a.id));
-
-            const result: MapItem[] = [];
-            for (const archId of activeIds) {
-                const arch = archives.find(a => a.id === archId);
-                const raw = archiveItems[archId] ?? await loadRawItems(archId);
-
-                for (const item of raw) {
-                    if (item.type !== 'place' && item.type !== 'review') continue;
-                    let lat = item.lat;
-                    let lng = item.lng;
-
-                    if ((!lat || !lng) && item.placeId) {
-                        try {
-                            const snap = await getDoc(doc(db, 'places', item.placeId));
-                            if (snap.exists()) {
-                                const coords = extractCoords(snap.data() as Record<string, any>);
-                                if (coords) { lat = coords.lat; lng = coords.lng; }
-                            }
-                        } catch { /* sin coords, se ignora */ }
-                    }
-
-                    if (lat && lng) {
-                        result.push({
-                            id: item.itemId,
-                            placeId: item.placeId,
-                            lat, lng,
-                            name: item.name,
-                            photoUrl: item.photoUrl,
-                            emoji: arch?.emoji || '📍',
-                            color: arch?.color || '#6366f1',
-                        });
-                    }
+            try {
+                let pins: Pin[] = [];
+                if (mapSource === 'photos') {
+                    pins = [
+                        ...uploadedPlacePhotos.map(photo => ({ placeId: photo.placeId, label: photo.caption || 'Foto', photoUrl: photo.url, emoji: '📸', color: '#ec4899', isPlace: false })),
+                        ...uploadedReviewPhotos.filter(photo => photo.placeId).map(photo => ({ placeId: photo.placeId, label: photo.itemName, photoUrl: photo.url, emoji: '📸', color: '#ec4899', isPlace: false })),
+                    ];
+                } else {
+                    const activeIds = mapSelectedArchives.length > 0 ? mapSelectedArchives : archives.map(a => a.id);
+                    const perArchive = await Promise.all(activeIds.map(async (archId) => {
+                        const arch = archives.find(a => a.id === archId);
+                        const raw = archiveItems[archId] ?? await loadLightItems(archId).catch(() => []);
+                        return raw
+                            .filter(item => item.type !== 'list' && (item.placeId || (item.lat && item.lng)))
+                            .map(item => ({
+                                placeId: item.placeId,
+                                lat: item.lat,
+                                lng: item.lng,
+                                label: item.name,
+                                photoUrl: item.photoUrl,
+                                emoji: arch?.emoji || '📍',
+                                color: arch?.color || '#6366f1',
+                                isPlace: item.type === 'place',
+                            }));
+                    }));
+                    pins = perArchive.flat();
                 }
+
+                const placeIds = Array.from(new Set(pins.map(pin => pin.placeId).filter((id): id is string => Boolean(id))));
+                const places = new Map<string, { name?: string; coords: { lat: number; lng: number } | null }>();
+                await Promise.all(placeIds.map(async (placeId) => {
+                    try {
+                        const snap = await getDoc(doc(db, 'places', placeId));
+                        if (!snap.exists()) return;
+                        const data = snap.data() as Record<string, any>;
+                        places.set(placeId, { name: typeof data.name === 'string' ? data.name : undefined, coords: extractCoords(data) });
+                    } catch { /* sin datos del sitio, se ignora */ }
+                }));
+
+                const groups = new Map<string, { lat: number; lng: number; pins: Pin[] }>();
+                pins.forEach((pin) => {
+                    const coords = (pin.lat && pin.lng ? { lat: pin.lat, lng: pin.lng } : null) || places.get(pin.placeId || '')?.coords;
+                    if (!coords) return;
+                    const key = pin.placeId || `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}`;
+                    const group = groups.get(key) || { ...coords, pins: [] };
+                    group.pins.push(pin);
+                    groups.set(key, group);
+                });
+
+                const result: MapItem[] = [];
+                groups.forEach((group, key) => {
+                    // El icono, el del sitio guardado si lo hay; si no, el primero.
+                    const lead = group.pins.find(pin => pin.isPlace) || group.pins[0];
+                    const placeName = places.get(key)?.name || (lead.isPlace ? lead.label : undefined);
+                    const others = Array.from(new Set(group.pins.filter(pin => !pin.isPlace).map(pin => pin.label)));
+                    result.push({
+                        id: key,
+                        placeId: group.pins.find(pin => pin.placeId)?.placeId,
+                        lat: group.lat,
+                        lng: group.lng,
+                        name: placeName || lead.label,
+                        photoUrl: group.pins.find(pin => pin.photoUrl)?.photoUrl,
+                        emoji: lead.emoji,
+                        color: lead.color,
+                        subtitle: mapSource === 'photos'
+                            ? `${group.pins.length} ${group.pins.length === 1 ? 'foto' : 'fotos'}`
+                            : others.length ? `Guardado: ${others.slice(0, 3).join(', ')}${others.length > 3 ? '…' : ''}` : 'Sitio guardado',
+                    });
+                });
+                if (!cancelled) setMapItems(result);
+            } finally {
+                if (!cancelled) setLoadingMap(false);
             }
-            setMapItems(result);
-            setLoadingMap(false);
         };
         load();
-    }, [viewMode, mapSelectedArchives, archives]);
+        return () => { cancelled = true; };
+    }, [viewMode, mapSource, mapSelectedArchives, archives, uploadedPlacePhotos, uploadedReviewPhotos]);
 
-    const handleDragStart = (e: React.DragEvent, item: SavedItemEntity, sourceId: string) => {
-        e.dataTransfer.setData('json/item', JSON.stringify(item));
-        e.dataTransfer.setData('text/sourceArchiveId', sourceId);
-        e.dataTransfer.effectAllowed = 'move';
+    const openMap = (archiveIds?: string[]) => {
+        setMapSource('saved');
+        setMapSelectedArchives(archiveIds || archives.map(a => a.id));
+        setShowMapFilters(false);
+        setViewMode('map');
     };
 
-    const handleDrop = async (e: React.DragEvent, targetId: string) => {
-        e.preventDefault();
-        const itemJson = e.dataTransfer.getData('json/item');
-        const sourceId = e.dataTransfer.getData('text/sourceArchiveId');
-        if (!itemJson || !sourceId || sourceId === targetId) return;
-        const item = JSON.parse(itemJson) as SavedItemEntity;
+    const openPhotoMap = () => {
+        setMapSource('photos');
+        setShowMapFilters(false);
+        setViewMode('map');
+    };
+
+    const refreshCovers = (...archiveIds: string[]) =>
+        setCovers(prev => Object.fromEntries(Object.entries(prev).filter(([id]) => !archiveIds.includes(id))));
+
+    const moveItem = async (item: ArchiveSavedItem, sourceId: string, targetId: string) => {
+        setItemMenu(null);
         try {
-            await toggleItemInArchive(targetId, { ...item, id: '', savedAt: null }, true);
+            const saved: ArchiveSavedItem = { ...item };
+            delete saved.photoFallbackUrls;
+            await toggleItemInArchive(targetId, { ...saved, savedAt: null }, true);
             await toggleItemInArchive(sourceId, item, false);
-            fetchItemsForArchive(targetId);
             fetchItemsForArchive(sourceId);
-            if (!expandedIds.includes(targetId)) setExpandedIds(prev => [...prev, targetId]);
+            setArchiveItems(prev => { const next = { ...prev }; delete next[targetId]; return next; });
+            refreshCovers(sourceId, targetId);
+            fetchArchives();
+            showToast({ variant: 'success', message: `Movido a ${archives.find(a => a.id === targetId)?.name || 'la colección'}` });
         } catch { showToast({ variant: 'error', message: 'No se pudo mover el elemento.' }); }
+    };
+
+    const removeItem = async (item: ArchiveSavedItem, archiveId: string) => {
+        setItemMenu(null);
+        try {
+            await toggleItemInArchive(archiveId, item, false);
+            fetchItemsForArchive(archiveId);
+            refreshCovers(archiveId);
+            fetchArchives();
+        } catch { showToast({ variant: 'error', message: 'No se pudo quitar el elemento.' }); }
     };
 
     const getFilteredItems = (items: SavedItemEntity[]) =>
@@ -696,14 +806,31 @@ export const ArchivePage: React.FC = () => {
             .sort((a, b) => toMillis(b.photo.createdAt) - toMillis(a.photo.createdAt));
     }, [photoFilter, searchTerm, uploadedPlacePhotos, uploadedReviewPhotos]);
 
+    // Galería por meses («octubre de 2026»), de lo más nuevo a lo más viejo.
+    const photosByMonth = useMemo(() => {
+        const groups: { key: string; label: string; items: PhotoGridItem[] }[] = [];
+        photosForGrid.forEach((item) => {
+            const millis = toMillis(item.photo.createdAt);
+            const date = millis ? new Date(millis) : null;
+            const key = date ? `${date.getFullYear()}-${date.getMonth()}` : 'sin-fecha';
+            let group = groups.find(g => g.key === key);
+            if (!group) {
+                group = { key, label: date ? date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }) : 'Sin fecha', items: [] };
+                groups.push(group);
+            }
+            group.items.push(item);
+        });
+        return groups;
+    }, [photosForGrid]);
+
     const openPlacePhotoEdit = (photo: UploadedPlacePhoto) => {
-        setOpenPhotoMenu(null);
+        setViewerPhoto(null);
         setEditingPlacePhoto(photo);
         setEditingCaption(photo.caption || '');
     };
 
     const openReviewPhotoEdit = (photo: UploadedReviewPhoto) => {
-        setOpenPhotoMenu(null);
+        setViewerPhoto(null);
         setEditingReviewPhoto(photo);
     };
 
@@ -726,7 +853,7 @@ export const ArchivePage: React.FC = () => {
     };
 
     const deleteUploadedPlacePhoto = async (photo: UploadedPlacePhoto) => {
-        setOpenPhotoMenu(null);
+        setViewerPhoto(null);
         if (!await confirm({ title: '¿Borrar esta foto del sitio?', message: 'Dejará de verse en la ficha del sitio.', confirmLabel: 'Borrar', destructive: true })) return;
         try {
             if (photo.storagePath) {
@@ -736,7 +863,7 @@ export const ArchivePage: React.FC = () => {
             }
             await deleteDoc(makeDocRefFromPath(photo.docPath));
             setUploadedPlacePhotos(prev => prev.filter(item => item.docPath !== photo.docPath));
-            setOpenPhotoMenu(null);
+            setViewerPhoto(null);
         } catch (error) {
             console.error('Error deleting uploaded place photo', error);
             showToast({ variant: 'error', message: 'No se pudo borrar la foto.' });
@@ -744,8 +871,8 @@ export const ArchivePage: React.FC = () => {
     };
 
     const deleteUploadedReviewPhoto = async (photo: UploadedReviewPhoto) => {
-        setOpenPhotoMenu(null);
-        if (!await confirm({ title: '¿Borrar esta foto de la valoración?', confirmLabel: 'Borrar', destructive: true })) return;
+        setViewerPhoto(null);
+        if (!await confirm({ title: '¿Borrar esta foto de la reseña?', confirmLabel: 'Borrar', destructive: true })) return;
         try {
             if (photo.storagePath) {
                 await deleteObject(ref(storage, photo.storagePath)).catch((error: any) => {
@@ -783,7 +910,7 @@ export const ArchivePage: React.FC = () => {
             });
 
             setUploadedReviewPhotos(prev => prev.filter(item => item.docPath !== photo.docPath || item.url !== photo.url));
-            setOpenPhotoMenu(null);
+            setViewerPhoto(null);
         } catch (error) {
             console.error('Error deleting uploaded review photo', error);
             showToast({ variant: 'error', message: 'No se pudo borrar la foto.' });
@@ -796,36 +923,43 @@ export const ArchivePage: React.FC = () => {
     if (viewMode === 'map') {
         return (
             <div className="fixed inset-0 z-[10000] bg-[var(--lt-bg)] flex flex-col">
-                {/* Header flotante */}
-                <div className="absolute top-0 left-0 right-0 z-[1001] pt-safe-top">
-                    <div className="flex items-center justify-between px-4 pb-3 pt-3 bg-gradient-to-b from-[var(--lt-bg)] to-transparent">
-                        <IconButton
-                            label="Cerrar mapa"
-                            icon={<X className="w-5 h-5" />}
-                            variant="secondary"
-                            onClick={() => setViewMode('grid')}
-                            className="rounded-full bg-black/60 text-white backdrop-blur-md"
-                        />
-                        <span className="rounded-full border border-white/10 bg-black/60 px-4 py-2 text-sm font-bold text-white backdrop-blur-md">
-                            {mapItems.length} sitios
-                        </span>
-                        <Button
-                            onClick={() => setShowMapFilters(v => !v)}
-                            variant={showMapFilters ? 'primary' : 'secondary'}
-                            size="sm"
-                            leftIcon={<Filter className="w-4 h-4" />}
-                            className={showMapFilters ? 'rounded-full backdrop-blur-md' : 'rounded-full bg-black/60 text-white backdrop-blur-md'}
-                        >
-                            Colecciones
-                        </Button>
+                {/* Barra de arriba (fuera del mapa, para no tapar el zoom) */}
+                <div className="pt-safe-top shrink-0 border-b border-[var(--lt-border)] bg-[var(--lt-bg)]">
+                    <div className="flex items-center gap-2 px-3 py-2.5">
+                        <IconButton label="Cerrar mapa" icon={<X className="w-5 h-5" />} variant="ghost" onClick={() => setViewMode('grid')} />
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-display font-bold text-[var(--lt-text)]">
+                                {mapSource === 'photos' ? '📸 Tus fotos' : mapSelectedArchives.length === 1
+                                    ? `${archives.find(a => a.id === mapSelectedArchives[0])?.emoji || '📁'} ${archives.find(a => a.id === mapSelectedArchives[0])?.name || ''}`
+                                    : 'Tus guardados'}
+                            </p>
+                            <p className="text-[11px] text-[var(--lt-text-muted)]">
+                                {loadingMap ? 'Buscando sitios…' : `${mapItems.length} ${mapItems.length === 1 ? 'sitio' : 'sitios'} en el mapa`}
+                            </p>
+                        </div>
+                        {mapSource === 'saved' && archives.length > 1 && (
+                            <Button
+                                onClick={() => setShowMapFilters(v => !v)}
+                                variant={showMapFilters ? 'primary' : 'secondary'}
+                                size="sm"
+                                leftIcon={<Filter className="w-4 h-4" />}
+                                className="rounded-full"
+                            >
+                                Colecciones
+                            </Button>
+                        )}
                     </div>
                 </div>
 
-                {/* Mapa sin botón de capas propio (ya está el del header) */}
-                <div className="flex-1 w-full">
+                <div className="relative flex-1 w-full">
                     {loadingMap && (
-                        <div className="absolute inset-0 z-10 bg-[var(--lt-bg)]/60 flex items-center justify-center">
+                        <div className="absolute inset-0 z-[500] bg-[var(--lt-bg)]/50 flex items-center justify-center pointer-events-none">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--lt-accent-border)]" />
+                        </div>
+                    )}
+                    {!loadingMap && mapItems.length === 0 && (
+                        <div className="absolute inset-x-4 top-4 z-[500] rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] px-4 py-3 text-center text-xs font-medium text-[var(--lt-text-muted)] shadow-xl">
+                            {mapSource === 'photos' ? 'Tus fotos no tienen un sitio con ubicación.' : 'Aquí no hay sitios con ubicación. Las listas no salen en el mapa.'}
                         </div>
                     )}
                     <MapView items={mapItems} mode="global" showLayerControl={false} />
@@ -835,7 +969,7 @@ export const ArchivePage: React.FC = () => {
                 {showMapFilters && (
                     <Card className="absolute left-4 right-4 z-[1001] flex max-h-[50vh] flex-col overflow-hidden shadow-2xl" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
                         <div className="px-4 py-3 border-b border-[var(--lt-border)] flex items-center justify-between">
-                            <span className="text-[var(--lt-text)] font-bold text-sm">Filtrar colecciones</span>
+                            <span className="text-[var(--lt-text)] font-bold text-sm">Qué colecciones ver</span>
                             <IconButton label="Cerrar filtros" icon={<X className="w-4 h-4" />} size="sm" variant="ghost" onClick={() => setShowMapFilters(false)} />
                         </div>
                         <div className="overflow-y-auto p-2">
@@ -873,21 +1007,33 @@ export const ArchivePage: React.FC = () => {
 
                 {/* Header */}
                 <header className="mb-5">
-                    <div className="flex justify-between items-end gap-3 mb-4">
-                        <div className="min-w-0">
-                            <h1 className="text-2xl md:text-3xl font-display font-black leading-tight text-[var(--lt-text)]">Mis colecciones</h1>
-                            <p className="mt-0.5 text-xs font-medium text-[var(--lt-text-muted)]">
-                                {activeSection === 'photos'
-                                    ? `${uploadedPlacePhotos.length + uploadedReviewPhotos.length} fotos subidas por ti`
-                                    : archives.length > 0
-                                        ? `${archives.length} ${archives.length === 1 ? 'colección' : 'colecciones'} · ${archives.reduce((sum, a) => sum + (a.itemCount || 0), 0)} guardados`
-                                        : 'Tus sitios, platos y listas, a mano'}
-                            </p>
+                    <div className="flex items-center gap-2 mb-4">
+                        {openArchive ? (
+                            <IconButton label="Volver a tus colecciones" icon={<ArrowLeft className="w-5 h-5" />} variant="ghost" onClick={closeCollection} />
+                        ) : null}
+                        <div className="min-w-0 flex-1">
+                            <h1 className="text-2xl md:text-3xl font-display font-black leading-tight text-[var(--lt-text)] flex items-center gap-2">Guardados <HelpTip topic="guardados" /></h1>
+                            {!openArchive && (
+                                <p className="mt-0.5 text-xs font-medium text-[var(--lt-text-muted)]">
+                                    {activeSection === 'photos'
+                                        ? `${uploadedPlacePhotos.length + uploadedReviewPhotos.length} fotos subidas por ti`
+                                        : archives.length > 0
+                                            ? `${archives.length} ${archives.length === 1 ? 'colección' : 'colecciones'} · ${archives.reduce((sum, a) => sum + (a.itemCount || 0), 0)} guardados`
+                                            : 'Tus sitios, platos y listas, a mano'}
+                                </p>
+                            )}
                         </div>
-                        {activeSection === 'collections' && (
+                        <IconButton
+                            label="Buscar"
+                            icon={<Search className="w-4 h-4" />}
+                            size="sm"
+                            variant={showSearch ? 'primary' : 'ghost'}
+                            onClick={() => { setShowSearch(v => !v); if (showSearch) setSearchTerm(''); }}
+                        />
+                        {((activeSection === 'collections' && archives.length > 0) || (activeSection === 'photos' && uploadedPlacePhotos.length + uploadedReviewPhotos.length > 0)) && (
                             <button
                                 type="button"
-                                onClick={() => setViewMode('map')}
+                                onClick={() => activeSection === 'photos' ? openPhotoMap() : openMap(openArchive ? [openArchive.id] : undefined)}
                                 className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-3 py-1.5 text-xs font-bold text-[var(--lt-accent)] hover:opacity-80 transition-opacity"
                             >
                                 <MapIcon className="w-3.5 h-3.5" /> Mapa
@@ -895,162 +1041,141 @@ export const ArchivePage: React.FC = () => {
                         )}
                     </div>
 
-                    <Tabs
-                        value={activeSection}
-                        options={SECTION_TABS}
-                        onChange={setActiveSection}
-                        className="mb-4 bg-[var(--lt-card-strong)]"
-                    />
+                    {!openArchive && (
+                        <Tabs
+                            value={activeSection}
+                            options={SECTION_TABS}
+                            onChange={(section) => { setActiveSection(section); setSearchTerm(''); }}
+                            className="mb-3 bg-[var(--lt-card-strong)]"
+                        />
+                    )}
 
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <div className="relative flex-1">
+                    {showSearch && (
+                        <div className="relative mb-3">
                             <Search className="w-4 h-4 text-[var(--lt-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                             <input
-                                type="text"
-                                placeholder={activeSection === 'photos' ? 'Buscar en tus fotos...' : 'Buscar en tus colecciones...'}
+                                type="search"
+                                autoFocus
+                                placeholder={activeSection === 'photos' ? 'Buscar en tus fotos…' : openArchive ? `Buscar en ${openArchive.name}…` : 'Buscar una colección…'}
                                 value={searchTerm}
                                 onChange={e => setSearchTerm(e.target.value)}
                                 className="w-full bg-[var(--lt-card-strong)] border border-[var(--lt-border)] rounded-2xl pl-9 pr-4 py-2.5 text-[var(--lt-text)] text-sm placeholder:text-[var(--lt-text-muted)] focus:outline-none focus:border-[var(--lt-accent-border)] transition-colors"
                             />
                         </div>
-                        <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex gap-1.5 overflow-x-auto hide-scrollbar shrink-0">
-                            {(activeSection === 'photos' ? [
-                                { id: 'all', label: 'Todas' },
-                                { id: 'place', label: 'Sitios' },
-                                { id: 'review', label: 'Valoraciones' },
-                            ] : [
-                                { id: 'all', label: 'Todo' },
-                                { id: 'place', label: 'Sitios' },
-                                { id: 'list', label: 'Listas' },
-                                { id: 'group', label: 'Platos' },
-                                { id: 'review', label: 'Valoraciones' },
-                            ]).map(f => (
+                    )}
+
+                    {activeSection === 'photos' && (
+                        <div className="-mx-4 px-4 sm:mx-0 sm:px-0 flex gap-1.5 overflow-x-auto hide-scrollbar">
+                            {PHOTO_FILTER_TABS.map(f => (
                                 <button
-                                    key={f.id}
-                                    onClick={() => activeSection === 'photos' ? setPhotoFilter(f.id as any) : setFilterType(f.id as any)}
-                                    aria-pressed={(activeSection === 'photos' ? photoFilter : filterType) === f.id}
-                                    className={`px-3.5 py-1.5 rounded-full border text-xs font-bold whitespace-nowrap transition-colors ${(activeSection === 'photos' ? photoFilter : filterType) === f.id
-                                        ? 'bg-[var(--lt-accent)] border-transparent lt-on-accent shadow-md shadow-[var(--lt-accent-shadow)]'
+                                    key={f.value}
+                                    type="button"
+                                    onClick={() => setPhotoFilter(f.value)}
+                                    aria-pressed={photoFilter === f.value}
+                                    className={`px-3.5 py-1.5 rounded-full border text-xs font-bold whitespace-nowrap transition-colors ${photoFilter === f.value
+                                        ? 'bg-[var(--lt-accent)] border-transparent lt-on-accent'
                                         : 'bg-[var(--lt-card-strong)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
                                 >
                                     {f.label}
                                 </button>
                             ))}
                         </div>
-                    </div>
+                    )}
                 </header>
 
+                {/* Fotos: como la galería del móvil, por meses */}
                 {activeSection === 'photos' && (
-                    <Card className="overflow-hidden">
-                        <div className="px-4 py-3 border-b border-[var(--lt-border)] flex items-center justify-between gap-3">
-                            <div className="min-w-0">
-                                <h2 className="flex items-center gap-2 text-base font-display font-bold leading-tight text-[var(--lt-text)]">
-                                    <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
-                                        <ImageIcon className="w-3.5 h-3.5" />
-                                    </span>
-                                    Fotos
-                                </h2>
-                                <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Las que has subido a valoraciones y sitios</p>
-                            </div>
-                            <span className="text-xs font-bold text-[var(--lt-accent)] bg-[var(--lt-accent-soft)] rounded-full px-2.5 py-1">
-                                {uploadedPlacePhotos.length + uploadedReviewPhotos.length}
-                            </span>
+                    loadingPlacePhotos || loadingReviewPhotos ? (
+                        <div className="flex items-center justify-center gap-2 py-12 text-[var(--lt-text-muted)] text-sm">
+                            <div className="animate-spin w-4 h-4 border-2 border-[var(--lt-accent-border)] border-t-transparent rounded-full" />
+                            Cargando fotos...
                         </div>
-                        {loadingPlacePhotos || loadingReviewPhotos ? (
-                            <div className="flex items-center justify-center gap-2 py-8 text-[var(--lt-text-muted)] text-sm">
-                                <div className="animate-spin w-4 h-4 border-2 border-[var(--lt-accent-border)] border-t-transparent rounded-full" />
-                                Cargando fotos...
+                    ) : photosForGrid.length === 0 ? (
+                        <div className="px-4 py-14 text-center">
+                            <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
+                                <ImageIcon className="w-7 h-7" />
                             </div>
-                        ) : photosForGrid.length === 0 ? (
-                            <div className="px-4 py-12 text-center">
-                                <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
-                                    <ImageIcon className="w-7 h-7" />
-                                </div>
-                                <p className="text-sm font-bold text-[var(--lt-text)]">No hay fotos que coincidan.</p>
-                                <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Sube alguna al valorar y aparecerá aquí.</p>
-                            </div>
-                        ) : (
-                            <div className="p-4 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                                {photosForGrid.map(item => {
-                                    const menuId = item.kind === 'place'
-                                        ? `place:${item.photo.docPath}`
-                                        : `review:${item.photo.docPath}:${item.photo.url}`;
-                                    const title = item.kind === 'place' ? item.photo.placeName : item.photo.itemName;
-                                    const subtitle = item.kind === 'place' ? item.photo.caption : item.photo.placeName;
-                                    const route = item.kind === 'place'
-                                        ? `/place/${item.photo.placeId}`
-                                        : item.photo.placeId
-                                            ? `/place/${item.photo.placeId}`
-                                            : item.photo.listId
-                                                ? `/list/${item.photo.listId}`
-                                                : null;
-
-                                    return (
-                                        <div
-                                            key={menuId}
-                                            className="group relative rounded-2xl overflow-visible border border-[var(--lt-border)] hover:border-[var(--lt-border-strong)] transition-all bg-[var(--lt-card)] flex flex-col"
-                                        >
-                                            <Link to={route || ''} onClick={(event) => { if (!route) event.preventDefault(); }} className="lt-media-card aspect-square bg-[var(--lt-card-strong)] relative block rounded-t-2xl overflow-hidden">
-                                                <UploadedPhotoImage photo={item.photo} kind={item.kind} alt={title} />
-                                                <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-bold uppercase tracking-wide ${item.kind === 'place' ? 'text-emerald-300' : 'text-purple-300'}`}>
-                                                    {item.kind === 'place' ? <MapPin className="w-3 h-3" /> : <MessageSquare className="w-3 h-3" />}
-                                                    {item.kind === 'place' ? 'Sitio' : 'Valoración'}
-                                                </span>
-                                            </Link>
-                                            <div className="absolute top-1.5 right-1.5 z-20">
+                            <p className="text-sm font-bold text-[var(--lt-text)]">{uploadedPlacePhotos.length + uploadedReviewPhotos.length ? 'No hay fotos que coincidan.' : 'Aún no has subido fotos.'}</p>
+                            <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Las que subas al reseñar o en un sitio aparecerán aquí.</p>
+                        </div>
+                    ) : (
+                        <div className="-mx-4 sm:mx-0 space-y-5">
+                            {photosByMonth.map(group => (
+                                <section key={group.key}>
+                                    <h2 className="mb-2 px-4 sm:px-0 text-sm font-display font-bold text-[var(--lt-text)] first-letter:uppercase">
+                                        {group.label}
+                                        <span className="ml-2 text-xs font-medium text-[var(--lt-text-muted)]">{group.items.length}</span>
+                                    </h2>
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-0.5 sm:gap-1">
+                                        {group.items.map(item => {
+                                            const title = item.kind === 'place' ? item.photo.placeName : item.photo.itemName;
+                                            return (
                                                 <button
+                                                    key={`${item.kind}:${item.photo.docPath}:${item.photo.url}`}
                                                     type="button"
-                                                    onClick={(event) => {
-                                                        event.preventDefault();
-                                                        event.stopPropagation();
-                                                        setOpenPhotoMenu(prev => prev === menuId ? null : menuId);
-                                                    }}
-                                                    className="p-1 rounded-md bg-black/65 text-gray-200 hover:text-white transition-colors"
-                                                    title="Opciones"
+                                                    onClick={() => setViewerPhoto(item)}
+                                                    aria-label={title}
+                                                    className="relative aspect-square overflow-hidden bg-[var(--lt-card-strong)] sm:rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lt-accent)]"
                                                 >
-                                                    <MoreVertical className="w-3.5 h-3.5" />
+                                                    <UploadedPhotoImage photo={item.photo} kind={item.kind} alt={title} />
                                                 </button>
-                                                {openPhotoMenu === menuId && (
-                                                    <div className="absolute right-0 mt-1 w-32 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-2xl overflow-hidden">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => item.kind === 'place'
-                                                                ? openPlacePhotoEdit(item.photo)
-                                                                : openReviewPhotoEdit(item.photo)}
-                                                            className="w-full px-3 py-2 text-left text-xs font-bold text-[var(--lt-text)] hover:bg-[var(--lt-card)] flex items-center gap-2"
-                                                        >
-                                                            <Edit2 className="w-3.5 h-3.5" /> Editar
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => item.kind === 'place'
-                                                                ? deleteUploadedPlacePhoto(item.photo)
-                                                                : deleteUploadedReviewPhoto(item.photo)}
-                                                            className="w-full px-3 py-2 text-left text-xs font-bold text-red-300 hover:bg-red-500/10 flex items-center gap-2"
-                                                        >
-                                                            <Trash2 className="w-3.5 h-3.5" /> Eliminar
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <Link to={route || ''} onClick={(event) => { if (!route) event.preventDefault(); }} className="p-2 flex-1 min-w-0 hover:bg-[var(--lt-card-strong)] transition-colors rounded-b-2xl">
-                                                <MarqueeText text={title} className="block text-[var(--lt-text)] text-xs font-semibold leading-tight" />
-                                                {subtitle && <p className="text-[var(--lt-accent)] text-[10px] truncate mt-0.5">{subtitle}</p>}
-                                            </Link>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </Card>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            ))}
+                        </div>
+                    )
                 )}
 
-                {/* Colecciones */}
-                {activeSection === 'collections' && (archives.length === 0 ? (
+                {/* Una foto en grande, con lo que se puede hacer con ella */}
+                {viewerPhoto && (() => {
+                    const item = viewerPhoto;
+                    const title = item.kind === 'place' ? item.photo.placeName : item.photo.itemName;
+                    const subtitle = item.kind === 'place' ? item.photo.caption : item.photo.placeName;
+                    const route = item.photo.placeId ? `/place/${item.photo.placeId}` : item.kind === 'review' && item.photo.listId ? `/list/${item.photo.listId}` : null;
+                    const date = toMillis(item.photo.createdAt);
+                    return (
+                        <div className="fixed inset-0 z-[10001] flex flex-col bg-black/95" onClick={() => setViewerPhoto(null)}>
+                            <div className="pt-safe-top flex items-center gap-2 px-3 py-2.5 text-white" onClick={event => event.stopPropagation()}>
+                                <IconButton label="Cerrar" icon={<X className="w-5 h-5" />} variant="ghost" className="text-white" onClick={() => setViewerPhoto(null)} />
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-bold">{title}</p>
+                                    <p className="truncate text-[11px] text-gray-400">
+                                        {[subtitle, date ? new Date(date).toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : ''].filter(Boolean).join(' · ')}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex min-h-0 flex-1 items-center justify-center p-2">
+                                <img src={item.photo.url} alt={title} className="max-h-full max-w-full rounded-lg object-contain" onClick={event => event.stopPropagation()} />
+                            </div>
+                            <div className="pb-safe-bottom flex items-center justify-center gap-2 px-4 py-4" onClick={event => event.stopPropagation()}>
+                                {route && (
+                                    <Button size="sm" leftIcon={<MapPin className="w-4 h-4" />} onClick={() => { setViewerPhoto(null); navigate(route); }}>
+                                        Ver el sitio
+                                    </Button>
+                                )}
+                                <Button size="sm" variant="secondary" leftIcon={<Edit2 className="w-4 h-4" />} onClick={() => { setViewerPhoto(null); if (item.kind === 'place') openPlacePhotoEdit(item.photo); else openReviewPhotoEdit(item.photo); }}>
+                                    Editar
+                                </Button>
+                                <IconButton
+                                    label="Eliminar foto"
+                                    icon={<Trash2 className="w-4 h-4" />}
+                                    variant="secondary"
+                                    className="text-[var(--lt-danger)]"
+                                    onClick={() => { setViewerPhoto(null); if (item.kind === 'place') void deleteUploadedPlacePhoto(item.photo); else void deleteUploadedReviewPhoto(item.photo); }}
+                                />
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* Colecciones: portadas en rejilla; al tocar una, su contenido */}
+                {activeSection === 'collections' && !openArchive && (archives.length === 0 ? (
                     <div className="text-center py-14 px-6 border-2 border-dashed border-[var(--lt-border)] rounded-3xl bg-[var(--lt-card)]">
-                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-[var(--lt-accent-soft)] text-3xl">📁</div>
-                        <p className="text-base font-display font-bold text-[var(--lt-text)]">No tienes colecciones aún.</p>
-                        <p className="mt-1 mb-5 text-xs text-[var(--lt-text-muted)]">Guarda sitios, platos y listas para tenerlos a mano.</p>
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-[var(--lt-accent-soft)] text-3xl">🔖</div>
+                        <p className="text-base font-display font-bold text-[var(--lt-text)]">Aún no has guardado nada.</p>
+                        <p className="mt-1 mb-5 text-xs text-[var(--lt-text-muted)]">Toca 🔖 en un sitio, un plato o una lista y aparecerá aquí.</p>
                         <button
                             onClick={openCreate}
                             className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full lt-on-accent font-bold text-sm shadow-lg shadow-[var(--lt-accent-shadow)] hover:opacity-90 transition-opacity"
@@ -1060,168 +1185,150 @@ export const ArchivePage: React.FC = () => {
                         </button>
                     </div>
                 ) : (
-                    <div className="space-y-3">
-                        {/* Botón nueva colección */}
-                        <button
-                            onClick={openCreate}
-                            className="w-full py-3 border-2 border-dashed border-[var(--lt-border)] rounded-2xl text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)] hover:bg-[var(--lt-accent-soft)] hover:border-[var(--lt-accent-border)] transition-all font-bold flex justify-center items-center gap-1.5 text-sm"
-                        >
-                            <Plus className="w-4 h-4" /> Nueva colección
-                        </button>
-
-                        {archives.map(arch => {
-                            const isExpanded = expandedIds.includes(arch.id);
-                            const items = archiveItems[arch.id] || [];
-                            const filtered = getFilteredItems(items);
-
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {visibleArchives.map(arch => {
+                            const color = arch.color || '#6366f1';
+                            const photos = covers[arch.id] || [];
                             return (
-                                <div
+                                <button
                                     key={arch.id}
-                                    className={`relative overflow-hidden bg-[var(--lt-card-strong)] rounded-3xl border transition-all ${isExpanded ? 'border-[var(--lt-border-strong)] shadow-lg' : 'border-[var(--lt-border)] hover:border-[var(--lt-border-strong)]'}`}
-                                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
-                                    onDrop={e => handleDrop(e, arch.id)}
+                                    type="button"
+                                    onClick={() => openCollection(arch.id)}
+                                    className="group text-left focus:outline-none"
                                 >
-                                    {/* Cabecera de colección */}
                                     <div
-                                        onClick={() => setExpandedIds(prev =>
-                                            prev.includes(arch.id) ? prev.filter(i => i !== arch.id) : [...prev, arch.id]
-                                        )}
-                                        aria-expanded={isExpanded}
-                                        className="relative p-3.5 cursor-pointer flex items-center gap-3"
+                                        className="relative aspect-square overflow-hidden rounded-3xl border border-[var(--lt-border)] shadow-lg transition-transform group-hover:scale-[1.02] group-focus-visible:ring-2 group-focus-visible:ring-[var(--lt-accent)]"
+                                        style={{ background: `linear-gradient(145deg, ${color}, ${color}33 70%)` }}
                                     >
-                                        {/* Tinte suave con el color de la colección */}
-                                        <div
-                                            aria-hidden
-                                            className="pointer-events-none absolute inset-0 opacity-[0.14]"
-                                            style={{ background: `linear-gradient(90deg, ${arch.color || '#6366f1'}, transparent 70%)` }}
-                                        />
-                                        <div
-                                            className="relative w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 shadow-md"
-                                            style={{ backgroundColor: arch.color || '#6366f1' }}
+                                        {photos.length > 0 && (
+                                            <div className={`absolute inset-0 grid gap-0.5 ${photos.length > 1 ? 'grid-cols-2' : ''} ${photos.length > 2 ? 'grid-rows-2' : ''}`}>
+                                                {photos.slice(0, 4).map((src, index) => (
+                                                    <img
+                                                        key={src}
+                                                        src={src}
+                                                        alt=""
+                                                        loading="lazy"
+                                                        className={`h-full w-full object-cover ${photos.length === 3 && index === 0 ? 'row-span-2' : ''}`}
+                                                        onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent" />
+                                        <span
+                                            className={`absolute ${photos.length ? 'left-2.5 top-2.5 h-9 w-9 text-lg' : 'left-1/2 top-1/2 h-16 w-16 -translate-x-1/2 -translate-y-1/2 text-4xl'} flex items-center justify-center rounded-2xl shadow-md`}
+                                            style={{ backgroundColor: color }}
                                         >
                                             {arch.emoji || '📁'}
-                                        </div>
-                                        <div className="relative flex-1 min-w-0">
-                                            <MarqueeText as="h3" text={arch.name} className="block text-[var(--lt-text)] font-display font-bold text-base leading-tight" />
-                                            <span className="mt-1 inline-flex items-center rounded-full bg-[var(--lt-card)] border border-[var(--lt-border)] px-2 py-0.5 text-[11px] font-bold text-[var(--lt-text-muted)]">
-                                                {arch.itemCount || 0} {(arch.itemCount || 0) === 1 ? 'elemento' : 'elementos'}
-                                            </span>
-                                        </div>
-                                        <button
-                                            onClick={e => openEdit(e, arch)}
-                                            aria-label={`Editar ${arch.name}`}
-                                            className="relative p-2 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-[var(--lt-card)] rounded-full transition-all"
-                                        >
-                                            <Edit2 className="w-4 h-4" />
-                                        </button>
-                                        <ChevronRight className={`relative w-5 h-5 shrink-0 text-[var(--lt-text-muted)] transition-transform ${isExpanded ? 'rotate-90' : ''}`} />
+                                        </span>
+                                        <span className="absolute bottom-2.5 right-2.5 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-bold text-white backdrop-blur-md">
+                                            {arch.itemCount || 0}
+                                        </span>
                                     </div>
-
-                                    {/* Contenido expandido */}
-                                    {isExpanded && (
-                                        <div className="border-t border-[var(--lt-border)] bg-[var(--lt-bg-deep)]/40 p-3 sm:p-4">
-                                            {loadingItems[arch.id] ? (
-                                                <div className="flex items-center justify-center gap-2 py-8 text-[var(--lt-text-muted)] text-sm">
-                                                    <div className="animate-spin w-4 h-4 border-2 border-[var(--lt-accent-border)] border-t-transparent rounded-full" />
-                                                    Cargando...
-                                                </div>
-                                            ) : filtered.length === 0 ? (
-                                                <div className="text-center py-8 px-4">
-                                                    <div className="mx-auto mb-2 text-2xl">{items.length ? '🔍' : '🫙'}</div>
-                                                    <p className="text-sm font-bold text-[var(--lt-text)]">{items.length ? 'Nada coincide con el filtro.' : 'Esta colección está vacía.'}</p>
-                                                    {!items.length && <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Arrastra elementos aquí o guárdalos desde la app.</p>}
-                                                </div>
-                                            ) : (
-                                                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
-                                                    {filtered.map(item => {
-                                                        const tc = TYPE_CONFIG[item.type] || TYPE_CONFIG['place'];
-                                                        return (
-                                                            <div
-                                                                key={item.itemId}
-                                                                draggable
-                                                                onDragStart={e => handleDragStart(e, item, arch.id)}
-                                                                onClick={() => item.route && item.route !== '#' && navigate(item.route)}
-                                                                onKeyDown={(event) => {
-                                                                    if ((event.key === 'Enter' || event.key === ' ') && item.route && item.route !== '#') {
-                                                                        event.preventDefault();
-                                                                        navigate(item.route);
-                                                                    }
-                                                                }}
-                                                                role="link"
-                                                                tabIndex={0}
-                                                                className="lt-media-card group relative rounded-2xl overflow-hidden border border-[var(--lt-border)] hover:border-[var(--lt-border-strong)] transition-all cursor-pointer bg-[var(--lt-card-strong)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lt-accent)]"
-                                                            >
-                                                                {/* Imagen con el nombre encima */}
-                                                                <div className="aspect-[4/5] relative">
-                                                                    <div className="absolute inset-0 transition-transform duration-500 group-hover:scale-105">
-                                                                        <ArchiveItemImage item={item} />
-                                                                    </div>
-                                                                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-                                                                    {/* Badge de tipo */}
-                                                                    <span className={`absolute top-1.5 left-1.5 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-bold uppercase tracking-wide ${tc.color}`}>
-                                                                        {tc.icon}{tc.label}
-                                                                    </span>
-                                                                    {/* Botón eliminar */}
-                                                                    <button
-                                                                        onClick={async e => {
-                                                                            e.preventDefault();
-                                                                            e.stopPropagation();
-                                                                            if (await confirm({ title: '¿Quitar de la colección?', message: `"${item.name}" dejará de estar en ${arch.name}.`, confirmLabel: 'Quitar', destructive: true })) {
-                                                                                try {
-                                                                                    await toggleItemInArchive(arch.id, item, false);
-                                                                                    fetchItemsForArchive(arch.id);
-                                                                                } catch {
-                                                                                    showToast({ variant: 'error', message: 'No se pudo quitar el elemento.' });
-                                                                                }
-                                                                            }
-                                                                        }}
-                                                                        aria-label="Quitar de la colección"
-                                                                        className="absolute top-1.5 right-1.5 p-1.5 rounded-full bg-black/60 backdrop-blur-md text-gray-200 hover:text-red-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-all"
-                                                                    >
-                                                                        <Trash2 className="w-3 h-3" />
-                                                                    </button>
-
-                                                                    {/* Nombre */}
-                                                                    <div className="absolute inset-x-2 bottom-2 min-w-0 text-left">
-                                                                        <MarqueeText as="h3" text={item.name} className="block text-white text-xs font-bold leading-tight drop-shadow" />
-                                                                        {item.subtitle && <MarqueeText text={item.subtitle} className="block text-gray-300 text-[10px] font-medium mt-0.5" />}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            )}
-
-                                            <div className="mt-4 pt-3 border-t border-[var(--lt-border)] flex justify-end">
-                                                <button
-                                                    onClick={async () => {
-                                                        const ok = await confirm({
-                                                            title: `¿Eliminar la colección "${arch.name}"?`,
-                                                            message: 'Se borra la colección y lo que tiene guardado. No se puede deshacer.',
-                                                            confirmLabel: 'Eliminar',
-                                                            destructive: true,
-                                                        });
-                                                        if (!ok) return;
-                                                        try {
-                                                            await deleteArchive(arch.id);
-                                                            showToast({ variant: 'success', message: 'Colección eliminada' });
-                                                        } catch {
-                                                            showToast({ variant: 'error', message: 'No se pudo eliminar la colección.' });
-                                                        }
-                                                    }}
-                                                    className="text-xs font-bold text-[var(--lt-danger)] opacity-70 hover:opacity-100 flex items-center gap-1 rounded-full px-2.5 py-1 hover:bg-[var(--lt-danger-soft)] transition-all"
-                                                >
-                                                    <Trash2 className="w-3 h-3" /> Eliminar colección
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
+                                    <p className="mt-2 px-1 line-clamp-2 text-sm font-display font-bold leading-tight text-[var(--lt-text)]">{arch.name}</p>
+                                </button>
                             );
                         })}
+                        <button
+                            type="button"
+                            onClick={openCreate}
+                            className="text-left"
+                        >
+                            <div className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-3xl border-2 border-dashed border-[var(--lt-border)] text-[var(--lt-text-muted)] transition-colors hover:border-[var(--lt-accent-border)] hover:bg-[var(--lt-accent-soft)] hover:text-[var(--lt-accent)]">
+                                <Plus className="h-7 w-7" />
+                                <span className="text-xs font-bold">Nueva colección</span>
+                            </div>
+                        </button>
                     </div>
                 ))}
+
+                {/* Una colección abierta */}
+                {activeSection === 'collections' && openArchive && (() => {
+                    const items = archiveItems[openArchive.id] || [];
+                    const filtered = getFilteredItems(items);
+                    const kinds = Array.from(new Set(items.map(item => item.type)));
+                    return (
+                        <section>
+                            <div className="mb-4 flex items-center gap-3">
+                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-2xl shadow-md" style={{ backgroundColor: openArchive.color || '#6366f1' }}>
+                                    {openArchive.emoji || '📁'}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <h2 className="line-clamp-2 text-lg font-display font-bold leading-tight text-[var(--lt-text)]">{openArchive.name}</h2>
+                                    <p className="text-xs text-[var(--lt-text-muted)]">{openArchive.itemCount || 0} {(openArchive.itemCount || 0) === 1 ? 'guardado' : 'guardados'}</p>
+                                </div>
+                                <IconButton label={`Editar ${openArchive.name}`} icon={<Edit2 className="w-4 h-4" />} size="sm" variant="ghost" onClick={(event) => openEdit(event, openArchive)} />
+                            </div>
+
+                            {kinds.length > 1 && (
+                                <div className="-mx-4 mb-4 flex gap-1.5 overflow-x-auto px-4 hide-scrollbar">
+                                    {COLLECTION_FILTER_TABS.filter(tab => tab.value === 'all' || kinds.includes(tab.value)).map(tab => (
+                                        <button
+                                            key={tab.value}
+                                            type="button"
+                                            onClick={() => setFilterType(tab.value)}
+                                            aria-pressed={filterType === tab.value}
+                                            className={`px-3.5 py-1.5 rounded-full border text-xs font-bold whitespace-nowrap transition-colors ${filterType === tab.value
+                                                ? 'bg-[var(--lt-accent)] border-transparent lt-on-accent'
+                                                : 'bg-[var(--lt-card-strong)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+                                        >
+                                            {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
+                            {loadingItems[openArchive.id] && !items.length ? (
+                                <div className="flex items-center justify-center gap-2 py-12 text-[var(--lt-text-muted)] text-sm">
+                                    <div className="animate-spin w-4 h-4 border-2 border-[var(--lt-accent-border)] border-t-transparent rounded-full" />
+                                    Cargando...
+                                </div>
+                            ) : filtered.length === 0 ? (
+                                <div className="text-center py-12 px-4">
+                                    <div className="mx-auto mb-2 text-3xl">{items.length ? '🔍' : '🫙'}</div>
+                                    <p className="text-sm font-bold text-[var(--lt-text)]">{items.length ? 'Nada coincide.' : 'Esta colección está vacía.'}</p>
+                                    {!items.length && <p className="mt-0.5 text-xs text-[var(--lt-text-muted)]">Toca 🔖 en un sitio, un plato o una lista para guardarlo aquí.</p>}
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {filtered.map(item => {
+                                        const tc = TYPE_CONFIG[item.type] || TYPE_CONFIG['place'];
+                                        const canOpen = Boolean(item.route && item.route !== '#');
+                                        return (
+                                            <div key={item.itemId} className="group relative">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => canOpen && navigate(item.route)}
+                                                    className="lt-media-card relative block aspect-[4/5] w-full overflow-hidden rounded-2xl bg-[var(--lt-card-strong)] text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--lt-accent)]"
+                                                >
+                                                    <div className="absolute inset-0 transition-transform duration-500 group-hover:scale-105">
+                                                        <ArchiveItemImage item={item} />
+                                                    </div>
+                                                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
+                                                    <span className={`absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-black/60 backdrop-blur-md text-[9px] font-bold uppercase tracking-wide ${tc.color}`}>
+                                                        {tc.icon}{tc.label}
+                                                    </span>
+                                                    <div className="absolute inset-x-2.5 bottom-2.5 min-w-0">
+                                                        <h3 className="line-clamp-2 text-sm font-bold leading-tight text-white drop-shadow">{item.name}</h3>
+                                                        {item.subtitle && <p className="mt-0.5 truncate text-[11px] font-medium text-gray-300">{item.subtitle}</p>}
+                                                    </div>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setItemMenu({ item, archiveId: openArchive.id })}
+                                                    aria-label={`Opciones de ${item.name}`}
+                                                    className="absolute top-1.5 right-1.5 rounded-full bg-black/60 p-1.5 text-gray-200 backdrop-blur-md hover:text-white"
+                                                >
+                                                    <MoreVertical className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </section>
+                    );
+                })()}
             </div>
 
             {/* Modal crear/editar colección */}
@@ -1253,7 +1360,7 @@ export const ArchivePage: React.FC = () => {
                                     placeholder="Nombre de la colección..."
                                     onChange={e => setEditName(e.target.value)}
                                     onKeyDown={e => e.key === 'Enter' && saveEdit()}
-                                    autoFocus
+                                    autoFocus={editMode === 'create'}
                                 />
                             </div>
 
@@ -1295,7 +1402,61 @@ export const ArchivePage: React.FC = () => {
                             >
                                 Guardar
                             </button>
+                            {editMode === 'edit' && (
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        const ok = await confirm({
+                                            title: `¿Eliminar la colección "${editName}"?`,
+                                            message: 'Se borra la colección y lo que tiene guardado. No se puede deshacer.',
+                                            confirmLabel: 'Eliminar',
+                                            destructive: true,
+                                        });
+                                        if (!ok) return;
+                                        try {
+                                            await deleteArchive(editId);
+                                            setShowEditModal(false);
+                                            if (openArchiveId === editId) closeCollection();
+                                            showToast({ variant: 'success', message: 'Colección eliminada' });
+                                        } catch {
+                                            showToast({ variant: 'error', message: 'No se pudo eliminar la colección.' });
+                                        }
+                                    }}
+                                    className="w-full flex items-center justify-center gap-1.5 rounded-xl py-2.5 text-xs font-bold text-[var(--lt-danger)] opacity-80 hover:opacity-100 hover:bg-[var(--lt-danger-soft)] transition-all"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" /> Eliminar colección
+                                </button>
+                            )}
                         </div>
+                </Modal>
+            )}
+
+            {/* Opciones de un guardado: moverlo o quitarlo */}
+            {itemMenu && (
+                <Modal isOpen onClose={() => setItemMenu(null)} title={itemMenu.item.name} className="sm:max-w-sm">
+                    <div className="space-y-1">
+                        {archives.length > 1 && (
+                            <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-[var(--lt-text-muted)]">Mover a</p>
+                        )}
+                        {archives.filter(a => a.id !== itemMenu.archiveId).map(a => (
+                            <button
+                                key={a.id}
+                                type="button"
+                                onClick={() => moveItem(itemMenu.item, itemMenu.archiveId, a.id)}
+                                className="w-full flex items-center gap-3 rounded-xl p-2.5 hover:bg-[var(--lt-card)] transition-colors"
+                            >
+                                <span className="w-8 h-8 shrink-0 rounded-xl flex items-center justify-center text-base" style={{ backgroundColor: a.color || '#6366f1' }}>{a.emoji || '📁'}</span>
+                                <span className="flex-1 min-w-0 truncate text-left text-sm font-medium text-[var(--lt-text)]">{a.name}</span>
+                            </button>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={() => removeItem(itemMenu.item, itemMenu.archiveId)}
+                            className="mt-3 w-full flex items-center justify-center gap-1.5 rounded-xl border border-[var(--lt-danger)]/30 py-2.5 text-sm font-bold text-[var(--lt-danger)] hover:bg-[var(--lt-danger-soft)] transition-colors"
+                        >
+                            <Trash2 className="w-4 h-4" /> Quitar de la colección
+                        </button>
+                    </div>
                 </Modal>
             )}
 

@@ -20,7 +20,7 @@ interface CriteriaBuilderProps {
     onChange: (criteria: Criterion[]) => void;
     lockedIds?: string[];
     /**
-     * Criterios que ya tienen valoraciones: no se pueden quitar ni cambiar si
+     * Criterios que ya tienen reseñas: no se pueden quitar ni cambiar si
      * cuentan para la nota (eso exige recalcular). El nombre y las etiquetas sí.
      */
     scoringLockedIds?: string[];
@@ -72,9 +72,9 @@ export const CriteriaBuilder: React.FC<CriteriaBuilderProps> = ({ criteria, onCh
             </p>
             {scoringLockedIds.length > 0 && (
                 <p role="note" className="text-xs rounded-lg border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-text)] px-3 py-2">
-                    Esta lista ya tiene valoraciones. Puedes añadir criterios nuevos (no cambian las notas ya puestas)
+                    Esta lista ya tiene reseñas. Puedes añadir criterios nuevos (no cambian las notas ya puestas)
                     y renombrar los existentes, pero no quitarlos ni cambiar cuánto cuentan para la nota: eso obliga a
-                    recalcular todas las valoraciones y se hace con «Cambiar pesos», que antes enseña el efecto.
+                    recalcular todas las reseñas y se hace con «Cambiar pesos», que antes enseña el efecto.
                 </p>
             )}
 

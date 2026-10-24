@@ -54,8 +54,46 @@ service cloud.firestore {
         'photoUrl', 'photoURL', 'photoStoragePath', 'defaultDistanceKm',
         'mapLayerPreference', 'themePreference', 'notificationPreferences',
         'isOnline', 'lastActiveAt', 'createdAt', 'updatedAt', 'usernameLockedAt',
-        'notifiedLevel', 'notifiedBadges', 'legalAcceptance'
+        'notifiedLevel', 'notifiedBadges', 'legalAcceptance', 'uxPreferences'
       ];
+    }
+
+    // Preferencias de uso (Mis preferencias y ayudas): interruptores y la lista de alérgenos.
+    function uxPreferencesIsValid(value) {
+      return value is map &&
+             value.keys().hasOnly(['glutenFree', 'lactoseFree', 'vegetarian', 'vegan', 'allergens', 'stepFree', 'accessibleRestroom', 'petFriendly', 'contribute', 'showHelpTips']) &&
+             (!('lactoseFree' in value) || value.lactoseFree is bool) &&
+             (!('contribute' in value) || (value.contribute is list && value.contribute.size() <= 7)) &&
+             (!('glutenFree' in value) || value.glutenFree is bool) &&
+             (!('vegetarian' in value) || value.vegetarian is bool) &&
+             (!('vegan' in value) || value.vegan is bool) &&
+             (!('allergens' in value) || (value.allergens is list && value.allergens.size() <= 14)) &&
+             (!('stepFree' in value) || value.stepFree is bool) &&
+             (!('accessibleRestroom' in value) || value.accessibleRestroom is bool) &&
+             (!('petFriendly' in value) || value.petFriendly is bool) &&
+             (!('showHelpTips' in value) || value.showHelpTips is bool);
+    }
+
+    function aptAnswerOk(answers, key) {
+      return !(key in answers) || answers[key] in ['yes', 'no'];
+    }
+
+    function aptReportIsValid(data, uid, reviewId) {
+      return data.keys().hasOnly(['listId', 'answers', 'updatedAt']) &&
+             data.listId is string && data.listId.size() > 0 && data.listId.size() <= 200 &&
+             data.updatedAt == request.time &&
+             data.answers is map &&
+             data.answers.keys().hasOnly(['glutenFree', 'lactoseFree', 'vegetarian', 'vegan', 'stepFree', 'accessibleRestroom', 'petFriendly']) &&
+             aptAnswerOk(data.answers, 'glutenFree') && aptAnswerOk(data.answers, 'lactoseFree') &&
+             aptAnswerOk(data.answers, 'vegetarian') && aptAnswerOk(data.answers, 'vegan') &&
+             aptAnswerOk(data.answers, 'stepFree') && aptAnswerOk(data.answers, 'accessibleRestroom') &&
+             aptAnswerOk(data.answers, 'petFriendly') &&
+             get(/databases/$(database)/documents/lists/$(data.listId)/reviews/$(reviewId)).data.userId == uid;
+    }
+
+    function userUpdateUxPreferencesOk() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uxPreferences']) ||
+             uxPreferencesIsValid(request.resource.data.uxPreferences);
     }
 
     // Aceptación de Términos y Privacidad (prueba RGPD): solo la versión, la
@@ -98,7 +136,7 @@ service cloud.firestore {
         'updatedAt', 'itemCount', 'groupedItemsCount', 'viewCount', 'likes',
         'followersCount', 'commentsCount', 'reviewCount', 'averageRating',
         'criteriaAverages', 'criteriaAveragesUpdatedAt', 'reactions',
-        'lastActivityAt', 'lastReviewAt', 'scoringWeights'
+        'lastActivityAt', 'lastReviewAt', 'scoringWeights', 'defaultDiet'
       ];
     }
 
@@ -113,16 +151,21 @@ service cloud.firestore {
         'followersCount', 'commentsCount', 'reviewCount', 'averageRating',
         'criteriaAverages', 'criteriaAveragesUpdatedAt', 'reactions',
         'lastActivityAt', 'lastReviewAt', 'ownerId', 'mainImagePath', 'slug',
-        'deletedAt', 'scoringWeights'
+        'deletedAt', 'scoringWeights', 'defaultDiet'
       ];
     }
 
+    // «Dieta por defecto» de una lista: 'vegetarian' (todo vegetariano salvo lo marcado) o 'none'.
+    function listDefaultDietOk() {
+      return !('defaultDiet' in request.resource.data) || request.resource.data.defaultDiet in ['vegetarian', 'none'];
+    }
+
     function listCreateHasOnlyAllowedFields() {
-      return request.resource.data.keys().hasOnly(listAllowedCreateKeys());
+      return request.resource.data.keys().hasOnly(listAllowedCreateKeys()) && listDefaultDietOk();
     }
 
     function listUpdateChangesOnlyAllowedFields() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(listAllowedUpdateKeys());
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(listAllowedUpdateKeys()) && listDefaultDietOk();
     }
 
     // Métricas de una lista: las mantienen Cloud Functions a partir de las
@@ -478,6 +521,7 @@ service cloud.firestore {
           request.auth.uid == userId && doesNotChangeUserType()
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(userSelfUpdateKeys())
           && userUpdateLegalAcceptanceOk()
+          && userUpdateUxPreferencesOk()
         ) || (isJefe(request.auth.uid) && userUpdateChangesOnlyAllowedFields())
       );
       // Un usuario puede borrarse a sí mismo O un jefe puede borrarlo.
@@ -530,6 +574,15 @@ service cloud.firestore {
       }
 
       // Regla para las medallas obtenidas
+      // «Apto para»: respuestas privadas de quien aporta (sin gluten, movilidad…).
+      // Solo las ve su autor; el servidor las cuenta de forma anónima en el sitio.
+      match /aptReports/{reviewId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow delete: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null && request.auth.uid == userId &&
+                              aptReportIsValid(request.resource.data, userId, reviewId);
+      }
+
       match /obtainedBadges/{badgeId} {
         allow read: if true;
         allow write: if request.auth != null && isJefe(request.auth.uid);
@@ -960,6 +1013,23 @@ service cloud.firestore {
       }
     }
 
+    // Vista previa pública del enlace de invitación a un grupo. Solo se lee
+    // sabiendo el código; la crean o cambian los del grupo con el código vigente.
+    match /chatInvites/{code} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if request.auth != null
+                             && request.resource.data.keys().hasOnly(['chatId', 'groupName', 'byName', 'approval', 'createdAt'])
+                             && request.resource.data.get('approval', false) is bool
+                             && request.resource.data.chatId is string
+                             && request.resource.data.groupName is string && request.resource.data.groupName.size() <= 60
+                             && request.resource.data.byName is string && request.resource.data.byName.size() <= 80
+                             && request.auth.uid in get(/databases/$(database)/documents/chats/$(request.resource.data.chatId)).data.participants
+                             && getAfter(/databases/$(database)/documents/chats/$(request.resource.data.chatId)).data.get('joinCode', '') == code;
+      allow delete: if request.auth != null
+                    && request.auth.uid in get(/databases/$(database)/documents/chats/$(resource.data.chatId)).data.participants;
+    }
+
     match /chats/{chatId} {
       allow list, get: if request.auth != null
                   && request.auth.uid in resource.data.participants;
@@ -972,7 +1042,41 @@ service cloud.firestore {
                      && request.auth.uid in request.resource.data.participants
                      && request.resource.data.participants.hasAll(resource.data.participants)
                      && request.resource.data.participants.size() <= 50;
+      // Enlace de invitación (/g/{código}): quien no está entra él solo en un
+      // grupo con el código vigente, sin tocar nada más.
+      allow update: if request.auth != null
+                     && !(request.auth.uid in resource.data.participants)
+                     && resource.data.type == 'group'
+                     && resource.data.get('joinApproval', false) != true
+                     && resource.data.get('joinCode', '') is string
+                     && resource.data.get('joinCode', '').size() >= 8
+                     && request.resource.data.get('joinedWith', '') == resource.data.joinCode
+                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants', 'joinedWith', 'updatedAt'])
+                     && request.resource.data.participants == resource.data.participants.concat([request.auth.uid])
+                     && request.resource.data.participants.size() <= 50;
       allow delete: if false;
+
+      // Grupo con aprobación: quien abre el enlace deja su solicitud y la
+      // acepta o rechaza cualquiera del grupo.
+      match /joinRequests/{uid} {
+        function isChatMember() {
+          return request.auth != null
+            && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        }
+        allow get: if (request.auth != null && request.auth.uid == uid) || isChatMember();
+        allow list: if isChatMember();
+        allow create: if request.auth != null
+                       && request.auth.uid == uid
+                       && !isChatMember()
+                       && get(/databases/$(database)/documents/chats/$(chatId)).data.type == 'group'
+                       && get(/databases/$(database)/documents/chats/$(chatId)).data.get('joinApproval', false) == true
+                       && request.resource.data.keys().hasOnly(['name', 'code', 'at'])
+                       && request.resource.data.name is string && request.resource.data.name.size() <= 80
+                       && request.resource.data.code is string && request.resource.data.code.size() >= 8
+                       && request.resource.data.code == get(/databases/$(database)/documents/chats/$(chatId)).data.get('joinCode', '');
+        allow update: if false;
+        allow delete: if (request.auth != null && request.auth.uid == uid) || isChatMember();
+      }
 
       match /messages/{messageId} {
         allow list, get: if request.auth != null
@@ -980,7 +1084,68 @@ service cloud.firestore {
         allow create: if request.auth != null
                        && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
                        && request.resource.data.senderId == request.auth.uid;
-        allow update, delete: if false;
+        // Un mensaje no se reescribe. Solo cambia lo «vivo»: la reacción propia,
+        // la respuesta propia a una invitación, el voto propio en una encuesta y,
+        // si invitas tú, la fecha de tu invitación o cancelarla.
+        allow update: if request.auth != null
+                       && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
+                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions', 'invite', 'poll', 'datePoll'])
+                       && chatReactionUpdateOk()
+                       && chatInviteUpdateOk()
+                       && chatPollUpdateOk()
+                       && chatDatePollUpdateOk();
+        allow delete: if false;
+
+        function onlyOwnKeyChanged(after, before) {
+          return after is map && after.diff(before).affectedKeys().hasOnly([request.auth.uid]);
+        }
+
+        function chatReactionUpdateOk() {
+          let after = request.resource.data.get('reactions', {});
+          return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['reactions'])
+            || (onlyOwnKeyChanged(after, resource.data.get('reactions', {}))
+                && (!(request.auth.uid in after) || (after[request.auth.uid] is string && after[request.auth.uid].size() <= 16)));
+        }
+
+        function chatInviteUpdateOk() {
+          return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['invite'])
+            || (resource.data.invite is map && request.resource.data.invite is map && (
+                  (resource.data.senderId == request.auth.uid
+                    && request.resource.data.invite.diff(resource.data.invite).affectedKeys().hasOnly(['when', 'responses', 'cancelled'])
+                    && request.resource.data.invite.when is number
+                    && request.resource.data.invite.responses is map
+                    && request.resource.data.invite.get('cancelled', false) is bool)
+                  || (request.resource.data.invite.diff(resource.data.invite).affectedKeys().hasOnly(['responses'])
+                    && onlyOwnKeyChanged(request.resource.data.invite.get('responses', {}), resource.data.invite.get('responses', {}))
+                    && (!(request.auth.uid in request.resource.data.invite.get('responses', {}))
+                        || request.resource.data.invite.responses[request.auth.uid].status in ['yes', 'maybe', 'other', 'no']))
+                ));
+        }
+
+        function chatPollUpdateOk() {
+          return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['poll'])
+            || (resource.data.poll is map && request.resource.data.poll is map
+                && request.resource.data.poll.diff(resource.data.poll).affectedKeys().hasOnly(['votes'])
+                && onlyOwnKeyChanged(request.resource.data.poll.get('votes', {}), resource.data.poll.get('votes', {}))
+                && (!(request.auth.uid in request.resource.data.poll.get('votes', {}))
+                    || request.resource.data.poll.votes[request.auth.uid] is string));
+        }
+
+        // «¿Cuándo quedamos?»: cada uno marca sus fechas; y cualquiera del grupo
+        // la cierra una sola vez apuntando a la quedada que sale de ella.
+        function chatDatePollUpdateOk() {
+          let before = resource.data.get('datePoll', {});
+          let after = request.resource.data.get('datePoll', {});
+          return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['datePoll'])
+            || (resource.data.datePoll is map && after is map
+                && ((after.diff(before).affectedKeys().hasOnly(['votes'])
+                     && onlyOwnKeyChanged(after.get('votes', {}), before.get('votes', {}))
+                     && (!(request.auth.uid in after.get('votes', {}))
+                         || (after.votes[request.auth.uid] is map && after.votes[request.auth.uid].size() <= 6)))
+                    || (after.diff(before).affectedKeys().hasOnly(['inviteId'])
+                        && !('inviteId' in before)
+                        && after.inviteId is string)));
+        }
       }
     }
 

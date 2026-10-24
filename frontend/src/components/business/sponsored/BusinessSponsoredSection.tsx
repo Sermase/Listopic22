@@ -222,7 +222,7 @@ export const BusinessSponsoredSection: React.FC<BusinessSponsoredSectionProps> =
             <SectionHeader
                 emoji="📣"
                 title="Hazte ver"
-                help="Promociona tu local sin tocar las valoraciones: todo sale con la etiqueta Patrocinado."
+                help="Promociona tu local sin tocar las reseñas: todo sale con la etiqueta Patrocinado."
             />
 
             <ImpulseWalletBar wallet={wallet} counters={counters} onRecharge={() => setPacksOpen(true)} />

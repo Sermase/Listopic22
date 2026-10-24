@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { AptFor } from '../lib/aptFor';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { collection, collectionGroup, query, where, getDocs, doc, getDoc, getDocFromServer, limit, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -62,6 +63,8 @@ export interface PlaceOfficialMenuItem {
 
 export interface PlaceDetails {
     placeId: string;
+    /** «Apto para»: recuento anónimo por elemento y del sitio (lib/aptFor). */
+    aptFor?: AptFor;
     name: string;
     photoUrl?: string;
     address?: string;
@@ -70,7 +73,7 @@ export interface PlaceDetails {
     reviewCount: number;
     /** Nota de críticos verificados (aparte de la general); provisional con poca muestra. */
     criticRating: PlaceRating['critic'];
-    /** Valoraciones públicas también de bots: hay actividad aunque no haya nota pública. */
+    /** Reseñas públicas también de bots: hay actividad aunque no haya nota pública. */
     visibleReviewCount: number;
     reviews: ReviewEntity[];
     relatedLists: { id: string; name: string; authorName?: string; parentListId?: string; photoUrl?: string; }[];
@@ -474,7 +477,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     });
 
     // Nota Listopic del sitio: la del servidor (lib/placeRating), igual que en
-    // tarjetas, Home y Buscar: solo valoraciones públicas, sin bots, y la de
+    // tarjetas, Home y Buscar: solo reseñas públicas, sin bots, y la de
     // críticos aparte. Nunca la nota de Google.
     const rating = placeRating(placeData);
 
@@ -536,6 +539,8 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
             wheelchairAccessibleParking: placeData.accessibilityOptions.wheelchairAccessibleParking,
             hearingLoop: placeData.accessibilityOptions.hearingLoop,
         } : placeData?.accessibility,
+        // «Apto para»: recuento anónimo (functions/modules/apt-for.js).
+        aptFor: placeData?.aptFor,
         petOptions: hasBusinessPets ? {
             petFriendly: businessPets?.petFriendly || businessPets?.allowsDogs || businessPets?.allowsCats,
             allowsDogs: businessPets?.allowsDogs,

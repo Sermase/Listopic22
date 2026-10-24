@@ -21,7 +21,7 @@ test('no deja una segunda reseña del mismo plato y ofrece editar la tuya', asyn
   await login(page, 'ana');
   await page.goto('/create-review?listId=bravas&placeId=p_vll1&itemName=Bravas');
   await expect(page.getByText(/Ya valoraste/)).toBeVisible();
-  await expect(page.getByRole('button', { name: /Publicar valoración/ })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /Publicar reseña/ })).toBeDisabled();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/1-aviso.png` });
   await page.getByRole('button', { name: /Editar la mía/ }).click();
   await expect(page.getByRole('button', { name: /Guardar Cambios/ })).toBeVisible();

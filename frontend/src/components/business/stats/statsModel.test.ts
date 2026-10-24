@@ -133,7 +133,7 @@ describe('weekdayStrengths', () => {
     });
 });
 
-describe('valoraciones', () => {
+describe('reseñas', () => {
     const DAY = 86_400_000;
     const keys = lastDateKeys(7, NOW);
 
@@ -166,13 +166,13 @@ describe('platos', () => {
     const items = [
         item('croquetas', 9.2, 12),
         item('pulpo', 8.1, 3),
-        item('tortilla', 9.8, 2), // < 3 valoraciones: no entra en «Mejor nota»
+        item('tortilla', 9.8, 2), // < 3 reseñas: no entra en «Mejor nota»
         item('bravas', 5.5, 6),
         item('flan', 6.4, 4),
         item('nuevo', null, 0),
     ];
 
-    it('mejor nota: al menos 3 valoraciones y desde «Muy bueno»; más valorados por cantidad', () => {
+    it('mejor nota: al menos 3 reseñas y desde «Muy bueno»; más valorados por cantidad', () => {
         expect(topItemsByScore(items, 5).map((entry) => entry.id)).toEqual(['croquetas', 'pulpo']);
         expect(topItemsByCount(items, 3).map((entry) => entry.id)).toEqual(['croquetas', 'bravas', 'flan']);
     });

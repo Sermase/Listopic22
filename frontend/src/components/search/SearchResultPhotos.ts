@@ -6,7 +6,7 @@ import { firstUsablePlaceImage } from '../../utils/placeImages';
 /**
  * Sitios de Buscar sin foto propia pero con platos fotografiados (hasPhoto): hasta que
  * el índice traiga esa foto (functions/modules/algolia.js), se busca una aquí. Solo
- * valoraciones públicas, pocas lecturas por sitio, y solo para lo que se ve.
+ * reseñas públicas, pocas lecturas por sitio, y solo para lo que se ve.
  */
 
 export interface PlaceHitLike {
@@ -34,7 +34,7 @@ export function hitPhoto(hit: PlaceHitLike): string | null {
     return hit.thumbnailUrl ?? hit.mainImageUrl ?? hit.photoUrl ?? hit.coverUrl ?? hit.imageUrl ?? null;
 }
 
-/** La foto de la valoración pública con mejor nota (nunca una privada ni una de Google). */
+/** La foto de la reseña pública con mejor nota (nunca una privada ni una de Google). */
 export function pickReviewPhoto(reviews: ReviewPhotoSource[]): string | null {
     let best: string | null = null;
     let bestRating = -Infinity;

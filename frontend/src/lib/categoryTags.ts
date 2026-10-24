@@ -49,3 +49,29 @@ export function lockedCategoryTags(fixed: readonly string[], tags: unknown): str
     const ownByKey = new Map(cleanTags(tags).map((tag) => [tagKey(tag), tag]));
     return cleanTags(fixed).map((tag) => ownByKey.get(tagKey(tag)) ?? tag);
 }
+
+/**
+ * «Dieta por defecto» de una lista (campo `defaultDiet`): en tortillas, tartas de
+ * queso… casi todo es vegetariano, así que la etiqueta va al revés: se marca lo
+ * que lleva carne o pescado y «Vegetariano» sobra.
+ */
+export type ListDefaultDiet = 'vegetarian' | 'none';
+export const MEAT_TAG = '🥩 Lleva carne o pescado';
+
+export const isDefaultVegetarian = (list: unknown): boolean =>
+    Boolean(list && typeof list === 'object' && (list as { defaultDiet?: unknown }).defaultDiet === 'vegetarian');
+
+const isVegetarianTag = (tag: string) => tagKey(tag).includes('vegetarian');
+export const isMeatTag = (tag: unknown): boolean => typeof tag === 'string' && tagKey(tag) === tagKey(MEAT_TAG);
+
+/** Fijas de la categoría según la dieta por defecto: sin «Vegetariano» y con «Lleva carne o pescado». */
+export function dietFixedTags(fixed: readonly string[], vegetarianByDefault: boolean): string[] {
+    if (!vegetarianByDefault) return [...fixed];
+    return [MEAT_TAG, ...fixed.filter((tag) => !isVegetarianTag(tag))];
+}
+
+/** Etiquetas de la lista con las fijas delante, teniendo en cuenta la dieta por defecto. */
+export function listTagsWithDiet(fixed: readonly string[], tags: unknown, vegetarianByDefault: boolean): string[] {
+    const merged = withCategoryTags(dietFixedTags(fixed, vegetarianByDefault), tags);
+    return vegetarianByDefault ? merged.filter((tag) => !isVegetarianTag(tag)) : merged;
+}

@@ -116,7 +116,7 @@ export const ReviewsConsolidationCard: React.FC = () => {
                 <Database className="w-5 h-5 text-violet-400" /> Contadores y reseñas antiguas
             </h3>
             <p className="text-gray-400 mb-4 text-sm">
-                «Recontar contadores» corrige los contadores de listas, usuarios y sitios a partir de las valoraciones reales (no necesita índices).
+                «Recontar contadores» corrige los contadores de listas, usuarios y sitios a partir de las reseñas reales (no necesita índices).
                 La migración de la colección raíz <code className="text-violet-300 bg-black/30 px-1 rounded">reviews/</code> ya está hecha;
                 sus botones solo aparecen si «Contar root» encuentra alguna. Detalles en <code className="text-violet-300 bg-black/30 px-1 rounded">docs/REVIEWS-MIGRATION.md</code>.
             </p>

@@ -1,5 +1,5 @@
 /**
- * Buscar y elegir otro plato de la carta con chips (mover una valoración,
+ * Buscar y elegir otro plato de la carta con chips (mover una reseña,
  * proponer una fusión).
  *
  *   <ItemPicker legend="¿A qué plato va?" items={others} value={targetId} onChange={setTargetId} />

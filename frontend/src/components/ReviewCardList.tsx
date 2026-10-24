@@ -26,6 +26,7 @@ import { useConfirm } from '../context/ConfirmContext';
 import { scoreBadgeStyle, scoreTextColor } from '../lib/scoreScale';
 import { closedStatusKind } from '../utils/placeStatus';
 import { MarqueeText } from './ui/MarqueeText';
+import { ExpandableText } from './ui/ExpandableText';
 
 interface ReviewCardListProps {
     review: ReviewEntity;
@@ -153,7 +154,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
     const handleLike = async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('indicar que te gusta esta valoración');
+            openAuthPrompt('indicar que te gusta esta reseña');
             return;
         }
         if (!review.id || !review.listId) return;
@@ -178,7 +179,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
     const handleSaveClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('guardar esta valoración');
+            openAuthPrompt('guardar esta reseña');
             return;
         }
         setIsSaveModalOpen(true);
@@ -187,7 +188,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
     const handleReportClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('reportar esta valoración');
+            openAuthPrompt('reportar esta reseña');
             return;
         }
         setShowReportModal(true);
@@ -196,14 +197,14 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
 
     const handleDelete = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (await confirm({ title: '¿Eliminar esta valoración?', message: 'No se puede deshacer.', confirmLabel: 'Eliminar', destructive: true })) {
+        if (await confirm({ title: '¿Eliminar esta reseña?', message: 'No se puede deshacer.', confirmLabel: 'Eliminar', destructive: true })) {
             setIsDeleting(true);
             try {
                 await ReviewService.deleteReview(review.listId, review.id, queryClient);
                 if (onDelete) onDelete(review.id);
             } catch (error) {
                 console.error(error);
-                showToast({ variant: 'error', message: 'No se pudo eliminar la valoración.' });
+                showToast({ variant: 'error', message: 'No se pudo eliminar la reseña.' });
                 setIsDeleting(false);
             }
         }
@@ -266,7 +267,14 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                             >
                                 <MarqueeText text={review.authorName || 'Anónimo'} />
                             </Link>
-                            <span className="shrink-0 text-[11px] text-[var(--lt-text-muted)]">· hace {formattedDate}</span>
+                            <Link
+                                to={review.listId && review.id ? `/review/${review.listId}/${review.id}` : '#'}
+                                onClick={(e) => e.stopPropagation()}
+                                title="Abrir la reseña"
+                                className="shrink-0 text-[11px] text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)] hover:underline"
+                            >
+                                · hace {formattedDate}
+                            </Link>
                             {closedKind && (
                                 <span className={`shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${closedKind === 'permanent'
                                     ? 'bg-[var(--lt-danger-soft)] border-[var(--lt-danger)]/30 text-[var(--lt-danger)]'
@@ -347,9 +355,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                             </button>
                         )}
                         {review.comment && (
-                            <p className="text-sm leading-relaxed text-[var(--lt-text)] line-clamp-4 flex-1">
-                                {review.comment}
-                            </p>
+                            <ExpandableText text={review.comment} lines={4} className="min-w-0 flex-1 text-sm leading-relaxed text-[var(--lt-text)]" />
                         )}
                     </div>
                 )}
@@ -408,7 +414,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                             <Bookmark className="w-4 h-4" />
                         </button>
                         <button
-                            aria-label="Compartir valoración"
+                            aria-label="Compartir reseña"
                             onClick={handleShareClick}
                             className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors p-1"
                         >
@@ -455,16 +461,16 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
             <ShareModal
                 isOpen={isShareOpen}
                 onClose={() => setIsShareOpen(false)}
-                title={`Compartir valoración`}
+                title={`Compartir reseña`}
                 url={reviewShareUrl}
-                text={`¡Mira esta valoración de ${review.itemName} en ${review.placeName}!`}
+                text={`¡Mira esta reseña de ${review.itemName} en ${review.placeName}!`}
                 review={review}
                 shareEntity={(() => {
                     const shareCriteria = buildShareCriteriaGroups(review.scores, review.criteriaDefinition);
                     return {
                     type: 'review',
                     id: review.id,
-                    title: review.itemName || 'Valoración',
+                    title: review.itemName || 'Reseña',
                     subtitle: review.placeName || 'Lugar',
                     description: review.comment,
                     route: review.placeId && review.itemName ? reviewRoute : undefined,
@@ -490,7 +496,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                 isOpen={showReportModal}
                 onClose={() => setShowReportModal(false)}
                 targetId={review.id || ''}
-                targetName={review.itemName || 'Valoración'}
+                targetName={review.itemName || 'Reseña'}
                 itemName={review.placeName}
                 targetType="review"
                 targetOwnerId={review.userId || review.authorId}

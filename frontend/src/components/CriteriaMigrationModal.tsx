@@ -50,9 +50,9 @@ const errorMessage = (error: unknown) =>
     (error as { message?: string })?.message?.replace(/^.*?:\s*/, '') || 'No se ha podido completar.';
 
 /**
- * Cambiar pesos o quitar criterios en una Lista que ya tiene valoraciones.
+ * Cambiar pesos o quitar criterios en una Lista que ya tiene reseñas.
  * Primero se simula (nada se escribe) y se ve el antes/después; aplicar
- * recalcula en el servidor todas las valoraciones de la Lista y sus Minilistas.
+ * recalcula en el servidor todas las reseñas de la Lista y sus Minilistas.
  */
 export const CriteriaMigrationModal: React.FC<CriteriaMigrationModalProps> = ({
     isOpen, onClose, listId, criteria, currentWeights, canApply, onApplied,
@@ -102,7 +102,7 @@ export const CriteriaMigrationModal: React.FC<CriteriaMigrationModalProps> = ({
         if (!simulation) return;
         const ok = await confirm({
             title: 'Aplicar y recalcular',
-            message: `Se recalcularán ${simulation.summary.changedReviews} valoraciones con los pesos nuevos. La nota anterior de cada una queda guardada.`,
+            message: `Se recalcularán ${simulation.summary.changedReviews} reseñas con los pesos nuevos. La nota anterior de cada una queda guardada.`,
             confirmLabel: 'Aplicar',
         });
         if (!ok) return;
@@ -111,7 +111,7 @@ export const CriteriaMigrationModal: React.FC<CriteriaMigrationModalProps> = ({
         try {
             const fn = httpsCallable(functions, 'applyCriteriaChange', { timeout: 540000 });
             await fn({ listId, change, fingerprint: simulation.fingerprint });
-            showToast({ variant: 'success', message: 'Pesos aplicados y valoraciones recalculadas.' });
+            showToast({ variant: 'success', message: 'Pesos aplicados y reseñas recalculadas.' });
             onApplied();
         } catch (e) {
             setError(errorMessage(e));
@@ -127,7 +127,7 @@ export const CriteriaMigrationModal: React.FC<CriteriaMigrationModalProps> = ({
         <Modal isOpen={isOpen} onClose={onClose} title={<span className="flex items-center gap-2"><Scale className="w-4 h-4" /> Cambiar pesos</span>}>
             <div className="space-y-5 p-4 text-sm text-[var(--lt-text)]">
                 <p className="text-[var(--lt-text-muted)]">
-                    Esta Lista ya tiene valoraciones. Aquí puedes cambiar cuánto cuenta cada criterio o quitar alguno.
+                    Esta Lista ya tiene reseñas. Aquí puedes cambiar cuánto cuenta cada criterio o quitar alguno.
                     Primero verás cómo cambian las notas y el ranking; nada se guarda hasta aplicar.
                     Las Minilistas se actualizan igual. Quitar un criterio no borra las puntuaciones ya puestas.
                 </p>
@@ -184,7 +184,7 @@ export const CriteriaMigrationModal: React.FC<CriteriaMigrationModalProps> = ({
                             <p>Con este cambio no cambia ninguna nota.</p>
                         ) : (
                             <p className="font-semibold">
-                                {simulation.summary.changedReviews} de {simulation.summary.totalReviews} valoraciones cambian de nota
+                                {simulation.summary.changedReviews} de {simulation.summary.totalReviews} reseñas cambian de nota
                                 {simulation.summary.changedReviews > 0 && <> · cambio máximo {formatScore(Number(simulation.summary.maxDelta.toFixed(1)))}</>}
                                 {' · '}{simulation.summary.rankingMoves} {simulation.summary.rankingMoves === 1 ? 'elemento cambia' : 'elementos cambian'} de puesto
                                 {simulation.summary.minilistsAffected > 0 && <> · {simulation.summary.minilistsAffected} {simulation.summary.minilistsAffected === 1 ? 'Minilista se actualiza' : 'Minilistas se actualizan'}</>}

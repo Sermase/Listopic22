@@ -1,4 +1,4 @@
-// Developer (solo jefe): valoraciones y usuarios por el servidor
+// Developer (solo jefe): reseñas y usuarios por el servidor
 // (functions/modules/admin/admin-reviews.js). No dependen de las reglas de Firestore.
 import { getFunctions, httpsCallable } from 'firebase/functions';
 

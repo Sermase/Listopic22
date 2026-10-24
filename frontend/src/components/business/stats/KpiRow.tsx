@@ -1,6 +1,6 @@
 /**
  * Fila de cifras de 📊 (spec §9.2): 👀 visitas, ⭐ nota pública, 📝
- * valoraciones nuevas y 📤 veces compartido. 2×2 en móvil, 4 en escritorio.
+ * reseñas nuevas y 📤 veces compartido. 2×2 en móvil, 4 en escritorio.
  *
  * T2: la nota es la PÚBLICA del sitio (`placeRating`: personas, sin bots), la
  * misma que ve la gente; nunca una media hecha aquí con 100 reseñas.
@@ -69,13 +69,13 @@ export const KpiRow: React.FC<KpiRowProps> = ({ traffic, rating, reviews, busy =
                                 <span aria-hidden="true">{SCORE_BAND_EMOJI[scoreBand(average)]} </span>
                                 {SCORE_BAND_LABEL[scoreBand(average)]}
                             </span>
-                            de {plural(rating.data.count, 'valoración pública', 'valoraciones públicas')}
+                            de {plural(rating.data.count, 'reseña pública', 'reseñas públicas')}
                         </>
                     ) : 'Sale cuando te valoran personas en público.'}
                 />
                 <StatTile
                     emoji="📝"
-                    label="Valoraciones nuevas"
+                    label="Reseñas nuevas"
                     status={reviewStatus}
                     busy={busy}
                     onRetry={reviews.retry}

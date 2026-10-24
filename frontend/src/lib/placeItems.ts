@@ -4,7 +4,7 @@
  * nombre de URL (/group/:placeId/:itemName).
  * Espejo simplificado de functions/modules/lib/canonical-resolve.js. Quien
  * manda es el servidor: al curar un elemento (renombre, fusión, mover una
- * valoración) reescribe el itemName de sus reseñas al nombre canónico, así que
+ * reseña) reescribe el itemName de sus reseñas al nombre canónico, así que
  * esto solo cubre enlaces antiguos y datos aún sin reparar.
  */
 import { normalizeItemName } from './listElements';
@@ -144,7 +144,7 @@ export function resolvePlaceItemByName<T extends PlaceItemLike>(items: readonly 
         if (destination) return destination;
     }
 
-    // 3. Nombres escritos en las reseñas: el elemento con más valoraciones.
+    // 3. Nombres escritos en las reseñas: el elemento con más reseñas.
     const derived = live
         .filter((item) => derivedOf(item).includes(target))
         .sort((a, b) => reviewCountOf(b) - reviewCountOf(a) || byId(a, b));

@@ -292,7 +292,7 @@ export const PROPOSAL_STATUS_META: Record<ItemProposalStatus, StatusMeta> = {
 export const PROPOSAL_TYPE_META: Record<ItemProposalType, { emoji: string; label: string }> = {
     merge: { emoji: '🔗', label: 'Fusión' },
     rename: { emoji: '✏️', label: 'Renombre' },
-    reassign_review: { emoji: '↔️', label: 'Mover valoración' },
+    reassign_review: { emoji: '↔️', label: 'Mover reseña' },
 };
 
 /** El servidor admite 20 propuestas pendientes por negocio. */

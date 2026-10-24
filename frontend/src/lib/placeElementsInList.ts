@@ -17,7 +17,7 @@ interface ReviewForOptions {
 
 /**
  * Agrupa por nombre comparable («Bravas» = «bravás!») y ordena por número de
- * valoraciones. Se queda con la forma más repetida del nombre (a igualdad, la
+ * reseñas. Se queda con la forma más repetida del nombre (a igualdad, la
  * primera que aparece).
  * Con `sublistId` solo cuentan las reseñas de esa Minilista.
  */

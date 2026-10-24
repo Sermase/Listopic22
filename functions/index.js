@@ -32,6 +32,7 @@ module.exports = {
     ...require('./modules/ssr-meta'),
     ...require('./modules/canonical-items'),
     ...require('./modules/reviews-consolidation'),
+    ...require('./modules/apt-for'),
     ...require('./modules/media'),
     ...require('./modules/admin/admin-tags'),
     ...require('./modules/admin/admin-users'),
@@ -45,4 +46,4 @@ module.exports = {
     ...require('./modules/admin/admin-backup'),
     ...require('./modules/admin/admin-gdpr'),
 };
-// Force redeploy
+// Force redeploy: 2026-10-22 (reconstruir todas tras el despliegue a medias)

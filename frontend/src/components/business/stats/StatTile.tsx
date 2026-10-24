@@ -74,7 +74,7 @@ export interface StatTileProps {
     delta?: Delta | null;
     /** Valores del periodo para la mini línea. */
     trend?: readonly number[];
-    /** Una línea bajo el valor: «de 23 valoraciones públicas», «sobre todo por 💚 WhatsApp». */
+    /** Una línea bajo el valor: «de 23 reseñas públicas», «sobre todo por 💚 WhatsApp». */
     caption?: React.ReactNode;
     onRetry?: () => void;
     busy?: boolean;

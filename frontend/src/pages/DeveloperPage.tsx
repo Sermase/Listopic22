@@ -32,6 +32,7 @@ const BrandingManager = React.lazy(() => import('../components/developer/Brandin
 const ListsManagerTab = React.lazy(() => import('../components/developer/ListsManagerTab').then(module => ({ default: module.ListsManagerTab })));
 const PlacesManagerTab = React.lazy(() => import('../components/developer/PlacesManagerTab').then(module => ({ default: module.PlacesManagerTab })));
 const ReviewsManagerTab = React.lazy(() => import('../components/developer/ReviewsManagerTab').then(module => ({ default: module.ReviewsManagerTab })));
+const TagUnifyCard = React.lazy(() => import('../components/developer/TagUnifyCard').then(module => ({ default: module.TagUnifyCard })));
 const TagsManagerTab = React.lazy(() => import('../components/developer/TagsManagerTab').then(module => ({ default: module.TagsManagerTab })));
 const UsersManagerTab = React.lazy(() => import('../components/developer/UsersManagerTab').then(module => ({ default: module.UsersManagerTab })));
 const DeveloperItemModal = React.lazy(() => import('../components/developer/DeveloperItemModal').then(module => ({ default: module.DeveloperItemModal })));
@@ -378,11 +379,11 @@ export const DeveloperPage: React.FC = () => {
 
 
 
-    // Copia el rol (bot, crítico…) de cada persona a sus valoraciones. Lo hace el
+    // Copia el rol (bot, crítico…) de cada persona a sus reseñas. Lo hace el
     // servidor (propagateAuthorFieldsToReviews), una persona cada vez: antes el
-    // navegador recorría y escribía todas las valoraciones una a una.
+    // navegador recorría y escribía todas las reseñas una a una.
     const handleBackfillAuthorUserType = async () => {
-        if (!confirm('¿Copiar el tipo de usuario de cada persona a sus valoraciones? Lo hace el servidor, persona a persona.')) return;
+        if (!confirm('¿Copiar el tipo de usuario de cada persona a sus reseñas? Lo hace el servidor, persona a persona.')) return;
         setProcessingMaintenance(true);
         setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] Iniciando backfill de authorUserType...`, ...prev]);
         try {
@@ -403,7 +404,7 @@ export const DeveloperPage: React.FC = () => {
                     setMaintenanceLog(prev => [`⚠️ ${userDoc.id}: ${err instanceof Error ? err.message : String(err)}`, ...prev]);
                 }
             }
-            setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ✅ Backfill completado: ${users} personas · ${reviews} valoraciones · ${failed} errores.`, ...prev]);
+            setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ✅ Backfill completado: ${users} personas · ${reviews} reseñas · ${failed} errores.`, ...prev]);
         } catch (err: any) {
             setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] ❌ Error: ${err.message}`, ...prev]);
         } finally {
@@ -903,6 +904,7 @@ export const DeveloperPage: React.FC = () => {
                         {
                             activeTab === 'maintenance' && (
                                 <div className="space-y-6">
+                                    <DeveloperLazyPanel><TagUnifyCard /></DeveloperLazyPanel>
                                     <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">
                                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                                             <ListIcon className="w-5 h-5 text-[var(--lt-accent-2)]" /> Mantenimiento de Listas

@@ -7,11 +7,11 @@ const criteria: Criterion[] = [
     { id: 'precio', label: 'Precio', minLabel: 'Caro', maxLabel: 'Barato', isPonderable: false, step: 0.5 },
 ];
 
-describe('CriteriaBuilder con valoraciones (scoringLockedIds)', () => {
+describe('CriteriaBuilder con reseñas (scoringLockedIds)', () => {
     it('no deja cambiar si cuenta para la nota ni quitar el criterio, pero sí renombrarlo', () => {
         const onChange = vi.fn();
         render(<CriteriaBuilder criteria={criteria} onChange={onChange} scoringLockedIds={['sabor', 'precio']} />);
-        expect(screen.getByRole('note')).toHaveTextContent('ya tiene valoraciones');
+        expect(screen.getByRole('note')).toHaveTextContent('ya tiene reseñas');
         const toggles = screen.getAllByLabelText(/Cuenta para la nota:/);
         expect(toggles).toHaveLength(2);
         toggles.forEach((t) => expect(t).toBeDisabled());
@@ -30,7 +30,7 @@ describe('CriteriaBuilder con valoraciones (scoringLockedIds)', () => {
         expect(screen.getAllByRole('button', { name: /Quitar criterio/ })).toHaveLength(1);
     });
 
-    it('sin valoraciones todo es editable', () => {
+    it('sin reseñas todo es editable', () => {
         render(<CriteriaBuilder criteria={criteria} onChange={vi.fn()} />);
         screen.getAllByLabelText(/Cuenta para la nota:/).forEach((t) => expect(t).not.toBeDisabled());
         expect(screen.getAllByRole('button', { name: /Quitar criterio/ })).toHaveLength(2);

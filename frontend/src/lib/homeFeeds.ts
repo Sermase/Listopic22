@@ -61,7 +61,7 @@ export interface HomeFeedPlace {
     name?: string | null;
     photoUrl?: string | null;
     rating?: unknown;
-    /** Valoraciones públicas reales del sitio (enriquecido desde la reseña). */
+    /** Reseñas públicas reales del sitio (enriquecido desde la reseña). */
     placeReviewsCount?: unknown;
     /** Recuento de respaldo (en sitios sacados de reseñas: las cargadas). */
     reviewsCount?: unknown;
@@ -133,7 +133,7 @@ export interface HomeFeedCard {
     photoUrl: string | null;
     /** Media real mostrada (o la nota de la reseña). */
     rating: number | null;
-    /** Valoraciones que respaldan la media (en la zona o públicas del sitio). */
+    /** Reseñas que respaldan la media (en la zona o públicas del sitio). */
     count: number;
     /** Ruta de la tarjeta: /list/:id, /place/:id, /group/:placeId/:item, /profile/:uid. */
     to: string;
@@ -773,7 +773,7 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
                 rank: index + 1,
             })), Math.max(3, minItems), {
                 title: `El top: ${chosen.list.name}`,
-                subtitle: `Según ${plural(reviewsInList, 'valoración', 'valoraciones')} de tu zona`,
+                subtitle: `Según ${plural(reviewsInList, 'reseña', 'reseñas')} de tu zona`,
                 viewAllTo: `/list/${chosen.list.id}`,
                 claimPlaces: false,
             });
@@ -904,7 +904,7 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
             kind: 'place' as const,
             id: p.id,
             title: p.name,
-            subtitle: `${fmt(p.rating)} · ${plural(p.realCount, 'valoración', 'valoraciones')}`,
+            subtitle: `${fmt(p.rating)} · ${plural(p.realCount, 'reseña', 'reseñas')}`,
             photoUrl: p.photo,
             rating: round1(p.rating),
             count: p.realCount,

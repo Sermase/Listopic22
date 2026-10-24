@@ -90,10 +90,10 @@ export interface RankedElement extends GeoFields {
 }
 
 /**
- * Agrupa las valoraciones visibles en elementos, calcula su nota (media de las
+ * Agrupa las reseñas visibles en elementos, calcula su nota (media de las
  * notas de la gente, con la regla madre/Minilista) y los ordena con la fórmula
  * única. Por defecto, igual que la Lista: sin bots y sin sitios cerrados.
- * Las valoraciones deben llegar ya filtradas por visibilidad (en una Lista
+ * Las reseñas deben llegar ya filtradas por visibilidad (en una Lista
  * pública, solo las públicas: una Minilista privada no cuenta en la madre).
  */
 export function rankListElements(

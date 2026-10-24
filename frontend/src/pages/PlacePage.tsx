@@ -2,10 +2,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, Baby, Megaphone, BarChart3, ShieldCheck, Info
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, MoreHorizontal, Baby, Megaphone, BarChart3, ShieldCheck, Info
 } from 'lucide-react';
 import { LazyShareModal as ShareModal, LazyMapView as MapView, LazyAddReviewForm as AddReviewForm } from '../components/lazy';
 import { ProgressiveImage } from '../components/ProgressiveImage';
+import { FeaturedQuote } from '../components/FeaturedQuote';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
 import { usePlaceDetails } from '../hooks/usePlaceDetails';
 import { PlaceService } from '../services/PlaceService';
@@ -52,6 +53,7 @@ import { compareByRank } from '../lib/scoring';
 import { PlaceStatsPanel } from '../components/place/PlaceStatsPanel';
 import { PlaceSectionHeader } from '../components/place/PlaceSectionHeader';
 import { DishRateButton } from '../components/place/DishRateButton';
+import { DishQuickSheet, type DishQuickSheetDish } from '../components/place/DishQuickSheet';
 import { MarqueeText } from '../components/ui/MarqueeText';
 import { PlaceOfferCard } from '../components/business/sponsored/PlaceOfferCard';
 import { heroStyleOf } from '../components/business/visual/heroStyles';
@@ -60,6 +62,11 @@ import { scoreBadgeStyle, scoreTextColor } from '../lib/scoreScale';
 import { todayHours } from '../lib/openingHours';
 import { NO_PUBLIC_RATING_LABEL } from '../lib/placeRating';
 import { closedStatusKind } from '../utils/placeStatus';
+import { usePreferences } from '../context/PreferencesContext';
+import { matchingAllergens, userAllergens } from '../lib/allergens';
+import { APT_PLACE_KEYS, aptSummary } from '../lib/aptFor';
+import { AllergenGuideModal } from '../components/place/AllergenGuideModal';
+import { summarizePlaceDishes } from '../lib/chatExtras';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
@@ -173,7 +180,7 @@ export const PlacePage: React.FC = () => {
             el.setAttribute('content', content);
         };
         setMeta('og:title', title);
-        setMeta('og:description', `${place.reviewCount} valoraciones · ${place.address || place.name}`);
+        setMeta('og:description', `${place.reviewCount} reseñas · ${place.address || place.name}`);
         setMeta('og:url', window.location.href);
         setMeta('og:type', 'website');
         if (place.photoUrl) setMeta('og:image', place.photoUrl);
@@ -190,6 +197,12 @@ export const PlacePage: React.FC = () => {
     const [syncing, setSyncing] = useState(false);
     const [syncError, setSyncError] = useState<string | null>(null);
 
+    const [isMoreActionsOpen, setIsMoreActionsOpen] = useState(false);
+    const [quickDish, setQuickDish] = useState<DishQuickSheetDish | null>(null);
+    // «Mis preferencias»: alérgenos que pliegan La Carta (se puede quitar un momento).
+    const { prefs } = usePreferences();
+    const [ignoreMyAllergens, setIgnoreMyAllergens] = useState(false);
+    const [allergenGuideOpen, setAllergenGuideOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<'reviews' | 'lists' | 'dishes' | 'photos' | 'stats'>('dishes');
     const [reviewViewMode, setReviewViewMode] = useState<'list' | 'full' | 'gallery'>('list');
     const [expandedReviewId, setExpandedReviewId] = useState<string | null>(null);
@@ -313,7 +326,7 @@ export const PlacePage: React.FC = () => {
 
     const handleOpenReviewFlow = () => {
         if (!user) {
-            openAuthPrompt('añadir una valoración');
+            openAuthPrompt('añadir una reseña');
             return;
         }
         setSelectedListId(fromListId || null);
@@ -576,7 +589,7 @@ export const PlacePage: React.FC = () => {
                     : [r.photoUrl];
                 reviewPhotos.forEach(photoUrl => {
                     addPhoto(photoUrl, {
-                        caption: r.itemName || r.authorName || 'Foto de valoración',
+                        caption: r.itemName || r.authorName || 'Foto de reseña',
                         source: 'review',
                     });
                 });
@@ -731,6 +744,20 @@ export const PlacePage: React.FC = () => {
     const hasContactInfo = Boolean(place.phone || place.email || place.instagram);
     const todaysHours = todayHours(place.openingHours);
     const dietary = place.resolvedBusinessInfo?.dietary;
+    const myAllergens = ignoreMyAllergens ? [] : userAllergens(prefs);
+    const officialMenuItems = sectionedMenu ? sectionedMenu.flatMap((section) => section.items) : [];
+    const hiddenByAllergens = officialMenuItems.filter((item) => matchingAllergens(item, myAllergens).length > 0);
+    const menuHasAllergenData = officialMenuItems.some((item) => item.allergens.length > 0);
+    // Solo para quien tiene «Sin gluten»: lo que el local dice del gluten, en una línea.
+    const glutenNote = prefs.glutenFree && dietary ? [
+        dietary.glutenFreeMenu ? '🌾 Carta sin gluten' : dietary.glutenFreeOptions ? '🌾 Opciones sin gluten' : '',
+        dietary.crossContaminationRisk && dietary.crossContaminationRisk !== 'unknown'
+            ? (() => {
+                const option = findOptionByValue(CROSS_CONTAMINATION_OPTIONS, dietary.crossContaminationRisk);
+                return option ? `${option.emoji} ${option.short || option.label}` : '';
+            })()
+            : '',
+    ].filter(Boolean).join(' · ') : '';
     const pets = place.resolvedBusinessInfo?.pets;
     const petOptions = place.petOptions;
     const accessibilityInfo = place.resolvedBusinessInfo?.accessibility;
@@ -915,12 +942,12 @@ export const PlacePage: React.FC = () => {
                         {/* Notas y acción principal: la general con «Valorar» en una fila; la de críticos, aparte debajo */}
                         <div className="flex flex-col items-stretch gap-2 md:items-end">
                             <div className="flex items-center gap-2">
-                                {/* Nota Listopic global (provisional) + nº de valoraciones */}
+                                {/* Nota Listopic global (provisional) + nº de reseñas */}
                                 {place.reviewCount > 0 ? (
                                     <button
                                         type="button"
                                         onClick={() => setActiveTab('stats')}
-                                        title="Nota Listopic: media de las valoraciones públicas (sin bots) en todas sus Listas. Toca para ver el detalle por Lista."
+                                        title="Nota Listopic: media de las reseñas públicas (sin bots) en todas sus Listas. Toca para ver el detalle por Lista."
                                         className="flex min-w-0 items-center gap-2 pl-1 pr-3 py-1 rounded-full text-sm font-bold border border-[var(--lt-border-strong)] bg-[var(--lt-glass)] backdrop-blur-md text-[var(--lt-text)]"
                                     >
                                         <span className="inline-flex shrink-0 items-center gap-1 px-2 py-0.5 rounded-full" style={scoreBadgeStyle(place.avgScore)}>
@@ -928,15 +955,15 @@ export const PlacePage: React.FC = () => {
                                             {place.avgScore.toFixed(1)}
                                         </span>
                                         <span className="truncate text-xs font-semibold text-[var(--lt-text-muted)]">
-                                            {place.reviewCount} {place.reviewCount === 1 ? 'valoración' : 'valoraciones'}
+                                            {place.reviewCount} {place.reviewCount === 1 ? 'reseña' : 'reseñas'}
                                         </span>
                                     </button>
                                 ) : (
                                     <span
                                         className="px-3 py-1 rounded-full text-xs font-semibold border border-[var(--lt-border-strong)] text-[var(--lt-text-muted)]"
-                                        title={place.visibleReviewCount > 0 ? 'Solo tiene valoraciones de bots: la nota pública es la de personas.' : undefined}
+                                        title={place.visibleReviewCount > 0 ? 'Solo tiene reseñas de bots: la nota pública es la de personas.' : undefined}
                                     >
-                                        {place.visibleReviewCount > 0 ? NO_PUBLIC_RATING_LABEL : 'Sin valoraciones'}
+                                        {place.visibleReviewCount > 0 ? NO_PUBLIC_RATING_LABEL : 'Sin reseñas'}
                                     </span>
                                 )}
                                 <button
@@ -975,45 +1002,47 @@ export const PlacePage: React.FC = () => {
                 {/* Order-1 on Mobile -> Renders FIRST. lg:order-last -> Renders RIGHT. */}
                 <div className="order-1 lg:col-span-4 lg:order-last flex flex-col gap-4 sm:gap-6">
 
-                    {/* 1. Acciones (compactas y sin recuadro exterior, como en la ficha del plato) */}
-                    <div className="grid grid-cols-5 gap-2 sm:gap-3">
-                        <button
-                            onClick={handleOpenSave}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all"
-                        >
-                            <Bookmark className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
-                            <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Guardar</span>
+                    {/* 1. Acciones: lo habitual a la vista, el resto en «⋯» */}
+                    <div className="relative flex items-center gap-2">
+                        <button type="button" onClick={handleOpenSave} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3.5 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
+                            <Bookmark className="h-4 w-4 text-[var(--lt-accent)]" /> Guardar
                         </button>
-                        <button
-                            onClick={handleFollowToggle}
-                            disabled={followLoading}
-                            className={`lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border transition-all ${isFollowed ? 'bg-pink-500/15 border-pink-500/60 text-pink-500' : 'border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)]'} ${followLoading ? 'opacity-50 cursor-wait' : ''}`}
-                        >
-                            <Heart className={`w-5 h-5 mb-1 ${isFollowed ? 'fill-current' : ''}`} />
-                            <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">{isFollowed ? 'Seguido' : 'Seguir'}</span>
+                        <button type="button" onClick={handleShareClick} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3.5 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)] active:scale-95">
+                            <Share2 className="h-4 w-4 text-[var(--lt-accent)]" /> Compartir
                         </button>
+                        {isFollowed && (
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-pink-500"><Heart className="h-3.5 w-3.5 fill-current" /> Lo sigues</span>
+                        )}
                         <button
-                            onClick={handleShareClick}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all active:scale-95"
+                            type="button"
+                            onClick={() => setIsMoreActionsOpen((v) => !v)}
+                            aria-label="Más acciones"
+                            aria-expanded={isMoreActionsOpen}
+                            className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] transition-colors hover:text-[var(--lt-text)]"
                         >
-                            <Share2 className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
-                            <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Compartir</span>
+                            <MoreHorizontal className="h-5 w-5" />
                         </button>
-                        <button
-                            onClick={handleOpenPhotoUpload}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:border-[var(--lt-accent-border)] hover:text-[var(--lt-text)] transition-all"
-                        >
-                            <ImageIcon className="w-5 h-5 mb-1 text-[var(--lt-accent)]" />
-                            <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Fotos</span>
-                        </button>
-                        <button
-                            onClick={handleOpenReport}
-                            className="lt-secondary-action flex min-w-0 flex-col items-center justify-center px-1 py-2.5 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] hover:bg-[var(--lt-danger-soft)] hover:text-[var(--lt-danger)] transition-all"
-                        >
-                            <AlertTriangle className="w-5 h-5 mb-1 text-[var(--lt-danger)] opacity-70" />
-                            <span className="max-w-full truncate text-[10px] sm:text-[11px] font-bold leading-tight">Reportar</span>
-                        </button>
+                        {isMoreActionsOpen && (
+                            <>
+                                <button type="button" aria-label="Cerrar" className="fixed inset-0 z-30 cursor-default" onClick={() => setIsMoreActionsOpen(false)} />
+                                <div role="menu" className="absolute right-0 top-12 z-40 w-56 overflow-hidden rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] p-1 shadow-2xl">
+                                    <button type="button" role="menuitem" disabled={followLoading} onClick={() => { setIsMoreActionsOpen(false); handleFollowToggle(); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[var(--lt-text)] hover:bg-[var(--lt-glass)]">
+                                        <Heart className={`h-4 w-4 text-pink-500 ${isFollowed ? 'fill-current' : ''}`} />
+                                        <span>{isFollowed ? 'Dejar de seguir' : 'Seguir'}<span className="block text-xs font-normal text-[var(--lt-text-muted)]">Te avisamos de reseñas y novedades</span></span>
+                                    </button>
+                                    <button type="button" role="menuitem" onClick={() => { setIsMoreActionsOpen(false); handleOpenPhotoUpload(); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[var(--lt-text)] hover:bg-[var(--lt-glass)]">
+                                        <ImageIcon className="h-4 w-4 text-[var(--lt-accent)]" /> Subir fotos del sitio
+                                    </button>
+                                    <button type="button" role="menuitem" onClick={() => { setIsMoreActionsOpen(false); handleOpenReport(); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[var(--lt-danger)] hover:bg-[var(--lt-danger-soft)]">
+                                        <AlertTriangle className="h-4 w-4" /> Reportar
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
+
+                    {/* Una frase de la gente para decidir de un vistazo */}
+                    <FeaturedQuote reviews={place.reviews} showItem onSeeAll={() => setActiveTab('reviews')} />
 
                     {/* Ofertas Business Pro (solo con plan activo, siempre etiquetadas) */}
                     {activeOffers.length > 0 && (
@@ -1509,6 +1538,17 @@ export const PlacePage: React.FC = () => {
                             </div>
                         )}
 
+                        {(() => {
+                            const placeApt = place.aptFor?.place || {};
+                            const lines = APT_PLACE_KEYS.map((key) => aptSummary(key, placeApt[key])).filter(Boolean);
+                            return lines.length > 0 ? (
+                                <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)] p-4 text-xs text-[var(--lt-text)]">
+                                    <p className="mb-1.5 font-bold">Según quien ha ido</p>
+                                    {lines.map((line) => <p key={line}>{line}</p>)}
+                                </div>
+                            ) : null;
+                        })()}
+
                         {hasFamilyInfo && (
                             <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)] p-4">
                                 <button
@@ -1603,7 +1643,7 @@ export const PlacePage: React.FC = () => {
                             className={placeTabClass(activeTab === 'reviews')}
                             style={activeTab === 'reviews' ? activeTabStyle : undefined}
                         >
-                            <MessageSquare className="w-4 h-4" /> Valoraciones ({place.reviews.length})
+                            <MessageSquare className="w-4 h-4" /> Reseñas ({place.reviews.length})
                         </button>
                         <button
                             onClick={() => setActiveTab('dishes')}
@@ -1652,7 +1692,7 @@ export const PlacePage: React.FC = () => {
                             {/* Reviews header with view toggle */}
                             <PlaceSectionHeader
                                 className="mb-3"
-                                title="Valoraciones"
+                                title="Reseñas"
                                 icon={<MessageSquare />}
                                 subtitle={place.reviews.length > 0
                                     ? `${place.reviews.length} ${place.reviews.length === 1 ? 'opinión' : 'opiniones'} de la comunidad`
@@ -1689,7 +1729,7 @@ export const PlacePage: React.FC = () => {
                                     <span className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
                                         <MessageSquare className="h-6 w-6" />
                                     </span>
-                                    <p className="text-sm font-bold text-[var(--lt-text)]">Aún sin valoraciones</p>
+                                    <p className="text-sm font-bold text-[var(--lt-text)]">Aún sin reseñas</p>
                                     <p className="mt-1 text-xs text-[var(--lt-text-muted)]">Estrena tú la ficha: la primera opinión siempre se recuerda.</p>
                                     <button
                                         type="button"
@@ -1734,10 +1774,10 @@ export const PlacePage: React.FC = () => {
                                                     <button
                                                         onClick={() => setExpandedReviewId(null)}
                                                         className="self-center mb-3 flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 hover:from-indigo-500/20 hover:to-purple-500/20 text-gray-200 hover:text-white text-sm font-semibold rounded-full transition-all border border-[var(--lt-accent-border)] shadow-[0_0_15px_-3px_rgba(99,102,241,0.2)]"
-                                                        aria-label="Plegar valoración"
+                                                        aria-label="Plegar reseña"
                                                     >
                                                         <ChevronUp className="w-4 h-4" />
-                                                        <span>Cerrar valoración</span>
+                                                        <span>Cerrar reseña</span>
                                                     </button>
                                                     <ReviewCard
                                                         review={review}
@@ -1827,8 +1867,28 @@ export const PlacePage: React.FC = () => {
                                             </span>
                                         ) : null}
                                     </div>
+                                    {(menuHasAllergenData || myAllergens.length > 0 || glutenNote) && (
+                                        <div className="basis-full flex flex-wrap items-center gap-1.5 pt-1.5">
+                                            {menuHasAllergenData && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setAllergenGuideOpen(true)}
+                                                    className="rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-2.5 py-1 text-xs font-semibold text-[var(--lt-text)] hover:border-[var(--lt-accent-border)]"
+                                                >
+                                                    Alérgenos
+                                                </button>
+                                            )}
+                                            {myAllergens.length > 0 && (
+                                                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] py-1 pl-2.5 pr-1 text-xs font-semibold text-[var(--lt-text)]">
+                                                    Sin {myAllergens.map((value) => allergenLabel(value).split(' ').slice(1).join(' ').toLowerCase()).join(', ')}
+                                                    <button type="button" onClick={() => setIgnoreMyAllergens(true)} aria-label="Ver la carta entera esta vez" className="rounded-full px-1.5 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">✕</button>
+                                                </span>
+                                            )}
+                                            {glutenNote && <span className="text-xs text-[var(--lt-text-muted)]">{glutenNote}</span>}
+                                        </div>
+                                    )}
                                 </div>
-                                {sectionedMenu.map((section) => (
+                                {sectionedMenu.filter((section) => section.items.some((item) => matchingAllergens(item, myAllergens).length === 0)).map((section) => (
                                     <div key={section.name || 'general'}>
                                         {section.name && (
                                             <div className="px-4 sm:px-5 py-2.5 bg-[var(--lt-card)] border-b border-[var(--lt-border)]">
@@ -1838,7 +1898,7 @@ export const PlacePage: React.FC = () => {
                                             </div>
                                         )}
                                         <div className="divide-y divide-[var(--lt-border)]">
-                                            {section.items.map((item) => {
+                                            {section.items.filter((item) => matchingAllergens(item, myAllergens).length === 0).map((item) => {
                                                 const unavailable = item.available === false;
                                                 const content = (
                                                     <>
@@ -1866,30 +1926,17 @@ export const PlacePage: React.FC = () => {
                                                                 {unavailable && (
                                                                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/25">No disponible</span>
                                                                 )}
-                                                            </div>
-                                                            {item.description && (
-                                                                <p className="mt-0.5 text-xs leading-snug text-[var(--lt-text-muted)] line-clamp-2">{item.description}</p>
-                                                            )}
-                                                            {item.ingredients && (
-                                                                <p className="mt-0.5 text-[11px] leading-snug text-gray-500 line-clamp-1">
-                                                                    <span aria-hidden="true">🥕 </span>
-                                                                    <span className="sr-only">Ingredientes: </span>
-                                                                    {item.ingredients}
-                                                                </p>
-                                                            )}
-                                                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                                                {item.reviewCount > 0 && item.rating !== null && (
-                                                                    <span className="text-xs font-black tabular-nums" style={{ color: scoreTextColor(item.rating) }}>
-                                                                        ★ {item.rating.toFixed(1)}
-                                                                        <span className="ml-1 font-normal text-[var(--lt-text-muted)]">({item.reviewCount})</span>
-                                                                    </span>
+                                                                {myAllergens.length > 0 && item.allergens.length === 0 && (
+                                                                    <span title="El local no ha indicado sus alérgenos" aria-label="Alérgenos sin indicar" className="rounded-full border border-amber-500/30 px-1.5 text-xs font-bold text-amber-400">?</span>
                                                                 )}
-                                                                {item.allergens.map((allergen) => (
-                                                                    <span key={allergen} className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] text-gray-400" title={allergenLabel(allergen)}>
-                                                                        <EmojiLabel {...storedTextChip(findOptionByValue(ALLERGEN_OPTIONS, allergen), allergenLabel(allergen))} />
-                                                                    </span>
-                                                                ))}
                                                             </div>
+                                                            {/* Descripción, ingredientes y alérgenos, en la ficha rápida del plato. */}
+                                                            {item.reviewCount > 0 && item.rating !== null && (
+                                                                <span className="mt-0.5 block text-xs font-black tabular-nums" style={{ color: scoreTextColor(item.rating) }}>
+                                                                    ★ {item.rating.toFixed(1)}
+                                                                    <span className="ml-1 font-normal text-[var(--lt-text-muted)]">({item.reviewCount})</span>
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         {item.price && (
                                                             <span className={`shrink-0 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-2.5 py-1 text-sm font-black tabular-nums text-[var(--lt-text)] ${unavailable ? 'opacity-50' : ''}`}>{item.price}</span>
@@ -1899,19 +1946,31 @@ export const PlacePage: React.FC = () => {
                                                 const itemListId = dishListIdByKey.get(item.id)
                                                     ?? item.keys.map((key) => dishListIdByKey.get(key)).find(Boolean);
                                                 return (
-                                                    <div key={item.id} className={`flex items-center transition-colors ${item.reviewCount > 0 ? 'hover:bg-[var(--lt-card)]' : ''}`}>
-                                                        {item.reviewCount > 0 ? (
-                                                            <Link
-                                                                to={`/group/${placeId}/${encodeURIComponent(item.name)}`}
-                                                                className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3"
-                                                            >
-                                                                {content}
-                                                            </Link>
-                                                        ) : (
-                                                            <div className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3">
-                                                                {content}
-                                                            </div>
-                                                        )}
+                                                    <div key={item.id} className="flex items-center transition-colors hover:bg-[var(--lt-card)]">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setQuickDish({
+                                                                name: item.name,
+                                                                itemIds: [item.id, ...item.keys],
+                                                                photo: item.photo,
+                                                                rating: item.rating,
+                                                                reviewCount: item.reviewCount,
+                                                                price: item.price,
+                                                                description: item.description,
+                                                                ingredients: item.ingredients,
+                                                                discount: item.discount,
+                                                                available: item.available,
+                                                                listId: itemListId,
+                                                                allergens: item.allergens.length > 0 ? item.allergens.map((allergen) => (
+                                                                    <span key={allergen} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-gray-300" title={allergenLabel(allergen)}>
+                                                                        <EmojiLabel {...storedTextChip(findOptionByValue(ALLERGEN_OPTIONS, allergen), allergenLabel(allergen))} />
+                                                                    </span>
+                                                                )) : undefined,
+                                                            })}
+                                                            className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3 text-left"
+                                                        >
+                                                            {content}
+                                                        </button>
                                                         {placeId && (
                                                             <DishRateButton placeId={placeId} itemName={item.name} listId={itemListId} className="mr-4 sm:mr-5" />
                                                         )}
@@ -1921,6 +1980,22 @@ export const PlacePage: React.FC = () => {
                                         </div>
                                     </div>
                                 ))}
+                                {hiddenByAllergens.length > 0 && (
+                                    <details className="group border-t border-[var(--lt-border)]">
+                                        <summary className="flex cursor-pointer list-none items-center gap-2 px-4 sm:px-5 py-3 text-sm font-semibold text-[var(--lt-text-muted)]">
+                                            <span className="flex-1">Ocultos por tus alérgenos ({hiddenByAllergens.length})</span>
+                                            <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                                        </summary>
+                                        <ul className="divide-y divide-[var(--lt-border)] pb-2">
+                                            {hiddenByAllergens.map((item) => (
+                                                <li key={item.id} className="flex items-center justify-between gap-3 px-4 sm:px-5 py-2 text-sm text-[var(--lt-text-muted)]">
+                                                    <span className="min-w-0 truncate">{item.name}</span>
+                                                    <span className="shrink-0 text-xs">Lleva {matchingAllergens(item, myAllergens).map((value) => allergenLabel(value)).join(', ')}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </details>
+                                )}
                             </div>
                         </div>
                     )}
@@ -1949,9 +2024,22 @@ export const PlacePage: React.FC = () => {
                                                 : undefined;
                                             return (
                                                 <div key={idx} className="flex items-center hover:bg-[var(--lt-card)] transition-colors">
-                                                <Link
-                                                    to={`/group/${placeId}/${encodeURIComponent(dish.name)}`}
-                                                    className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3 sm:py-4 group"
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setQuickDish({
+                                                        name: dish.name,
+                                                        itemIds: [dish.itemId],
+                                                        photo: dish.photo,
+                                                        rating: dish.avg,
+                                                        reviewCount: dish.count,
+                                                        price: official?.price,
+                                                        description: official?.description,
+                                                        group: official?.group,
+                                                        discount: official?.discount,
+                                                        available: official?.available,
+                                                        listId: dish.listId,
+                                                    })}
+                                                    className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3 sm:py-4 group text-left"
                                                 >
                                                     {/* Rank */}
                                                     <span className={`w-5 shrink-0 text-center font-display text-sm font-bold tabular-nums ${idx < 3 ? 'text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)]'}`}>{idx + 1}</span>
@@ -1989,17 +2077,11 @@ export const PlacePage: React.FC = () => {
                                                             )}
                                                         </div>
                                                         <div className="flex items-center gap-2 flex-wrap">
-                                                            <span className="text-xs text-[var(--lt-text-muted)]">{dish.count} {dish.count === 1 ? 'valoración' : 'valoraciones'}</span>
-                                                            {official?.group && (
-                                                                <span className="text-[11px] text-gray-400">· {official.group}</span>
-                                                            )}
+                                                            <span className="text-xs text-[var(--lt-text-muted)]">{dish.count} {dish.count === 1 ? 'reseña' : 'reseñas'}</span>
                                                             {official?.discount && (
                                                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">{official.discount}</span>
                                                             )}
                                                         </div>
-                                                        {official?.description && (
-                                                            <p className="mt-0.5 text-[11px] leading-snug text-gray-500 line-clamp-1">{official.description}</p>
-                                                        )}
                                                     </div>
 
                                                     {/* Precio oficial (ficha del negocio) */}
@@ -2014,7 +2096,7 @@ export const PlacePage: React.FC = () => {
                                                     >
                                                         {dish.avg.toFixed(1)}
                                                     </span>
-                                                </Link>
+                                                </button>
                                                 {placeId && (
                                                     <DishRateButton placeId={placeId} itemName={dish.name} listId={dish.listId} className="mr-4 sm:mr-5" />
                                                 )}
@@ -2352,6 +2434,17 @@ export const PlacePage: React.FC = () => {
                 onClose={() => setIsShareModalOpen(false)}
                 title={`Compartir ${place.name}`}
                 place={place}
+                inviteTarget={{
+                    placeName: place.name,
+                    placeId: place.placeId,
+                    placeCity: place.city,
+                    imageUrl: place.photoUrl,
+                    googleMapsUrl: place.googleMapsUri,
+                    lat: place.coords?.lat,
+                    lng: place.coords?.lng,
+                    score: place.avgScore > 0 ? place.avgScore : undefined,
+                }}
+                inviteDishOptions={summarizePlaceDishes(place.reviews).map(({ itemName, listId }) => ({ itemName, listId }))}
             />
 
             <ReportModal
@@ -2361,6 +2454,17 @@ export const PlacePage: React.FC = () => {
                 targetName={place.name}
                 targetType="place"
             />
+
+            {allergenGuideOpen && (
+                <AllergenGuideModal
+                    dishes={officialMenuItems.map((item) => ({ id: item.id, name: item.name, allergens: item.allergens }))}
+                    initialSelected={userAllergens(prefs)}
+                    onClose={() => setAllergenGuideOpen(false)}
+                />
+            )}
+            {quickDish && placeId && (
+                <DishQuickSheet placeId={placeId} dish={quickDish} reviews={place.reviews} aptFor={place.aptFor} onClose={() => setQuickDish(null)} />
+            )}
         </div >
     );
 };

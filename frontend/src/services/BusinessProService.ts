@@ -331,7 +331,7 @@ export interface ManagerPlaceReview {
     createdAtMs: number;
 }
 
-/** Máximo de valoraciones públicas que lee la gestión (Carta y Estadísticas). */
+/** Máximo de reseñas públicas que lee la gestión (Carta y Estadísticas). */
 export const MANAGER_REVIEWS_LIMIT = 100;
 
 export const getPlaceReviewsForManager = async (placeId: string): Promise<ManagerPlaceReview[]> => {
@@ -345,7 +345,7 @@ export const getPlaceReviewsForManager = async (placeId: string): Promise<Manage
 };
 
 /**
- * Las valoraciones públicas MÁS RECIENTES (📊 Estadísticas, T3). Usa el índice
+ * Las reseñas públicas MÁS RECIENTES (📊 Estadísticas, T3). Usa el índice
  * reviews (placeId, visibility, createdAt desc); mientras no exista o se esté
  * construyendo, lee como getPlaceReviewsForManager y lo dice con
  * `newestFirst: false` para no presentar unas cualquiera como «las últimas».
@@ -525,7 +525,7 @@ export const describeProposal = (proposal: ItemProposal): string => {
     if (proposal.type === 'rename') {
         return `Renombrar "${proposal.payload.currentName}" a "${proposal.payload.newName}"`;
     }
-    return `Mover la valoración "${proposal.payload.reviewItemName || ''}"${proposal.payload.reviewAuthorName ? ` de ${proposal.payload.reviewAuthorName}` : ''} a "${proposal.payload.targetItemName || proposal.payload.targetItemId}"`;
+    return `Mover la reseña "${proposal.payload.reviewItemName || ''}"${proposal.payload.reviewAuthorName ? ` de ${proposal.payload.reviewAuthorName}` : ''} a "${proposal.payload.targetItemName || proposal.payload.targetItemId}"`;
 };
 
 export const getMyItemProposals = async (placeId: string, uid: string): Promise<ItemProposal[]> => {
@@ -1146,7 +1146,7 @@ const mapRepairCounters = (data: Record<string, unknown>): RepairPlaceItemsCount
 );
 
 // Alinea los elementos de carta con el modelo nuevo: reescribe el nombre de las
-// valoraciones curadas, recupera alias de renombres/fusiones aprobados, cierra
+// reseñas curadas, recupera alias de renombres/fusiones aprobados, cierra
 // duplicados y refresca los platos destacados. Con dryRun solo cuenta.
 export const adminRepairPlaceItems = async (input: { placeId?: string; dryRun: boolean }): Promise<RepairPlaceItemsResult> => {
     // El servidor admite 540 s; con los 70 s por defecto el navegador dejaría de esperar antes.

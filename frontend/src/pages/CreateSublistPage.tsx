@@ -12,7 +12,7 @@ import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
 import { writeWithOptionalFields } from '../lib/optionalFields';
 import { deriveScoringWeights } from '../lib/scoring';
 import { listVisibility } from '../lib/reviewVisibility';
-import { withCategoryTags } from '../lib/categoryTags';
+import { isDefaultVegetarian, listTagsWithDiet } from '../lib/categoryTags';
 import { CategoryService } from '../services/CategoryService';
 
 export const CreateSublistPage: React.FC = () => {
@@ -95,7 +95,7 @@ export const CreateSublistPage: React.FC = () => {
                         // Prefill data
                         setName(`${data.name} (Mi Versión)`);
                         // Las de la madre y las fijas de la categoría (Vegetariano, Sin gluten… en «Hmm...»).
-                        setFixedTags(withCategoryTags(await CategoryService.getFixedTags(data.categoryId), data.availableTags));
+                        setFixedTags(listTagsWithDiet(await CategoryService.getFixedTags(data.categoryId), data.availableTags, isDefaultVegetarian(data)));
 
                         // Prefill criteria
                         if (data.criteriaDefinition) {
@@ -557,7 +557,7 @@ export const CreateSublistPage: React.FC = () => {
                             <div className="p-3 bg-[var(--lt-bg)] rounded-xl border border-white/5 flex items-center justify-between gap-3">
                                 <div className="min-w-0">
                                     <div className="text-sm font-semibold text-gray-200">Colaboración pública</div>
-                                    <div className="text-xs text-gray-500 mt-0.5">Cualquier usuario puede añadir valoraciones</div>
+                                    <div className="text-xs text-gray-500 mt-0.5">Cualquier usuario puede añadir reseñas</div>
                                 </div>
                                 <label className="relative inline-flex items-center cursor-pointer shrink-0">
                                     <input
@@ -606,7 +606,7 @@ export const CreateSublistPage: React.FC = () => {
                             {guestLookupError && (
                                 <p className="text-xs text-red-400">{guestLookupError}</p>
                             )}
-                            <p className="text-xs text-gray-600">Los colaboradores pueden ver y añadir valoraciones aunque la lista sea privada.</p>
+                            <p className="text-xs text-gray-600">Los colaboradores pueden ver y añadir reseñas aunque la lista sea privada.</p>
                         </div>
                     </div>
 

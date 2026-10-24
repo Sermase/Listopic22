@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, useRef, useLayoutEffect, useCallba
 import { createPortal } from 'react-dom';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useParams, Link, useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
-import { Map as MapIcon, List as ListIcon, Plus, Heart, ArrowDownWideNarrow, Clock, Search, ChevronDown, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid, Bot, Star, Trophy, SearchX } from 'lucide-react';
+import { Map as MapIcon, List as ListIcon, Plus, Heart, SlidersHorizontal, Clock, Search, ChevronDown, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid, Trophy, SearchX } from 'lucide-react';
 import { MarqueeText } from '../components/ui/MarqueeText';
 import { useListDetails } from '../hooks/useListDetails';
 import { useUserProfile } from '../hooks/useUserProfile';
@@ -25,6 +25,8 @@ import { EntityHero } from '../components/EntityHero';
 import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
 import { useAuthPrompt } from '../context/AuthPromptContext';
 import { useAppConfig } from '../context/AppConfigContext';
+import { usePreferences } from '../context/PreferencesContext';
+import { HelpTip } from '../components/HelpTip';
 import { compareElementsByRank, isScoreValue, reviewScoreForList } from '../lib/scoring';
 import { elementKey } from '../lib/listElements';
 import { scoreBadgeStyle } from '../lib/scoreScale';
@@ -33,6 +35,7 @@ import { AREA_STORAGE_KEY, buildAreaOptions, contextualRanks, decodeArea, distan
 import { exploreSearchUrl } from '../lib/searchZones';
 import { AreaSelect } from '../components/AreaSelect';
 import { recordListVisit } from '../lib/searchLandingStorage';
+import { isDefaultVegetarian, isMeatTag } from '../lib/categoryTags';
 
 export interface FilterState {
     minRating: number;
@@ -67,6 +70,24 @@ function hasGlutenFreeTag(tags: unknown) {
     });
 }
 
+function hasLactoseFreeTag(tags: unknown) {
+    return (Array.isArray(tags) ? tags : []).some(tag => {
+        const normalized = normalizeFilterToken(tag);
+        return normalized.includes('sin lactosa') || normalized.includes('lactose free') || normalized.includes('lactose-free');
+    });
+}
+
+function hasVeganTag(tags: unknown) {
+    return (Array.isArray(tags) ? tags : []).some(tag => normalizeFilterToken(tag).includes('vegan'));
+}
+
+function hasVegetarianTag(tags: unknown) {
+    return (Array.isArray(tags) ? tags : []).some(tag => {
+        const normalized = normalizeFilterToken(tag);
+        return normalized.includes('vegetarian') || normalized.includes('vegan') || normalized.includes('vegetal');
+    });
+}
+
 function isClosedPlaceStatus(value: unknown) {
     const normalized = normalizeFilterToken(value);
     return normalized === 'permanently_closed'
@@ -87,10 +108,17 @@ function extractAccessibilityKeys(...values: unknown[]) {
         if (value && typeof value === 'object') {
             Object.entries(value as Record<string, unknown>).forEach(([key, enabled]) => {
                 if (enabled === true || enabled === 'true') keys.add(key);
+                // Consta que no (Google o el local): «no:clave». Sirve a «Mis preferencias».
+                else if (enabled === false) keys.add(`no:${key}`);
             });
         }
     });
     return Array.from(keys).sort();
+}
+
+/** «Mis preferencias» de movilidad: fuera solo lo que consta que no es accesible. */
+function lacksAccessibility(keys: string[] | undefined, wanted: readonly string[]) {
+    return wanted.some(key => keys?.includes(`no:${key}`) && !keys.includes(key));
 }
 
 function extractPetKeys(...values: unknown[]) {
@@ -147,29 +175,15 @@ function getPrimaryReviewPhoto(review: any): string | null {
     return null;
 }
 
-interface ToolbarToggleProps {
-    label: string;
-    title: string;
-    pressed: boolean;
-    icon: React.ReactNode;
-    onClick: () => void;
-}
-
-// Botón de la barra de la lista: icono + texto corto, estado visible y accesible.
-const ToolbarToggle: React.FC<ToolbarToggleProps> = ({ label, title, pressed, icon, onClick }) => (
-    <button
-        type="button"
-        onClick={onClick}
-        title={title}
-        aria-pressed={pressed}
-        className={`h-11 min-w-[3rem] px-1.5 flex flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors active:scale-95 motion-reduce:active:scale-100 ${pressed
-            ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
-            : 'bg-[var(--lt-glass)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
-    >
-        {icon}
-        <span className="text-[10px] font-semibold leading-none">{label}</span>
-    </button>
-);
+const DEFAULT_LIST_FILTERS: FilterState = {
+    minRating: 0,
+    hasPhoto: false,
+    glutenFree: false,
+    petFriendly: false,
+    visited: false,
+    accessibility: {},
+    criteriaMin: {},
+};
 
 export const ListPage: React.FC = () => {
     const { listTitlePlaceFirst } = useAppConfig();
@@ -192,7 +206,7 @@ export const ListPage: React.FC = () => {
             el.setAttribute('content', content);
         };
         setMeta('og:title', title);
-        setMeta('og:description', (list as any).description || `${list.reviewCount} valoraciones · ${list.name}`);
+        setMeta('og:description', (list as any).description || `${list.reviewCount} reseñas · ${list.name}`);
         setMeta('og:url', window.location.href);
         setMeta('og:type', 'website');
         const img = (list as any).thumbnailUrl || (list as any).mainImageUrl || (list as any).photoUrl || (list as any).coverUrl || (list as any).imageUrl;
@@ -225,17 +239,10 @@ export const ListPage: React.FC = () => {
         return false;
     }, [user, list]);
 
-    const [filters, setFilters] = useState<FilterState>({
-        minRating: 0,
-        hasPhoto: false,
-        glutenFree: false,
-        petFriendly: false,
-        visited: false,
-        accessibility: {},
-        criteriaMin: {}
-    });
+    const [filters, setFilters] = useState<FilterState>(DEFAULT_LIST_FILTERS);
     // Vista (Ranking / Mosaico) y agrupación: se recuerdan en este navegador.
-    const [viewMode, setViewMode] = useStoredChoice('listopic_list_view', ['list', 'gallery'] as const, 'gallery');
+    // Ranking por defecto (clave nueva para que todos empiecen ahí).
+    const [viewMode, setViewMode] = useStoredChoice('listopic_list_view_v2', ['list', 'gallery'] as const, 'list');
     const [groupingMode, setGroupingMode] = useStoredChoice('listopic_list_grouping', ['place', 'dish'] as const, 'dish');
 
     // Check for editId param
@@ -251,7 +258,7 @@ export const ListPage: React.FC = () => {
         const Eid = q.get('editId');
         if (Eid) {
             if (!user) {
-                openAuthPrompt('editar una valoración');
+                openAuthPrompt('editar una reseña');
                 return;
             }
             setEditingReviewId(Eid);
@@ -261,7 +268,7 @@ export const ListPage: React.FC = () => {
 
     const handleOpenAddReview = () => {
         if (!user) {
-            openAuthPrompt('añadir una valoración');
+            openAuthPrompt('añadir una reseña');
             return;
         }
         setIsAddModalOpen(true);
@@ -415,11 +422,12 @@ export const ListPage: React.FC = () => {
             photoBestReviewAt: number;
             maxScore: number; // Track max score for the pin
             allTags: string[]; // For consensus calculation
+            aptOk: string[];
             tags: string[]; // Final consensus tags
         }> = {};
 
         visibleReviews.forEach(review => {
-            // En la Lista madre, las valoraciones de Minilista cuentan solo con sus criterios.
+            // En la Lista madre, las reseñas de Minilista cuentan solo con sus criterios.
             // Sin nota no puntúa ni cuenta (igual que en Buscar: lib/listElements).
             const reviewScore = reviewScoreForList(review, list).score;
             if (reviewScore === null) return;
@@ -448,6 +456,7 @@ export const ListPage: React.FC = () => {
                     photoBestReviewAt: 0,
                     maxScore: 0,
                     allTags: [],
+                    aptOk: [],
                     tags: [],
                     placeClosedStatus: review.placeClosedStatus || null,
                     accessibilityOptions: extractAccessibilityKeys(
@@ -526,6 +535,7 @@ export const ListPage: React.FC = () => {
             if (review.userTags && Array.isArray(review.userTags)) {
                 g.allTags.push(...review.userTags);
             }
+            (review.aptOk || []).forEach((key) => { if (!g.aptOk.includes(key)) g.aptOk.push(key); });
 
             extractAccessibilityKeys(
                 review.accessibilityOptions,
@@ -557,7 +567,7 @@ export const ListPage: React.FC = () => {
 
             Object.keys(g.criteriaSums).forEach(k => {
                 if (allowedCriteria && !allowedCriteria.includes(k)) return;
-                // Media entre quienes puntuaron ese criterio (no entre todas las valoraciones).
+                // Media entre quienes puntuaron ese criterio (no entre todas las reseñas).
                 criteriaAverages[k] = g.criteriaSums[k] / (g.criteriaCounts[k] || 1);
             });
 
@@ -585,8 +595,8 @@ export const ListPage: React.FC = () => {
             };
         }).sort((a, b) => {
             if (sortMode === 'rating') {
-                // Ranking único (lib/scoring): una valoración suelta no basta para
-                // encabezar; a igualdad, más valoraciones y luego la clave (como Buscar).
+                // Ranking único (lib/scoring): una reseña suelta no basta para
+                // encabezar; a igualdad, más reseñas y luego la clave (como Buscar).
                 return compareElementsByRank({ id: a.id, average: a.avgRating, count: a.reviewCount }, { id: b.id, average: b.avgRating, count: b.reviewCount });
             }
             if (sortMode === 'count') {
@@ -608,6 +618,75 @@ export const ListPage: React.FC = () => {
     }, [groupedItems]);
 
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+    // «Mis preferencias» (dieta) se aplican solas; se pueden quitar solo en esta lista.
+    const { prefs } = usePreferences();
+    type PrefFilterKey = 'glutenFree' | 'lactoseFree' | 'vegetarian' | 'vegan' | 'stepFree' | 'accessibleRestroom' | 'petFriendly';
+    const [ignoredDiet, setIgnoredDiet] = useState<Partial<Record<PrefFilterKey, boolean>>>({});
+    const prefOn = (key: PrefFilterKey) => prefs[key] && !ignoredDiet[key];
+    const dietGluten = filters.glutenFree || prefOn('glutenFree');
+    const dietVeg = prefOn('vegetarian');
+    // Listas «casi todo vegetariano» (tortillas…): fuera solo lo marcado con carne o pescado.
+    const vegByDefault = isDefaultVegetarian(list);
+    const dietVegan = prefOn('vegan');
+    const dietLactose = prefOn('lactoseFree');
+    const petsWanted = filters.petFriendly || prefOn('petFriendly');
+    const needsStepFree = prefOn('stepFree');
+    const needsRestroom = prefOn('accessibleRestroom');
+    const mobilityNeeds = useMemo(() => [
+        ...(needsStepFree ? ['wheelchairAccessibleEntrance'] : []),
+        ...(needsRestroom ? ['wheelchairAccessibleRestroom'] : []),
+    ], [needsStepFree, needsRestroom]);
+    const PREF_CHIP_LABELS: Record<PrefFilterKey, string> = {
+        glutenFree: '🌾 Sin gluten', lactoseFree: '🥛 Sin lactosa', vegetarian: '🥦 Vegetariano', vegan: '🌱 Vegano',
+        stepFree: '♿ Sin escalones', accessibleRestroom: '♿ Baño adaptado', petFriendly: '🐾 Mascotas',
+    };
+    const activeDietChips = (Object.keys(PREF_CHIP_LABELS) as PrefFilterKey[])
+        .filter(prefOn)
+        .map((key) => ({ key, label: PREF_CHIP_LABELS[key] }));
+
+    // Cuántos filtros hay activos (el botón lo enseña; ordenar no cuenta).
+    const activeFilterCount = [
+        filters.minRating > 0,
+        filters.hasPhoto,
+        filters.glutenFree,
+        filters.petFriendly,
+        filters.visited,
+        selectedTags.length > 0,
+        Object.values(filters.accessibility || {}).some(Boolean),
+        Object.values(filters.criteriaMin || {}).some((v) => v > 0),
+        showBotReviews,
+        criticOnly,
+        groupingMode === 'place',
+        showUnavailable,
+    ].filter(Boolean).length;
+
+    // Filtros de cada Lista: se recuerdan en este navegador para la próxima vez.
+    const prefsKey = listId ? `listopic_list_prefs:${listId}` : null;
+    const [prefsLoadedFor, setPrefsLoadedFor] = useState<string | null>(null);
+    useEffect(() => {
+        if (!prefsKey) return;
+        // Cada Lista empieza de cero (React reutiliza la página al saltar de una a otra).
+        let raw: unknown = null;
+        try { raw = JSON.parse(localStorage.getItem(prefsKey) || 'null'); } catch { /* sin almacenamiento */ }
+        const saved = (raw && typeof raw === 'object' ? raw : {}) as {
+            filters?: Partial<FilterState>; sortMode?: typeof sortMode; selectedTags?: unknown;
+            showBotReviews?: unknown; criticOnly?: unknown; showUnavailable?: unknown;
+        };
+        setFilters({ ...DEFAULT_LIST_FILTERS, ...(saved.filters && typeof saved.filters === 'object' ? saved.filters : {}) });
+        setSortMode(saved.sortMode && ['rating', 'newest', 'oldest', 'count'].includes(saved.sortMode) ? saved.sortMode : 'rating');
+        setSelectedTags(Array.isArray(saved.selectedTags) ? saved.selectedTags.filter((t: unknown) => typeof t === 'string') : []);
+        setShowBotReviews(saved.showBotReviews === true);
+        setCriticOnly(saved.criticOnly === true);
+        setShowUnavailable(saved.showUnavailable === true);
+        setPrefsLoadedFor(prefsKey);
+    }, [prefsKey]);
+    useEffect(() => {
+        if (!prefsKey || prefsLoadedFor !== prefsKey) return;
+        try {
+            localStorage.setItem(prefsKey, JSON.stringify({ filters, sortMode, selectedTags, showBotReviews, criticOnly, showUnavailable }));
+        } catch { /* opcional */ }
+    }, [prefsKey, prefsLoadedFor, filters, sortMode, selectedTags, showBotReviews, criticOnly, showUnavailable]);
 
     // Filter Items
     // Filter Items by Tag
@@ -663,6 +742,7 @@ export const ListPage: React.FC = () => {
             maxScore: number;
             items: { name: string; score: number }[];
             allTags: string[];
+            aptOk: string[];
             accessibilityOptions: string[];
             petOptions: string[];
             reviewsCount: number;
@@ -685,6 +765,7 @@ export const ListPage: React.FC = () => {
                     maxScore: 0,
                     items: [],
                     allTags: [],
+                    aptOk: [],
                     accessibilityOptions: extractAccessibilityKeys(
                         review.accessibilityOptions,
                         review.accessibility,
@@ -709,6 +790,7 @@ export const ListPage: React.FC = () => {
             g.reviewsCount++;
             if (Array.isArray(review.tags)) g.allTags.push(...review.tags);
             if (Array.isArray(review.userTags)) g.allTags.push(...review.userTags);
+            (review.aptOk || []).forEach((key) => { if (!g.aptOk.includes(key)) g.aptOk.push(key); });
             extractAccessibilityKeys(
                 review.accessibilityOptions,
                 review.accessibility,
@@ -762,10 +844,24 @@ export const ListPage: React.FC = () => {
         if (filters.hasPhoto) {
             result = result.filter(item => !!item.photoUrl);
         }
-        if (filters.glutenFree) {
-            result = result.filter(item => hasGlutenFreeTag(item.allTags || item.tags));
+        if (dietGluten) {
+            result = result.filter(item => hasGlutenFreeTag(item.allTags || item.tags) || item.aptOk.includes('glutenFree'));
         }
-        if (filters.petFriendly) {
+        if (dietVeg) {
+            result = result.filter(item => vegByDefault
+                ? !(item.allTags || item.tags || []).some(isMeatTag)
+                : hasVegetarianTag(item.allTags || item.tags) || item.aptOk.includes('vegetarian') || item.aptOk.includes('vegan'));
+        }
+        if (dietVegan) {
+            result = result.filter(item => hasVeganTag(item.allTags || item.tags) || item.aptOk.includes('vegan'));
+        }
+        if (dietLactose) {
+            result = result.filter(item => hasLactoseFreeTag(item.allTags || item.tags) || item.aptOk.includes('lactoseFree'));
+        }
+        if (mobilityNeeds.length > 0) {
+            result = result.filter(item => !lacksAccessibility(item.accessibilityOptions, mobilityNeeds));
+        }
+        if (petsWanted) {
             result = result.filter(item => hasPetFriendlySignal(item.petOptions));
         }
         if (filters.visited) {
@@ -818,7 +914,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable, effectiveArea]);
+    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault]);
 
     const filteredMapItems = useMemo(() => {
         // Filter mapItems based on the SAME criteria as the list (or at least search/range)
@@ -841,10 +937,24 @@ export const ListPage: React.FC = () => {
         if (filters.hasPhoto) {
             result = result.filter(item => !!item.photoUrl);
         }
-        if (filters.glutenFree) {
-            result = result.filter(item => hasGlutenFreeTag(item.allTags));
+        if (dietGluten) {
+            result = result.filter(item => hasGlutenFreeTag(item.allTags) || item.aptOk.includes('glutenFree'));
         }
-        if (filters.petFriendly) {
+        if (dietVeg) {
+            result = result.filter(item => vegByDefault
+                ? !item.allTags.some(isMeatTag)
+                : hasVegetarianTag(item.allTags) || item.aptOk.includes('vegetarian') || item.aptOk.includes('vegan'));
+        }
+        if (dietVegan) {
+            result = result.filter(item => hasVeganTag(item.allTags) || item.aptOk.includes('vegan'));
+        }
+        if (dietLactose) {
+            result = result.filter(item => hasLactoseFreeTag(item.allTags) || item.aptOk.includes('lactoseFree'));
+        }
+        if (mobilityNeeds.length > 0) {
+            result = result.filter(item => !lacksAccessibility(item.accessibilityOptions, mobilityNeeds));
+        }
+        if (petsWanted) {
             result = result.filter(item => hasPetFriendlySignal(item.petOptions));
         }
         const selectedAccessibility = Object.entries(filters.accessibility || {})
@@ -872,7 +982,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [mapItems, searchQuery, filters, range, location, showUnavailable, effectiveArea]);
+    }, [mapItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault]);
 
     const hasListMapCandidates = useMemo(() => {
         return mapItems.some((item: any) => !!item?.lat && !!item?.lng);
@@ -1002,7 +1112,7 @@ export const ListPage: React.FC = () => {
         );
     }
 
-    // Por qué no se ve nada: Lista sin valoraciones, búsqueda, zona o filtros.
+    // Por qué no se ve nada: Lista sin reseñas, búsqueda, zona o filtros.
     const areaFiltering = effectiveArea.kind !== 'near' || range !== null;
     const emptyReason: 'none' | 'search' | 'area' | 'filters' = reviews.length === 0
         ? 'none'
@@ -1010,7 +1120,7 @@ export const ListPage: React.FC = () => {
         : groupedItems.length > 0 && areaFiltering ? 'area'
         : 'filters';
     const emptyMessage = {
-        none: 'Todavía no hay valoraciones en esta Lista.',
+        none: 'Todavía no hay reseñas en esta Lista.',
         search: 'No hay resultados para tu búsqueda.',
         area: effectiveArea.kind !== 'near'
             ? `No hay nada en ${geoAreaLabel(effectiveArea.kind, effectiveArea.value)}.`
@@ -1033,8 +1143,15 @@ export const ListPage: React.FC = () => {
         ]),
     ].filter((value): value is string => Boolean(value))));
     const listShareCriteria = buildShareCriteriaGroups(list.criteriaAverages, list.criteriaDefinition);
+    // Zona elegida al compartir: la tarjeta dice «las mejores» de esa zona y su top sale de ahí.
+    const listShareScope = effectiveArea.kind !== 'near'
+        ? `en ${geoAreaLabel(effectiveArea.kind, effectiveArea.value)}`
+        : range !== null && location
+            ? `${distanceLabel(range).toLowerCase()}${userGeo?.city ? `, en ${userGeo.city}` : ''}`
+            : undefined;
+    const listShareItems = listShareScope ? filteredItemsAll : groupedItems;
     // El top 3 de la tarjeta va siempre por nota, aunque la lista se vea en otro orden.
-    const listShareTop = [...groupedItems]
+    const listShareTop = [...listShareItems]
         .sort((a, b) => compareElementsByRank({ id: a.id, average: a.avgRating, count: a.reviewCount }, { id: b.id, average: b.avgRating, count: b.reviewCount }))
         .slice(0, 3)
         .map((item) => ({
@@ -1329,40 +1446,27 @@ export const ListPage: React.FC = () => {
 
                         {/* Barra de herramientas: cada botón dice lo que hace */}
                         <div className="flex items-center gap-1.5 w-full sm:w-auto">
-                            <ToolbarToggle
-                                label="Filtros"
-                                pressed={filters.minRating > 0 || filters.hasPhoto || filters.glutenFree || filters.petFriendly || filters.visited || selectedTags.length > 0 || Object.values(filters.accessibility || {}).some(Boolean) || Object.values(filters.criteriaMin || {}).some(v => v > 0)}
+                            {/* Un solo botón de filtros: todo lo demás vive en la hoja */}
+                            <button
+                                type="button"
                                 onClick={() => setIsFilterModalOpen(true)}
-                                title="Filtrar y ordenar"
-                                icon={<ArrowDownWideNarrow className="w-4 h-4 rotate-180" />}
-                            />
-                            <ToolbarToggle
-                                label="Bots"
-                                pressed={showBotReviews}
-                                onClick={() => setShowBotReviews(prev => !prev)}
-                                title={showBotReviews ? 'Ocultar valoraciones de bots' : 'Mostrar valoraciones de bots'}
-                                icon={<Bot className="w-4 h-4" />}
-                            />
-                            <ToolbarToggle
-                                label="Críticos"
-                                pressed={criticOnly}
-                                onClick={() => setCriticOnly(prev => !prev)}
-                                title={criticOnly ? 'Mostrando solo críticos' : 'Ver solo valoraciones de críticos'}
-                                icon={<Star className="w-4 h-4" />}
-                            />
-                            <ToolbarToggle
-                                label="Por sitio"
-                                pressed={groupingMode === 'place'}
-                                onClick={() => setGroupingMode(prev => prev === 'place' ? 'dish' : 'place')}
-                                title={groupingMode === 'place' ? 'Agrupado por sitio: pulsa para ver cada elemento' : 'Agrupar los elementos por sitio'}
-                                icon={<Store className="w-4 h-4" />}
-                            />
+                                aria-label={activeFilterCount > 0 ? `Filtros (${activeFilterCount} activos)` : 'Filtros'}
+                                className={`h-11 flex items-center gap-1.5 px-3 rounded-xl border text-sm font-bold transition-colors active:scale-95 motion-reduce:active:scale-100 ${activeFilterCount > 0
+                                    ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
+                                    : 'bg-[var(--lt-glass)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+                            >
+                                <SlidersHorizontal className="w-4 h-4" />
+                                Filtros
+                                {activeFilterCount > 0 && (
+                                    <span className="min-w-[1.25rem] rounded-full bg-[var(--lt-accent)] px-1 text-[11px] leading-5 lt-on-accent">{activeFilterCount}</span>
+                                )}
+                            </button>
 
                             {/* Vista: Ranking o Mosaico (el mapa va en su panel) */}
                             <div role="group" aria-label="Vista" className="ml-auto flex-shrink-0 flex bg-[var(--lt-glass)] rounded-xl p-0.5 border border-[var(--lt-border)]">
                                 {([
                                     { mode: 'list' as const, label: 'Ranking', icon: <ListIcon className="w-3.5 h-3.5" /> },
-                                    { mode: 'gallery' as const, label: 'Mosaico', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
+                                    { mode: 'gallery' as const, label: 'Fotos', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
                                 ]).map(({ mode, label, icon }) => (
                                     <button
                                         key={mode}
@@ -1380,6 +1484,20 @@ export const ListPage: React.FC = () => {
                     </div>
                 </div>
 
+                {/* Mis preferencias activas: siempre a la vista, para que nadie piense que faltan sitios */}
+                {activeDietChips.length > 0 && (
+                    <div className="mb-3 flex flex-wrap items-center gap-2 px-1">
+                        {activeDietChips.map((chip) => (
+                            <span key={chip.key} className="inline-flex items-center gap-1.5 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] py-1 pl-3 pr-1 text-xs font-bold text-[var(--lt-text)]">
+                                {chip.label}
+                                <button type="button" onClick={() => setIgnoredDiet((prev) => ({ ...prev, [chip.key]: true }))} aria-label={`Quitar ${chip.label} en esta lista`} className="rounded-full px-1.5 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">✕</button>
+                            </span>
+                        ))}
+                        <Link to="/preferencias" className="text-xs font-semibold text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)]">Mis preferencias</Link>
+                        <HelpTip topic="preferencias" />
+                    </div>
+                )}
+
                 {filteredItemsAll.length > 0 && (
                     <div className="mb-3 px-1 min-w-0">
                         <h2 className="flex items-center gap-2 text-base md:text-xl font-display font-bold leading-tight text-[var(--lt-text)]">
@@ -1389,6 +1507,7 @@ export const ListPage: React.FC = () => {
                             <span className="truncate">
                                 {sortMode === 'rating' ? 'El ranking' : sortMode === 'count' ? 'Los más valorados' : sortMode === 'newest' ? 'Lo último' : 'Los primeros'}
                             </span>
+                            <HelpTip topic="nota" />
                         </h2>
                         <p className="mt-0.5 truncate text-xs text-[var(--lt-text-muted)] font-medium" aria-live="polite">
                             {filteredItemsAll.length} {filteredItemsAll.length === 1 ? 'elemento' : 'elementos'}
@@ -1538,7 +1657,7 @@ export const ListPage: React.FC = () => {
                                     style={{ backgroundImage: 'var(--lt-accent-grad)' }}
                                     className="lt-on-accent inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[var(--lt-accent)] text-sm font-bold shadow-lg shadow-[var(--lt-accent-shadow)] hover:opacity-90 transition-opacity"
                                 >
-                                    ¡Añade la primera valoración!
+                                    ¡Añade la primera reseña!
                                 </button>
                             )}
                         </div>
@@ -1606,7 +1725,8 @@ export const ListPage: React.FC = () => {
                     criteriaStats: listShareCriteria.ponderable,
                     nonPonderableStats: listShareCriteria.nonPonderable,
                     rankItems: listShareTop,
-                    elementCount: groupedItems.length,
+                    elementCount: listShareItems.length,
+                    scopeLabel: listShareScope,
                 }}
             />
 
@@ -1650,6 +1770,13 @@ export const ListPage: React.FC = () => {
                 setSelectedTags={setSelectedTags}
                 showUnavailable={showUnavailable}
                 setShowUnavailable={setShowUnavailable}
+                showBotReviews={showBotReviews}
+                setShowBotReviews={setShowBotReviews}
+                criticOnly={criticOnly}
+                setCriticOnly={setCriticOnly}
+                groupByPlace={groupingMode === 'place'}
+                setGroupByPlace={(v) => setGroupingMode(v ? 'place' : 'dish')}
+                resultCount={filteredItemsAll.length}
             />
         </div >
     );

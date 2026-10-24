@@ -11,11 +11,35 @@ import {
     getDocs,
     limit,
     getDoc,
-    arrayUnion
+    arrayUnion,
+    deleteField,
+    writeBatch,
+    setDoc,
+    deleteDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { ShareEntityPayload } from '../types/share';
 import { getShareEntityLabel } from '../types/share';
+import {
+    compact,
+    eventNoteText,
+    inviteTitle,
+    invitePreviewText,
+    pinnedFromInvite,
+    type ChatEventNote,
+    type ChatInvite,
+    type ChatPoll,
+    type ChatDatePoll,
+    type DateVote,
+    datePollOptions,
+    type DishRef,
+    type PlaceRef,
+    type InviteStatus,
+    makeJoinCode,
+    type PinnedEvent,
+    type ReactionMap,
+    type ReplyRef,
+} from '../lib/chatExtras';
 
 export interface Message {
     id?: string;
@@ -23,9 +47,17 @@ export interface Message {
     senderId: string;
     createdAt?: FirestoreTimestampLike | null;
     readBy?: string[];
-    type?: 'text' | 'image' | 'share' | 'review-share';
+    type?: MessageType;
     metadata?: MessageMetadata;
+    reactions?: ReactionMap;
+    replyTo?: ReplyRef;
+    invite?: ChatInvite;
+    poll?: ChatPoll;
+    datePoll?: ChatDatePoll;
+    event?: ChatEventNote;
 }
+
+export type MessageType = 'text' | 'image' | 'share' | 'review-share' | 'invite' | 'poll' | 'datepoll' | 'event';
 
 export interface ShareMessageMetadata {
     share: ShareEntityPayload;
@@ -42,7 +74,29 @@ export interface Chat {
     type: 'private' | 'group';
     groupName?: string;
     groupPhoto?: string;
+    /** Quedadas abiertas, fijadas arriba del chat (id del mensaje → resumen). */
+    events?: Record<string, PinnedEvent>;
+    /** Código del enlace de invitación al grupo (/g/{código}), si está activo. */
+    joinCode?: string;
+    /** Con el enlace no se entra directo: alguien del grupo acepta la solicitud. */
+    joinApproval?: boolean;
 }
+
+/** Vista previa pública del enlace de invitación (chatInvites/{código}). */
+export interface JoinInvite {
+    chatId: string;
+    groupName: string;
+    byName: string;
+    approval?: boolean;
+}
+
+/** Solicitud para entrar a un grupo con aprobación (chats/{id}/joinRequests/{uid}). */
+export interface JoinRequest {
+    uid: string;
+    name: string;
+}
+
+export type JoinResult = { chatId: string; status: 'joined' | 'member' | 'pending' };
 
 interface FirestoreTimestampLike {
     seconds: number;
@@ -102,8 +156,9 @@ export const ChatService = {
         chatId: string,
         senderId: string,
         text: string,
-        type: 'text' | 'image' | 'share' | 'review-share' = 'text',
-        metadata?: MessageMetadata
+        type: MessageType = 'text',
+        metadata?: MessageMetadata,
+        extra?: Pick<Message, 'replyTo' | 'invite' | 'poll' | 'datePoll' | 'event'>
     ) => {
         const messagesRef = collection(db, 'chats', chatId, 'messages');
         const safeText = typeof text === 'string' ? text : '';
@@ -118,8 +173,13 @@ export const ChatService = {
         if (metadata) {
             payload.metadata = metadata;
         }
+        if (extra?.replyTo) payload.replyTo = compact(extra.replyTo);
+        if (extra?.invite) payload.invite = compact(extra.invite);
+        if (extra?.poll) payload.poll = extra.poll;
+        if (extra?.datePoll) payload.datePoll = compact(extra.datePoll);
+        if (extra?.event) payload.event = compact(extra.event);
 
-        await addDoc(messagesRef, {
+        const messageRef = await addDoc(messagesRef, {
             ...payload
         });
 
@@ -151,6 +211,7 @@ export const ChatService = {
             lastMessageTimestamp: serverTimestamp(),
             updatedAt: serverTimestamp()
         });
+        return messageRef;
     },
 
     // Listen to user's chats
@@ -211,7 +272,7 @@ export const ChatService = {
         );
     },
 
-    addParticipant: async (chatId: string, newUserId: string) => {
+    addParticipant: async (chatId: string, newUserId: string, by?: { uid: string; name: string; targetName: string }) => {
         const chatRef = doc(db, 'chats', chatId);
         const chatSnap = await getDoc(chatRef);
 
@@ -231,6 +292,171 @@ export const ChatService = {
         }
 
         await updateDoc(chatRef, updates);
+        if (by) {
+            const event: ChatEventNote = { kind: 'added', targetId: newUserId };
+            await ChatService.sendMessage(chatId, by.uid, eventNoteText(event, by.name, by.targetName), 'event', undefined, { event });
+        }
+    },
+
+    renameGroup: async (chatId: string, groupName: string, joinCode?: string) => {
+        const name = groupName.trim().slice(0, 60);
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'chats', chatId), { groupName: name, updatedAt: serverTimestamp() });
+        if (joinCode) batch.update(doc(db, 'chatInvites', joinCode), { groupName: name });
+        await batch.commit();
+    },
+
+    /** Crea (o cambia) el enlace de invitación; el anterior deja de valer. */
+    createJoinLink: async (chatId: string, groupName: string, byName: string, oldCode?: string, approval = false) => {
+        const code = makeJoinCode();
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'chats', chatId), { joinCode: code });
+        batch.set(doc(db, 'chatInvites', code), { chatId, groupName, byName, approval, createdAt: serverTimestamp() });
+        if (oldCode) batch.delete(doc(db, 'chatInvites', oldCode));
+        await batch.commit();
+        return code;
+    },
+
+    disableJoinLink: async (chatId: string, code: string) => {
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'chats', chatId), { joinCode: deleteField() });
+        batch.delete(doc(db, 'chatInvites', code));
+        await batch.commit();
+    },
+
+    setJoinApproval: async (chatId: string, code: string, approval: boolean) => {
+        const batch = writeBatch(db);
+        batch.update(doc(db, 'chats', chatId), { joinApproval: approval });
+        batch.update(doc(db, 'chatInvites', code), { approval });
+        await batch.commit();
+    },
+
+    getJoinInvite: async (code: string): Promise<JoinInvite | null> => {
+        const snap = await getDoc(doc(db, 'chatInvites', code));
+        return snap.exists() ? (snap.data() as JoinInvite) : null;
+    },
+
+    /** Entrar al grupo con el enlace (o pedirlo, si el grupo aprueba antes). */
+    joinByLink: async (code: string, user: { uid: string; name: string }): Promise<JoinResult | null> => {
+        const invite = await ChatService.getJoinInvite(code);
+        if (!invite) return null;
+        const chatId = invite.chatId;
+        const chatRef = doc(db, 'chats', chatId);
+        const member = await getDoc(chatRef).then((snap) => snap.exists(), () => false);
+        if (member) return { chatId, status: 'member' };
+        if (invite.approval) {
+            const requestRef = doc(db, 'chats', chatId, 'joinRequests', user.uid);
+            const asked = await getDoc(requestRef).then((snap) => snap.exists(), () => false);
+            if (!asked) await setDoc(requestRef, { name: user.name.slice(0, 80), code, at: serverTimestamp() });
+            return { chatId, status: 'pending' };
+        }
+        await updateDoc(chatRef, { participants: arrayUnion(user.uid), joinedWith: code, updatedAt: serverTimestamp() });
+        const event: ChatEventNote = { kind: 'joined' };
+        await ChatService.sendMessage(chatId, user.uid, eventNoteText(event, user.name), 'event', undefined, { event });
+        return { chatId, status: 'joined' };
+    },
+
+    listenJoinRequests: (chatId: string, callback: (requests: JoinRequest[]) => void) =>
+        onSnapshot(
+            collection(db, 'chats', chatId, 'joinRequests'),
+            (snap) => callback(snap.docs.map((d) => ({ uid: d.id, name: String(d.data().name || 'Alguien') }))),
+            () => callback([])
+        ),
+
+    answerJoinRequest: async (chatId: string, request: JoinRequest, accept: boolean, by: { uid: string; name: string }) => {
+        if (accept) await ChatService.addParticipant(chatId, request.uid, { ...by, targetName: request.name });
+        await deleteDoc(doc(db, 'chats', chatId, 'joinRequests', request.uid));
+    },
+
+    /** Una reacción por persona; la misma otra vez la quita. */
+    setReaction: async (chatId: string, messageId: string, userId: string, emoji: string | null) => {
+        await updateDoc(doc(db, 'chats', chatId, 'messages', messageId), {
+            [`reactions.${userId}`]: emoji ? emoji : deleteField()
+        });
+    },
+
+    /** La quedada se envía y se fija arriba del chat hasta que pase. */
+    sendInvite: async (chatId: string, senderId: string, invite: ChatInvite) => {
+        const ref = await ChatService.sendMessage(chatId, senderId, invitePreviewText(invite), 'invite', undefined, {
+            invite: { ...invite, responses: {} }
+        });
+        await updateDoc(doc(db, 'chats', chatId), { [`events.${ref.id}`]: pinnedFromInvite(invite) }).catch(() => undefined);
+        return ref.id;
+    },
+
+    /** Voy / En duda / Otro día (con fecha) / No. Deja un aviso en gris. */
+    respondInvite: async (
+        chatId: string,
+        message: Message,
+        user: { uid: string; name: string },
+        status: InviteStatus,
+        proposedAt?: number
+    ) => {
+        if (!message.id || !message.invite) return;
+        await updateDoc(doc(db, 'chats', chatId, 'messages', message.id), {
+            [`invite.responses.${user.uid}`]: compact({ status, proposedAt, at: Date.now() })
+        });
+        const event: ChatEventNote = compact({ kind: status, inviteId: message.id, title: inviteTitle(message.invite), when: proposedAt });
+        await ChatService.sendMessage(chatId, user.uid, eventNoteText(event, user.name), 'event', undefined, { event });
+    },
+
+    /** Quien invita cambia la fecha (o acepta la propuesta de alguien): las respuestas vuelven a empezar. */
+    changeInviteDate: async (chatId: string, message: Message, sender: { uid: string; name: string }, when: number, acceptedFrom?: string) => {
+        if (!message.id || !message.invite) return;
+        await updateDoc(doc(db, 'chats', chatId, 'messages', message.id), {
+            'invite.when': when,
+            'invite.responses': acceptedFrom ? { [acceptedFrom]: { status: 'yes', at: Date.now() } } : {}
+        });
+        await updateDoc(doc(db, 'chats', chatId), { [`events.${message.id}`]: pinnedFromInvite({ ...message.invite, when }) }).catch(() => undefined);
+        const event: ChatEventNote = { kind: 'date', inviteId: message.id, title: inviteTitle(message.invite), when };
+        await ChatService.sendMessage(chatId, sender.uid, eventNoteText(event, sender.name), 'event', undefined, { event });
+    },
+
+    cancelInvite: async (chatId: string, message: Message, sender: { uid: string; name: string }) => {
+        if (!message.id || !message.invite) return;
+        await updateDoc(doc(db, 'chats', chatId, 'messages', message.id), { 'invite.cancelled': true });
+        await updateDoc(doc(db, 'chats', chatId), { [`events.${message.id}`]: deleteField() }).catch(() => undefined);
+        const event: ChatEventNote = { kind: 'cancel', inviteId: message.id, title: inviteTitle(message.invite) };
+        await ChatService.sendMessage(chatId, sender.uid, eventNoteText(event, sender.name), 'event', undefined, { event });
+    },
+
+    /** Quita del chat las quedadas fijadas que ya pasaron. */
+    prunePastEvents: async (chatId: string, ids: string[]) => {
+        if (!ids.length) return;
+        await updateDoc(doc(db, 'chats', chatId), Object.fromEntries(ids.map((id) => [`events.${id}`, deleteField()])));
+    },
+
+    sendPoll: async (chatId: string, senderId: string, options: DishRef[]) => {
+        const poll: ChatPoll = {
+            question: '¿Dónde comemos?',
+            options: options.map((o, i) => ({ ...compact(o), id: `o${i + 1}` })),
+            votes: {}
+        };
+        await ChatService.sendMessage(chatId, senderId, '🗳️ ¿Dónde comemos? Vota', 'poll', undefined, { poll });
+    },
+
+    votePoll: async (chatId: string, messageId: string, userId: string, optionId: string | null) => {
+        await updateDoc(doc(db, 'chats', chatId, 'messages', messageId), {
+            [`poll.votes.${userId}`]: optionId ? optionId : deleteField()
+        });
+    },
+
+    sendDatePoll: async (chatId: string, senderId: string, whens: number[], place?: PlaceRef | null) => {
+        const datePoll: ChatDatePoll = { options: datePollOptions(whens), votes: {} };
+        if (place) datePoll.place = compact(place);
+        const where = place ? ` en ${place.placeName}` : '';
+        await ChatService.sendMessage(chatId, senderId, `📅 ¿Cuándo quedamos${where}? Marca tus fechas`, 'datepoll', undefined, { datePoll });
+    },
+
+    voteDate: async (chatId: string, messageId: string, userId: string, optionId: string, vote: DateVote | null) => {
+        await updateDoc(doc(db, 'chats', chatId, 'messages', messageId), {
+            [`datePoll.votes.${userId}.${optionId}`]: vote ? vote : deleteField()
+        });
+    },
+
+    /** La fecha elegida ya es quedada: la encuesta se cierra apuntando a ella. */
+    linkDatePollInvite: async (chatId: string, messageId: string, inviteId: string) => {
+        await updateDoc(doc(db, 'chats', chatId, 'messages', messageId), { 'datePoll.inviteId': inviteId });
     },
 
     markChatAsRead: async (chatId: string, userId: string) => {

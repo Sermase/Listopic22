@@ -22,6 +22,7 @@ import { SeoManager } from './components/SeoManager';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { FilterProvider } from './context/FilterContext';
+import { PreferencesProvider } from './context/PreferencesContext';
 import { GamificationProvider } from './context/GamificationContext';
 import { StorageImageRecovery } from './components/StorageImageRecovery';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -79,9 +80,11 @@ createRoot(document.getElementById('root')!).render(
             <GamificationProvider>
               <AppConfigProvider>
                 <FilterProvider>
-                  <SeoManager />
-                  <StorageImageRecovery />
-                  <App />
+                  <PreferencesProvider>
+                    <SeoManager />
+                    <StorageImageRecovery />
+                    <App />
+                  </PreferencesProvider>
                 </FilterProvider>
               </AppConfigProvider>
             </GamificationProvider>

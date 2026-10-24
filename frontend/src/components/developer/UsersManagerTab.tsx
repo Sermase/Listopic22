@@ -295,7 +295,7 @@ export const UsersManagerTab: React.FC = () => {
         <div className="space-y-6">
             <div>
                 <h2 className="text-xl font-bold text-white mb-1">Gestión de Usuarios</h2>
-                <p className="text-gray-400 text-sm">Busca usuarios y abre su ficha: estadísticas, valoraciones (con detalle y edición), Listas, fotos, tipos y medallas.</p>
+                <p className="text-gray-400 text-sm">Busca usuarios y abre su ficha: estadísticas, reseñas (con detalle y edición), Listas, fotos, tipos y medallas.</p>
             </div>
 
             {/* Search bar */}

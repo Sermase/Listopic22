@@ -123,7 +123,7 @@ interface AdvancedProfileStats {
       averageRating: number;
     }
   >;
-  /** Todas las Listas con alguna valoración (con o sin nota): alimenta el filtro. */
+  /** Todas las Listas con alguna reseña (con o sin nota): alimenta el filtro. */
   reviewedLists: Record<string, { listId: string; listName: string; reviewsCount: number }>;
 }
 
@@ -418,7 +418,7 @@ export const ProfilePage: React.FC = () => {
     setProfileStoragePhotoUrl(null);
   }, [targetUserId]);
 
-  // Ordenar por nota solo es correcto con todas las valoraciones cargadas: se
+  // Ordenar por nota solo es correcto con todas las reseñas cargadas: se
   // piden en páginas de 100 (máximo de las reglas) hasta agotarlas.
   const loadAllReviews = reviewSortMode === "top_rated";
   const {
@@ -1395,7 +1395,7 @@ export const ProfilePage: React.FC = () => {
     () => [
       {
         id: "stats" as DetailsModalTab,
-        label: "Valoraciones",
+        label: "Reseñas",
         value: displayedReviewsCount,
         accent: "default" as const,
       },
@@ -2768,8 +2768,8 @@ export const ProfilePage: React.FC = () => {
                     {[
                       { key: "new_message", label: "Mensajes nuevos" },
                       { key: "new_follower", label: "Nuevos seguidores" },
-                      { key: "review_comment", label: "Comentarios en tus valoraciones" },
-                      { key: "review_like", label: "Likes en tus valoraciones" },
+                      { key: "review_comment", label: "Comentarios en tus reseñas" },
+                      { key: "review_like", label: "Likes en tus reseñas" },
                       { key: "list_follow", label: "Alguien sigue una lista tuya" },
                       { key: "level_up", label: "Subidas de nivel" },
                       { key: "badge_earned", label: "Medallas desbloqueadas" },
@@ -2929,7 +2929,7 @@ export const ProfilePage: React.FC = () => {
                     {/* Reseñas */}
                     <div>
                       <label className="text-gray-400 text-xs uppercase font-bold block mb-1">¿Mantener tus aportaciones de forma anónima?</label>
-                      <p className="text-gray-500 text-xs mb-2">Valoraciones, fotos, comentarios y mensajes en foros. Si dices que sí, se quedan en la app firmadas como «Usuario eliminado». Si dices que no, se borran.</p>
+                      <p className="text-gray-500 text-xs mb-2">Reseñas, fotos, comentarios y mensajes en foros. Si dices que sí, se quedan en la app firmadas como «Usuario eliminado». Si dices que no, se borran.</p>
                       <div className="flex gap-2">
                         {([true, false] as const).map((val) => (
                           <button
@@ -3164,7 +3164,7 @@ export const ProfilePage: React.FC = () => {
             )
           ) : sortedProfileReviews.length === 0 ? (
             <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-xl">
-              <p className="text-gray-500">No hay valoraciones recientes.</p>
+              <p className="text-gray-500">No hay reseñas recientes.</p>
             </div>
           ) : (
             <>
@@ -3250,7 +3250,7 @@ export const ProfilePage: React.FC = () => {
                   onClick={() => setDetailsModalTab("stats")}
                   className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-colors border-b-2 flex items-center gap-2 ${detailsModalTab === "stats" ? "border-[var(--lt-accent-border)] text-[var(--lt-accent)]" : "border-transparent text-gray-400 hover:text-white"}`}
                 >
-                  <BarChart3 className="w-4 h-4" /> Valoraciones
+                  <BarChart3 className="w-4 h-4" /> Reseñas
                 </button>
                 <button
                   onClick={() => setDetailsModalTab("followers")}
@@ -3390,7 +3390,7 @@ export const ProfilePage: React.FC = () => {
                     <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                       <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
                         <div className="text-[11px] uppercase tracking-wide text-gray-400">
-                          Valoraciones que cuentan
+                          Reseñas que cuentan
                         </div>
                         <div className="mt-2 text-3xl font-black text-white">
                           {gamificationMetrics.reviewsCount}
@@ -3398,7 +3398,7 @@ export const ProfilePage: React.FC = () => {
                       </div>
                       <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)]/70 p-4">
                         <div className="text-[11px] uppercase tracking-wide text-gray-400">
-                          Valoraciones con foto
+                          Reseñas con foto
                         </div>
                         <div className="mt-2 text-3xl font-black text-white">
                           {gamificationMetrics.photosCount}
@@ -3571,7 +3571,7 @@ export const ProfilePage: React.FC = () => {
           imageUrls: profile.photoUrl ? [profile.photoUrl] : [],
           profileStats: [
             { key: "level", label: "Nivel", value: levelInfo.level },
-            { key: "reviews", label: "Valoraciones", value: gamificationMetrics.reviewsCount },
+            { key: "reviews", label: "Reseñas", value: gamificationMetrics.reviewsCount },
             { key: "photos", label: "Fotos", value: gamificationMetrics.photosCount },
             { key: "places", label: "Sitios", value: gamificationMetrics.placeCount },
             { key: "lists", label: "Listas", value: profileListsCount },

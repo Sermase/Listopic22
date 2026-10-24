@@ -16,7 +16,6 @@ import { ReportModal } from './ReportModal';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { db } from '../firebase';
-import { NonPonderableGauge } from './NonPonderableGauge';
 import { buildShareCriteriaGroups } from '../utils/shareCriteria';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { CategoryService } from '../services/CategoryService';
@@ -27,6 +26,7 @@ import { compareCriteria } from '../lib/criteria';
 import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
 import { closedStatusKind } from '../utils/placeStatus';
 import { MarqueeText } from './ui/MarqueeText';
+import { ExpandableText } from './ui/ExpandableText';
 
 interface ReviewCardProps {
     review: ReviewEntity;
@@ -34,10 +34,12 @@ interface ReviewCardProps {
     onEdit?: (review: ReviewEntity) => void;
     reactionConfig?: { like?: string; dislike?: string }; // Text for animation (e.g. "ñam!")
     placeClosedStatus?: string | null;
+    /** Página de la reseña: texto entero, notas y comentarios abiertos. */
+    expanded?: boolean;
 }
 
 
-export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp }) => {
+export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp, expanded = false }) => {
     const { showToast } = useToast();
     const confirm = useConfirm();
     // El estado del sitio en vivo manda sobre la copia guardada en la reseña.
@@ -50,7 +52,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     // Visual States
     const [liked, setLiked] = useState(false);
     const [likeCount, setLikeCount] = useState(review.reactionCounts?.like || 0); // Placeholder count
-    const [showComments, setShowComments] = useState(false);
+    const [showComments, setShowComments] = useState(expanded);
     const [reactionAnimationText, setReactionAnimationText] = useState('');
     const [reactionAnimationTone, setReactionAnimationTone] = useState<'like' | 'dislike'>('like');
     const [showAnimation, setShowAnimation] = useState(false); // For "ñam!" animation
@@ -151,7 +153,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 key,
                 label: getLabel(key),
                 score: scores[key] || 0,
-                isPonderable: def ? (def.ponderable !== false && def.isPonderable !== false) : true
+                isPonderable: def ? (def.ponderable !== false && def.isPonderable !== false && def.weight !== 0) : true
             };
         });
 
@@ -183,6 +185,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         checkLike();
     }, [user, review.id, review.listId]);
 
+    const hasVisual = Boolean(review.photoUrls?.length || review.photoUrl || review.placeMainImage);
     const handleCardClick = () => {
         if (review.placeId && review.itemName) {
             navigate(`/group/${review.placeId}/${encodeURIComponent(review.itemName)}`);
@@ -192,7 +195,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const handleLike = async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('indicar que te gusta esta valoración');
+            openAuthPrompt('indicar que te gusta esta reseña');
             return;
         }
         if (!review.id || !review.listId) return;
@@ -225,7 +228,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const handleSaveClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('guardar esta valoración');
+            openAuthPrompt('guardar esta reseña');
             return;
         }
         setIsSaveModalOpen(true);
@@ -238,14 +241,14 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
     const handleDelete = async (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (await confirm({ title: '¿Eliminar esta valoración?', message: 'No se puede deshacer.', confirmLabel: 'Eliminar', destructive: true })) {
+        if (await confirm({ title: '¿Eliminar esta reseña?', message: 'No se puede deshacer.', confirmLabel: 'Eliminar', destructive: true })) {
             setIsDeleting(true);
             try {
                 await ReviewService.deleteReview(review.listId, review.id, queryClient);
                 if (onDelete) onDelete(review.id);
             } catch (error) {
                 console.error(error);
-                showToast({ variant: 'error', message: 'No se pudo eliminar la valoración.' });
+                showToast({ variant: 'error', message: 'No se pudo eliminar la reseña.' });
                 setIsDeleting(false);
             }
         }
@@ -254,7 +257,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
     const handleReportClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!user) {
-            openAuthPrompt('reportar esta valoración');
+            openAuthPrompt('reportar esta reseña');
             return;
         }
         setShowReportModal(true);
@@ -280,16 +283,25 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
         : '/';
     const reviewShareUrl = buildPublicRouteUrl(reviewRoute);
 
+    const createdLabel = (() => {
+        const date = review.createdAt;
+        let dateObj: Date | null = null;
+        if (date && typeof date.toDate === 'function') dateObj = date.toDate();
+        else if (date instanceof Date) dateObj = date;
+        else if (typeof date === 'string' || typeof date === 'number') dateObj = new Date(date);
+        return dateObj ? `hace ${formatDistanceToNow(dateObj, { locale: es })}` : 'Reciente';
+    })();
+
     return (
         <>
             <article
                 onClick={handleCardClick}
                 style={{ willChange: 'transform' }} // Optimize for GPU
-                className="cursor-pointer group relative flex w-full flex-col overflow-hidden rounded-3xl border border-[var(--lt-border)] bg-[var(--lt-card)] shadow-lg transition-colors duration-300 hover:border-[var(--lt-accent-border)]"
+                className="cursor-pointer group relative flex w-full flex-col overflow-hidden transition-colors duration-300 sm:rounded-3xl sm:border sm:border-[var(--lt-border)] sm:bg-[var(--lt-card)] sm:shadow-lg sm:hover:border-[var(--lt-accent-border)]"
             >
                 {/* 1. Header: User, Context, Menu */}
                 {/* ... (Header code unchanged) ... */}
-                <div className="px-3.5 pt-3.5 pb-3 flex items-center justify-center">
+                <div className="px-1 pt-1 pb-3 sm:px-3.5 sm:pt-3.5 flex items-center justify-center">
                     <div className="flex items-center gap-3 w-full">
                         {/* Living Avatar Ring */}
                         <Link
@@ -327,16 +339,6 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                                         </span>
                                     )}
                                 </div>
-                                <span className="shrink-0 text-[11px] text-[var(--lt-text-muted)] whitespace-nowrap">
-                                    {(() => {
-                                        const date = review.createdAt;
-                                        let dateObj: Date | null = null;
-                                        if (date && typeof date.toDate === 'function') dateObj = date.toDate();
-                                        else if (date instanceof Date) dateObj = date;
-                                        else if (typeof date === 'string' || typeof date === 'number') dateObj = new Date(date);
-                                        return dateObj ? `hace ${formatDistanceToNow(dateObj, { locale: es })}` : 'Reciente';
-                                    })()}
-                                </span>
                             </div>
                         </div>
 
@@ -351,8 +353,8 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     </div>
                 </div>
 
-                {/* 2. Main Visual: Photo Carousel with Score Bubble */}
-                <ReviewPhotoCarousel
+                {/* 2. Foto con la nota (sin foto ni imagen del sitio, la nota va junto al título) */}
+                {hasVisual && <ReviewPhotoCarousel
                     photoUrls={review.photoUrls}
                     photoUrl={review.photoUrl}
                     placeMainImage={review.placeMainImage}
@@ -360,21 +362,26 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     placeName={review.placeName}
                     overallRating={review.overallRating}
                     placeCity={(review as any).placeCity}
-                />
+                />}
 
                 {/* 3. Content Body */}
-                <div className="px-4 pt-3.5 pb-4 space-y-3 flex-1">
+                <div className="px-1 sm:px-4 pt-3.5 pb-4 space-y-3 flex-1">
                     {/* Title & Item */}
                     <div>
                         {review.placeName && (
-                            <div className="flex items-center gap-2 min-w-0 mb-0.5">
+                            <div className="flex items-start gap-2 min-w-0 mb-0.5">
                                 <Link
                                     to={`/place/${review.placeId}`}
                                     onClick={(e) => e.stopPropagation()}
-                                    className="min-w-0 font-display font-bold text-lg sm:text-xl text-[var(--lt-text)] hover:text-[var(--lt-accent)] transition-colors leading-tight"
+                                    className="min-w-0 line-clamp-2 font-display font-bold text-lg sm:text-xl text-[var(--lt-text)] hover:text-[var(--lt-accent)] transition-colors leading-tight"
                                 >
-                                    <MarqueeText text={review.placeName} />
+                                    {review.placeName}
                                 </Link>
+                                {!hasVisual && (review as any).placeCity && (
+                                    <span className="ml-auto mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full border border-[var(--lt-border)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--lt-text-muted)]">
+                                        <MapPin className="h-3 w-3" />{(review as any).placeCity}
+                                    </span>
+                                )}
                                 {closedKind && (
                                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${closedKind === 'permanent'
                                         ? 'bg-[var(--lt-danger-soft)] border-[var(--lt-danger)]/30 text-[var(--lt-danger)]'
@@ -388,58 +395,58 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         <h3 className="text-sm font-semibold text-[var(--lt-accent)]">
                             <MarqueeText text={review.itemName || ''} />
                         </h3>
+                        {!hasVisual && typeof review.overallRating === 'number' && (
+                            <span className="mt-1.5 inline-flex rounded-full px-2.5 py-1 font-display text-base font-bold tabular-nums" style={{ backgroundColor: scoreBadge(review.overallRating).bg, color: scoreBadge(review.overallRating).fg }}>
+                                {review.overallRating.toFixed(1)}
+                            </span>
+                        )}
                     </div>
 
-                    {/* Criteria Bars (Grouped) */}
-                    {(ponderable.length > 0 || nonPonderable.length > 0) && (
-                        <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)] p-3 space-y-3">
+                    {/* Lo que cuenta la persona, delante de las notas */}
+                    {review.comment && (
+                        <ExpandableText text={review.comment} lines={4} defaultExpanded={expanded} className="text-[15px] leading-relaxed text-[var(--lt-text)]" />
+                    )}
 
-                            {/* Ponderable (Standard) - Grid */}
-                            {ponderable.length > 0 && (
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-                                    {ponderable.map((crit, idx) => {
-
-                                        return (
-                                            <div key={idx} className="flex min-w-0 flex-col">
-                                                <div className="flex justify-between items-end gap-1.5 text-[11px] mb-1">
-                                                    <span className="text-[var(--lt-text-muted)] font-medium truncate">{crit.label}</span>
-                                                    <span className="font-display font-bold" style={{ color: scoreTextColor(crit.score) }}>
-                                                        {crit.score.toFixed(1)}
-                                                    </span>
-                                                </div>
-                                                <div className="h-1 bg-[var(--lt-border)] rounded-full overflow-hidden">
-                                                    <div
-                                                        className="h-full rounded-full"
-                                                        style={{ width: `${crit.score * 10}%`, backgroundColor: scoreBadge(crit.score).bg }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
-
-                            {/* Non-Ponderable (Extras) - Gauges Grid */}
-                            {nonPonderable.length > 0 && (
-                                <div className="pt-2 border-t border-[var(--lt-border)]">
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                                        {nonPonderable.map((crit, idx) => (
-                                            <NonPonderableGauge key={idx} score={crit.score} label={crit.label} size={60} />
-                                        ))}
+                    {/* Notas de criterios, siempre a la vista */}
+                    {ponderable.length > 0 && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                            {ponderable.map((crit) => (
+                                <div key={crit.key} className="flex min-w-0 flex-col">
+                                    <div className="flex justify-between items-end gap-1.5 text-[11px] mb-1">
+                                        <span className="text-[var(--lt-text-muted)] font-medium truncate">{crit.label}</span>
+                                        <span className="font-display font-bold" style={{ color: scoreTextColor(crit.score) }}>
+                                            {crit.score.toFixed(1)}
+                                        </span>
+                                    </div>
+                                    <div className="h-1 bg-[var(--lt-border)] rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full rounded-full"
+                                            style={{ width: `${crit.score * 10}%`, backgroundColor: scoreBadge(crit.score).bg }}
+                                        />
                                     </div>
                                 </div>
-                            )}
+                            ))}
                         </div>
                     )}
 
-                    {/* Review Text */}
-                    {review.comment && (
-                        <div className="pl-3 border-l-2 border-[var(--lt-accent-border)]">
-                            <p className="text-[var(--lt-text)] text-sm leading-relaxed italic line-clamp-3">
-                                "{review.comment}"
-                            </p>
+                    {/* Informativos (no cuentan en la nota): posición en una escala gris, sin bueno ni malo */}
+                    {nonPonderable.length > 0 && (
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-2" aria-label="Datos informativos, no cuentan en la nota">
+                            {nonPonderable.map((crit) => (
+                                <div key={crit.key} className="flex min-w-0 items-center gap-2 text-[11px] text-[var(--lt-text-muted)]" title="Informativo: no cuenta en la nota">
+                                    <span className="truncate italic">{crit.label}</span>
+                                    <span className="relative h-px flex-1 min-w-[2rem] bg-[var(--lt-border)]" aria-hidden="true">
+                                        <span
+                                            className="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--lt-text-muted)]"
+                                            style={{ left: `${Math.min(100, Math.max(0, crit.score * 10))}%` }}
+                                        />
+                                    </span>
+                                    <span className="tabular-nums">{crit.score % 1 === 0 ? crit.score : crit.score.toFixed(1)}</span>
+                                </div>
+                            ))}
                         </div>
                     )}
+
 
                     {/* Tags */}
                     {(review.tags && review.tags.length > 0) || (review.userTags && review.userTags.length > 0) ? (
@@ -454,7 +461,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 </div>
 
                 {/* 4. Footer: Interactive Bar */}
-                <div className="px-4 py-2.5 border-t border-[var(--lt-border)] flex items-center justify-between mt-auto relative z-10">
+                <div className="px-1 sm:px-4 py-2.5 sm:border-t sm:border-[var(--lt-border)] flex items-center justify-between mt-auto relative z-10">
                     <div className="flex items-center gap-4">
                         <button
                             className={`flex items-center gap-1.5 transition-all group/btn ${liked ? 'text-pink-500 scale-105' : 'text-[var(--lt-text-muted)] hover:text-pink-500'} relative`}
@@ -484,6 +491,15 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     </div>
 
                     <div className="flex items-center gap-3">
+                        {/* La fecha, discreta junto a guardar: arriba cortaba el nombre */}
+                        <Link
+                            to={review.listId && review.id ? `/review/${review.listId}/${review.id}` : '#'}
+                            onClick={(e) => e.stopPropagation()}
+                            title="Abrir la reseña"
+                            className="text-[11px] text-[var(--lt-text-muted)] whitespace-nowrap hover:text-[var(--lt-accent)] hover:underline"
+                        >
+                            {createdLabel}
+                        </Link>
                         <button
                             aria-label="Guardar en una colección"
                             className="text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)] transition-colors p-1"
@@ -492,7 +508,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             <Bookmark className="w-5 h-5 stroke-[1.5]" />
                         </button>
                         <button
-                            aria-label="Compartir valoración"
+                            aria-label="Compartir reseña"
                             className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors p-1"
                             onClick={handleShareClick}
                         >
@@ -511,6 +527,8 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                         />
                     </div>
                 )}
+                {/* En el móvil no hay recuadro: una raya suave separa una reseña de la siguiente. */}
+                <div aria-hidden="true" className="sm:hidden mx-auto mt-2 h-px w-4/5 bg-gradient-to-r from-transparent via-[var(--lt-accent-border)] to-transparent" />
             </article>
 
             {/* Modals */}
@@ -530,16 +548,16 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
             <ShareModal
                 isOpen={isShareOpen}
                 onClose={() => setIsShareOpen(false)}
-                title={`Compartir valoración`}
+                title={`Compartir reseña`}
                 url={reviewShareUrl}
-                text={`¡Mira esta valoración de ${review.itemName} en ${review.placeName}!`}
+                text={`¡Mira esta reseña de ${review.itemName} en ${review.placeName}!`}
                 review={review}
                 shareEntity={(() => {
                     const shareCriteria = buildShareCriteriaGroups(review.scores, review.criteriaDefinition);
                     return {
                     type: 'review',
                     id: review.id,
-                    title: review.itemName || 'Valoración',
+                    title: review.itemName || 'Reseña',
                     subtitle: review.placeName || 'Lugar',
                     description: review.comment,
                     route: review.placeId && review.itemName ? reviewRoute : undefined,
@@ -565,7 +583,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                 isOpen={showReportModal}
                 onClose={() => setShowReportModal(false)}
                 targetId={review.id || ''}
-                targetName={review.itemName || 'Valoración'}
+                targetName={review.itemName || 'Reseña'}
                 itemName={review.placeName}
                 targetType="review"
                 targetOwnerId={review.userId || review.authorId}

@@ -60,7 +60,7 @@ export const SHARE_CHANNEL_ORDER: readonly AnalyticsShareChannel[] = ['whatsapp'
 export const SHARE_ENTITY_META: Record<string, EmojiMeta> = {
     place: { emoji: '📍', label: 'Tu ficha' },
     group: { emoji: '🍽️', label: 'Un plato' },
-    review: { emoji: '⭐', label: 'Una valoración' },
+    review: { emoji: '⭐', label: 'Una reseña' },
     list: { emoji: '📋', label: 'Una Lista' },
     sublist: { emoji: '📎', label: 'Una minilista' },
     profile: { emoji: '👤', label: 'Un perfil' },
@@ -90,7 +90,7 @@ export const WEEKDAYS: ReadonlyArray<{ short: string; name: string; plural: stri
 export const WEEKDAY_ABBR: readonly string[] = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
 export const MONTH_ABBR: readonly string[] = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'];
 
-/** Valoraciones mínimas para que un plato entre en «Mejor nota» o en el titular. */
+/** Reseñas mínimas para que un plato entre en «Mejor nota» o en el titular. */
 export const MIN_RATINGS_FOR_STAR = 3;
 
 /** Opiniones que se ven de entrada y como mucho en «🗣️ Lo último que dicen». */

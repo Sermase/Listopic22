@@ -30,6 +30,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 
 const PROJECT_ID = 'demo-listopic-rules';
@@ -110,6 +111,21 @@ async function seed() {
     await put('places/p2', { name: 'Playa', reviewsCount: 0, averageRating: null, followersCount: 0 });
 
     await put('chats/c1', { participants: ['alice', 'bob'], type: 'private', unreadCount: { alice: 0, bob: 0 } });
+    await put('chats/g1', { participants: ['alice', 'bob'], type: 'group', groupName: 'Comilona', joinCode: 'abcd2345ef', unreadCount: {} });
+    await put('chatInvites/abcd2345ef', { chatId: 'g1', groupName: 'Comilona', byName: 'Alice' });
+    await put('chats/c1/messages/hola', { text: 'Hola', senderId: 'alice', type: 'text', readBy: ['alice'] });
+    await put('chats/c1/messages/inv', {
+      text: '🍽️ Te invito', senderId: 'alice', type: 'invite', readBy: ['alice'],
+      invite: { itemName: 'Bravas', placeName: 'Docamar', when: 1000, responses: {} },
+    });
+    await put('chats/c1/messages/fechas', {
+      text: '📅', senderId: 'alice', type: 'datepoll', readBy: ['alice'],
+      datePoll: { options: [{ id: 'd1', when: 1000 }, { id: 'd2', when: 2000 }], votes: {} },
+    });
+    await put('chats/c1/messages/encuesta', {
+      text: '🗳️', senderId: 'alice', type: 'poll', readBy: ['alice'],
+      poll: { question: '¿Dónde comemos?', options: [{ id: 'o1', itemName: 'a', placeName: 'A' }, { id: 'o2', itemName: 'b', placeName: 'B' }], votes: {} },
+    });
 
     await put('users/alice/archives/a1', { name: 'Quiero ir', itemCount: 1 });
     await put('users/alice/archives/a1/items/place_p1', { itemId: 'p1', type: 'place', name: 'Bar Manolo', route: '/place/p1' });
@@ -301,6 +317,44 @@ describe('V4 · Un usuario no puede ascenderse a sí mismo', () => {
     await assertSucceeds(updateDoc(ref, { notifiedLevel: 2, notifiedBadges: arrayUnion('PRIMERA') }));
   });
 
+  it('✅/❌ preferencias de uso: solo interruptores conocidos', async () => {
+    const ref = doc(as('alice'), 'users/alice');
+    await assertSucceeds(setDoc(ref, { uxPreferences: { glutenFree: true, vegetarian: false, showHelpTips: true } }, { merge: true }));
+    await assertFails(setDoc(ref, { uxPreferences: { glutenFree: 'sí' } }, { merge: true }));
+    await assertFails(setDoc(ref, { uxPreferences: { isAdmin: true } }, { merge: true }));
+    await assertSucceeds(setDoc(ref, { uxPreferences: { vegan: true, allergens: ['gluten', 'huevo'], stepFree: true, accessibleRestroom: false, petFriendly: true } }, { merge: true }));
+    await assertSucceeds(setDoc(ref, { uxPreferences: { lactoseFree: true, contribute: ['glutenFree', 'stepFree'] } }, { merge: true }));
+    await assertFails(setDoc(ref, { uxPreferences: { allergens: 'gluten' } }, { merge: true }));
+    await assertFails(setDoc(ref, { uxPreferences: { allergens: Array.from({ length: 15 }, (_, i) => `a${i}`) } }, { merge: true }));
+  });
+
+  it('✅/❌ dieta por defecto de una lista: solo vegetarian o none', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'lists/dietList'), { name: 'Tortillas', visibility: 'public', isPublic: true, userId: 'alice' });
+    });
+    await assertSucceeds(updateDoc(doc(as('alice'), 'lists/dietList'), { defaultDiet: 'vegetarian' }));
+    await assertSucceeds(updateDoc(doc(as('alice'), 'lists/dietList'), { defaultDiet: 'none' }));
+    await assertFails(updateDoc(doc(as('alice'), 'lists/dietList'), { defaultDiet: 'carnivoro' }));
+  });
+
+  it('✅/❌ «Apto para»: respuestas privadas solo de reseñas propias', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'lists/l1'), { name: 'L', visibility: 'public', userId: 'alice' });
+      await setDoc(doc(db, 'lists/l1/reviews/r1'), { userId: 'alice', placeId: 'p1', itemName: 'Bravas' });
+      await setDoc(doc(db, 'lists/l1/reviews/r2'), { userId: 'bob', placeId: 'p1', itemName: 'Bravas' });
+    });
+    const ok = { listId: 'l1', answers: { glutenFree: 'yes', stepFree: 'no' }, updatedAt: serverTimestamp() };
+    await assertSucceeds(setDoc(doc(as('alice'), 'users/alice/aptReports/r1'), ok));
+    await assertSucceeds(getDoc(doc(as('alice'), 'users/alice/aptReports/r1')));
+    await assertFails(getDoc(doc(as('bob'), 'users/alice/aptReports/r1')));
+    await assertFails(setDoc(doc(as('alice'), 'users/alice/aptReports/r2'), ok));
+    await assertFails(setDoc(doc(as('bob'), 'users/alice/aptReports/r1'), ok));
+    await assertFails(setDoc(doc(as('alice'), 'users/alice/aptReports/r1'), { ...ok, answers: { glutenFree: 'mucho' } }));
+    await assertFails(setDoc(doc(as('alice'), 'users/alice/aptReports/r1'), { ...ok, answers: { isAdmin: 'yes' } }));
+    await assertSucceeds(deleteDoc(doc(as('alice'), 'users/alice/aptReports/r1')));
+  });
+
   it('✅ alta de perfil con el payload real de UserProfileService', async () => {
     await assertSucceeds(setDoc(doc(as('newbie'), 'users/newbie'), {
       username: 'newbie', usernameLower: 'newbie', displayName: 'Newbie', name: '', surnames: '',
@@ -423,6 +477,155 @@ describe('V6 · Chats: no se puede expulsar ni reescribir participantes', () => 
       participants: arrayUnion('carol'), 'unreadCount.carol': 0, type: 'group', groupName: 'Nuevo Grupo',
       updatedAt: serverTimestamp(),
     }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('V6b · Chat con vida: reacciones, invitaciones y encuestas', () => {
+  it('✅ bob reacciona, cambia y quita su reacción', async () => {
+    const db = as('bob');
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/hola'), { 'reactions.bob': '😋' }));
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/hola'), { 'reactions.bob': '🔥' }));
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/hola'), { 'reactions.bob': deleteField() }));
+  });
+
+  it('❌ bob reacciona por alice, reescribe el texto o alguien ajeno reacciona', async () => {
+    await assertFails(updateDoc(doc(as('bob'), 'chats/c1/messages/hola'), { 'reactions.alice': '🤢' }));
+    await assertFails(updateDoc(doc(as('bob'), 'chats/c1/messages/hola'), { text: 'Adiós' }));
+    await assertFails(updateDoc(doc(as('bob'), 'chats/c1/messages/hola'), { 'reactions.bob': 'x'.repeat(40) }));
+    await assertFails(updateDoc(doc(as('mallory'), 'chats/c1/messages/hola'), { 'reactions.mallory': '😂' }));
+  });
+
+  it('✅ bob responde a la invitación (voy / otra fecha)', async () => {
+    const db = as('bob');
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/inv'), { 'invite.responses.bob': { status: 'yes', at: 1 } }));
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/inv'), { 'invite.responses.bob': { status: 'other', proposedAt: 2000, at: 2 } }));
+  });
+
+  it('❌ bob responde por alice, cambia la fecha o el plato', async () => {
+    const db = as('bob');
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/inv'), { 'invite.responses.alice': { status: 'no', at: 1 } }));
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/inv'), { 'invite.when': 5000 }));
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/inv'), { 'invite.itemName': 'Nada' }));
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/inv'), { 'invite.responses.bob': { status: 'quizás', at: 1 } }));
+  });
+
+  it('✅ bob está en duda; ✅ alice cancela; ❌ bob cancela la de alice', async () => {
+    await assertSucceeds(updateDoc(doc(as('bob'), 'chats/c1/messages/inv'), { 'invite.responses.bob': { status: 'maybe', at: 5 } }));
+    await assertFails(updateDoc(doc(as('bob'), 'chats/c1/messages/inv'), { 'invite.cancelled': true }));
+    await assertFails(updateDoc(doc(as('alice'), 'chats/c1/messages/inv'), { 'invite.cancelled': 'sí' }));
+    await assertSucceeds(updateDoc(doc(as('alice'), 'chats/c1/messages/inv'), { 'invite.cancelled': true }));
+  });
+
+  it('✅ bob fija una quedada en el chat y bob deja un aviso en gris', async () => {
+    await assertSucceeds(updateDoc(doc(as('bob'), 'chats/c1'), { 'events.inv': { title: 'Bravas', when: 1000 } }));
+    await assertSucceeds(setDoc(doc(as('bob'), 'chats/c1/messages/aviso'), {
+      text: '✅ Bob va', senderId: 'bob', type: 'event', readBy: ['bob'], event: { kind: 'yes', inviteId: 'inv' },
+    }));
+  });
+
+  it('✅ alice (quien invita) acepta otra fecha y reinicia las respuestas', async () => {
+    await assertSucceeds(updateDoc(doc(as('alice'), 'chats/c1/messages/inv'), {
+      'invite.when': 2000, 'invite.responses': { bob: { status: 'yes', at: 3 } },
+    }));
+  });
+
+  it('✅ bob vota y quita su voto; ❌ vota por alice o cambia las opciones', async () => {
+    const db = as('bob');
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/encuesta'), { 'poll.votes.bob': 'o2' }));
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/encuesta'), { 'poll.votes.bob': deleteField() }));
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/encuesta'), { 'poll.votes.alice': 'o1' }));
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/encuesta'), { 'poll.options': [] }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('V6d · ¿Cuándo quedamos? (tipo Doodle)', () => {
+  it('✅ bob marca y desmarca sus fechas; ❌ marca por alice, cambia fechas o un extraño vota', async () => {
+    const db = as('bob');
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/fechas'), { 'datePoll.votes.bob.d1': 'yes' }));
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/fechas'), { 'datePoll.votes.bob.d2': 'maybe' }));
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/fechas'), { 'datePoll.votes.bob.d1': deleteField() }));
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/fechas'), { 'datePoll.votes.alice.d1': 'yes' }));
+    await assertFails(updateDoc(doc(db, 'chats/c1/messages/fechas'), { 'datePoll.options': [] }));
+    await assertFails(updateDoc(doc(as('mallory'), 'chats/c1/messages/fechas'), { 'datePoll.votes.mallory.d1': 'yes' }));
+  });
+
+  it('✅ bob la cierra con la quedada una vez; ❌ no se vuelve a cambiar', async () => {
+    const db = as('bob');
+    await assertSucceeds(updateDoc(doc(db, 'chats/c1/messages/fechas'), { 'datePoll.inviteId': 'inv' }));
+    await assertFails(updateDoc(doc(as('alice'), 'chats/c1/messages/fechas'), { 'datePoll.inviteId': 'otra' }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('V6c · Enlace de invitación a un grupo', () => {
+  const join = (db, extra = {}) => updateDoc(doc(db, 'chats/g1'), { participants: arrayUnion('carol'), joinedWith: 'abcd2345ef', ...extra });
+
+  it('✅ cualquiera lee la vista previa con el código, ❌ nadie lista los enlaces', async () => {
+    await assertSucceeds(getDoc(doc(anon(), 'chatInvites/abcd2345ef')));
+    await assertFails(getDocs(collection(anon(), 'chatInvites')));
+    await assertFails(getDocs(collection(as('carol'), 'chatInvites')));
+  });
+
+  it('✅ carol entra ella sola con el código y deja su aviso', async () => {
+    const db = as('carol');
+    await assertSucceeds(join(db, { updatedAt: serverTimestamp() }));
+    await assertSucceeds(setDoc(doc(db, 'chats/g1/messages/hola-carol'), {
+      text: '👋 Carol se ha unido con el enlace', senderId: 'carol', type: 'event', readBy: ['carol'], event: { kind: 'joined' },
+    }));
+  });
+
+  it('❌ carol sin código, con otro código, metiendo a otra persona o tocando más cosas', async () => {
+    const db = as('carol');
+    await assertFails(updateDoc(doc(db, 'chats/g1'), { participants: arrayUnion('carol') }));
+    await assertFails(updateDoc(doc(db, 'chats/g1'), { participants: arrayUnion('carol'), joinedWith: 'zzzz9999zz' }));
+    await assertFails(updateDoc(doc(db, 'chats/g1'), { participants: arrayUnion('carol', 'mallory'), joinedWith: 'abcd2345ef' }));
+    await assertFails(join(db, { groupName: 'Mío' }));
+    await assertFails(join(db, { joinCode: 'otro123456' }));
+    await assertFails(getDoc(doc(db, 'chats/g1')));
+  });
+
+  it('❌ no se entra con enlace a un chat privado ni a un grupo sin enlace', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'chats/c1'), { joinCode: 'abcd2345ef' }, { merge: true });
+      await setDoc(doc(ctx.firestore(), 'chats/g2'), { participants: ['alice'], type: 'group', groupName: 'Sin enlace' });
+    });
+    await assertFails(updateDoc(doc(as('carol'), 'chats/c1'), { participants: arrayUnion('carol'), joinedWith: 'abcd2345ef' }));
+    await assertFails(updateDoc(doc(as('carol'), 'chats/g2'), { participants: arrayUnion('carol'), joinedWith: '' }));
+  });
+
+  it('🙋 con aprobación: carol no entra sola, deja su solicitud y bob la ve y la acepta', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'chats/g1'), { joinApproval: true }, { merge: true });
+    });
+    const carol = as('carol');
+    await assertFails(join(carol));
+    await assertFails(setDoc(doc(carol, 'chats/g1/joinRequests/carol'), { name: 'Carol', code: 'zzzz9999zz', at: serverTimestamp() }));
+    await assertFails(setDoc(doc(as('mallory'), 'chats/g1/joinRequests/carol'), { name: 'Carol', code: 'abcd2345ef', at: serverTimestamp() }));
+    await assertSucceeds(setDoc(doc(carol, 'chats/g1/joinRequests/carol'), { name: 'Carol', code: 'abcd2345ef', at: serverTimestamp() }));
+    await assertSucceeds(getDoc(doc(carol, 'chats/g1/joinRequests/carol')));
+    await assertFails(getDocs(collection(carol, 'chats/g1/joinRequests')));
+    await assertFails(updateDoc(doc(carol, 'chats/g1/joinRequests/carol'), { name: 'Otra' }));
+    const bob = as('bob');
+    await assertSucceeds(getDocs(collection(bob, 'chats/g1/joinRequests')));
+    await assertSucceeds(updateDoc(doc(bob, 'chats/g1'), { participants: arrayUnion('carol') }));
+    await assertSucceeds(deleteDoc(doc(bob, 'chats/g1/joinRequests/carol')));
+  });
+
+  it('❌ no se pide entrar a un grupo sin aprobación', async () => {
+    await assertFails(setDoc(doc(as('carol'), 'chats/g1/joinRequests/carol'), { name: 'Carol', code: 'abcd2345ef', at: serverTimestamp() }));
+  });
+
+  it('✅ bob cambia el enlace (el viejo se borra); ❌ carol crea un enlace a un grupo ajeno', async () => {
+    const db = as('bob');
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'chats/g1'), { joinCode: 'nuevo23456' });
+    batch.set(doc(db, 'chatInvites/nuevo23456'), { chatId: 'g1', groupName: 'Comilona', byName: 'Bob', createdAt: serverTimestamp() });
+    batch.delete(doc(db, 'chatInvites/abcd2345ef'));
+    await assertSucceeds(batch.commit());
+    await assertFails(setDoc(doc(as('carol'), 'chatInvites/robado1234'), { chatId: 'g1', groupName: 'Comilona', byName: 'Carol' }));
+    await assertFails(setDoc(doc(as('bob'), 'chatInvites/noesel1234'), { chatId: 'g1', groupName: 'Comilona', byName: 'Bob' }));
   });
 });
 

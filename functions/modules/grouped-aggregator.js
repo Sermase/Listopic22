@@ -6,6 +6,14 @@ const { compareElementsByRank, reviewScoreForList } = require('./lib/scoring');
 const { elementKey, normalizeItemName, placeClosedStatus, placeGeoFields } = require('./lib/list-elements');
 const { fetchAuthorRoles, authorOf } = require('./lib/author-roles');
 const { filterPublicReviews } = require('./lib/list-visibility');
+const { aptItemKey } = require('./lib/apt-for');
+
+/** Sello de celíacos del plato: algún «sin problemas» y ningún «me sentó mal» en places.aptFor. */
+function hasGlutenFreeSeal(placeInfo, review) {
+    const items = placeInfo && placeInfo.aptFor && placeInfo.aptFor.items;
+    const counts = items && items[aptItemKey(review)] && items[aptItemKey(review)].glutenFree;
+    return Boolean(counts && counts.yes > 0 && !(counts.no > 0));
+}
 
 // Perezoso: aggregateGroups se prueba sin inicializar Firebase.
 const db = {
@@ -217,7 +225,7 @@ function aggregateGroups(listId, listData, reviews, placeMap, botAuthorIds = new
                 placeClosedStatus: typeof closedStatus === 'string' ? closedStatus : null,
                 placeGoogleBusinessStatus: placeInfo && typeof placeInfo.googleBusinessStatus === 'string' ? placeInfo.googleBusinessStatus : null,
                 placeBusinessStatus: placeInfo && typeof placeInfo.businessStatus === 'string' ? placeInfo.businessStatus : null,
-                placeAccessibilityOptions: placeInfo ? (placeInfo.accessibilityOptions || placeInfo.accessibility || null) : null,
+                placeAccessibilityOptions: placeInfo ? (placeInfo.businessAccessibility ? { ...(placeInfo.accessibility || {}), ...placeInfo.businessAccessibility } : (placeInfo.accessibilityOptions || placeInfo.accessibility || null)) : null,
                 placePetOptions: placeInfo ? (placeInfo.businessPetOptions || placeInfo.petOptions || placeInfo.pets || null) : null,
                 geoloc: extractGeoloc(placeInfo),
                 thumbnailMaxLikes: -1 // Track max likes for thumbnail selection
@@ -226,6 +234,7 @@ function aggregateGroups(listId, listData, reviews, placeMap, botAuthorIds = new
         }
 
         group.counted[isBot ? 'bot' : 'human'].push({ review, score });
+        if (hasGlutenFreeSeal(placeInfo, review)) group.glutenFreeSeal = true;
 
         // Thumbnail Logic: Pick image with most likes
         if (review.photoUrl) {

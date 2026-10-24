@@ -6,6 +6,8 @@ import { FILTER_SECTIONS, NUMERIC_FILTER_ATTRIBUTES, formatNumericRefinementLabe
 import { hitPhoto, usePlaceHitPhotos } from '../components/search/SearchResultPhotos';
 import { SearchLanding } from '../components/search/SearchLanding';
 import { elementKey } from '../lib/listElements';
+import { usePreferences } from '../context/PreferencesContext';
+import { searchPreferenceRules } from '../lib/searchPreferences';
 import { parseZones, zoneKey, zonesFilter, zonesLabel, type Zone } from '../lib/searchZones';
 import {
     InstantSearch,
@@ -187,24 +189,24 @@ const SORT_OPTIONS: Record<string, SortOption[]> = {
     lists: [
         { value: 'lists', indexName: 'lists', label: 'Destacadas' },
         { value: 'lists_by_followers', indexName: 'lists_by_followers', label: 'Seguidores' },
-        { value: 'lists_by_reviews', indexName: 'lists_by_reviews', label: 'Valoraciones' },
+        { value: 'lists_by_reviews', indexName: 'lists_by_reviews', label: 'Reseñas' },
     ],
     places: [
         { value: 'places', indexName: 'places', label: 'Destacados' },
-        { value: 'places_by_rating', indexName: 'places_by_rating', label: 'Valoración' },
-        { value: 'places_by_reviews', indexName: 'places_by_reviews', label: 'Valoraciones' },
+        { value: 'places_by_rating', indexName: 'places_by_rating', label: 'Reseña' },
+        { value: 'places_by_reviews', indexName: 'places_by_reviews', label: 'Reseñas' },
         { value: 'places_distance', indexName: 'places', label: 'Más cerca', requiresLocation: true },
     ],
     users: [
         { value: 'users', indexName: 'users', label: 'Destacados' },
         { value: 'users_by_level', indexName: 'users_by_level', label: 'Nivel' },
         { value: 'users_by_followers', indexName: 'users_by_followers', label: 'Seguidores' },
-        { value: 'users_by_reviews', indexName: 'users_by_reviews', label: 'Valoraciones' },
+        { value: 'users_by_reviews', indexName: 'users_by_reviews', label: 'Reseñas' },
     ],
     items: [
         { value: 'grouped_items', indexName: 'grouped_items', label: 'Destacados' },
         { value: 'grouped_items_by_score', indexName: 'grouped_items_by_score', label: 'Puntuación' },
-        { value: 'grouped_items_by_reviews', indexName: 'grouped_items_by_reviews', label: 'Valoraciones' },
+        { value: 'grouped_items_by_reviews', indexName: 'grouped_items_by_reviews', label: 'Reseñas' },
         { value: 'items_distance', indexName: 'grouped_items', label: 'Más cerca', requiresLocation: true },
     ],
 };
@@ -489,7 +491,7 @@ function getDefaultClosedFilter(tab: string) {
     return '';
 }
 
-// La pestaña Sitios muestra los que tienen ACTIVIDAD visible: alguna valoración pública,
+// La pestaña Sitios muestra los que tienen ACTIVIDAD visible: alguna reseña pública,
 // también de bots (reviewsCount = totalVisibleReviewsCount). Un sitio solo con bots sale,
 // «Sin nota pública todavía»; NUNCA depende de publicHumanReviewsCount. Se filtra con
 // reviewsCount (y no con el nombre nuevo) porque es el campo que tienen todos los registros
@@ -816,7 +818,7 @@ const UserHitCard = ({ hit, selected, onHover }: { hit: SearchHit; selected: boo
                 {hit.bio && <p className="text-[var(--lt-text-muted)] text-xs line-clamp-1 mt-0.5">{hit.bio}</p>}
                 <div className="flex flex-wrap items-center gap-3 mt-1.5 text-xs text-[var(--lt-text-muted)]">
                     <span className="flex items-center gap-1"><Users className="w-3 h-3" /> <strong className="font-bold text-[var(--lt-text)]">{hit.followersCount || 0}</strong> seg.</span>
-                    <span className="flex items-center gap-1"><Star className="w-3 h-3" /> <strong className="font-bold text-[var(--lt-text)]">{hit.reviewsCount || 0}</strong> valoraciones</span>
+                    <span className="flex items-center gap-1"><Star className="w-3 h-3" /> <strong className="font-bold text-[var(--lt-text)]">{hit.reviewsCount || 0}</strong> reseñas</span>
                 </div>
             </div>
             <ChevronRight className="w-4 h-4 text-[var(--lt-text-muted)] shrink-0 transition-transform group-hover:translate-x-0.5" />
@@ -922,9 +924,9 @@ interface HitsProps {
 }
 
 /** Configure de los resultados: añade el filtro de «solo bots» según el filtro «Bots». */
-const ResultsConfigure = ({ tab, query, filters, geo }: { tab: string; query: string; filters: string; geo: Record<string, unknown> }) => {
+const ResultsConfigure = ({ tab, query, filters, geo, optionalFilters }: { tab: string; query: string; filters: string; geo: Record<string, unknown>; optionalFilters?: string[] }) => {
     const botFilter = useBotOnlyFilter(tab);
-    return <Configure query={query} filters={joinAlgoliaFilters([filters, botFilter])} hitsPerPage={20} {...geo} />;
+    return <Configure query={query} filters={joinAlgoliaFilters([filters, botFilter])} hitsPerPage={20} {...(optionalFilters?.length ? { optionalFilters } : {})} {...geo} />;
 };
 
 const NO_HITS: SearchHit[] = [];
@@ -1486,9 +1488,18 @@ export const SearchPage: React.FC = () => {
             activeTab === 'items' && listIdParam ? `listId:"${listIdParam.replace(/"/g, '')}"` : '',
         ])
     ), [parsedAlgoliaFilters, defaultClosedFilter, activeTab, listIdParam]);
+    // «Mis preferencias»: se aplican solas y se pueden quitar mientras dura la búsqueda.
+    const { prefs } = usePreferences();
+    const [ignoredPrefs, setIgnoredPrefs] = useState<Record<string, boolean>>({});
+    const prefRules = useMemo(
+        () => searchPreferenceRules(prefs, activeTab).filter((rule) => !ignoredPrefs[rule.key]),
+        [prefs, activeTab, ignoredPrefs],
+    );
+    const prefFilter = prefRules.map((rule) => rule.filter || '').filter(Boolean).join(' AND ');
+    const prefOptionalFilters = useMemo(() => prefRules.flatMap((rule) => rule.optional || []), [prefRules]);
     const algoliaFilters = useMemo(() => (
-        joinAlgoliaFilters([baseAlgoliaFilters, isGeoTab ? zonesFilter(activeTab, zones) : ''])
-    ), [baseAlgoliaFilters, isGeoTab, activeTab, zones]);
+        joinAlgoliaFilters([baseAlgoliaFilters, prefFilter, isGeoTab ? zonesFilter(activeTab, zones) : ''])
+    ), [baseAlgoliaFilters, prefFilter, isGeoTab, activeTab, zones]);
     const selectedZoneLabel = zonesLabel(zones);
 
     // «#3 en Valladolid» solo cuando lo que se ve es el ranking de la Lista en
@@ -1544,6 +1555,19 @@ export const SearchPage: React.FC = () => {
                     <X className="ml-0.5 w-3 h-3 text-[var(--lt-text-muted)]" aria-hidden />
                 </button>
             )}
+            {prefRules.map((rule) => (
+                <button
+                    key={rule.key}
+                    type="button"
+                    onClick={() => setIgnoredPrefs((prev) => ({ ...prev, [rule.key]: true }))}
+                    aria-label={`Quitar ${rule.label} en esta búsqueda (es de tus preferencias)`}
+                    title="De tus preferencias"
+                    className="inline-flex items-center gap-1 rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-1.5 text-xs font-semibold text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
+                >
+                    {rule.label}
+                    <X className="ml-0.5 w-3 h-3" aria-hidden />
+                </button>
+            ))}
         </div>
     ) : null;
 
@@ -1614,6 +1638,7 @@ export const SearchPage: React.FC = () => {
                             query={parsedQuery.cleanedQuery}
                             filters={algoliaFilters}
                             geo={activeGeoConfig}
+                            optionalFilters={prefOptionalFilters}
                         />
 
                         {/* ── Mobile filter modal ───────────────────────────── */}

@@ -318,6 +318,15 @@ function normalizeSearchToken(value) {
         .trim();
 }
 
+/** Sello de celíacos: algún plato del sitio con algún «sin problemas» y ningún «me sentó mal». */
+function hasGlutenFreeSeal(aptFor) {
+    const items = aptFor && typeof aptFor.items === "object" ? Object.values(aptFor.items) : [];
+    return items.some((item) => {
+        const counts = item && item.glutenFree;
+        return Boolean(counts && counts.yes > 0 && !(counts.no > 0));
+    });
+}
+
 function hasGlutenFreeTag(tags) {
     return (Array.isArray(tags) ? tags : []).some((tag) => {
         const normalized = normalizeSearchToken(tag);
@@ -607,14 +616,14 @@ async function transformPlaceRecord(data, docId) {
         country: data.country || "",
         types: Array.isArray(data.types) ? data.types : [],
         serviceOptions: trueObjectKeys(data.serviceOptions),
-        accessibilityOptions: trueObjectKeys(data.accessibilityOptions || data.accessibility),
+        accessibilityOptions: trueObjectKeys(data.businessAccessibility ? { ...(data.accessibility || {}), ...data.businessAccessibility } : (data.accessibilityOptions || data.accessibility)),
         petOptions: trueObjectKeys(data.businessPetOptions || data.petOptions || data.pets),
         closedStatus,
         googleBusinessStatus: data.googleBusinessStatus || null,
         businessStatus: data.businessStatus || null,
         hasPhoto: Boolean(coverImage || data.hasReviewedPhoto || reviewSignals.hasReviewedPhoto),
         itemTags,
-        isGlutenFree: hasGlutenFreeTag(itemTags),
+        isGlutenFree: hasGlutenFreeTag(itemTags) || hasGlutenFreeSeal(data.aptFor),
         // Nota pública (humana). Sin ella no hay averageRating: la web dice «Sin nota pública todavía».
         hasPublicRating: counts.hasPublicRating,
         averageRating: counts.hasPublicRating ? data.averageRating : undefined,
@@ -751,7 +760,7 @@ function mapGroupToAlgoliaRecord(listId, listData, group, category = null) {
         botOnly: group.botOnly === true,
         groupTags: Array.isArray(group.groupTags) ? group.groupTags : [],
         itemTags,
-        isGlutenFree: hasGlutenFreeTag(itemTags),
+        isGlutenFree: hasGlutenFreeTag(itemTags) || group.glutenFreeSeal === true,
         authorUserType: Array.isArray(group.authorUserType) ? group.authorUserType : [],
         thumbnailUrl,
         hasPhoto: Boolean(thumbnailUrl),
@@ -984,6 +993,13 @@ const syncGroupedItemsOnListUpdate = onDocumentUpdated({ document: "lists/{listI
     return await rebuildGroupedItemsForList(listId);
 });
 
+// «Apto para»: el registro se escribe junto al recuento del sitio; entonces se rehace
+// la lista para que Buscar → Platos vea el sello de celíacos.
+const syncGroupedItemsOnAptLedger = onDocumentWritten({ document: "aptLedger/{ledgerId}", secrets: ALGOLIA_SECRETS }, async (event) => {
+    const listIds = new Set([event.data?.before?.data()?.listId, event.data?.after?.data()?.listId].filter(isNonEmptyString));
+    return await rebuildGroupedItemsForListIds([...listIds]);
+});
+
 const syncGroupedItemsOnListDelete = onDocumentDeleted({ document: "lists/{listId}", secrets: ALGOLIA_SECRETS }, async (event) => {
     const listId = event.params.listId;
     return await clearGroupedItemsForList(listId);
@@ -1116,6 +1132,7 @@ module.exports = {
     syncGroupedItemsRootReviews,
     syncGroupedItemsOnListUpdate,
     syncGroupedItemsOnListDelete,
+    syncGroupedItemsOnAptLedger,
     adminBackfillAlgolia
 };
 

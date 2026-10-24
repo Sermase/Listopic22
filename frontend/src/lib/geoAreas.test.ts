@@ -56,7 +56,7 @@ describe('geoAreas', () => {
             { id: 'e', ...mad, average: 7, count: 3 },
         ];
         const ranks = contextualRanks(items);
-        // En Valladolid: a (9 con 5) > b (8,5 con 5) > c (10 con 1): una valoración no basta.
+        // En Valladolid: a (9 con 5) > b (8,5 con 5) > c (10 con 1): una reseña no basta.
         expect(ranks.get('a')!.find((r) => r.level === 'city')!.label).toBe('#1 en Valladolid');
         expect(ranks.get('c')!.find((r) => r.level === 'city')!.label).toBe('#3 en Valladolid');
         expect(ranks.get('d')!.find((r) => r.level === 'region')!.label).toBe('#1 en Castilla y León');

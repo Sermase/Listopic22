@@ -12,7 +12,7 @@ import { isInlineImage, uploadListCover } from '../lib/listCover';
 import { orderedCriteriaEntries, weightsFromCriteria } from '../lib/criteria';
 import { writeWithOptionalFields } from '../lib/optionalFields';
 import { deriveScoringWeights } from '../lib/scoring';
-import { categoryFixedTags, tagKey, withCategoryTags } from '../lib/categoryTags';
+import { categoryFixedTags, dietFixedTags, isDefaultVegetarian, tagKey, withCategoryTags } from '../lib/categoryTags';
 
 type CriteriaDefinitionValue = {
     type?: string;
@@ -162,7 +162,12 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
         () => categoryFixedTags(categories.find(c => c.id === categoryId)),
         [categories, categoryId],
     );
-    const lockedTags = useMemo(() => withCategoryTags(categoryTags, fixedTags), [categoryTags, fixedTags]);
+    // «Casi todo es vegetariano» (tortillas, bravas, tartas…): sin «Vegetariano», con «🥩 Lleva carne o pescado».
+    const [vegetarianByDefault, setVegetarianByDefault] = useState(() => isDefaultVegetarian(initialData));
+    const lockedTags = useMemo(() => {
+        const merged = withCategoryTags(dietFixedTags(categoryTags, vegetarianByDefault), fixedTags);
+        return vegetarianByDefault ? merged.filter((tag) => !tagKey(tag).includes('vegetarian')) : merged;
+    }, [categoryTags, fixedTags, vegetarianByDefault]);
     const lockedTagKeys = useMemo(() => new Set(lockedTags.map(tagKey)), [lockedTags]);
 
     // Image Handlers
@@ -228,7 +233,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 };
             });
 
-            const finalListTags = withCategoryTags(lockedTags, customTags);
+            const finalListTags = withCategoryTags(lockedTags, vegetarianByDefault ? customTags.filter((tag) => !tagKey(tag).includes('vegetarian')) : customTags);
 
             // Legacy Structure Match
             const newListData = {
@@ -276,7 +281,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
             };
             const docRef = await writeWithOptionalFields((includeWeights) => addDoc(
                 collection(db, 'lists'),
-                includeWeights ? { ...newListData, scoringWeights } : newListData,
+                includeWeights ? { ...newListData, scoringWeights, defaultDiet: vegetarianByDefault ? 'vegetarian' : 'none' } : newListData,
             ));
 
             if (imageFile) {
@@ -414,6 +419,14 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 <div className="border-t border-white/5 pt-6"></div>
 
                 {/* Tags */}
+                <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-glass)] px-3 py-2.5">
+                    <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-[var(--lt-text)]">🥔 Casi todo es vegetariano</span>
+                        <span className="mt-0.5 block text-xs leading-snug text-[var(--lt-text-muted)]">Para tortillas, bravas, tartas de queso… Todo cuenta como vegetariano salvo lo marcado con 🥩. Si no lo activas, solo cuenta lo que lleve la etiqueta «Vegetariano».</span>
+                    </span>
+                    <input type="checkbox" className="h-5 w-5 shrink-0 accent-[var(--lt-accent)]" checked={vegetarianByDefault} onChange={(e) => setVegetarianByDefault(e.target.checked)} />
+                </label>
+
                 <div>
                     <h3 className="text-lg font-bold text-white mb-2">Etiquetas (Tags)</h3>
                     <p className="text-sm text-gray-400 mb-4">
@@ -515,7 +528,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                             />
                             <div>
                                 <span className="block text-sm font-medium text-white">Solo Lectura</span>
-                                <span className="block text-xs text-gray-500">Los visitantes pueden ver la lista pero solo tú (y editores) pueden añadir valoraciones.</span>
+                                <span className="block text-xs text-gray-500">Los visitantes pueden ver la lista pero solo tú (y editores) pueden añadir reseñas.</span>
                             </div>
                         </label>
                         <label className="flex items-center gap-3 cursor-pointer">
@@ -529,7 +542,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                             />
                             <div>
                                 <span className="block text-sm font-medium text-white">Colaborativa (Escritura)</span>
-                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir sus propias valoraciones a esta lista.</span>
+                                <span className="block text-xs text-gray-500">Cualquier usuario puede añadir sus propias reseñas a esta lista.</span>
                             </div>
                         </label>
                     </div>

@@ -318,7 +318,7 @@ describe('el top de una lista', () => {
         const top = result.feeds.find((f) => f.id === 'ranking');
         expect(top?.title).toBe('El top: Croquetas');
         expect(top?.viewAllTo).toBe('/list/croquetas');
-        // 3 valoraciones de 9,2 ganan a una sola de 9,8.
+        // 3 reseñas de 9,2 ganan a una sola de 9,8.
         expect(top?.items.map((i) => i.placeId)).toEqual(['c2', 'c1', 'c3']);
         expect(top?.items.map((i) => i.rank)).toEqual([1, 2, 3]);
         const elsewhere = result.feeds.filter((f) => f.id !== 'ranking').flatMap((f) => f.items)

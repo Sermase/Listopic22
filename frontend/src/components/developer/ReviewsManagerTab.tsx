@@ -112,12 +112,12 @@ export const ReviewsManagerTab: React.FC = () => {
     const addLog = (msg: string) => setLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev.slice(0, 49)]);
 
     // Por el servidor (adminSearchReviews): desde el navegador las reglas rechazaban la
-    // colección raíz antigua y cualquier consulta de más de 100 valoraciones.
+    // colección raíz antigua y cualquier consulta de más de 100 reseñas.
     const loadReviews = async () => {
         setLoading(true);
         setLog([]);
         try {
-            addLog(`Cargando hasta ${fetchLimit} valoraciones (servidor)...`);
+            addLog(`Cargando hasta ${fetchLimit} reseñas (servidor)...`);
             const result = await adminSearchReviews({ limit: fetchLimit, full: true });
             const all = result.reviews.map((row) => ({
                 ...row,
@@ -128,7 +128,7 @@ export const ReviewsManagerTab: React.FC = () => {
             }));
             setReviews(all);
             setListsCache(Object.fromEntries(all.filter((r) => r.listId && r.listName).map((r) => [r.listId as string, r.listName as string])));
-            addLog(`Total: ${all.length} de ${result.total} valoraciones (${result.scanned} revisadas${result.truncated ? ', búsqueda recortada: filtra por usuario, sitio o Lista' : ''}).`);
+            addLog(`Total: ${all.length} de ${result.total} reseñas (${result.scanned} revisadas${result.truncated ? ', búsqueda recortada: filtra por usuario, sitio o Lista' : ''}).`);
         } catch (err: any) {
             addLog(`Error: ${err.message}`);
         } finally {
