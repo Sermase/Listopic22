@@ -2,9 +2,12 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppConfig } from '../context/AppConfigContext';
 import { ArrowLeft } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { isLabAppVisible } from '../lib/labApps';
 
 export const LabPage: React.FC = () => {
     const config = useAppConfig();
+    const { isJefe } = useAuth();
     const navigate = useNavigate();
     const iframeRef = React.useRef<HTMLIFrameElement | null>(null);
 
@@ -34,7 +37,7 @@ export const LabPage: React.FC = () => {
         };
     }, [navigate, requestSimulatorBack]);
 
-    if (!config.showLab) {
+    if (!isLabAppVisible(config, 'apegos', isJefe)) {
         return (
             <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-900 text-white gap-4">
                 <div className="text-6xl">🔒</div>
