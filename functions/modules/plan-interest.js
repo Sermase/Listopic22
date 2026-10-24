@@ -8,7 +8,7 @@
 // (source 'trial' con caducidad; expireManualPlans lo degrada al vencer).
 // Una sola prueba por usuario y por local. No toca Stripe ni pide tarjeta.
 
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("./https");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { writeAuditLog } = require("./lib/auth");
 const { hasActiveBusinessPro, hasActiveUserPremium } = require("./lib/business-plan");

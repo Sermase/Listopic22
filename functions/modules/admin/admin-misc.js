@@ -2,7 +2,7 @@
 //
 // Auditoría de estadísticas y acceso genérico a colecciones para admins.
 
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('../https');
 const logger = require('firebase-functions/logger');
 const { getFirestore } = require('firebase-admin/firestore');
 const { assertJefeAccess, writeAuditLog } = require('../lib/auth');

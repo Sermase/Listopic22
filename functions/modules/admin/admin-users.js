@@ -2,7 +2,7 @@
 //
 // Recálculo masivo de estadísticas de usuario.
 
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('../https');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { assertJefeAccess, writeAuditLog } = require('../lib/auth');

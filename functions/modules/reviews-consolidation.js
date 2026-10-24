@@ -14,7 +14,7 @@
  *      migrar los contadores quedan inflados hasta ejecutar el recuento).
  */
 
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('./https');
 const logger = require('firebase-functions/logger');
 const { getFirestore, FieldValue, FieldPath } = require('firebase-admin/firestore');
 const { assertJefeAccess, writeAuditLog } = require('./lib/auth');

@@ -3,7 +3,7 @@
 // Developer (solo jefe): consumo de Google por SKU en el mes y «Actualizar imagen rota».
 // Ver Mejoras/google-places-skus.md.
 
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('./https');
 const logger = require('firebase-functions/logger');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const fetch = require('node-fetch');

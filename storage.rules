@@ -13,7 +13,7 @@ service firebase.storage {
     // --- Helpers ---
 
     function isSignedIn() {
-      return request.auth != null;
+      return request.auth != null && request.auth.token.get('firebase', {}).get('sign_in_provider', '') != 'anonymous';
     }
 
     function isJefe() {

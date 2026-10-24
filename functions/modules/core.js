@@ -36,7 +36,7 @@
 // Mientras tanto, TODAS las funciones nuevas deberían escribirse en el módulo
 // correspondiente, no aquí.
 
-const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onRequest, onCall, HttpsError } = require("./https");
 const logger = require("firebase-functions/logger");
 const { getAuth } = require("firebase-admin/auth");
 const DEFAULT_CORS_ORIGINS = [
@@ -167,6 +167,11 @@ async function requireAuthFromRequest(req, res) {
   }
   try {
     const decoded = await getAuth().verifyIdToken(match[1]);
+    // Las sesiones anónimas son de Pachote: aquí no valen.
+    if (decoded.firebase?.sign_in_provider === 'anonymous') {
+      res.status(401).json({ message: 'No autorizado: inicia sesión.' });
+      return null;
+    }
     return decoded;
   } catch (error) {
     logger.warn('requireAuthFromRequest: token inválido', { error: error.message });
