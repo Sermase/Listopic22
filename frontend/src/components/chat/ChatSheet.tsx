@@ -1,11 +1,13 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 
-/** Hoja inferior de las herramientas del chat (en escritorio, ventana centrada). */
+/** Hoja inferior de las herramientas del chat (en escritorio, ventana centrada). Va al body para quedar
+ * por encima de las barras de la app aunque se abra dentro de la pantalla fija del chat. */
 export const ChatSheet: React.FC<{ title: string; onClose: () => void; children: React.ReactNode }> = ({ title, onClose, children }) => {
     useBodyScrollLock(true);
-    return (
+    return createPortal(
         <div
             className="fixed inset-0 z-[10000] flex items-end md:items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in"
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
@@ -19,6 +21,7 @@ export const ChatSheet: React.FC<{ title: string; onClose: () => void; children:
                 </div>
                 <div className="px-5">{children}</div>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 };

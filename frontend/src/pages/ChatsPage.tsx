@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { ChatService, type Chat, type Message } from '../services/ChatService';
 import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, X, Users, User, ExternalLink, SquarePen, ChevronDown } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { doc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
@@ -675,6 +676,12 @@ export const ChatsPage: React.FC = () => {
                                     <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 px-6">
                                         <span className="text-5xl mb-3">👋</span>
                                         <p className="text-sm">Saluda, o invita a comer con el botón 🍽️.</p>
+                                        {activeChatObj?.type === 'group' && (
+                                            <div className="w-full max-w-xs mt-5 text-left">
+                                                <p className="text-xs text-gray-400 mb-2 text-center">Invita a tu gente al grupo:</p>
+                                                <JoinLinkBox chat={activeChatObj} byName={me().name} />
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                                 {messages.map(renderMessage)}
@@ -782,6 +789,8 @@ export const ChatsPage: React.FC = () => {
                     }}
                     onGroup={async (name, userIds) => {
                         const id = await ChatService.createGroupChat(user.uid, name, userIds);
+                        // Grupo nuevo con su enlace listo para compartir.
+                        await ChatService.createJoinLink(id, name, me().name).catch(console.error);
                         navigate(`/chats/${id}`);
                     }}
                 />
@@ -846,7 +855,7 @@ export const ChatsPage: React.FC = () => {
                 />
             )}
 
-            {isInfoModalOpen && activeChatObj && user && (
+            {isInfoModalOpen && activeChatObj && user && createPortal(
                 <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) setIsInfoModalOpen(false); }}>
                     <div className="bg-[var(--lt-card-strong)] rounded-3xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden lt-mobile-modal-panel overflow-y-auto" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-white/5 flex justify-between items-center">
@@ -950,7 +959,8 @@ export const ChatsPage: React.FC = () => {
                             )}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );
