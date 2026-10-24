@@ -11,7 +11,7 @@ interface UserHit {
     photoUrl?: string;
 }
 
-/** Nuevo chat: una persona (chat privado) o varias con nombre de grupo. */
+/** Nuevo chat con una persona, o grupo con nombre (la gente se puede añadir ahora o invitarla luego con el enlace). */
 export const NewChatSheet: React.FC<{
     uid: string;
     onClose: () => void;
@@ -23,6 +23,7 @@ export const NewChatSheet: React.FC<{
     const [selected, setSelected] = useState<UserHit[]>([]);
     const [groupName, setGroupName] = useState('');
     const [busy, setBusy] = useState(false);
+    const [mode, setMode] = useState<'chat' | 'group'>('chat');
 
     useEffect(() => {
         const q = query.trim();
@@ -40,15 +41,17 @@ export const NewChatSheet: React.FC<{
 
     const toggle = (hit: UserHit) => setSelected((prev) => (prev.some((p) => p.objectID === hit.objectID)
         ? prev.filter((p) => p.objectID !== hit.objectID)
-        : [...prev, hit]));
+        : mode === 'chat' ? [hit] : [...prev, hit]));
     const label = (h: UserHit) => h.displayName || h.username || 'Alguien';
-    const isGroup = selected.length > 1;
+    const isGroup = mode === 'group' || selected.length > 1;
+    const name = groupName.trim() || selected.map(label).join(', ').slice(0, 40);
+    const ready = isGroup ? Boolean(name) : selected.length === 1;
 
     const create = async () => {
-        if (!selected.length) return;
+        if (!ready) return;
         setBusy(true);
         try {
-            if (isGroup) await onGroup(groupName.trim() || selected.map(label).join(', ').slice(0, 40), selected.map((s) => s.objectID));
+            if (isGroup) await onGroup(name, selected.map((s) => s.objectID));
             else await onPrivate(selected[0].objectID);
             onClose();
         } finally {
@@ -57,7 +60,35 @@ export const NewChatSheet: React.FC<{
     };
 
     return (
-        <ChatSheet title="💬 Nuevo chat" onClose={onClose}>
+        <ChatSheet title={mode === 'group' ? '👥 Nuevo grupo' : '💬 Nuevo chat'} onClose={onClose}>
+            <div className="grid grid-cols-2 gap-1 p-1 mb-3 rounded-xl bg-[var(--lt-bg)] border border-white/10" role="tablist">
+                {(['chat', 'group'] as const).map((m) => (
+                    <button
+                        key={m}
+                        type="button"
+                        role="tab"
+                        aria-selected={mode === m}
+                        onClick={() => { setMode(m); if (m === 'chat') setSelected((prev) => prev.slice(0, 1)); }}
+                        className={`py-2 rounded-lg text-sm font-bold transition-colors ${mode === m ? 'bg-[var(--lt-accent)] text-white' : 'text-gray-400 hover:text-white'}`}
+                    >
+                        {m === 'chat' ? '💬 Con alguien' : '👥 Grupo'}
+                    </button>
+                ))}
+            </div>
+            {mode === 'group' && (
+                <div className="mb-3">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Nombre del grupo</p>
+                    <input
+                        type="text"
+                        value={groupName}
+                        maxLength={60}
+                        onChange={(e) => setGroupName(e.target.value)}
+                        placeholder="Los de las bravas 🍟"
+                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--lt-accent-border)]"
+                    />
+                    <p className="text-[11px] text-gray-500 mt-3 mb-1">Añade gente ahora (opcional). Luego podrás invitar a quien quieras con un enlace.</p>
+                </div>
+            )}
             <div className="relative mb-2">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                 <input
@@ -78,7 +109,7 @@ export const NewChatSheet: React.FC<{
                 </div>
             )}
             <div className="space-y-0.5 max-h-64 overflow-y-auto">
-                {query.trim().length < 2 && <p className="text-xs text-gray-500 py-3 text-center">Elige una persona para un chat, o varias para un grupo.</p>}
+                {query.trim().length < 2 && mode === 'chat' && <p className="text-xs text-gray-500 py-3 text-center">Busca a la persona con la que quieres hablar.</p>}
                 {hits.map((hit) => {
                     const isOn = selected.some((s) => s.objectID === hit.objectID);
                     return (
@@ -93,26 +124,13 @@ export const NewChatSheet: React.FC<{
                     );
                 })}
             </div>
-            {isGroup && (
-                <div className="mt-3">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1"><Users className="w-3.5 h-3.5" /> Nombre del grupo</p>
-                    <input
-                        type="text"
-                        value={groupName}
-                        maxLength={60}
-                        onChange={(e) => setGroupName(e.target.value)}
-                        placeholder="Los de las bravas 🍟"
-                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[var(--lt-accent-border)]"
-                    />
-                </div>
-            )}
             <button
                 type="button"
                 onClick={create}
-                disabled={!selected.length || busy}
+                disabled={!ready || busy}
                 className="w-full mt-4 py-3 rounded-xl font-bold text-white bg-[var(--lt-accent)] disabled:opacity-40"
             >
-                {busy ? 'Creando…' : isGroup ? `Crear grupo (${selected.length + 1})` : selected.length ? `Chatear con ${label(selected[0])}` : 'Elige a alguien'}
+                {busy ? 'Creando…' : isGroup ? (ready ? `Crear grupo${selected.length ? ` (${selected.length + 1})` : ''}` : 'Ponle nombre al grupo') : selected.length ? `Chatear con ${label(selected[0])}` : 'Elige a alguien'}
             </button>
         </ChatSheet>
     );

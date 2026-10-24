@@ -183,3 +183,18 @@ test('enlace de invitación al grupo (abierto y con aprobación) y «¿Cuándo q
   await expect(poll.getByRole('button', { name: '📅 Ver la quedada' })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('crear un grupo solo con nombre y con su enlace listo', async ({ page, errors }) => {
+  await login(page, 'luis');
+  await page.goto('/chats');
+  await page.getByRole('button', { name: 'Nuevo chat' }).click();
+  await page.getByRole('tab', { name: /Grupo/ }).click();
+  await sheet(page).getByPlaceholder('Los de las bravas 🍟').fill('Cañas del viernes');
+  await shot(page, '13-nuevo-grupo');
+  await sheet(page).getByRole('button', { name: 'Crear grupo', exact: true }).click();
+  await expect(page).toHaveURL(/\/chats\/[^/]+$/);
+  await expect(page.getByText('Cañas del viernes').filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByTestId('join-link')).toContainText('/g/');
+  await shot(page, '14-grupo-con-enlace');
+  expect(errors).toEqual([]);
+});
