@@ -18,7 +18,7 @@
 // elementos, ficha, secciones) tiene su propio cupo amplio (MENU_RATE_LIMIT);
 // propuestas, patrocinios y ofertas siguen con 100. Los admin no tienen límite.
 
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("./https");
 const logger = require("firebase-functions/logger");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { assertJefeAccess, rateLimit, writeAuditLog } = require("./lib/auth");

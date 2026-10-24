@@ -4,7 +4,7 @@
 // pide un jefe cuando el usuario lo solicita) y limpiar su rastro al borrar la
 // cuenta (fotos, comentarios, foros, chats, notificaciones enviadas...).
 
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('../https');
 const logger = require('firebase-functions/logger');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');

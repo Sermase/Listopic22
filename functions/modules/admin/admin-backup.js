@@ -10,7 +10,7 @@
 // volumen crezca, migrar al export gestionado de Firestore (gcloud) — está
 // anotado en el doc de mejoras.
 
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('../https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const logger = require('firebase-functions/logger');
 const { getFirestore, Timestamp, GeoPoint, DocumentReference } = require('firebase-admin/firestore');

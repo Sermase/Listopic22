@@ -7,7 +7,7 @@
 // Aplicar es solo para jefe mientras no se decida otra cosa
 // (ver Mejoras/plan-fase-B1.md, pregunta abierta sobre quién puede migrar).
 
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('../https');
 const logger = require('firebase-functions/logger');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { assertJefeAccess, writeAuditLog } = require('../lib/auth');

@@ -34,6 +34,7 @@ module.exports = {
     ...require('./modules/reviews-consolidation'),
     ...require('./modules/apt-for'),
     ...require('./modules/media'),
+    ...require('./modules/pachote'),
     ...require('./modules/admin/admin-tags'),
     ...require('./modules/admin/admin-users'),
     ...require('./modules/admin/admin-reviews'),

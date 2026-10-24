@@ -140,6 +140,11 @@ async function seed() {
     participants: ['ana', 'luis', 'eva'], type: 'group', groupName: 'Comilona',
     unreadCount: { ana: 0, luis: 0, eva: 0 }, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
   });
+  // Chat de pachote.spec.ts: un grupo solo para sus cuentas.
+  await db.doc('chats/riano').set({
+    participants: ['ana', 'luis', 'eva'], type: 'group', groupName: 'Viaje a Riaño',
+    unreadCount: { ana: 0, luis: 0, eva: 0 }, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
+  });
   await db.doc('chats/comilona/messages/quedada').set({
     text: '🍽️ Te invito a comer Bravas en Bar Uno', senderId: 'ana', type: 'invite', readBy: ['ana'],
     createdAt: Timestamp.fromMillis(Date.now() - 3 * 86_400_000),

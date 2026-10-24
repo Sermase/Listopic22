@@ -28,7 +28,7 @@
 // - adminRepairPlaceItems: reparación (jefe) de los datos anteriores a este
 //   modelo: siembra alias curados, arregla fusiones reactivadas y reconstruye.
 
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("./https");
 const logger = require("firebase-functions/logger");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { assertJefeAccess, writeAuditLog } = require("./lib/auth");

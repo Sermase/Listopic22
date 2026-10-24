@@ -9,7 +9,7 @@
 // el webhook no degrada planes manuales, y estas callables no tocan planes
 // con suscripción de Stripe activa (se gestionan desde Stripe).
 
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('../https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const logger = require('firebase-functions/logger');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');

@@ -1,5 +1,5 @@
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("./https");
 const { defineSecret } = require("firebase-functions/params");
 const logger = require("firebase-functions/logger");
 const fetch = require("node-fetch");
