@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { HelpTip } from './HelpTip';
 import { createPortal } from 'react-dom';
 import { moveVisitedPlace } from '../lib/visitArchives';
-import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc, setDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, getDoc, getDocs, setDoc, deleteDoc, Timestamp, query, where } from 'firebase/firestore';
 import { db, storage, functions } from '../firebase';
 import { ref, uploadBytes, getDownloadURL, deleteObject, getBlob } from 'firebase/storage';
 import { httpsCallable } from 'firebase/functions';
@@ -15,7 +15,7 @@ import { PhotoEditorModal, type ProcessedPhoto } from './PhotoEditorModal';
 import { PlaceSearch } from './PlaceSearch';
 import { PlaceService, type PlaceResult } from '../services/PlaceService';
 import { ListSearch } from './ListSearch';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { isGooglePlacePhotoUrl } from '../utils/placeImages';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from '../lib/storageCache';
@@ -28,6 +28,7 @@ import { CategoryService } from '../services/CategoryService';
 import { parseReviewDraft, reviewDraftKey, REVIEW_DRAFT_VERSION, shouldRestoreReviewDraft } from '../lib/reviewDraft';
 import { usePlaceElementsInList } from '../hooks/usePlaceElementsInList';
 import { itemNameKey } from '../lib/placeItems';
+import { findSameElementReview } from '../lib/reviewUniqueness';
 
 interface AddReviewFormProps {
     listId: string | null;
@@ -54,6 +55,16 @@ const REVIEW_EDIT_TOASTS = [
     'Actualización hecha. El criterio subió un nivel.',
     'Editado con éxito: caos bajo control.',
 ] as const;
+
+/** Tus reseñas de un sitio en una lista (las reglas dejan leer las propias sin filtrar visibilidad). */
+const fetchOwnReviewsAtPlace = async (listId: string, placeId: string, uid: string) => {
+    const snap = await getDocs(query(
+        collection(db, 'lists', listId, 'reviews'),
+        where('userId', '==', uid),
+        where('placeId', '==', placeId),
+    ));
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() } as { id: string; itemName?: string }));
+};
 
 const pickRandom = <T,>(items: readonly T[]): T => items[Math.floor(Math.random() * items.length)];
 
@@ -173,9 +184,12 @@ const fileFromExistingPhoto = async (url: string, index: number, storagePath?: s
     return new File([blob], `review-photo-${index + 1}.${extension}`, { type });
 };
 
-export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId, lockList = false, onClose, onSuccess, suggestedListIds }) => {
+export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId: editReviewIdProp, lockList = false, onClose, onSuccess, suggestedListIds }) => {
     useBodyScrollLock(true);
     const { user } = useAuth();
+    // Editable aquí: si ya tienes reseña de ese plato, «Editar la mía» la abre en este mismo formulario.
+    const [editReviewId, setEditReviewId] = useState<string | undefined>(editReviewIdProp);
+    useEffect(() => { setEditReviewId(editReviewIdProp); }, [editReviewIdProp]);
     // «Apto para»: solo para quien aporta en algo (Mis preferencias). Respuestas privadas.
     const { prefs } = usePreferences();
     const contributeKeys = APT_CONTRIBUTE_KEYS.filter((key) => prefs.contribute.includes(key));
@@ -296,6 +310,21 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const chosenElementKey = itemName.trim() ? itemNameKey(itemName) : '';
     const chosenElement = elementOptions.find((element) => itemNameKey(element.name) === chosenElementKey) || null;
     const showItemNameInput = elementOptions.length === 0 || writeNewItem || (Boolean(chosenElementKey) && !chosenElement);
+    // Una reseña por persona y plato (lib/reviewUniqueness): las tuyas de ese sitio en la lista.
+    const reviewListId = listData?.parentListId || internalListId;
+    const reviewVisibility = listData?.visibility === 'private' ? 'private' : 'public';
+    const reviewSublistId = listData?.parentListId ? internalListId : null;
+    const { data: ownReviewsHere = [] } = useQuery({
+        queryKey: ['ownReviewsAtPlace', reviewListId, selectedPlaceId, user?.uid],
+        enabled: Boolean(user?.uid && reviewListId && selectedPlaceId && listData),
+        staleTime: 60 * 1000,
+        queryFn: () => fetchOwnReviewsAtPlace(reviewListId!, selectedPlaceId!, user!.uid),
+    });
+    const sameElementReview = findSameElementReview(
+        { userId: user?.uid, listId: reviewListId, sublistId: reviewSublistId, visibility: reviewVisibility, placeId: selectedPlaceId, itemName },
+        ownReviewsHere,
+        editReviewId,
+    );
     const ELEMENT_CHIPS_LIMIT = 6;
     const visibleElements = showAllElements ? elementOptions : elementOptions.slice(0, ELEMENT_CHIPS_LIMIT);
     const hiddenElementsCount = elementOptions.length - visibleElements.length;
@@ -663,6 +692,20 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         if (!selectedPlace && !prefillPlaceId && !editReviewId) {
             setError("Elige un sitio (restaurante, playa…)");
             return;
+        }
+
+        // Una reseña por persona y plato: se comprueba otra vez contra el servidor.
+        if (selectedPlaceId && reviewListId) {
+            const fresh = await fetchOwnReviewsAtPlace(reviewListId, selectedPlaceId, user.uid).catch(() => []);
+            const duplicate = findSameElementReview(
+                { userId: user.uid, listId: reviewListId, sublistId: reviewSublistId, visibility: reviewVisibility, placeId: selectedPlaceId, itemName },
+                fresh,
+                editReviewId,
+            );
+            if (duplicate) {
+                setError(`Ya tienes una reseña de «${duplicate.itemName || itemName.trim()}» aquí. Edita la tuya en vez de crear otra.`);
+                return;
+            }
         }
 
         setLoading(true);
@@ -1314,6 +1357,21 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                                 )}
                             </div>
 
+                            {sameElementReview && (
+                                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">
+                                    <span className="min-w-0 flex-1">
+                                        ✋ Ya valoraste <strong>{sameElementReview.itemName || itemName.trim()}</strong> aquí. Solo cabe una reseña por plato.
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => { setError(null); setEditReviewId(sameElementReview.id); }}
+                                        className="shrink-0 rounded-full bg-amber-400/20 px-3 py-1.5 text-xs font-bold text-amber-50 hover:bg-amber-400/30"
+                                    >
+                                        ✏️ Editar la mía
+                                    </button>
+                                </div>
+                            )}
+
                             {/* ── Sección: Reseña ─────────────────── */}
                             {criteriaLoaded && hasComputingCriteria ? (
                                 <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] p-4 space-y-5">
@@ -1587,9 +1645,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             <button
                                 type="submit"
                                 form="review-form"
-                                disabled={loading || !isValid || (!isNew && !isDirty)}
+                                disabled={loading || !isValid || (!isNew && !isDirty) || Boolean(sameElementReview)}
                                 className={`flex-1 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]
-                                ${loading || !isValid || (!isNew && !isDirty)
+                                ${loading || !isValid || (!isNew && !isDirty) || sameElementReview
                                         ? 'bg-white/5 border border-white/5 text-gray-500 cursor-not-allowed'
                                         : 'btn-primary'
                                     }`}

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useAppConfig } from '../context/AppConfigContext';
+import { isLabAppEnabled } from '../lib/labApps';
 import { ChatService, type Chat, type Message } from '../services/ChatService';
 import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, X, Users, User, ExternalLink, SquarePen, ChevronDown } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -70,7 +72,10 @@ const listTime = (seconds?: number) => {
 };
 
 export const ChatsPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, isJefe } = useAuth();
+    const config = useAppConfig();
+    // Developer → Proyectos → Pachote «🙈 Oculta» quita las cuentas del chat (las tarjetas ya enviadas siguen).
+    const pachoteOn = isLabAppEnabled(config, 'pachote', isJefe);
     const { showToast } = useToast();
     const navigate = useNavigate();
     const { chatId } = useParams();
@@ -724,13 +729,13 @@ export const ChatsPage: React.FC = () => {
                                 </div>
                             )}
                             {toolsOpen && (
-                                <div className="grid grid-cols-5 gap-1.5 px-3 pt-3 animate-fade-in">
+                                <div className={`grid ${pachoteOn ? 'grid-cols-5' : 'grid-cols-4'} gap-1.5 px-3 pt-3 animate-fade-in`}>
                                     {[
                                         { label: 'Invitar a comer', icon: '🍽️', open: () => setTool({ kind: 'invite' }) },
                                         { label: '¿Cuándo quedamos?', icon: '📅', open: () => setTool({ kind: 'datepoll' }) },
                                         { label: '¿Dónde comemos?', icon: '🗳️', open: () => setTool({ kind: 'poll' }) },
                                         { label: 'Ruleta del antojo', icon: '🎰', open: () => setTool({ kind: 'roulette' }) },
-                                        { label: 'Cuentas', icon: '💸', open: () => setTool({ kind: 'pachote' }) },
+                                        ...(pachoteOn ? [{ label: 'Cuentas', icon: '💸', open: () => setTool({ kind: 'pachote' }) }] : []),
                                     ].map((t) => (
                                         <button
                                             key={t.label}
@@ -936,13 +941,15 @@ export const ChatsPage: React.FC = () => {
 
                             {activeChatObj.type === 'group' && <JoinLinkBox chat={activeChatObj} byName={me().name} />}
 
-                            <PachotePanel
-                                chat={activeChatObj}
-                                chatName={getChatName(activeChatObj)}
-                                me={me()}
-                                people={chatPeople}
-                                onOpen={(gid) => { setIsInfoModalOpen(false); setPachoteOpen(gid); }}
-                            />
+                            {pachoteOn && (
+                                <PachotePanel
+                                    chat={activeChatObj}
+                                    chatName={getChatName(activeChatObj)}
+                                    me={me()}
+                                    people={chatPeople}
+                                    onOpen={(gid) => { setIsInfoModalOpen(false); setPachoteOpen(gid); }}
+                                />
+                            )}
 
                             <h4 className="text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Participantes ({participants.length})</h4>
                             <div className="space-y-1 max-h-48 overflow-y-auto pr-1 mb-5">

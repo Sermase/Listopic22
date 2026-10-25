@@ -14,6 +14,8 @@ import { invalidateDoc } from '../lib/queryCache';
 import { useDeveloperPendingCounts } from '../hooks/useDeveloperInbox';
 import { DeveloperSidebar } from '../components/developer/DeveloperSidebar';
 import { developerTabLabel } from '../components/developer/developerNav';
+import { LabAppToggle } from '../components/developer/LabAppToggle';
+import { useAppConfig } from '../context/AppConfigContext';
 import {
     buildTabSearchParams,
     mergeNavigateParams,
@@ -45,6 +47,7 @@ const BusinessManagersTab = React.lazy(() => import('../components/developer/Bus
 const PlansManagerTab = React.lazy(() => import('../components/developer/PlansManagerTab').then(module => ({ default: module.PlansManagerTab })));
 const ProProposalsTab = React.lazy(() => import('../components/developer/ProProposalsTab').then(module => ({ default: module.ProProposalsTab })));
 const BackupsTab = React.lazy(() => import('../components/developer/BackupsTab').then(module => ({ default: module.BackupsTab })));
+const DuplicateReviewsCard = React.lazy(() => import('../components/developer/DuplicateReviewsCard').then(module => ({ default: module.DuplicateReviewsCard })));
 const ReviewsConsolidationCard = React.lazy(() => import('../components/developer/ReviewsConsolidationCard').then(module => ({ default: module.ReviewsConsolidationCard })));
 
 const DeveloperTabFallback: React.FC = () => (
@@ -81,6 +84,7 @@ export const DeveloperPage: React.FC = () => {
     const isAuthorized: boolean | null = loadingAuth ? null : isJefe;
     // Claim `admin` del token: sin él, las reglas no reconocen al jefe (ver hooks/useJefeClaim).
     const jefeClaim = useJefeClaim(user, Boolean(isJefe));
+    const appConfig = useAppConfig();
     // Contadores de la barra lateral: las reglas piden el claim admin, así que se espera a tenerlo.
     const pendingCounts = useDeveloperPendingCounts(jefeClaim.status === 'ready');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -1021,6 +1025,10 @@ export const DeveloperPage: React.FC = () => {
                                         <ReviewsConsolidationCard />
                                     </React.Suspense>
 
+                                    <React.Suspense fallback={null}>
+                                        <DuplicateReviewsCard />
+                                    </React.Suspense>
+
                                     <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">
                                         <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
                                             <Terminal className="w-5 h-5 text-cyan-400" /> Provisionar Claim Admin
@@ -1064,7 +1072,7 @@ export const DeveloperPage: React.FC = () => {
                                         <span className="text-2xl">🧪</span> Proyectos Internos
                                     </h2>
                                     <p className="text-gray-400 text-sm mb-6">
-                                        Experimentos y herramientas de Istari Core. Accesibles siempre desde aquí; su visibilidad pública se controla en <strong>OTROS → Lab</strong>.
+                                        Experimentos y herramientas de Istari Core. Tú las abres siempre desde aquí. Toca «Se muestra / Oculta» para elegir cuáles ve la gente; el laboratorio entero se enciende en <strong>OTROS → Lab</strong> (ahora: {appConfig.showLab ? 'público' : 'oculto'}).
                                     </p>
 
                                     {/* Simulador Clínico */}
@@ -1099,9 +1107,7 @@ export const DeveloperPage: React.FC = () => {
                                             <span className="text-xs text-gray-500">
                                                 Ruta: <code className="text-indigo-300">/lab</code> · Archivo: <code className="text-gray-400">public/lab/simulator.html</code>
                                             </span>
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${otherSettings.showLab ? 'bg-indigo-500/20 text-indigo-300' : 'bg-gray-500/20 text-gray-400'}`}>
-                                                {otherSettings.showLab ? '🌐 Público' : '🔒 Solo admin'}
-                                            </span>
+                                            <LabAppToggle id="apegos" />
                                         </div>
                                     </div>
 
@@ -1112,7 +1118,7 @@ export const DeveloperPage: React.FC = () => {
                                             <div className="flex-1 min-w-0">
                                                 <h3 className="text-lg font-bold text-white">Pachote</h3>
                                                 <p className="text-sm text-gray-400 mt-1">
-                                                    Gastos compartidos para viajes y casas con familias, peques con peso, cuentas conjuntas y saldos por familia. App independiente con su propio Firebase.
+                                                    Gastos compartidos para viajes y casas con familias, peques con peso, cuentas conjuntas y saldos por familia. Vive en el Firebase de Listopic: misma cuenta y «💸 Cuentas» en el chat de cada grupo. «🙈 Oculta» también las quita del chat.
                                                 </p>
                                                 <div className="flex flex-wrap gap-2 mt-3">
                                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-300 border border-orange-500/20">PWA</span>
@@ -1134,9 +1140,7 @@ export const DeveloperPage: React.FC = () => {
                                             <span className="text-xs text-gray-500">
                                                 URL: <code className="text-orange-300">pachote-78042.web.app</code> · Repo: <code className="text-gray-400">Sermase/Pachote</code>
                                             </span>
-                                            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${otherSettings.showLab ? 'bg-orange-500/20 text-orange-300' : 'bg-gray-500/20 text-gray-400'}`}>
-                                                {otherSettings.showLab ? '🌐 Público' : '🔒 Solo admin'}
-                                            </span>
+                                            <LabAppToggle id="pachote" />
                                         </div>
                                     </div>
                                 </div>

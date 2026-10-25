@@ -95,6 +95,7 @@ const { ACTION_SKUS, refreshStamp } = require("./lib/google-usage");
 const { googleRefreshSkipReason, latLngOf } = require("./lib/place-refresh");
 const { fetchAuthorRoles, authorOf } = require("./lib/author-roles");
 const { computePlaceRating } = require("./lib/place-rating");
+const { reviewSlotKey, keeperId } = require("./lib/review-uniqueness");
 
 const db = getFirestore();
 
@@ -1761,6 +1762,29 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
       logger.info(`Contadores actualizados exitosamente para nueva reseña ${reviewId}.`);
     } catch (error) {
       logger.error("Error al actualizar contadores para nueva reseña:", error);
+    }
+
+    // Una reseña por persona y plato. La app ya lo impide; esto cubre el doble
+    // toque y los clientes viejos: se queda la más antigua y se borra esta (el
+    // borrado vuelve a pasar por aquí y descuenta los contadores).
+    const slotKey = reviewSlotKey({ ...newData, listId: newData.listId || listId });
+    if (slotKey) {
+      try {
+        const sameSlot = await db.collection('lists').doc(listId).collection('reviews')
+          .where('userId', '==', userId)
+          .where('placeId', '==', newData.placeId)
+          .get();
+        const twins = sameSlot.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((r) => reviewSlotKey({ ...r, listId: r.listId || listId }) === slotKey);
+        if (twins.length > 1 && keeperId(twins) !== reviewId) {
+          logger.warn(`Reseña duplicada ${reviewId} (ya hay ${keeperId(twins)} del mismo plato en ${listId}): se borra.`);
+          await event.data.after.ref.delete();
+          return null;
+        }
+      } catch (error) {
+        logger.error(`No se pudo comprobar si la reseña ${reviewId} está repetida:`, error);
+      }
     }
     recalculateList = true;
   }
