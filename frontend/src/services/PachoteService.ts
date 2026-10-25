@@ -10,13 +10,15 @@ import {
     addDoc,
     collection,
 } from 'firebase/firestore';
-import { db } from '../firebase';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../firebase';
 import { eventNoteText, type ChatEventNote } from '../lib/chatExtras';
 import {
     membersFromPeople,
     pachoteCardText,
     pachoteId,
     pachoteToken,
+    withPachoteAuth,
     type ChatPachoteLink,
     type PachoteGroup,
     type PachoteMember,
@@ -80,6 +82,21 @@ export const PachoteService = {
         const event: ChatEventNote = { kind: 'pachote', title: clean };
         await ChatService.sendMessage(chatId, me.uid, eventNoteText(event, me.name), 'event', undefined, { event });
         return gid;
+    },
+
+    /** Lleva a Pachote la pestaña ya abierta (o esta), entrando con la cuenta de Listopic si se puede. */
+    async open(url: string, tab: Window | null, signedIn = true) {
+        let target = url;
+        if (signedIn) {
+            try {
+                const res = await httpsCallable<void, { token: string }>(functions, 'pachoteHandoff')();
+                target = withPachoteAuth(url, res.data.token);
+            } catch (error) {
+                console.warn('pachoteHandoff', error);
+            }
+        }
+        if (tab) tab.location.href = target;
+        else window.location.href = target;
     },
 
     /** Entrar desde el chat enlazado, sin link. Si el grupo me tiene como persona, soy esa persona. */

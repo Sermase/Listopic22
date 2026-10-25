@@ -79,6 +79,8 @@ export const pachoteMoney = (cents: number) => eur.format((cents || 0) / 100);
 
 /** Enlace que abre el grupo en Pachote (si no estabas, entras con él). */
 export const pachoteJoinUrl = (gid: string, token?: string) => (token ? `${PACHOTE_URL}#join/${gid}/${token}` : PACHOTE_URL);
+/** Con la entrada de la cuenta de Listopic: Pachote la lee del enlace y la borra al abrirse. */
+export const withPachoteAuth = (url: string, token: string) => `${url}${url.includes('#') ? '&' : '#'}auth=${token}`;
 
 /** Ids como los de Pachote: hora en base 36 y un poco de azar. */
 export const pachoteId = (extra = 0) =>

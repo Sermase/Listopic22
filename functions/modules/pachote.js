@@ -148,4 +148,22 @@ const pachoteAdopt = onCall(async (request) => {
   return { groups: moved.length };
 });
 
-module.exports = { pachoteMigrate, pachoteAdopt };
+// «Bote a pachas» y las cuentas del chat abren Pachote ya con la cuenta de
+// Listopic: token propio de esa misma cuenta (caduca en una hora), que Pachote
+// usa al abrirse. Firmarlo pide el rol «Creador de tokens de cuenta de
+// servicio» en la cuenta de servicio de Functions; sin él, Pachote se abre sin
+// cuenta, como antes.
+const pachoteHandoff = onCall(async (request) => {
+  const auth = request.auth;
+  if (!auth?.uid || auth.token?.firebase?.sign_in_provider === 'anonymous') {
+    throw new HttpsError('unauthenticated', 'Entra en Listopic.');
+  }
+  try {
+    return { token: await getAuth().createCustomToken(auth.uid) };
+  } catch (e) {
+    logger.error('pachoteHandoff', e.code || e.message);
+    throw new HttpsError('failed-precondition', 'No se pudo preparar la entrada en Pachote.');
+  }
+});
+
+module.exports = { pachoteMigrate, pachoteAdopt, pachoteHandoff };

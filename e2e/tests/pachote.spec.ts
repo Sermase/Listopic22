@@ -1,12 +1,12 @@
 // Pachote dentro del chat de Listopic: crear cuentas con la gente del grupo,
 // abrirlas en Pachote (servido desde su repo, en su dominio y con estos mismos
-// emuladores), apuntar un gasto, ver el saldo en Listopic y escribir en el
-// chat del grupo desde Pachote con la cuenta de Listopic.
+// emuladores) ya con la cuenta de Listopic, apuntar un gasto y ver el saldo en
+// Listopic. Y «Bote a pachas» en el menú, también con la cuenta.
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { BrowserContext, Page } from '@playwright/test';
-import { test, expect, login, PASSWORD } from './support';
+import { test, expect, login } from './support';
 
 const PACHOTE = process.env.PACHOTE_DIR || fileURLToPath(new URL('../../../pachote/public', import.meta.url));
 const FIREBASE_CDN = fileURLToPath(new URL('../../frontend/node_modules/firebase', import.meta.url));
@@ -47,7 +47,13 @@ async function servePachote(context: BrowserContext) {
 
 test.skip(!existsSync(join(PACHOTE, 'store.js')), 'Hace falta el repo de Pachote al lado (o PACHOTE_DIR)');
 
-test('Pachote en el chat: crear cuentas, apuntar en Pachote, saldo en Listopic y chat dentro de Pachote', async ({ page, context, errors }) => {
+/** Usuario con el que está Pachote (null mientras carga). */
+const pachoteUser = (p: Page) => p.evaluate(() => {
+  const st = (window as unknown as { PachoteStore?: { user?: () => { uid: string; anon: boolean } | null } }).PachoteStore;
+  return st?.user ? st.user() : null;
+}).catch(() => null);
+
+test('Pachote en el chat: crear cuentas, abrir Pachote con la cuenta, apuntar y ver el saldo en Listopic', async ({ page, context, errors }) => {
   test.setTimeout(150_000);
   await servePachote(context);
   await login(page, 'ana');
@@ -64,13 +70,15 @@ test('Pachote en el chat: crear cuentas, apuntar en Pachote, saldo en Listopic y
   await expect(page.getByText('El resumen aparecerá aquí')).toBeVisible();
   await expect(page.getByText('💸 Tú has creado las cuentas «Riaño» en Pachote')).toBeVisible();
 
-  // Abrir en Pachote: entra este «móvil» con el link, dice quién es y apunta una cena.
+  // Abrir en Pachote: entra ya con la cuenta de Ana (sin «¿Quién eres?», ya es «ana») y apunta una cena.
   const popupPromise = page.waitForEvent('popup');
   await page.getByRole('button', { name: 'Abrir en Pachote' }).click();
   const pachote = await popupPromise;
   await pachote.setViewportSize({ width: 390, height: 844 });
-  await expect(pachote.getByText('¿Quién eres en «Riaño»?')).toBeVisible({ timeout: 30_000 });
-  await pachote.locator('[data-who]').filter({ hasText: 'ana' }).click();
+  await expect(pachote.locator('#fab')).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => pachoteUser(pachote)).toEqual(expect.objectContaining({ uid: 'ana', anon: false }));
+  expect(pachote.url()).not.toContain('auth=');
+  await expect(pachote.getByText('¿Quién eres en «Riaño»?')).toBeHidden();
   await pachote.locator('#fab').click();
   await pachote.locator('#eamt').fill('60');
   await pachote.locator('#edesc').fill('Cena en Riaño');
@@ -92,24 +100,22 @@ test('Pachote en el chat: crear cuentas, apuntar en Pachote, saldo en Listopic y
   await expect(card).toContainText(/Te deben 40,00\s€/);
   await shot(page, 'p3-tarjeta-en-el-chat');
 
-  // En Pachote: 💬 → entrar con la cuenta de Listopic (email) → el chat del grupo, y escribir.
-  await pachote.getByRole('button', { name: 'Chat del grupo en Listopic' }).click();
-  await pachote.getByRole('button', { name: 'Entrar', exact: true }).click();
-  await pachote.getByRole('button', { name: /Con email y contraseña/ }).click();
-  await pachote.locator('[data-lemail]').fill('ana@e2e.test');
-  await pachote.locator('[data-lpass]').fill(PASSWORD);
-  await pachote.locator('[data-login="mailgo"]').click();
-  await expect(pachote.locator('#lpname')).toHaveText('Viaje a Riaño', { timeout: 20_000 });
-  await expect(pachote.locator('.lpev', { hasText: 'ha creado las cuentas «Riaño»' })).toBeVisible();
-  await pachote.locator('#lptxt').fill('Hola desde Pachote 👋');
-  await pachote.getByRole('button', { name: 'Enviar' }).click();
-  await expect(pachote.locator('.lpmsg.me', { hasText: 'Hola desde Pachote' })).toBeVisible();
-  await shot(pachote, 'p4-chat-dentro-de-pachote');
+  // El chat ya no está dentro de Pachote: se abre en Listopic.
+  await expect(pachote.getByRole('button', { name: 'Chat del grupo en Listopic' })).toHaveCount(0);
+  await shot(pachote, 'p4-grupo-en-pachote');
+  void errors;
+});
 
-  // El mensaje llega al chat de Listopic, y el grupo sigue en Pachote tras entrar con la cuenta.
-  await expect(page.getByRole('paragraph').filter({ hasText: 'Hola desde Pachote 👋' })).toBeVisible();
-  await pachote.keyboard.press('Escape');
-  await expect(pachote.getByText('Cena en Riaño')).toBeVisible();
-  await shot(pachote, 'p5-grupo-en-pachote');
+test('«Bote a pachas» del menú abre Pachote con la cuenta de Listopic', async ({ page, context, errors }) => {
+  await servePachote(context);
+  await login(page, 'luis');
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Abrir menú' }).click();
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('dialog', { name: 'Menú' }).getByRole('button', { name: 'Bote a pachas' }).click();
+  const pachote = await popupPromise;
+  await expect.poll(() => pachoteUser(pachote), { timeout: 30_000 }).toEqual(expect.objectContaining({ uid: 'luis', anon: false }));
+  expect(pachote.url()).not.toContain('auth=');
+  await shot(pachote, 'p5-bote-a-pachas');
   void errors;
 });
