@@ -878,7 +878,7 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
     // --- 1c. Top reciente: las mejores reseñas de estos días en la zona -------
     // Solo notas altas (8 o más; si no llega, 7,5), las mejores y más frescas
     // primero, con foto antes que sin ella. Un plato no se repite y un sitio, dos
-    // veces como mucho. Va antes que las joyas: lo que sale aquí no sale allí.
+    // veces como mucho. Solo se queda el plato: su sitio puede salir en las joyas.
     if (want('resenas')) {
         const base = clean.filter((r) => r.placeName && !used.has(`dish:${r.dishKey}`));
         const byOthers = base.filter((r) => !me || r.authorId !== me);
@@ -921,7 +921,7 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
                 comment: r.comment || undefined,
                 createdAt: r.createdAt || undefined,
             };
-        }));
+        }), minItems, { claimPlaces: false });
     }
 
     // --- 2. Joyas por descubrir (nota alta, pocas reseñas reales) ------------
