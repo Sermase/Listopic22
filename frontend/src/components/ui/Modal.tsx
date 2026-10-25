@@ -61,7 +61,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/70 backdrop-blur-md p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/70 backdrop-blur-sm p-0 sm:items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}

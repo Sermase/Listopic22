@@ -78,7 +78,24 @@ export function useBackToClose(open: boolean, onClose: () => void): void {
 
 const NO_SWIPE = 'input,textarea,select,[contenteditable="true"],[data-no-swipe],.leaflet-container';
 
-/** Desliza hacia abajo para cerrar: devuelve la ref del panel. Solo arrastra si lo de debajo del dedo está arriba del todo. */
+const hasShade = (el: Element) => {
+    const c = getComputedStyle(el).backgroundColor.match(/[\d.]+/g);
+    return !!c && (c.length < 4 || Number(c[3]) > 0);
+};
+
+/** El fondo oscuro de la ventana: el primer antepasado fijo del panel o, si es transparente, su hermano oscuro («tocar fuera cierra»). */
+function findBackdrop(panel: HTMLElement): HTMLElement | null {
+    for (let el = panel.parentElement; el && el !== document.body; el = el.parentElement) {
+        if (getComputedStyle(el).position !== 'fixed') continue;
+        if (hasShade(el)) return el;
+        const sibling = Array.from(el.children).find((c) => !c.contains(panel) && hasShade(c));
+        return (sibling as HTMLElement | undefined) || el;
+    }
+    return null;
+}
+
+/** Desliza hacia abajo para cerrar: devuelve la ref del panel. Solo arrastra si lo de debajo del dedo está arriba del todo.
+ * En el móvil la ventana entra desde abajo con un asa (clases lt-sheet en index.css) y el fondo se aclara al arrastrar. */
 export function useSwipeToClose(onClose: () => void) {
     const closeRef = useRef(onClose);
     useLayoutEffect(() => { closeRef.current = onClose; });
@@ -88,6 +105,15 @@ export function useSwipeToClose(onClose: () => void) {
         detach.current?.();
         detach.current = null;
         if (!panel) return;
+        panel.classList.add('lt-sheet');
+        const backdrop = findBackdrop(panel);
+        backdrop?.classList.add('lt-sheet-backdrop');
+        let dim: number[] | null = null;
+        const shade = (alpha: number, transition: string) => {
+            if (!backdrop || !dim) return;
+            backdrop.style.transition = transition;
+            backdrop.style.backgroundColor = `rgba(${dim[0]}, ${dim[1]}, ${dim[2]}, ${alpha})`;
+        };
 
         let x0 = 0;
         let y0 = 0;
@@ -105,6 +131,10 @@ export function useSwipeToClose(onClose: () => void) {
         const reset = (animate: boolean) => {
             panel.style.transition = animate ? 'transform .2s cubic-bezier(.2,.8,.2,1)' : '';
             panel.style.transform = '';
+            if (backdrop) {
+                backdrop.style.transition = animate ? 'background-color .2s ease-out' : '';
+                backdrop.style.backgroundColor = '';
+            }
         };
 
         const start = (e: TouchEvent) => {
@@ -128,9 +158,12 @@ export function useSwipeToClose(onClose: () => void) {
                 y0 = t.clientY;
                 t0 = performance.now();
                 panel.style.transition = 'none';
+                const rgba = backdrop ? getComputedStyle(backdrop).backgroundColor.match(/[\d.]+/g)?.map(Number) : null;
+                dim = rgba && rgba.length >= 3 ? [rgba[0], rgba[1], rgba[2], rgba[3] ?? 1] : null;
             }
             dy = Math.max(0, t.clientY - y0);
             panel.style.transform = `translateY(${dy}px)`;
+            if (dim) shade(dim[3] * (1 - Math.min(1, dy / Math.max(1, panel.offsetHeight))), 'none');
             if (e.cancelable) e.preventDefault();
         };
         const end = () => {
@@ -141,6 +174,7 @@ export function useSwipeToClose(onClose: () => void) {
             if (dy > Math.min(140, panel.offsetHeight * 0.25) || (dy > 30 && speed > 0.6)) {
                 panel.style.transition = 'transform .18s ease-in';
                 panel.style.transform = 'translateY(110%)';
+                shade(0, 'background-color .18s ease-in');
                 setTimeout(() => {
                     closeRef.current();
                     // Si la ventana no se ha ido (p. ej. pide confirmación), vuelve a su sitio.

@@ -115,6 +115,8 @@ export interface HomeFeedsInput {
     minItems?: number;
     /** Reseñas antiguas del propio usuario (también privadas), ya filtradas por zona: «Recuerdos». */
     memories?: ReadonlyArray<HomeFeedReview>;
+    /** Solo estos carruseles: los demás ni se calculan ni se quedan sitios que los visibles necesitan. */
+    only?: ReadonlyArray<string>;
 }
 
 // --- Tipos de salida ----------------------------------------------------------
@@ -267,14 +269,6 @@ export function isJunkName(value: unknown): boolean {
     if (words.some((word) => /[bcdfghjklmnñpqrstvwxz]{7,}/.test(word))) return true;
     return false;
 }
-
-/** Comentario con algo que contar: 60+ caracteres, varias palabras y no un teclazo. */
-const hasSubstance = (comment: string): boolean => {
-    if (comment.length < 60) return false;
-    const words = comment.toLowerCase().split(/[^\p{L}]+/u).filter((word) => word.length >= 2);
-    if (words.length < 6) return false;
-    return new Set(words).size >= 4 && words.filter((word) => VOWEL.test(word)).length >= words.length * 0.7;
-};
 
 // --- Normalización ------------------------------------------------------------
 
@@ -531,16 +525,16 @@ interface PlaceAgg {
 export const FEED_TITLES = {
     featured: 'La lista del momento',
     platos: { title: 'Hoy te toca probar…', subtitle: 'Buena nota y mejor pinta, por tu zona' },
-    joyas: { title: 'Joyas por descubrir', subtitle: 'Mucha nota y poca fama (de momento)' },
+    joyas: { title: 'Joyas ocultas', subtitle: 'Mucha nota y poca fama (de momento)' },
     listas: { title: 'Listas con sabor local', subtitle: 'Donde más se cuece por aquí' },
     novedades: { title: 'Recién llegados', subtitle: 'Acaban de aterrizar en Listopic' },
-    resenas: { title: 'Reseñas que dan hambre', subtitle: 'Con foto, con chicha y con nota' },
+    resenas: { title: 'Top reciente', subtitle: 'Las mejores reseñas de estos días, por tu zona' },
     recuerdos: { title: 'Recuerdos', subtitle: 'Lo que probaste hace un tiempo. ¿Repetimos?' },
     ranking: { title: 'El top de una lista', subtitle: 'Lo mejor de una lista, en tu zona' },
 } as const;
 
 /** Orden en que se pintan los carruseles (se calculan en otro orden). */
-const FEED_ORDER = ['platos', 'recuerdos', 'ranking', 'joyas', 'listas', 'novedades', 'resenas'];
+const FEED_ORDER = ['platos', 'recuerdos', 'ranking', 'resenas', 'joyas', 'listas', 'novedades'];
 
 /** Aniversarios de «Recuerdos» (días atrás) y su margen. */
 const MEMORY_MIN_AGE_DAYS = 21;
@@ -555,6 +549,7 @@ export function memoryAgoLabel(days: number): string {
 
 export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
     const minItems = Math.max(1, input.minItems ?? 3);
+    const want = (feed: string) => !input.only || input.only.includes(feed);
     const me = str(input.userId);
     const seedBase = input.areaKey ? `${input.seed}|${input.areaKey}` : input.seed;
     const prevBase = previousDaySeed(input.seed);
@@ -700,7 +695,7 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
 
     // --- 0. El top 5 de una lista (ranking fiel: va primero y sus platos no se repiten
     // abajo; sus sitios sí pueden salir con otro plato, que con pocos datos no hay para todos).
-    {
+    if (want('ranking')) {
         type RankGroup = DishGroup & { sum: number; photoRating: number };
         const byList = new Map<string, Map<string, RankGroup>>();
         clean.forEach((review) => {
@@ -781,7 +776,7 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
     }
 
     // --- 1. Hoy te toca probar… (platos con foto y buena nota) ---------------
-    {
+    if (want('platos')) {
         const groups = new Map<string, DishGroup & { sum: number; bestRating: number; photoRating: number }>();
         clean.forEach((review) => {
             const placeName = review.placeName || placeAgg.get(review.placeId)?.name || '';
@@ -841,7 +836,7 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
     }
 
     // --- 1b. Recuerdos (tus reseñas de hace un tiempo, también las privadas) --
-    if (me && now > 0 && input.memories?.length) {
+    if (want('recuerdos') && me && now > 0 && input.memories?.length) {
         const mine = cleanReviews(input.memories, new Set(), true).filter((review) =>
             review.authorId === me
             && review.placeName
@@ -880,8 +875,57 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
         })), minItems, { viewAllTo: '/profile', claimPlaces: false });
     }
 
+    // --- 1c. Top reciente: las mejores reseñas de estos días en la zona -------
+    // Solo notas altas (8 o más; si no llega, 7,5), las mejores y más frescas
+    // primero, con foto antes que sin ella. Un plato no se repite y un sitio, dos
+    // veces como mucho. Solo se queda el plato: su sitio puede salir en las joyas.
+    if (want('resenas')) {
+        const base = clean.filter((r) => r.placeName && !used.has(`dish:${r.dishKey}`));
+        const byOthers = base.filter((r) => !me || r.authorId !== me);
+        const pool = me && byOthers.length >= 6 ? byOthers : base;
+        const ageDays = (r: CleanReview) => (now > 0 && r.createdAt ? Math.max(0, (now - r.createdAt) / DAY_MS) : 0);
+        const score = (r: CleanReview) => r.rating + (r.photo ? 0.6 : 0) + 0.15 * Math.min(r.reactions, 6) - ageDays(r) / 60;
+        const pick = (minRating: number, maxDays: number) => takeWithCaps(
+            pool.filter((r) => r.rating >= minRating && ageDays(r) <= maxDays)
+                .sort((a, b) => (score(b) - score(a)) || (a.id < b.id ? -1 : 1)),
+            15,
+            [
+                { keyOf: (r) => r.dishKey, max: 1 },
+                { keyOf: (r) => r.placeId, max: 2 },
+                { keyOf: (r) => r.authorId || undefined, max: 4 },
+            ],
+        );
+        let picked = pick(8, 45);
+        if (picked.length < 8) picked = pick(8, 120);
+        if (picked.length < minItems) picked = pick(7.5, Infinity);
+        pushFeed('resenas', 'review', picked.map((r) => {
+            const profile = r.authorId ? userById.get(r.authorId) : undefined;
+            return {
+                key: `review:${r.id}`,
+                kind: 'review' as const,
+                id: r.id,
+                title: r.itemName,
+                subtitle: r.placeName,
+                photoUrl: r.photo || r.placeImage,
+                rating: round1(r.rating),
+                count: 1,
+                to: groupPath(r.placeId, r.itemName),
+                placeId: r.placeId,
+                placeName: r.placeName,
+                itemName: r.itemName,
+                listId: r.listId || undefined,
+                listName: r.listName || undefined,
+                authorId: r.authorId || undefined,
+                authorName: r.authorName || str(profile?.displayName) || undefined,
+                authorPhoto: r.authorPhoto || str(profile?.photoUrl) || null,
+                comment: r.comment || undefined,
+                createdAt: r.createdAt || undefined,
+            };
+        }), minItems, { claimPlaces: false });
+    }
+
     // --- 2. Joyas por descubrir (nota alta, pocas reseñas reales) ------------
-    {
+    if (want('joyas')) {
         const all = Array.from(placeAgg.values()).filter((p) => p.rating > 0 && p.realCount >= 1);
         const sorted = all.map((p) => p.rating).sort((a, b) => a - b);
         const median = sorted.length ? sorted[Math.floor((sorted.length - 1) / 2)] : 8;
@@ -915,7 +959,7 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
     }
 
     // --- 3. Listas con sabor local (solo listas con reseñas en la zona) ------
-    {
+    if (want('listas')) {
         const candidates = listStats
             .filter((list) => !used.has(`list:${list.id}`))
             .sort((a, b) => (scoreOf.get(b.id)! - scoreOf.get(a.id)!) || (a.id < b.id ? -1 : 1))
@@ -942,7 +986,7 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
     }
 
     // --- 4. Recién llegados (debut reciente en Listopic, nota digna) ---------
-    if (now > 0) {
+    if (want('novedades') && now > 0) {
         const debuts = Array.from(placeAgg.values()).filter((p) =>
             p.firstSeen > 0 && p.loaded > 0 && p.realCount <= 3 && p.loaded >= p.realCount && p.loadedAvg >= 6.5 && placeFree(p.id));
         let eligible = debuts.filter((p) => now - p.firstSeen <= 30 * DAY_MS);
@@ -977,57 +1021,6 @@ export function buildHomeFeeds(input: HomeFeedsInput): HomeFeedsResult {
                 authorId: first?.authorId || undefined,
                 authorName: author || undefined,
                 createdAt: p.firstSeen,
-            };
-        }));
-    }
-
-    // --- 5. Reseñas que abren el apetito (foto o texto con chicha) -----------
-    {
-        const eligible = clean.filter((r) =>
-            (r.photo || hasSubstance(r.comment))
-            && r.placeName
-            && placeFree(r.placeId)
-            && !used.has(`dish:${r.dishKey}`));
-        const byOthers = eligible.filter((r) => !me || r.authorId !== me);
-        const pool = me && byOthers.length >= 4 ? byOthers : eligible;
-        const authors = new Set(pool.map((r) => r.authorId));
-        const quality = (r: CleanReview) =>
-            (r.photo ? 2 : 0)
-            + (hasSubstance(r.comment) ? Math.min(r.comment.length / 120, 2) : 0)
-            + 0.5 * Math.min(r.reactions, 10)
-            + (r.rating >= 8.5 ? 1 : 0)
-            + Math.max(0, 1 - (now > 0 && r.createdAt ? (now - r.createdAt) / (90 * DAY_MS) : 1));
-        const weight = (r: CleanReview) => quality(r) ** 2 * (me && r.authorId === me ? 0.5 : 1);
-        const ordered = seededWeightedOrder(pool, (r) => r.id, weight, seedFor('resenas'));
-        const onePerPlace = { keyOf: (r: CleanReview) => r.placeId, max: 1 };
-        let picked = takeWithCaps(ordered, 10, [
-            onePerPlace,
-            { keyOf: (r) => r.authorId || undefined, max: authors.size <= 1 ? 10 : 2 },
-            { keyOf: (r) => r.listId || undefined, max: 3 },
-        ]);
-        if (picked.length < minItems) picked = takeWithCaps(ordered, 10, [onePerPlace]);
-        pushFeed('resenas', 'review', picked.map((r) => {
-            const profile = r.authorId ? userById.get(r.authorId) : undefined;
-            return {
-                key: `review:${r.id}`,
-                kind: 'review' as const,
-                id: r.id,
-                title: r.itemName,
-                subtitle: r.placeName,
-                photoUrl: r.photo || r.placeImage,
-                rating: round1(r.rating),
-                count: 1,
-                to: groupPath(r.placeId, r.itemName),
-                placeId: r.placeId,
-                placeName: r.placeName,
-                itemName: r.itemName,
-                listId: r.listId || undefined,
-                listName: r.listName || undefined,
-                authorId: r.authorId || undefined,
-                authorName: r.authorName || str(profile?.displayName) || undefined,
-                authorPhoto: r.authorPhoto || str(profile?.photoUrl) || null,
-                comment: r.comment || undefined,
-                createdAt: r.createdAt || undefined,
             };
         }));
     }

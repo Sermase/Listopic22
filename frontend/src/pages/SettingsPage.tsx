@@ -16,8 +16,9 @@ import { MyDataRequest } from '../components/profile/MyDataRequest';
 import { EditProfileSheet } from '../components/settings/EditProfileSheet';
 import { DeleteAccountSheet } from '../components/settings/DeleteAccountSheet';
 import { FilterGroup, FilterSummary, Knob, Toggle, type FilterGroupId } from '../components/settings/MyFilters';
+import { NavTabsEditor, NavTabsSummary } from '../components/settings/NavTabsEditor';
 
-type SheetId = 'profile' | 'notifications' | 'data' | 'distance' | 'map' | 'theme' | FilterGroupId | 'delete';
+type SheetId = 'profile' | 'notifications' | 'data' | 'distance' | 'map' | 'theme' | 'nav' | FilterGroupId | 'delete';
 
 const NO_LIMIT = 999999;
 
@@ -184,6 +185,8 @@ export const SettingsPage: React.FC = () => {
                     <Row emoji="📍" label="Distancia por defecto" value={distanceLabel(distance)} onClick={() => setSheet('distance')} />
                     <Row emoji="🗺️" label="Mapa" value={MAP_LAYERS[mapLayer]?.label} onClick={() => setSheet('map')} />
                     <Row emoji="🎨" label="Tema" value={themeMeta?.label} onClick={() => setSheet('theme')} />
+                    {/* La barra de abajo solo existe en el móvil. */}
+                    <div className="md:hidden"><Row emoji="📱" label="Barra de abajo" value={<NavTabsSummary />} onClick={() => setSheet('nav')} /></div>
                     <SwitchRow emoji="ⓘ" label="Ayudas en la app" hint="Los iconos ⓘ que explican cada parte" checked={prefs.showHelpTips} onChange={(v) => setPref('showHelpTips', v)} />
                 </Section>
 
@@ -261,6 +264,10 @@ export const SettingsPage: React.FC = () => {
                     })}
                 </div>
                 <p className="mt-3 text-xs text-[var(--lt-text-muted)]">Se aplica al momento{user ? ' y te sigue en otros dispositivos' : ''}.</p>
+            </Modal>
+
+            <Modal isOpen={sheet === 'nav'} onClose={close} title="📱 Barra de abajo">
+                <NavTabsEditor />
             </Modal>
 
             {FILTERS.map((f) => (

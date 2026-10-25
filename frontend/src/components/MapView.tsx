@@ -137,6 +137,8 @@ interface MapViewProps {
     center?: [number, number];
     range?: number | null;
     showLayerControl?: boolean;
+    /** Zoom con la rueda del ratón (en el mapa a pantalla completa). */
+    scrollWheelZoom?: boolean;
 }
 
 // Aplica un filtro CSS al tile pane del mapa (para capas claras/oscuras)
@@ -213,7 +215,7 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
 
 const DEFAULT_CENTER: [number, number] = [40.416, -3.703];
 
-export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center = DEFAULT_CENTER, range = null, showLayerControl = true }) => {
+export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center = DEFAULT_CENTER, range = null, showLayerControl = true, scrollWheelZoom = false }) => {
 
     const { location } = useLocation();
     const { user, isJefe } = useAuth();
@@ -308,7 +310,7 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
 
     return (
         <div className="h-full w-full relative z-0">
-            <MapContainer center={initialCenter} zoom={12} scrollWheelZoom={false} className="h-full w-full listopic-map">
+            <MapContainer center={initialCenter} zoom={12} scrollWheelZoom={scrollWheelZoom} className="h-full w-full listopic-map">
                 <TileLayer
                     key={currentLayer}
                     attribution={activeLayer.attribution}

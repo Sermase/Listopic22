@@ -6,8 +6,13 @@ const ranking = vectors.expected.elements.map((e) => e.key);
 test('Home: Listas y mapa', async ({ page, errors }) => {
   await page.goto('/');
   await expect(page.getByText('Patatas bravas').first()).toBeVisible();
+  // El mapa se abre a pantalla completa y «atrás» lo cierra sin salir de Inicio.
   await page.getByRole('button', { name: 'Ver mapa' }).first().click();
   await expect(page.locator('.leaflet-container').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Cerrar mapa' })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('button', { name: 'Cerrar mapa' })).toHaveCount(0);
+  await expect(page).toHaveURL(/\/$/);
   expect(errors).toEqual([]);
 });
 

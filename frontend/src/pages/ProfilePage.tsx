@@ -49,7 +49,8 @@ import { getDownloadURL, ref } from "firebase/storage";
 import { db, storage } from "../firebase";
 import { updateProfile } from "firebase/auth";
 import { ReviewCard } from "../components/ReviewCard";
-import { LazyAddReviewForm as AddReviewForm, LazyShareModal as ShareModal, LazyMapView as MapView } from "../components/lazy";
+import { LazyAddReviewForm as AddReviewForm, LazyShareModal as ShareModal } from "../components/lazy";
+import { FullMapModal } from "../components/map/FullMapModal";
 import { Skeleton } from "../components/Skeleton";
 import { FastAverageColor } from "fast-average-color";
 import { ChatService } from "../services/ChatService";
@@ -207,9 +208,12 @@ export const ProfilePage: React.FC = () => {
   const [isFlowOpen, setIsFlowOpen] = useState(false);
   const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
   const [editingListId, setEditingListId] = useState<string | null>(null);
-  const [reviewViewMode, setReviewViewMode] = useState<"full" | "gallery" | "map">(
+  const [reviewViewMode, setReviewViewMode] = useState<"full" | "gallery">(
     "gallery",
   );
+  // El mapa se abre a pantalla completa; al abrirlo se cargan todas las reseñas (y se quedan).
+  const [isMapOpen, setIsMapOpen] = useState(false);
+  const [mapWantsAll, setMapWantsAll] = useState(false);
   const [reviewListFilter, setReviewListFilter] = useState<string>("all");
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   useBackToClose(isAvatarModalOpen, () => setIsAvatarModalOpen(false));
@@ -296,7 +300,7 @@ export const ProfilePage: React.FC = () => {
 
   // Ordenar por nota solo es correcto con todas las reseñas cargadas: se
   // piden en páginas de 100 (máximo de las reglas) hasta agotarlas.
-  const loadAllReviews = reviewSortMode === "top_rated";
+  const loadAllReviews = reviewSortMode === "top_rated" || mapWantsAll;
   const {
     reviews: fetchedReviews,
     loading: baseLoadingReviews,
@@ -2164,8 +2168,9 @@ export const ProfilePage: React.FC = () => {
                   <button
                     type="button"
                     title="Vista mapa"
-                    onClick={() => setReviewViewMode("map")}
-                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${reviewViewMode === "map"
+                    aria-label="Ver en el mapa"
+                    onClick={() => { setIsMapOpen(true); setMapWantsAll(true); }}
+                    className={`px-3 py-1.5 rounded-lg transition-colors flex items-center justify-center ${isMapOpen
                       ? "bg-[var(--lt-accent)] text-white"
                       : "text-gray-300 hover:text-white"
                       }`}
@@ -2185,10 +2190,6 @@ export const ProfilePage: React.FC = () => {
                     <Skeleton className="w-full h-full" />
                   </div>
                 ))}
-              </div>
-            ) : reviewViewMode === "map" ? (
-              <div className="h-[500px] w-full rounded-2xl overflow-hidden border border-white/10 relative">
-                <Skeleton className="w-full h-full" />
               </div>
             ) : (
               <div className="space-y-4 pt-2">
@@ -2210,19 +2211,7 @@ export const ProfilePage: React.FC = () => {
             </div>
           ) : (
             <>
-              {reviewViewMode === "map" ? (
-                <div className="h-[500px] w-full rounded-2xl overflow-hidden border border-white/10 relative z-0">
-                  <MapView
-                    items={sortedProfileReviews.map(r => ({
-                      ...r,
-                      lat: r.placeLat || r.lat || r.location?.latitude || r.coordinates?.latitude,
-                      lng: r.placeLng || r.lng || r.location?.longitude || r.coordinates?.longitude
-                    }))}
-                    mode="global"
-                    range={null}
-                  />
-                </div>
-              ) : reviewViewMode === "gallery" ? (
+              {reviewViewMode === "gallery" ? (
                 <ReviewGalleryGrid
                   reviews={sortedProfileReviews}
                   expandedReviewIds={expandedReviewIds}
@@ -2597,6 +2586,17 @@ export const ProfilePage: React.FC = () => {
           document.body,
         )
       }
+      <FullMapModal
+        isOpen={isMapOpen}
+        onClose={() => setIsMapOpen(false)}
+        title={isOwnProfile ? "Tus sitios" : `Sitios de ${profileShareTitle}`}
+        subtitle={`${sortedProfileReviews.length} ${sortedProfileReviews.length === 1 ? "reseña" : "reseñas"}${hasMore ? " (cargando más…)" : ""}`}
+        items={sortedProfileReviews.map(r => ({
+          ...r,
+          lat: r.placeLat || r.lat || r.location?.latitude || r.coordinates?.latitude,
+          lng: r.placeLng || r.lng || r.location?.longitude || r.coordinates?.longitude
+        }))}
+      />
       <ShareModal
         isOpen={isShareModalOpen}
         onClose={() => setIsShareModalOpen(false)}
