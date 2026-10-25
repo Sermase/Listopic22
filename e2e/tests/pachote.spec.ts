@@ -6,7 +6,7 @@ import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { BrowserContext, Page } from '@playwright/test';
-import { test, expect, login } from './support';
+import { test, expect, login, PASSWORD } from './support';
 
 const PACHOTE = process.env.PACHOTE_DIR || fileURLToPath(new URL('../../../pachote/public', import.meta.url));
 const FIREBASE_CDN = fileURLToPath(new URL('../../frontend/node_modules/firebase', import.meta.url));
@@ -117,5 +117,97 @@ test('«Pachote» del menú abre Pachote con la cuenta de Listopic', async ({ pa
   await expect.poll(() => pachoteUser(pachote), { timeout: 30_000 }).toEqual(expect.objectContaining({ uid: 'luis', anon: false }));
   expect(pachote.url()).not.toContain('auth=');
   await shot(pachote, 'p5-bote-a-pachas');
+  void errors;
+});
+
+test('Cuenta de Pachote: cerrar sesión y volver a entrar sin perder el grupo; crear cuenta desde un link', async ({ page, context, browser, errors }) => {
+  test.setTimeout(180_000);
+  await servePachote(context);
+  await login(page, 'ana');
+  await page.goto('/chats/riano');
+  await page.getByRole('button', { name: 'Info del chat' }).click();
+  await page.getByRole('button', { name: 'Crear cuentas' }).click();
+  await page.getByLabel('Nombre de las cuentas').fill('Riaño');
+  await page.getByRole('button', { name: 'Crear cuentas' }).click();
+  await expect(page.getByText('El resumen aparecerá aquí')).toBeVisible();
+  const popupPromise = page.waitForEvent('popup');
+  await page.getByRole('button', { name: 'Abrir en Pachote' }).click();
+  const p = await popupPromise;
+  await p.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => pachoteUser(p), { timeout: 30_000 }).toEqual(expect.objectContaining({ uid: 'ana', anon: false }));
+  await expect(p.locator('#fab')).toBeVisible({ timeout: 30_000 });
+  // El link del grupo (S y PachoteStore son globales de la página de Pachote).
+  const { gid, token } = await p.evaluate(() => {
+    const w = window as unknown as { PachoteStore: { token: (g: string) => string } };
+    // eslint-disable-next-line no-eval
+    const ids = Object.keys((0, eval)('S').plans as Record<string, unknown>);
+    return { gid: ids[0] || '', token: ids[0] ? w.PachoteStore.token(ids[0]) : '' };
+  });
+
+  // Cerrar sesión: el móvil se queda sin cuenta y ofrece volver a entrar con la de antes.
+  await p.goto('https://pachote-78042.web.app/');
+  await expect(p.getByText('Riaño').first()).toBeVisible({ timeout: 20_000 });
+  await p.locator('[data-act="menu"]').first().click();
+  await p.locator('[data-m="logout"]').click();
+  await p.locator('[data-yes]').click();
+  await expect(p.getByText('Has cerrado sesión')).toBeVisible({ timeout: 20_000 });
+  await expect(p.getByText('ana@e2e.test')).toBeVisible();
+  await shot(p, 'p6-sesion-cerrada');
+  await p.getByRole('button', { name: 'Volver a entrar' }).click();
+  await expect(p.getByRole('heading', { name: '🔐 Tu cuenta de Pachote' })).toBeVisible();
+  // Entró con email: el formulario ya viene abierto y con su email, sin abrir el teclado.
+  await expect(p.locator('[data-lemail]')).toHaveValue('ana@e2e.test');
+  await shot(p, 'p7-entrar');
+  await p.locator('[data-lpass]').fill(PASSWORD);
+  await p.locator('[data-login="mailgo"]').click();
+  await expect.poll(() => pachoteUser(p), { timeout: 20_000 }).toEqual(expect.objectContaining({ uid: 'ana', anon: false }));
+  await expect(p.getByText('Riaño').first()).toBeVisible({ timeout: 20_000 });
+  await expect(p.getByText('Has cerrado sesión')).toHaveCount(0);
+  await p.getByText('Riaño').first().click();
+  await expect(p.locator('#fab')).toBeVisible();
+  await expect(p.getByText('¿Quién eres en «Riaño»?')).toBeHidden();
+
+  // Alguien sin Listopic abre el link del grupo y crea su cuenta de Pachote: sigue dentro, ya con cuenta.
+  expect(gid && token).toBeTruthy();
+  const other = await browser.newContext();
+  await servePachote(other);
+  const q = await other.newPage();
+  await q.setViewportSize({ width: 390, height: 844 });
+  await q.goto(`https://pachote-78042.web.app/#join/${gid}/${token}`);
+  await expect(q.getByText('¿Quién eres en «Riaño»?')).toBeVisible({ timeout: 30_000 });
+  await q.getByRole('button', { name: 'Entrar o crear cuenta' }).click();
+  await q.getByRole('button', { name: 'Crear cuenta' }).first().click();
+  await q.locator('[data-login="mail"]').click();
+  await q.locator('[data-lemail]').fill('nuevo@e2e.test');
+  await q.locator('[data-lpass]').fill('corto');
+  await q.locator('[data-login="mailgo"]').click();
+  await expect(q.getByText('al menos 6 caracteres')).toBeVisible();
+  await q.locator('[data-lpass]').fill('secreto-nuevo');
+  await shot(q, 'p8-crear-cuenta');
+  const anonUid = (await pachoteUser(q))?.uid;
+  await q.locator('[data-login="mailgo"]').click();
+  await expect.poll(() => pachoteUser(q), { timeout: 20_000 }).toEqual(expect.objectContaining({ uid: anonUid, anon: false }));
+  // Tras crearla, vuelve a preguntar quién es (ahora ya con cuenta) y el grupo sigue ahí.
+  await expect(q.getByText('¿Quién eres en «Riaño»?')).toBeVisible({ timeout: 20_000 });
+  await q.getByRole('button', { name: 'eva' }).click();
+  await expect(q.locator('#fab')).toBeVisible();
+
+  // Con un email que ya existe, avisa y pasa a «Entrar».
+  await q.goto('https://pachote-78042.web.app/');
+  await expect(q.getByText('Riaño').first()).toBeVisible({ timeout: 20_000 });
+  await q.locator('[data-act="menu"]').first().click();
+  await q.locator('[data-m="logout"]').click();
+  await q.locator('[data-yes]').click();
+  await expect(q.getByText('Has cerrado sesión')).toBeVisible({ timeout: 20_000 });
+  await q.getByRole('button', { name: 'Volver a entrar' }).click();
+  // La última cuenta fue con email: el formulario ya está abierto.
+  await expect(q.locator('[data-lemail]')).toHaveValue('nuevo@e2e.test');
+  await q.getByRole('button', { name: 'Crear cuenta' }).first().click();
+  await q.locator('[data-lemail]').fill('ana@e2e.test');
+  await q.locator('[data-lpass]').fill('loquesea');
+  await q.locator('[data-login="mailgo"]').click();
+  await expect(q.getByText('Ya hay una cuenta con ese email')).toBeVisible();
+  await expect(q.locator('[data-login="mailgo"]')).toHaveText('Entrar');
+  await other.close();
   void errors;
 });

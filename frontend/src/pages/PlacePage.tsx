@@ -2,9 +2,10 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import {
     MapPin, MessageSquare, List as ListIcon, Share2,
-    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, MoreHorizontal, Baby, Megaphone, BarChart3, ShieldCheck, Info
+    Bookmark, Heart, Smartphone, Globe, Accessibility, Utensils, ShoppingBag, Bike, Clock, Coffee, Wine, Moon, Star, Plus, AlertTriangle, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronDown, BriefcaseBusiness, Check, Mail, Instagram, CreditCard, CalendarCheck, ExternalLink, X, PawPrint, MoreHorizontal, Baby, Megaphone, BarChart3, ShieldCheck, Info, Maximize2
 } from 'lucide-react';
 import { LazyShareModal as ShareModal, LazyMapView as MapView, LazyAddReviewForm as AddReviewForm } from '../components/lazy';
+import { FullMapModal } from '../components/map/FullMapModal';
 import { ProgressiveImage } from '../components/ProgressiveImage';
 import { FeaturedQuote } from '../components/FeaturedQuote';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
@@ -199,6 +200,7 @@ export const PlacePage: React.FC = () => {
     const [syncError, setSyncError] = useState<string | null>(null);
 
     const [isMoreActionsOpen, setIsMoreActionsOpen] = useState(false);
+    const [isMapFull, setIsMapFull] = useState(false);
     const [quickDish, setQuickDish] = useState<DishQuickSheetDish | null>(null);
     // «Mis preferencias»: alérgenos que pliegan La Carta (se puede quitar un momento).
     const { prefs } = usePreferences();
@@ -608,11 +610,6 @@ export const PlacePage: React.FC = () => {
         approved: 'Aprobada',
         rejected: 'Rechazada',
     };
-    const businessClaimStatusClass: Record<BusinessClaim['status'], string> = {
-        pending: 'bg-amber-500/15 text-amber-300 border-amber-500/25',
-        approved: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
-        rejected: 'bg-red-500/15 text-red-300 border-red-500/25',
-    };
 
 
 
@@ -847,47 +844,16 @@ export const PlacePage: React.FC = () => {
         ? proVisual.accentColor
         : undefined;
 
-    // Reclamar el negocio: en escritorio, en la barra lateral; en móvil, al final de la página.
-    const businessClaimCard = isBusinessClaimed ? null : (
-        <div className="glass-card p-4 rounded-2xl shadow-lg border border-[var(--lt-border)]">
-            <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] grid place-items-center shrink-0">
-                    <BriefcaseBusiness className="w-4 h-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-bold text-[var(--lt-text)]">¿Gestionas este negocio?</h3>
-                    <p className="mt-1 text-xs text-[var(--lt-text-muted)]">
-                        Solicita acceso para actualizar datos oficiales del lugar cuando se apruebe.
-                    </p>
-                </div>
-            </div>
-
-            {loadingBusinessClaims ? (
-                <p className="mt-4 text-xs text-gray-500">Comprobando solicitudes...</p>
-            ) : latestBusinessClaim ? (
-                <div className="mt-4 rounded-xl border border-white/10 bg-black/15 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs font-bold text-white">Tu solicitud</span>
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase ${businessClaimStatusClass[latestBusinessClaim.status]}`}>
-                            {businessClaimStatusLabel[latestBusinessClaim.status]}
-                        </span>
-                    </div>
-                    <p className="mt-2 text-xs text-gray-400 line-clamp-3">{latestBusinessClaim.message}</p>
-                    {latestBusinessClaim.status === 'rejected' && latestBusinessClaim.adminNotes && (
-                        <p className="mt-2 text-xs text-red-300">{latestBusinessClaim.adminNotes}</p>
-                    )}
-                </div>
-            ) : (
-                <button
-                    type="button"
-                    onClick={handleOpenBusinessClaim}
-                    className="mt-4 w-full rounded-xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-4 py-3 text-sm font-bold text-[var(--lt-accent)] hover:opacity-85 transition-opacity"
-                >
-                    {user ? 'Reclamar negocio' : 'Inicia sesión para reclamar'}
-                </button>
-            )}
-            </div>
-    );
+    const placeMapItems = place?.coords ? [{
+        id: place.placeId,
+        placeId: place.placeId,
+        name: place.name,
+        lat: place.coords.lat,
+        lng: place.coords.lng,
+        photoUrl: place.photoUrl,
+        rating: place.avgScore,
+        reviewsCount: place.reviewCount,
+    }] : [];
 
     const placeTabClass = (active: boolean) => cn(
         'px-3.5 py-2 text-sm font-bold rounded-full flex items-center gap-1.5 transition-all whitespace-nowrap border [&>svg]:w-4 [&>svg]:h-4',
@@ -1035,6 +1001,18 @@ export const PlacePage: React.FC = () => {
                                     <button type="button" role="menuitem" onClick={() => { setIsMoreActionsOpen(false); handleOpenPhotoUpload(); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[var(--lt-text)] hover:bg-[var(--lt-glass)]">
                                         <ImageIcon className="h-4 w-4 text-[var(--lt-accent)]" /> Subir fotos del sitio
                                     </button>
+                                    {/* Reclamar el negocio: aquí y no en la página, para no cortar la carta ni las reseñas. */}
+                                    {!isBusinessClaimed && (latestBusinessClaim && latestBusinessClaim.status !== 'rejected' ? (
+                                        <div role="menuitem" aria-disabled="true" className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[var(--lt-text)]">
+                                            <BriefcaseBusiness className="h-4 w-4 text-[var(--lt-accent)]" />
+                                            <span>Tu solicitud de negocio<span className="block text-xs font-normal text-[var(--lt-text-muted)]">{businessClaimStatusLabel[latestBusinessClaim.status]}</span></span>
+                                        </div>
+                                    ) : (
+                                        <button type="button" role="menuitem" disabled={loadingBusinessClaims} onClick={() => { setIsMoreActionsOpen(false); handleOpenBusinessClaim(); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[var(--lt-text)] hover:bg-[var(--lt-glass)]">
+                                            <BriefcaseBusiness className="h-4 w-4 text-[var(--lt-accent)]" />
+                                            <span>{user ? 'Reclamar negocio' : 'Inicia sesión para reclamar'}<span className="block text-xs font-normal text-[var(--lt-text-muted)]">{latestBusinessClaim?.status === 'rejected' ? 'Tu solicitud anterior fue rechazada' : '¿Lo gestionas? Pide acceso'}</span></span>
+                                        </button>
+                                    ))}
                                     <button type="button" role="menuitem" onClick={() => { setIsMoreActionsOpen(false); handleOpenReport(); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[var(--lt-danger)] hover:bg-[var(--lt-danger-soft)]">
                                         <AlertTriangle className="h-4 w-4" /> Reportar
                                     </button>
@@ -1068,7 +1046,15 @@ export const PlacePage: React.FC = () => {
                         </div>
                     )}
 
-                    {/* 2. Map */}
+                    {/* 2. Map: pequeño aquí; «Ampliar» lo abre a pantalla completa */}
+                    <FullMapModal
+                        isOpen={isMapFull}
+                        onClose={() => setIsMapFull(false)}
+                        title={place.name}
+                        subtitle={place.address || place.city || undefined}
+                        items={placeMapItems}
+                        directionsUrl={place.coords ? `https://www.google.com/maps/dir/?api=1&destination=${place.coords.lat},${place.coords.lng}` : undefined}
+                    />
                     {place.coords && (
                         <div className="order-1 lg:order-none glass-card rounded-2xl overflow-hidden shadow-xl relative group">
                             <div className="absolute top-3 left-14 z-10">
@@ -1083,18 +1069,15 @@ export const PlacePage: React.FC = () => {
                                 </a>
                             </div>
                             <div className="h-40 sm:h-64 relative z-0">
-                                <MapView
-                                    items={[{
-                                        id: place.placeId,
-                                        placeId: place.placeId,
-                                        name: place.name,
-                                        lat: place.coords.lat,
-                                        lng: place.coords.lng,
-                                        photoUrl: place.photoUrl,
-                                        rating: place.avgScore,
-                                        reviewsCount: place.reviewCount
-                                    }]}
-                                />
+                                <MapView items={placeMapItems} />
+                                <button
+                                    type="button"
+                                    onClick={() => setIsMapFull(true)}
+                                    aria-label="Ampliar mapa"
+                                    className="absolute bottom-3 left-3 z-[500] flex h-9 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 text-xs font-bold text-[#fff] backdrop-blur-md hover:bg-[var(--lt-accent)]"
+                                >
+                                    <Maximize2 className="h-3.5 w-3.5" /> Ampliar
+                                </button>
                             </div>
                         </div>
                     )}
@@ -1632,7 +1615,6 @@ export const PlacePage: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="hidden lg:block">{businessClaimCard}</div>
                 </div>
 
                 {/* Left: Content (Tabs) */}
@@ -1641,18 +1623,18 @@ export const PlacePage: React.FC = () => {
                     {/* Tabs */}
                     <div className="-mx-4 flex gap-2 mb-4 overflow-x-auto hide-scrollbar px-4 py-2 sm:mx-0 sm:px-1">
                         <button
-                            onClick={() => setActiveTab('reviews')}
-                            className={placeTabClass(activeTab === 'reviews')}
-                            style={activeTab === 'reviews' ? activeTabStyle : undefined}
-                        >
-                            <MessageSquare className="w-4 h-4" /> Reseñas ({place.reviews.length})
-                        </button>
-                        <button
                             onClick={() => setActiveTab('dishes')}
                             className={placeTabClass(activeTab === 'dishes')}
                             style={activeTab === 'dishes' ? activeTabStyle : undefined}
                         >
                             <ListIcon className="w-4 h-4" /> La Carta ({dishes.length || 0})
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('reviews')}
+                            className={placeTabClass(activeTab === 'reviews')}
+                            style={activeTab === 'reviews' ? activeTabStyle : undefined}
+                        >
+                            <MessageSquare className="w-4 h-4" /> Reseñas ({place.reviews.length})
                         </button>
                         <button
                             onClick={() => setActiveTab('lists')}
@@ -2313,7 +2295,6 @@ export const PlacePage: React.FC = () => {
                         initialIndex={lightboxIndex}
                     />
                 </div >
-                {businessClaimCard && <div className="order-3 lg:hidden">{businessClaimCard}</div>}
             </main>
 
             {isReservationOpen && reservationEmbedUrl && (

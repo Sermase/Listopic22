@@ -1513,3 +1513,35 @@ html.theme-light .lt-on-accent {
     .lt-user-dot__pulse { animation: none; opacity: 0.5; }
     .lt-pin { transition: none; }
 }
+
+/* Ventanas que se deslizan (useSwipeToClose): entran desde abajo en el móvil, con un asa arriba. */
+.lt-sheet-backdrop { animation: lt-sheet-fade .22s ease-out; }
+@keyframes lt-sheet-fade { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 767px) {
+    .lt-sheet { animation: lt-sheet-up .34s cubic-bezier(.16, 1, .3, 1); }
+    .lt-sheet:not(.fixed):not(.absolute):not(.sticky) { position: relative; }
+    .lt-sheet::before {
+        content: '';
+        position: absolute;
+        top: 6px;
+        left: 50%;
+        z-index: 40;
+        width: 38px;
+        height: 4px;
+        margin-left: -19px;
+        border-radius: 999px;
+        background: var(--lt-text-muted);
+        opacity: .45;
+        pointer-events: none;
+    }
+}
+
+@keyframes lt-sheet-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lt-sheet, .lt-sheet-backdrop { animation: none; }
+}

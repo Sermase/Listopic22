@@ -19,6 +19,7 @@ import { type ReviewEntity } from '../hooks/useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
 import { EntityHero } from '../components/EntityHero';
+import { FullMapModal } from '../components/map/FullMapModal';
 import { ElementRanks } from '../components/ElementRanks';
 import { useAuthPrompt } from '../context/AuthPromptContext';
 import { itemNameKey, resolvePlaceItemByName, reviewItemId, type PlaceItemLike } from '../lib/placeItems';
@@ -64,6 +65,8 @@ export const GroupPage: React.FC = () => {
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
     const [placeName, setPlaceName] = useState('');
     const [placeCity, setPlaceCity] = useState('');
+    const [placeCoords, setPlaceCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [isMapOpen, setIsMapOpen] = useState(false);
     const [placeClosedStatus, setPlaceClosedStatus] = useState<string | null>(null);
     const [unavailableItems, setUnavailableItems] = useState<string[]>([]);
     const [primaryListCriteria, setPrimaryListCriteria] = useState<any[]>([]); // New: Store definition for ordering
@@ -152,6 +155,8 @@ export const GroupPage: React.FC = () => {
                 fetchedPlaceName = placeData.name;
                 setPlaceName(fetchedPlaceName);
                 if (placeData.city) setPlaceCity(placeData.city);
+                const loc = placeData.location;
+                setPlaceCoords(typeof loc?.latitude === 'number' && typeof loc?.longitude === 'number' ? { lat: loc.latitude, lng: loc.longitude } : null);
                 setPlaceClosedStatus(placeData.closedStatus || null);
                 setUnavailableItems(placeData.unavailableItems || []);
             }
@@ -756,10 +761,27 @@ export const GroupPage: React.FC = () => {
                         <button type="button" onClick={() => setIsShareModalOpen(true)} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
                             <Share2 className="h-4 w-4 text-[var(--lt-accent)]" /> Compartir
                         </button>
+                        {placeCoords && (
+                            <button type="button" onClick={() => setIsMapOpen(true)} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
+                                <MapPin className="h-4 w-4 text-[var(--lt-accent)]" /> Mapa
+                            </button>
+                        )}
                         <button type="button" onClick={openReportModal} aria-label="Reportar" title="Reportar" className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--lt-text-muted)] transition-colors hover:bg-[var(--lt-danger-soft)] hover:text-[var(--lt-danger)]">
                             <Flag className="h-4 w-4" />
                         </button>
                     </div>
+
+                    {/* Dónde está: el sitio en el mapa (su ficha se abre desde la chincheta) y «Cómo llegar» */}
+                    {placeCoords && (
+                        <FullMapModal
+                            isOpen={isMapOpen}
+                            onClose={() => setIsMapOpen(false)}
+                            title={placeName || 'El sitio'}
+                            subtitle={[decodedName, placeCity].filter(Boolean).join(' · ')}
+                            items={[{ id: placeId, placeId, name: placeName || 'El sitio', lat: placeCoords.lat, lng: placeCoords.lng, photoUrl: stats?.mainPhoto || undefined, rating: stats?.avg, reviewsCount: stats?.count }]}
+                            directionsUrl={`https://www.google.com/maps/dir/?api=1&destination=${placeCoords.lat},${placeCoords.lng}`}
+                        />
+                    )}
 
                     {/* Una frase de la gente, antes de las notas */}
                     <FeaturedQuote reviews={reviews} onSeeAll={() => document.getElementById('resenas')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />

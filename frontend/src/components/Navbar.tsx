@@ -15,6 +15,8 @@ import { PageAnalyticsModal } from './PageAnalyticsModal';
 import { isTrackableAnalyticsPath } from '../services/AnalyticsService';
 import { useManagedBusinesses } from '../hooks/useManagedBusinesses';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
+import { useUnreadChats } from '../hooks/useUnreadChats';
+import { barTabs, NAV_TABS, useNavOrder } from '../lib/navTabs';
 import { isLabAppEnabled } from '../lib/labApps';
 import { PACHOTE_URL } from '../lib/pachote';
 import { PachoteService } from '../services/PachoteService';
@@ -104,7 +106,8 @@ export const Navbar: React.FC = () => {
     const [showHistory, setShowHistory] = useState(false);
     const [showPageAnalytics, setShowPageAnalytics] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
-    const [unreadChatCount, setUnreadChatCount] = useState(0);
+    const unreadChatCount = useUnreadChats(user?.uid);
+    const navOrder = useNavOrder();
     const { count: managedBusinessCount, hasPro } = useManagedBusinesses(user?.uid);
     const [profileUsername, setProfileUsername] = useState('');
     const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
@@ -201,37 +204,10 @@ export const Navbar: React.FC = () => {
         return () => document.removeEventListener('mousedown', handler);
     }, [showNotifications, notificationPanelMode]);
 
-    useEffect(() => {
-        if (!user) return;
-
-        const chatsQuery = query(
-            collection(db, 'chats'),
-            where('participants', 'array-contains', user.uid),
-            limit(50),
-        );
-
-        const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
-            let total = 0;
-
-            snapshot.docs.forEach((chatDoc) => {
-                const data = chatDoc.data() as { unreadCount?: Record<string, unknown> };
-                const unreadForUser = data.unreadCount?.[user.uid];
-                if (typeof unreadForUser === 'number') {
-                    total += unreadForUser;
-                }
-            });
-
-            setUnreadChatCount(total);
-        }, (error) => {
-            console.error('Navbar chats snapshot error:', error);
-        });
-
-        return () => unsubscribe();
-    }, [user]);
-
     const profileLabel = profileUsername ? `@${profileUsername}` : (user?.displayName || 'Mi cuenta');
     // «Pachote»: abre Pachote ya con tu cuenta de Listopic (o sin cuenta si no has entrado).
     const pachoteOn = isLabAppEnabled(config, 'pachote', isJefe);
+    const inBar = barTabs(navOrder, (id) => id !== 'pachote' || pachoteOn);
     const openPachote = () => {
         setIsMenuOpen(false);
         // La pestaña se abre ya: los navegadores bloquean las que se abren tras esperar.
@@ -377,16 +353,6 @@ export const Navbar: React.FC = () => {
                                 <Eye className="h-5 w-5" />
                             </button>
                         )}
-                        {/* Business Pro: acceso directo junto al avatar (la barra inferior es igual para todos) */}
-                        {user && hasPro && (
-                            <Link
-                                to="/businesses"
-                                className="flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-black lt-on-accent shadow-md transition-transform active:scale-95"
-                                style={{ backgroundImage: 'linear-gradient(135deg, #f59e0b, #ec4899 55%, #8b5cf6)' }}
-                            >
-                                <Sparkles className="h-3.5 w-3.5" /> Mi negocio
-                            </Link>
-                        )}
                         {user && (
                             <Link to={`/profile/${user.uid}`} className="relative shrink-0 group">
                                 <div className="w-9 h-9 rounded-full p-[2px] transition-transform group-active:scale-95 shadow-md" style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 2px 8px var(--lt-accent-shadow)' }}>
@@ -453,7 +419,21 @@ export const Navbar: React.FC = () => {
                             {user && managedBusinessCount > 0 && (
                                 <MenuTile to="/businesses" icon={hasPro ? Sparkles : Building2} label={managedBusinessCount > 1 ? 'Mis negocios' : 'Mi negocio'} onClick={() => setIsMenuOpen(false)} highlight />
                             )}
-                            <MenuTile to="/chats" icon={MessageSquare} label="Chats" badge={unreadChatCount} onClick={guardProtectedLink('abrir tus chats')} />
+                            {/* Lo que cada uno no lleva en la barra de abajo (se elige en Preferencias). */}
+                            {navOrder.filter((id) => id !== 'perfil' && (id !== 'pachote' || pachoteOn) && !inBar.includes(id)).map((id) => {
+                                const tab = NAV_TABS[id];
+                                if (id === 'pachote') return <MenuTile key={id} icon={tab.icon} label={tab.label} onClick={openPachote} />;
+                                return (
+                                    <MenuTile
+                                        key={id}
+                                        to={tab.to}
+                                        icon={tab.icon}
+                                        label={id === 'minilista' ? 'Crear minilista' : tab.label}
+                                        badge={id === 'chats' ? unreadChatCount : undefined}
+                                        onClick={tab.action ? guardProtectedLink(tab.action) : () => setIsMenuOpen(false)}
+                                    />
+                                );
+                            })}
                             {user && (
                                 <MenuTile
                                     icon={Bell}
@@ -466,8 +446,6 @@ export const Navbar: React.FC = () => {
                                     }}
                                 />
                             )}
-                            <MenuTile to="/create-sublist" icon={Plus} label="Crear minilista" onClick={guardProtectedLink('crear una minilista')} />
-                            {pachoteOn && <MenuTile icon={PiggyBank} label="Pachote" onClick={openPachote} />}
                             <MenuTile to="/planes" icon={Sparkles} label="Planes" onClick={() => setIsMenuOpen(false)} />
                             <MenuTile to="/preferencias" icon={SlidersHorizontal} label="Preferencias" onClick={() => setIsMenuOpen(false)} />
                             <MenuTile to="/ayuda" icon={LifeBuoy} label="Ayuda" onClick={() => setIsMenuOpen(false)} />

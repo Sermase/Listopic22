@@ -13,9 +13,9 @@ import { SponsoredHomeSpotlight } from '../components/business/SponsoredHomeSpot
 import { SponsoredItemsCarousel } from '../components/business/SponsoredItemsCarousel';
 import { computeTasteMatch } from '../utils/tasteMatch';
 import { WeeklyDuelBanner } from '../components/WeeklyDuelBanner';
-import { LazyMapView as MapView } from '../components/lazy';
+import { FullMapModal } from '../components/map/FullMapModal';
 import { UserAvatar } from '../components/UserAvatar';
-import { Map as MapIcon, ChevronDown, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, TrendingUp, Gem, HeartHandshake, Rows3, Search, Utensils, Sparkles, Camera, Trophy, History } from 'lucide-react';
+import { Map as MapIcon, Maximize2, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, TrendingUp, Gem, HeartHandshake, Rows3, Search, Utensils, Sparkles, Camera, Trophy, History } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
 import { collection, collectionGroup, query, getDocs, limit, doc, getDoc, getDocFromServer, onSnapshot, where } from 'firebase/firestore';
@@ -161,11 +161,12 @@ const HOME_FEEDS_VISIBLE: Record<string, boolean> = {
     platos: false,
     recuerdos: false,
     ranking: false,
-    joyas: false,
+    joyas: true,
     listas: false,
     novedades: false,
     resenas: true,
 };
+const VISIBLE_HOME_FEEDS = Object.keys(HOME_FEEDS_VISIBLE).filter((id) => HOME_FEEDS_VISIBLE[id]);
 // Si cerca hay menos sitios que esto, la Home amplía el radio un escalón.
 const MIN_NEARBY_PLACES = 5;
 const MAX_AUTO_RANGE_KM = 10;
@@ -1322,6 +1323,7 @@ export const HomePage: React.FC = () => {
         areaKey: homeFeedAreaKey(areaFilter, range),
         userId: user?.uid ?? null,
         memories: memoriesInRange as unknown as HomeFeedReview[],
+        only: VISIBLE_HOME_FEEDS,
         // Lo que ya enseña el ranking (top 5 de cada pestaña) no se repite abajo.
         exclude: {
             placeIds: rankedPlaces.slice(0, 5).map((row) => row.key),
@@ -1446,7 +1448,7 @@ export const HomePage: React.FC = () => {
                             <div className="bg-[var(--lt-card)] border border-[var(--lt-border)] rounded-2xl overflow-hidden backdrop-blur-xl transition-all duration-300">
                                 <div className="w-full p-3 flex items-center justify-between text-[var(--lt-text-muted)]">
                                     <button
-                                        onClick={() => setIsMapOpen(!isMapOpen)}
+                                        onClick={() => setIsMapOpen(true)}
                                         className="flex items-center gap-2 hover:text-white transition-colors shrink-0 text-left"
                                     >
                                         <MapIcon className="w-5 h-5 text-gray-400" />
@@ -1463,24 +1465,24 @@ export const HomePage: React.FC = () => {
                                         />
 
                                         <button
-                                            onClick={() => setIsMapOpen(!isMapOpen)}
-                                            className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-white transition-colors whitespace-nowrap shrink-0" aria-label={isMapOpen ? 'Ocultar mapa' : 'Ver mapa'}
+                                            onClick={() => setIsMapOpen(true)}
+                                            className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-white transition-colors whitespace-nowrap shrink-0" aria-label="Ver mapa"
                                         >
-                                            <span className="hidden sm:inline">{isMapOpen ? 'Ocultar' : 'Ver mapa'}</span>
-                                            <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapOpen ? 'rotate-180' : ''}`} />
+                                            <span className="hidden sm:inline">Ver mapa</span>
+                                            <Maximize2 className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </div>
-
-                                <div className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isMapOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}>
-                                    <div className="overflow-hidden min-h-0">
-                                        <div className="h-[400px] border-t border-white/10 relative">
-                                            {/* Solo se monta (y descarga Leaflet) cuando el usuario abre el mapa. */}
-                                            {isMapOpen && <MapView items={filteredPlaces} mode="global" range={areaFilter.kind === 'near' ? range : null} />}
-                                        </div>
-                                    </div>
-                                </div>
                             </div>
+                            {/* A pantalla completa: solo se monta (y descarga Leaflet) cuando se abre. */}
+                            <FullMapModal
+                                isOpen={isMapOpen}
+                                onClose={() => setIsMapOpen(false)}
+                                title={areaFilter.kind === 'near' ? 'Cerca de ti' : areaFilter.value}
+                                subtitle={`${filteredPlaces.length} ${filteredPlaces.length === 1 ? 'sitio' : 'sitios'}${areaFilter.kind === 'near' && range ? ` a menos de ${range} km` : ''}`}
+                                items={filteredPlaces}
+                                range={areaFilter.kind === 'near' ? range : null}
+                            />
                         </div>
                     )}
 
@@ -1522,7 +1524,6 @@ export const HomePage: React.FC = () => {
                                     <CardCarousel
                                         key={feed.id}
                                         title={feed.title}
-                                        subtitle={feed.subtitle}
                                         viewAllLink={feed.viewAllTo ?? buildCarouselSearchLink(look.searchType, look.searchSort)}
                                         items={feed.items}
                                         itemClassName="w-auto"

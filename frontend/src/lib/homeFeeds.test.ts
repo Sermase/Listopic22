@@ -186,16 +186,16 @@ describe('buildHomeFeeds', () => {
             const result = buildHomeFeeds({ ...data, seed: `2026-11-${String(d).padStart(2, '0')}`, userId: 'ser', now: NOW, exclude });
             const keys = allKeys(result);
             expect(new Set(keys).size).toBe(keys.length);
-            // Un sitio sale una vez entre los carruseles normales; el top de una lista
-            // y tus recuerdos solo reservan su plato.
-            const placeIds = result.feeds.filter((f) => f.kind !== 'list' && f.id !== 'ranking').flatMap((f) => f.items.map((i) => i.placeId));
+            // Un sitio sale una vez entre los carruseles normales; el top de una lista,
+            // tus recuerdos y el top reciente (hasta dos platos de un sitio) solo reservan su plato.
+            const placeIds = result.feeds.filter((f) => f.kind !== 'list' && f.id !== 'ranking' && f.id !== 'resenas').flatMap((f) => f.items.map((i) => i.placeId));
             expect(new Set(placeIds).size).toBe(placeIds.length);
             expect(placeIds).not.toContain('cerrado');
             const dishKeys = result.feeds.flatMap((f) => f.items).filter((i) => i.placeId && i.itemName)
                 .map((i) => `${i.placeId}::${i.itemName!.toLowerCase()}`);
             expect(new Set(dishKeys).size).toBe(dishKeys.length);
             // El top de una lista es fiel a su orden: puede coincidir con el ranking de arriba, el resto no.
-            const notRanking = result.feeds.filter((f) => f.kind !== 'list' && f.id !== 'ranking').flatMap((f) => f.items.map((i) => i.placeId));
+            const notRanking = result.feeds.filter((f) => f.kind !== 'list' && f.id !== 'ranking' && f.id !== 'resenas').flatMap((f) => f.items.map((i) => i.placeId));
             expect(notRanking).not.toContain('mad0');
             expect(notRanking).not.toContain('mad1');
             const listIds = result.feeds.filter((f) => f.kind === 'list').flatMap((f) => f.items.map((i) => i.id));
@@ -370,9 +370,44 @@ describe('recuerdos', () => {
 
         // El mismo sitio puede salir en Joyas aunque esté en tus recuerdos (otro plato).
         const reviews = ['m30', 'x1', 'x2', 'x3'].map((p) => review({ placeId: p, placeName: `Sitio ${p}`, itemName: 'Otra cosa', placeAverageRating: 9, placeReviewsCount: 2 }));
-        const result = buildHomeFeeds({ reviews, memories, seed: '2026-10-15', userId: 'ser', now: NOW, minItems: 1 });
+        const result = buildHomeFeeds({ reviews, memories, seed: '2026-10-15', userId: 'ser', now: NOW, minItems: 1, only: ['recuerdos', 'joyas'] });
         expect(result.feeds.find((f) => f.id === 'recuerdos')?.items.length).toBe(3);
         const order = result.feeds.map((f) => f.id);
         expect(order.indexOf('recuerdos')).toBeLessThan(order.indexOf('joyas'));
+    });
+});
+
+describe('top reciente', () => {
+    const top = (reviews: HomeFeedReview[], extra: Partial<Parameters<typeof buildHomeFeeds>[0]> = {}) =>
+        buildHomeFeeds({ reviews, seed: '2026-10-15', now: NOW, only: ['resenas'], ...extra }).feeds.find((f) => f.id === 'resenas');
+
+    it('solo notas altas, de lo mejor a lo peor y lo reciente antes que lo viejo', () => {
+        counter = 0;
+        const reviews = [
+            review({ placeId: 'a', itemName: 'Uno', overallRating: 9.5, createdAt: NOW - 2 * DAY }),
+            review({ placeId: 'b', itemName: 'Dos', overallRating: 6, createdAt: NOW - DAY }),
+            review({ placeId: 'c', itemName: 'Tres', overallRating: 8.2, createdAt: NOW - 3 * DAY }),
+            review({ placeId: 'd', itemName: 'Cuatro', overallRating: 9.5, createdAt: NOW - 40 * DAY }),
+            review({ placeId: 'e', itemName: 'Cinco', overallRating: 7.9, createdAt: NOW - DAY }),
+        ];
+        const feed = top(reviews);
+        expect(feed?.title).toBe('Top reciente');
+        expect(feed?.items.map((i) => i.placeId)).toEqual(['a', 'd', 'c']);
+    });
+
+    it('trae más que antes: hasta dos platos de un sitio y no se queda sin nada por el ranking', () => {
+        counter = 0;
+        const reviews = ['a', 'a', 'a', 'b', 'c', 'd'].map((placeId, i) => review({ placeId, itemName: `Plato ${i}`, overallRating: 9 }));
+        const feed = top(reviews, { exclude: { placeIds: ['b'], dishKeys: ['c::plato 4'] } });
+        const ids = feed?.items.map((i) => i.placeId) ?? [];
+        expect(ids.filter((id) => id === 'a')).toHaveLength(2);
+        expect(ids).toContain('b');
+        expect(ids).not.toContain('c');
+    });
+
+    it('si no hay notas de 8, se conforma con 7,5; por debajo, nunca', () => {
+        counter = 0;
+        const reviews = ['a', 'b', 'c', 'd'].map((placeId, i) => review({ placeId, itemName: `Plato ${i}`, overallRating: 7.6 - i * 0.2 }));
+        expect(top(reviews, { minItems: 1 })?.items.map((i) => i.placeId)).toEqual(['a']);
     });
 });
