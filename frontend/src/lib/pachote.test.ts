@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { membersFromPeople, myRow, pachoteJoinUrl, pachoteMoney, pachoteToken, standing, type PachoteSummary } from './pachote';
+import { membersFromPeople, myRow, pachoteJoinUrl, pachoteMoney, pachoteToken, standing, type PachoteSummary, withPachoteAuth, PACHOTE_URL } from './pachote';
 
 describe('Pachote desde el chat', () => {
     it('la gente del chat pasa a Pachote con su nombre de pila y su usuario', () => {
@@ -43,5 +43,12 @@ describe('Pachote desde el chat', () => {
         const t = pachoteToken((k) => new Uint8Array(k).fill(3));
         expect(t).toHaveLength(24);
         expect(t).toBe('d'.repeat(24));
+    });
+});
+
+describe('withPachoteAuth', () => {
+    it('añade la entrada al enlace, con o sin #', () => {
+        expect(withPachoteAuth(PACHOTE_URL, 'a.b-c')).toBe(`${PACHOTE_URL}#auth=a.b-c`);
+        expect(withPachoteAuth(pachoteJoinUrl('g1', 't1'), 'x.y')).toBe(`${PACHOTE_URL}#join/g1/t1&auth=x.y`);
     });
 });

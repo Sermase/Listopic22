@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Bookmark, Bell, Building2, ChevronRight, Dice5, Eye, Info, LifeBuoy, Menu, MessageSquare, Plus, Search, SlidersHorizontal, Sparkles, User, X } from 'lucide-react';
+import { Bookmark, Bell, Building2, ChevronRight, Dice5, Eye, Info, LifeBuoy, Menu, MessageSquare, PiggyBank, Plus, Search, SlidersHorizontal, Sparkles, User, X } from 'lucide-react';
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig, useAppConfigLoading } from '../context/AppConfigContext';
@@ -15,6 +15,9 @@ import { PageAnalyticsModal } from './PageAnalyticsModal';
 import { isTrackableAnalyticsPath } from '../services/AnalyticsService';
 import { useManagedBusinesses } from '../hooks/useManagedBusinesses';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
+import { isLabAppEnabled } from '../lib/labApps';
+import { PACHOTE_URL } from '../lib/pachote';
+import { PachoteService } from '../services/PachoteService';
 
 const FIREBASE_STORAGE_HOST = 'firebasestorage.googleapis.com';
 
@@ -227,6 +230,14 @@ export const Navbar: React.FC = () => {
     }, [user]);
 
     const profileLabel = profileUsername ? `@${profileUsername}` : (user?.displayName || 'Mi cuenta');
+    // «Bote a pachas»: Pachote ya con tu cuenta de Listopic (o sin cuenta si no has entrado).
+    const pachoteOn = isLabAppEnabled(config, 'pachote', isJefe);
+    const openPachote = () => {
+        setIsMenuOpen(false);
+        // La pestaña se abre ya: los navegadores bloquean las que se abren tras esperar.
+        void PachoteService.open(PACHOTE_URL, window.open('', '_blank'), !!user);
+    };
+
     const guardProtectedLink = (action: string): React.MouseEventHandler<HTMLAnchorElement> => (event) => {
         if (user) return;
         event.preventDefault();
@@ -273,6 +284,12 @@ export const Navbar: React.FC = () => {
                         )}
                         <NavItem to="/chats" icon={MessageSquare} label="Chats" count={unreadChatCount} isActive={location.pathname === '/chats'} onClick={guardProtectedLink('abrir tus chats')} />
                         <NavItem to="/planes" icon={Sparkles} label="Planes" isActive={location.pathname === '/planes'} />
+                        {pachoteOn && (
+                            <button type="button" onClick={openPachote} className="flex items-center gap-2 px-4 py-2 rounded-full text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/5 transition-all duration-300 group">
+                                <PiggyBank className="w-4 h-4 group-hover:text-[var(--lt-accent)] transition-colors" />
+                                <span className="text-sm">Bote a pachas</span>
+                            </button>
+                        )}
                     </nav>
 
                     <div className="hidden md:flex items-center gap-4">
@@ -450,6 +467,7 @@ export const Navbar: React.FC = () => {
                                 />
                             )}
                             <MenuTile to="/create-sublist" icon={Plus} label="Crear minilista" onClick={guardProtectedLink('crear una minilista')} />
+                            {pachoteOn && <MenuTile icon={PiggyBank} label="Bote a pachas" onClick={openPachote} />}
                             <MenuTile to="/planes" icon={Sparkles} label="Planes" onClick={() => setIsMenuOpen(false)} />
                             <MenuTile to="/preferencias" icon={SlidersHorizontal} label="Preferencias" onClick={() => setIsMenuOpen(false)} />
                             <MenuTile to="/ayuda" icon={LifeBuoy} label="Ayuda" onClick={() => setIsMenuOpen(false)} />

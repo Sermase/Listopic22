@@ -50,9 +50,7 @@ export const PachoteSheet: React.FC<{
         setBusy(true);
         try {
             if (!access) await PachoteService.joinFromChat(gid, uid, memberOfUser(group, uid)?.id || null);
-            const url = pachoteJoinUrl(gid, group.inviteToken);
-            if (tab) tab.location.href = url;
-            else window.location.href = url;
+            await PachoteService.open(pachoteJoinUrl(gid, group.inviteToken), tab);
         } catch (error) {
             tab?.close();
             console.error(error);
