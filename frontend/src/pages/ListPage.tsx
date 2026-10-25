@@ -1493,7 +1493,7 @@ export const ListPage: React.FC = () => {
                                 <button type="button" onClick={() => setIgnoredDiet((prev) => ({ ...prev, [chip.key]: true }))} aria-label={`Quitar ${chip.label} en esta lista`} className="rounded-full px-1.5 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">✕</button>
                             </span>
                         ))}
-                        <Link to="/preferencias" className="text-xs font-semibold text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)]">Mis preferencias</Link>
+                        <Link to="/preferencias" className="text-xs font-semibold text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)]">Mis filtros</Link>
                         <HelpTip topic="preferencias" />
                     </div>
                 )}

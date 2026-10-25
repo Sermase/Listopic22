@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { IconButton } from './IconButton';
-import { useSheetDismiss } from '../../hooks/useSheetDismiss';
+import { useBackToClose, useSwipeToClose } from '../../hooks/useSheetDismiss';
 
 type ModalSize = 'md' | 'lg' | 'xl';
 
@@ -19,6 +19,8 @@ interface ModalProps {
   footer?: React.ReactNode;
   /** Ancho en escritorio: md (por defecto) 2xl, lg 3xl, xl 5xl. */
   size?: ModalSize;
+  /** Deslizar hacia abajo para cerrar (por defecto sí). Los formularios solo se cierran con «atrás». */
+  swipe?: boolean;
 }
 
 const sizeClasses: Record<ModalSize, string> = {
@@ -37,9 +39,11 @@ export const Modal: React.FC<ModalProps> = ({
   closeLabel = 'Cerrar',
   footer,
   size = 'md',
+  swipe = true,
 }) => {
   const titleId = React.useId();
-  const panelRef = useSheetDismiss(onClose, isOpen);
+  useBackToClose(isOpen, onClose);
+  const swipeRef = useSwipeToClose(onClose);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -68,7 +72,7 @@ export const Modal: React.FC<ModalProps> = ({
     >
       <button className="absolute inset-0 cursor-default" aria-label={closeLabel} onClick={onClose} />
       <section
-        ref={panelRef}
+        ref={swipe ? swipeRef : undefined}
         className={cn(
           'relative flex w-full flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[var(--lt-card-strong)] shadow-2xl sm:rounded-2xl',
           sizeClasses[size],

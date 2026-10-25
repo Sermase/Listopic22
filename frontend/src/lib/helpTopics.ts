@@ -100,9 +100,9 @@ export const HELP_TOPICS: HelpTopic[] = [
     {
         id: 'preferencias',
         emoji: '🌾',
-        title: 'Mis preferencias',
+        title: 'Mis filtros',
         body: [
-            'Si eliges «Sin gluten» o «Vegetariano», las listas filtran solas y verás un aviso arriba para quitarlo cuando quieras.',
+            'En Menú → Preferencias → Mis filtros. Si eliges «Sin gluten» o «Vegetariano», las listas filtran solas y verás un aviso arriba para quitarlo cuando quieras.',
             'Depende de que la gente marque esas etiquetas al reseñar: es información de usuarios, no una garantía para alérgicos.',
         ],
     },

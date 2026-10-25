@@ -50,7 +50,7 @@ export interface PreferencesUpdateData {
     surnames: string;
     location: string;
     bio: string;
-    defaultDistanceKm: number;
+    defaultDistanceKm?: number;
     mapLayerPreference?: string;
     notificationPreferences?: Record<string, boolean>;
 }
@@ -468,7 +468,7 @@ export const updateUserProfilePreferences = async (
         location,
         residence: location,
         bio,
-        defaultDistanceKm: data.defaultDistanceKm,
+        ...(data.defaultDistanceKm !== undefined ? { defaultDistanceKm: data.defaultDistanceKm } : {}),
         ...(data.mapLayerPreference ? { mapLayerPreference: data.mapLayerPreference } : {}),
         ...(data.notificationPreferences !== undefined ? { notificationPreferences: data.notificationPreferences } : {}),
         updatedAt: serverTimestamp(),
@@ -481,6 +481,14 @@ export const updateUserProfilePreferences = async (
     });
 
     return { username, displayName };
+};
+
+/** Ajustes de uso de Preferencias (distancia, mapa, avisos): cada cambio se guarda al momento. */
+export const updateUserSettings = async (
+    uid: string,
+    data: { defaultDistanceKm?: number; mapLayerPreference?: string; notificationPreferences?: Record<string, boolean> },
+): Promise<void> => {
+    await setDoc(doc(db, USERS_COLLECTION, uid), { ...data, updatedAt: serverTimestamp() }, { merge: true });
 };
 
 /**
