@@ -7,6 +7,8 @@ test.use({ hasTouch: true });
 
 /** Desliza el dedo hacia abajo desde lo alto del panel (eventos táctiles de verdad). */
 async function swipeDown(page: Page, panel: Locator) {
+  // La ventana entra desde abajo (lt-sheet): se mide cuando ya ha llegado a su sitio.
+  await panel.evaluate((el) => Promise.all((el.closest('.lt-sheet')?.getAnimations() ?? []).map((a) => a.finished.catch(() => {}))));
   const box = await panel.boundingBox();
   if (!box) throw new Error('sin panel');
   const cdp = await page.context().newCDPSession(page);
