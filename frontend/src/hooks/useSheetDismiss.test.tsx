@@ -46,6 +46,24 @@ describe('useBackToClose', () => {
         expect(hasOpenSheet()).toBe(false);
     });
 
+    it('si la ventana no se deja cerrar, «atrás» le devuelve su entrada', () => {
+        vi.useFakeTimers();
+        const push = vi.spyOn(window.history, 'pushState');
+        const Busy: React.FC = () => {
+            useBackToClose(true, () => undefined);
+            return <div role="dialog" aria-label="subiendo" />;
+        };
+        render(<Busy />);
+        expect(push).toHaveBeenCalledTimes(1);
+
+        goBack(null);
+        act(() => { vi.runAllTimers(); });
+        expect(screen.getByRole('dialog', { name: 'subiendo' })).toBeTruthy();
+        expect(hasOpenSheet()).toBe(true);
+        expect(push).toHaveBeenCalledTimes(2);
+        vi.useRealTimers();
+    });
+
     it('al cerrarla con su botón quita su entrada del historial', () => {
         vi.useFakeTimers();
         const back = vi.spyOn(window.history, 'back').mockImplementation(() => undefined);

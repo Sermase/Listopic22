@@ -5,7 +5,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef } from 'react';
 // una entrada en el historial con la misma URL; «atrás» la quita y cierra la
 // ventana en vez de salir de la página.
 
-type Entry = { token: string; close: () => void };
+type Entry = { token: string; close: () => void; open: boolean };
 
 const KEY = '__sheet';
 const stack: Entry[] = [];
@@ -17,9 +17,17 @@ const stateToken = (state: unknown): string | undefined =>
 function onPopState(event: PopStateEvent) {
     const token = stateToken(event.state);
     const keep = token ? stack.findIndex((entry) => entry.token === token) : -1;
-    for (let i = stack.length - 1; i > keep; i--) {
-        const [entry] = stack.splice(i, 1);
-        entry.close();
+    const popped = stack.splice(keep + 1);
+    for (let i = popped.length - 1; i >= 0; i--) popped[i].close();
+    // La que no se deja cerrar (p. ej. mientras sube una foto) recupera su sitio y su entrada.
+    if (popped.length) {
+        setTimeout(() => {
+            for (const entry of popped) {
+                if (!entry.open || stack.includes(entry)) continue;
+                stack.push(entry);
+                window.history.pushState({ ...(window.history.state || {}), [KEY]: entry.token }, '');
+            }
+        }, 0);
     }
     // Entrada de una ventana que ya no está (se salió a otra página desde ella): se salta.
     if (token && keep === -1) window.history.back();
@@ -44,12 +52,13 @@ export function useBackToClose(open: boolean, onClose: () => void): void {
             window.addEventListener('popstate', onPopState);
             listening = true;
         }
-        const entry: Entry = { token, close: () => closeRef.current() };
+        const entry: Entry = { token, close: () => closeRef.current(), open: true };
         stack.push(entry);
         if (stateToken(window.history.state) !== token) {
             window.history.pushState({ ...(window.history.state || {}), [KEY]: token }, '');
         }
         return () => {
+            entry.open = false;
             const i = stack.indexOf(entry);
             if (i === -1) return; // La cerró «atrás».
             stack.splice(i, 1);
