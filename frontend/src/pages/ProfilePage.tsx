@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { useTheme, type ThemeId } from "../context/ThemeContext";
 import { useUserProfile, type UserProfileEntity } from "../hooks/useUserProfile";
 import { useBackToClose, useSheetDismiss } from '../hooks/useSheetDismiss';
 import { computeTasteMatch } from "../utils/tasteMatch";
@@ -10,18 +9,15 @@ import { TastePassport } from "../components/profile/TastePassport";
 import { useLists } from "../hooks/useLists";
 import { useReviews } from "../hooks/useReviews";
 import { useBodyScrollLock } from "../hooks/useBodyScrollLock";
-import { useFilters } from "../context/FilterContext"; // Import Filter Context
 import { useAppConfig } from "../context/AppConfigContext";
 import {
   Settings,
   Calendar,
-  Users as UsersIcon,
   List as ListIcon,
   Star,
   UserPlus,
   UserCheck,
   MessageCircle,
-  Power,
   MapPin as MapPinIcon,
   Bug,
   Flag,
@@ -37,12 +33,10 @@ import {
   AlignJustify,
   Clock,
   TrendingUp,
-  Palette,
-  Check,
   HeartHandshake,
 } from "lucide-react";
 import { ReportModal } from "../components/ReportModal";
-import { MyDataRequest } from "../components/profile/MyDataRequest";
+import { EditProfileSheet } from "../components/settings/EditProfileSheet";
 import {
   doc,
   setDoc,
@@ -51,10 +45,9 @@ import {
   updateDoc,
   increment,
 } from "firebase/firestore";
-import { deleteObject, getDownloadURL, listAll, ref, uploadBytes } from "firebase/storage";
-import { httpsCallable } from "firebase/functions";
-import { db, auth, storage, functions } from "../firebase";
-import { signOut, updateProfile } from "firebase/auth";
+import { getDownloadURL, ref } from "firebase/storage";
+import { db, storage } from "../firebase";
+import { updateProfile } from "firebase/auth";
 import { ReviewCard } from "../components/ReviewCard";
 import { LazyAddReviewForm as AddReviewForm, LazyShareModal as ShareModal, LazyMapView as MapView } from "../components/lazy";
 import { Skeleton } from "../components/Skeleton";
@@ -75,12 +68,6 @@ import {
   startAfter,
   serverTimestamp,
 } from "firebase/firestore";
-import { isUsernameValid } from "../utils/username";
-import {
-  isUserProfileServiceError,
-  updateUserProfilePreferences,
-  propagateAuthorFieldsToReviews,
-} from "../services/UserProfileService";
 import { FollowersSection } from "../components/profile/FollowersSection";
 import ProfileStatsTab from "../components/profile/ProfileStatsTab";
 import { SignInToSee } from "../components/profile/SignInToSee";
@@ -95,7 +82,6 @@ import { buildPublicRouteUrl } from "../utils/publicUrl";
 import { getSelectedProfileReviewListId, selectProfileReviewResults } from "../utils/profileReviewFilter";
 import { EntityHero } from "../components/EntityHero";
 import { useAuthPrompt } from "../context/AuthPromptContext";
-import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from "../lib/storageCache";
 import { useToast } from "../context/ToastContext";
 import { compareByRank } from "../lib/scoring";
 
@@ -178,53 +164,6 @@ const getErrorCode = (error: unknown): string | null => {
   return null;
 };
 
-const getProfileUploadErrorMessage = (error: unknown): string => {
-  const code = getErrorCode(error);
-
-  if (code === "storage/unauthorized" || code === "permission-denied") {
-    return "No tienes permisos para cambiar la foto de perfil. Cierra sesión, vuelve a entrar e inténtalo de nuevo.";
-  }
-  if (code === "storage/retry-limit-exceeded" || code === "storage/canceled" || code === "storage/unknown") {
-    return "La subida se interrumpió por conexión o por un bloqueo temporal. Cambia de red y vuelve a intentarlo.";
-  }
-  if (code === "storage/quota-exceeded") {
-    return "No hay espacio disponible para guardar la foto de perfil ahora mismo. Inténtalo más tarde.";
-  }
-
-  return code
-    ? `No se pudo subir la foto de perfil (error: ${code}). Inténtalo de nuevo.`
-    : "No se pudo subir la foto de perfil. Inténtalo de nuevo.";
-};
-
-const getProfileSaveErrorMessage = (error: unknown): string => {
-  const code = getErrorCode(error);
-
-  if (code === "permission-denied") {
-    return "La foto se ha subido, pero no se pudo guardar en tu perfil por permisos de Firestore.";
-  }
-
-  return code
-    ? `La foto se ha subido, pero no se pudo guardar en tu perfil (error: ${code}).`
-    : "La foto se ha subido, pero no se pudo guardar en tu perfil.";
-};
-
-const getImageExtension = (file: File): string => {
-  const extensionByType: Record<string, string> = {
-    "image/jpeg": "jpg",
-    "image/jpg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-    "image/gif": "gif",
-    "image/heic": "heic",
-    "image/heif": "heif",
-  };
-
-  if (extensionByType[file.type]) return extensionByType[file.type];
-
-  const nameExtension = file.name.split(".").pop()?.toLowerCase();
-  return nameExtension && /^[a-z0-9]+$/.test(nameExtension) ? nameExtension : "jpg";
-};
-
 const normalizeStoragePath = (value: unknown): string => {
   if (typeof value !== "string") return "";
   const trimmed = value.trim();
@@ -246,37 +185,10 @@ const normalizeStoragePath = (value: unknown): string => {
   return trimmed;
 };
 
-const cleanupPreviousProfileImages = async (userId: string, currentStoragePath: string) => {
-  const profileFolders = ["profile_images", "profile-photos"];
-
-  const folderCleanups = profileFolders.map(async (folder) => {
-    const folderRef = ref(storage, `${folder}/${userId}`);
-    const result = await listAll(folderRef);
-    const staleItems = result.items.filter((item) => item.fullPath !== currentStoragePath);
-
-    if (staleItems.length === 0) return;
-
-    const deletions = await Promise.allSettled(staleItems.map((item) => deleteObject(item)));
-    deletions.forEach((deletion, index) => {
-      if (deletion.status === "rejected") {
-        console.warn("ProfilePage: could not delete stale profile image", staleItems[index].fullPath, deletion.reason);
-      }
-    });
-  });
-
-  const results = await Promise.allSettled(folderCleanups);
-  results.forEach((result, index) => {
-    if (result.status === "rejected") {
-      console.warn("ProfilePage: could not list profile image folder", profileFolders[index], result.reason);
-    }
-  });
-};
-
 export const ProfilePage: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { openAuthPrompt } = useAuthPrompt();
-  const { theme: activeTheme, setTheme: applyTheme, themes: availableThemes } = useTheme();
   const appConfig = useAppConfig();
   const navigate = useNavigate();
   const { userId: paramUserId } = useParams<{ userId: string }>();
@@ -289,37 +201,6 @@ export const ProfilePage: React.FC = () => {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [preferencesTab, setPreferencesTab] = useState<"user" | "search" | "appearance" | "delete" | "notifications">(
-    "user",
-  );
-  const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({
-    new_message: true,
-    new_follower: true,
-    review_comment: true,
-    review_like: true,
-    list_follow: true,
-    level_up: true,
-    badge_earned: true,
-  });
-  const [deleteReason, setDeleteReason] = useState<string>("");
-  const [deleteKeepReviews, setDeleteKeepReviews] = useState<boolean | null>(null);
-  const [deleteKeepSublists, setDeleteKeepSublists] = useState<boolean | null>(null);
-  const [deleteConfirmText, setDeleteConfirmText] = useState<string>("");
-  const [deletingAccount, setDeletingAccount] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [editRange, setEditRange] = useState<string>("50"); // Default to 50 if undefined
-  const [editMapLayer, setEditMapLayer] = useState<string>("standard");
-  const [editUsername, setEditUsername] = useState("");
-  const [editDisplayName, setEditDisplayName] = useState("");
-  const [editName, setEditName] = useState("");
-  const [editSurnames, setEditSurnames] = useState("");
-  const [editLocation, setEditLocation] = useState("");
-  const [editBio, setEditBio] = useState("");
-  const [savingPreferences, setSavingPreferences] = useState(false);
-  useBackToClose(isEditing, () => { if (!savingPreferences) setIsEditing(false); });
-  const [preferencesError, setPreferencesError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
@@ -365,15 +246,6 @@ export const ProfilePage: React.FC = () => {
     setEditingReviewId(review.id);
     setEditingListId(review.listId || null);
     setIsFlowOpen(true);
-  };
-
-  const openPreferencesModal = (tab: "user" | "search" | "appearance" | "delete" | "notifications" = "user") => {
-    setPreferencesTab(tab);
-    setPreferencesError(null);
-    setIsEditing(true);
-    if (profile?.notificationPreferences) {
-      setNotifPrefs(prev => ({ ...prev, ...profile.notificationPreferences }));
-    }
   };
 
   const openDetailsModal = (tab: DetailsModalTab) => {
@@ -1612,201 +1484,6 @@ export const ProfilePage: React.FC = () => {
     checkFollow();
   }, [user, targetUserId, isOwnProfile]);
 
-  useEffect(() => {
-    if (!profile) return;
-    setEditUsername((profile.username || "").trim());
-    setEditDisplayName((profile.displayName || profile.username || "").trim());
-    setEditName((profile.name || "").trim());
-    setEditSurnames((profile.surnames || "").trim());
-    setEditLocation((profile.location || profile.residence || "").trim());
-    setEditBio((profile.bio || "").trim());
-  }, [profile]);
-
-  useEffect(() => {
-    if (profile?.defaultDistanceKm) {
-      setEditRange(String(profile.defaultDistanceKm));
-    }
-    if ((profile as any)?.mapLayerPreference) {
-      setEditMapLayer((profile as any).mapLayerPreference);
-    }
-  }, [profile]);
-
-  // Image Upload Handlers
-  const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  };
-
-  const processFile = async (file: File) => {
-    if (!user) return;
-    if (!file.type.startsWith("image/")) {
-      showToast({ variant: "error", message: "Solo se permiten archivos de imagen." });
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      // 5MB limit
-      showToast({ variant: "error", message: "La imagen no debe superar los 5 MB." });
-      return;
-    }
-
-    setUploading(true);
-    try {
-      const extension = getImageExtension(file);
-      const storagePath = `profile_images/${user.uid}/${Date.now()}.${extension}`;
-      const storageRef = ref(storage, storagePath);
-      let downloadURL = "";
-
-      try {
-        await uploadBytes(storageRef, file, { contentType: file.type || "image/jpeg", cacheControl: IMMUTABLE_UPLOAD_CACHE_CONTROL });
-        downloadURL = await getDownloadURL(storageRef);
-      } catch (error) {
-        console.error("Profile photo upload failed:", error);
-        showToast({ variant: "error", message: getProfileUploadErrorMessage(error) });
-        return;
-      }
-
-      try {
-        await setDoc(
-          doc(db, "users", user.uid),
-          {
-            photoUrl: downloadURL,
-            photoStoragePath: storagePath,
-            updatedAt: serverTimestamp(),
-          },
-          { merge: true },
-        );
-      } catch (error) {
-        console.error("Profile photo profile save failed:", error);
-        showToast({ variant: "error", message: getProfileSaveErrorMessage(error) });
-        return;
-      }
-
-      void updateProfile(user, { photoURL: downloadURL }).catch((error) => {
-        console.warn("ProfilePage: could not update auth profile photo", error);
-      });
-
-      void propagateAuthorFieldsToReviews(user.uid, { authorPhoto: downloadURL }).catch((error) => {
-        console.warn("ProfilePage: could not propagate profile photo to reviews", error);
-      });
-      await cleanupPreviousProfileImages(user.uid, storagePath);
-      setFailedProfilePhotoUrl(null);
-
-      // Reload to show changes (simple approach)
-      window.location.reload();
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      showToast({ variant: "error", message: "No se pudo cambiar la foto de perfil. Inténtalo de nuevo." });
-    } finally {
-      setUploading(false);
-      setDragActive(false);
-    }
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processFile(e.dataTransfer.files[0]);
-    }
-  };
-
-  const { setRange } = useFilters(); // Get setRange from context
-
-  const savePreferences = async () => {
-    if (!user) return;
-    const profileUsername = (profile?.username || "").trim();
-    const canEditUsername = !isUsernameValid(profileUsername);
-    const nextUsername = editUsername.trim();
-    if (canEditUsername && !isUsernameValid(nextUsername)) {
-      setPreferencesError(
-        "Debes definir un username válido: sin espacios, máximo 18 caracteres y único.",
-      );
-      return;
-    }
-
-    setSavingPreferences(true);
-    setPreferencesError(null);
-    try {
-      const val = parseInt(editRange, 10);
-      const safeDistance = isNaN(val) ? 50 : val;
-      const newRange = safeDistance >= 999999 ? null : safeDistance;
-
-      const result = await updateUserProfilePreferences(
-        {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName,
-          photoUrl: user.photoURL,
-        },
-        {
-          username: canEditUsername ? nextUsername : undefined,
-          displayName: editDisplayName,
-          name: editName,
-          surnames: editSurnames,
-          location: editLocation,
-          bio: editBio,
-          defaultDistanceKm: safeDistance,
-          mapLayerPreference: editMapLayer,
-          notificationPreferences: notifPrefs,
-        },
-      );
-
-      // Update session too if generic
-      // And CRUCIALLY update the context immediately so the UI reflects it without reload
-      sessionStorage.removeItem("sessionRange");
-      setRange(newRange);
-      localStorage.setItem("listopic_map_layer", editMapLayer);
-
-      if (user.displayName !== result.displayName) {
-        await updateProfile(user, { displayName: result.displayName });
-      }
-
-      setIsEditing(false);
-      window.location.reload();
-    } catch (err) {
-      console.error("Error saving preferences:", err);
-      if (isUserProfileServiceError(err)) {
-        setPreferencesError(err.message);
-      } else {
-        setPreferencesError("Error al guardar preferencias");
-      }
-    } finally {
-      setSavingPreferences(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!user) return;
-    setDeletingAccount(true);
-    setDeleteError(null);
-    try {
-      const deleteOwnAccount = httpsCallable(functions, "deleteOwnAccount");
-      await deleteOwnAccount({
-        keepReviews: deleteKeepReviews === true,
-        keepSublists: deleteKeepSublists === true,
-      });
-      await signOut(auth).catch(() => undefined);
-
-      navigate("/");
-    } catch (err: any) {
-      console.error("Error deleting account:", err);
-      if (err?.code === "functions/unauthenticated") {
-        setDeleteError("Por seguridad, necesitas volver a iniciar sesión antes de eliminar tu cuenta.");
-      } else if (err?.code === "auth/requires-recent-login") {
-        setDeleteError("Por seguridad, necesitas volver a iniciar sesión antes de eliminar tu cuenta. Cierra sesión, vuelve a entrar y repite el proceso.");
-      } else {
-        setDeleteError("Error al eliminar la cuenta. Inténtalo de nuevo o contáctanos en istaricore@gmail.com");
-      }
-      setDeletingAccount(false);
-    }
-  };
-
   const handleMessage = async () => {
     if (!user) {
       openAuthPrompt("enviar un mensaje");
@@ -1924,7 +1601,6 @@ export const ProfilePage: React.FC = () => {
   const profileShareTitle = profile.displayName || profile.username || "Perfil";
   const profileShareSubtitle = profile.username ? `@${profile.username}` : "";
   const profileShareText = `Mira este perfil en Listopic: ${profileShareTitle}`;
-  const hasLockedUsername = isUsernameValid((profile.username || "").trim());
   const profileFallbackAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.displayName || profile.username || "User")}&background=374151&color=fff`;
   const usableProfilePhotoUrl = profile.photoUrl && profile.photoUrl !== failedProfilePhotoUrl ? profile.photoUrl : "";
   const profileAvatarSrc = usableProfilePhotoUrl || profileFallbackAvatar;
@@ -2053,10 +1729,10 @@ export const ProfilePage: React.FC = () => {
                           </Link>
                         )}
                       <button
-                        onClick={() => openPreferencesModal("user")}
-                        className="p-2.5 rounded-xl bg-[var(--lt-card-strong)] border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
+                        onClick={() => setIsEditing(true)}
+                        className="px-4 py-2.5 rounded-xl bg-[var(--lt-card-strong)] border border-white/10 text-sm font-bold text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
                       >
-                        <Settings className="w-5 h-5" />
+                        Editar perfil
                       </button>
                       <button
                         aria-label="Compartir perfil"
@@ -2065,15 +1741,13 @@ export const ProfilePage: React.FC = () => {
                       >
                         <Share2 className="w-5 h-5" />
                       </button>
-                      <button
-                        onClick={async () => {
-                          await signOut(auth);
-                          navigate("/login");
-                        }}
-                        className="p-2.5 rounded-xl bg-[var(--lt-card-strong)] border border-white/10 text-gray-300 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                      <Link
+                        to="/preferencias"
+                        aria-label="Preferencias"
+                        className="p-2.5 rounded-xl bg-[var(--lt-card-strong)] border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
                       >
-                        <Power className="w-5 h-5" />
-                      </button>
+                        <Settings className="w-5 h-5" />
+                      </Link>
                     </>
                   ) : (
                     <>
@@ -2260,26 +1934,25 @@ export const ProfilePage: React.FC = () => {
                     </Link>
                   )}
                 <button
-                  onClick={() => openPreferencesModal("user")}
+                  onClick={() => setIsEditing(true)}
                   className="flex h-10 flex-1 items-center justify-center rounded-lg bg-[var(--lt-card-strong)] border border-white/10 px-3 text-[13px] font-bold text-gray-300"
                 >
-                  Editar Perfil
+                  Editar perfil
                 </button>
                 <button
+                  aria-label="Compartir perfil"
                   onClick={() => setIsShareModalOpen(true)}
                   className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--lt-card-strong)] border border-white/10 text-gray-300"
                 >
                   <Share2 className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={async () => {
-                    await signOut(auth);
-                    navigate("/login");
-                  }}
-                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--lt-card-strong)] border border-white/10 text-red-400"
+                <Link
+                  to="/preferencias"
+                  aria-label="Preferencias"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--lt-card-strong)] border border-white/10 text-gray-300"
                 >
-                  <Power className="w-4 h-4" />
-                </button>
+                  <Settings className="w-4 h-4" />
+                </Link>
               </div>
             ) : (
               <div className="flex items-center gap-2 w-full">
@@ -2413,642 +2086,7 @@ export const ProfilePage: React.FC = () => {
         )}
 
         {/* Preferences Modal */}
-        {isEditing && isOwnProfile && createPortal(
-          <div
-            className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-start md:items-center justify-center p-0 md:p-4 bg-black/80 backdrop-blur-sm animate-page-fade"
-            onClick={() => !savingPreferences && setIsEditing(false)}
-          >
-            <div
-              className="w-full h-[100dvh] md:h-[88vh] md:max-h-[88vh] md:max-w-3xl rounded-none md:rounded-2xl border-0 md:border border-white/10 bg-[var(--lt-card-strong)] shadow-none md:shadow-2xl overflow-hidden flex flex-col"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="sticky top-0 z-20 px-4 md:px-5 py-3 md:py-4 border-b border-white/10 bg-[var(--lt-card-strong)] flex items-center justify-between" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
-                <div>
-                  <h3 className="text-white font-bold text-lg">
-                    Preferencias de perfil
-                  </h3>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Configura datos del usuario y ajustes de busqueda.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => !savingPreferences && setIsEditing(false)}
-                  className="p-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="px-4 md:px-5 pt-4 overflow-x-auto">
-                <div className="inline-flex min-w-max rounded-xl border border-white/10 bg-[var(--lt-bg-deep)] p-1">
-                  <button
-                    type="button"
-                    onClick={() => setPreferencesTab("user")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "user"
-                      ? "bg-[var(--lt-accent)] text-white"
-                      : "text-gray-300 hover:text-white"
-                      }`}
-                  >
-                    Usuario
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreferencesTab("search")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "search"
-                      ? "bg-[var(--lt-accent)] text-white"
-                      : "text-gray-300 hover:text-white"
-                      }`}
-                  >
-                    Busqueda
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreferencesTab("notifications")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "notifications"
-                      ? "bg-[var(--lt-accent)] text-white"
-                      : "text-gray-300 hover:text-white"
-                      }`}
-                  >
-                    Notificaciones
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreferencesTab("appearance")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "appearance"
-                      ? "bg-[var(--lt-accent)] text-white"
-                      : "text-gray-300 hover:text-white"
-                      }`}
-                  >
-                    Apariencia
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreferencesTab("delete")}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${preferencesTab === "delete"
-                      ? "bg-red-600 text-white"
-                      : "text-red-400 hover:text-red-300"
-                      }`}
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-
-              <div className="px-4 md:px-5 py-4 space-y-6 overflow-y-auto flex-1">
-                {preferencesTab === "user" && (
-                  <>
-                    <div>
-                      <h4 className="text-white font-bold mb-4 flex items-center gap-2">
-                        <UsersIcon className="w-4 h-4 text-[var(--lt-accent)]" /> Perfil
-                        publico
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="md:col-span-2">
-                          <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">
-                            {hasLockedUsername
-                              ? "Username (bloqueado)"
-                              : "Username (obligatorio)"}
-                          </label>
-                          <input
-                            type="text"
-                            value={editUsername}
-                            onChange={(e) => setEditUsername(e.target.value)}
-                            disabled={hasLockedUsername}
-                            className={`w-full border rounded-lg px-3 py-2 ${hasLockedUsername
-                              ? "bg-black/40 border-white/10 text-gray-400 cursor-not-allowed"
-                              : "bg-black/20 border-amber-400/40 text-white outline-none focus:border-[var(--lt-accent-border)]"
-                              }`}
-                            placeholder="Sin espacios, maximo 18 caracteres"
-                          />
-                          <p className="text-[11px] text-amber-300 mt-2">
-                            {hasLockedUsername
-                              ? "El username no se puede cambiar una vez guardado. Maximo 18 caracteres y sin espacios."
-                              : "Tu username actual no es válido. Debes guardarlo ahora y quedará bloqueado cuando sea correcto."}
-                          </p>
-                        </div>
-
-                        <div>
-                          <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">
-                            Display Name
-                          </label>
-                          <input
-                            type="text"
-                            value={editDisplayName}
-                            onChange={(e) => setEditDisplayName(e.target.value)}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
-                            placeholder="Visible publicamente"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">
-                            Nombre
-                          </label>
-                          <input
-                            type="text"
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
-                            placeholder="Opcional"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">
-                            Apellidos
-                          </label>
-                          <input
-                            type="text"
-                            value={editSurnames}
-                            onChange={(e) => setEditSurnames(e.target.value)}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
-                            placeholder="Opcional"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">
-                            Lugar
-                          </label>
-                          <input
-                            type="text"
-                            value={editLocation}
-                            onChange={(e) => setEditLocation(e.target.value)}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)]"
-                            placeholder="Opcional"
-                          />
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="text-gray-400 text-xs uppercase font-bold block mb-1.5">
-                            Biografia
-                          </label>
-                          <textarea
-                            value={editBio}
-                            onChange={(e) => setEditBio(e.target.value)}
-                            rows={4}
-                            className="w-full bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)] resize-y"
-                            placeholder="Opcional"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-white font-bold mb-4 flex items-center gap-2">
-                        <UsersIcon className="w-4 h-4 text-[var(--lt-accent)]" /> Avatar
-                      </h4>
-                      <div className="flex flex-col gap-4">
-                        <div className="flex gap-4">
-                          <button
-                            onClick={async () => {
-                              if (!user?.photoURL) return;
-                              try {
-                                await setDoc(
-                                  doc(db, "users", user!.uid),
-                                  {
-                                    photoUrl: user!.photoURL,
-                                  },
-                                  { merge: true },
-                                );
-                                window.location.reload();
-                              } catch (e) {
-                                console.error("Error setting Google photo", e);
-                              }
-                            }}
-                            className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${profile.photoUrl === user?.photoURL
-                              ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] ring-1 ring-[var(--lt-accent)]"
-                              : "bg-black/20 border-white/10 hover:border-white/30"
-                              }`}
-                          >
-                            <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10">
-                              {user?.photoURL ? (
-                                <img
-                                  src={user.photoURL}
-                                  alt="Google"
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-full h-full bg-gray-700"></div>
-                              )}
-                            </div>
-                            <span className="text-xs font-bold text-gray-300">
-                              Google
-                            </span>
-                          </button>
-
-                          <div
-                            className={`flex-1 p-3 rounded-xl border flex flex-col items-center gap-2 transition-all relative overflow-hidden group ${profile.photoUrl !== user?.photoURL
-                              ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] ring-1 ring-[var(--lt-accent)]"
-                              : "bg-black/20 border-white/10 hover:border-white/30"
-                              } ${dragActive ? "border-dashed border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)]" : ""}`}
-                            onDragEnter={handleDrag}
-                            onDragLeave={handleDrag}
-                            onDragOver={handleDrag}
-                            onDrop={handleDrop}
-                            onClick={() =>
-                              document.getElementById("file-upload")?.click()
-                            }
-                          >
-                            <input
-                              type="file"
-                              id="file-upload"
-                              className="hidden"
-                              accept="image/*"
-                              onChange={(e) =>
-                                e.target.files &&
-                                e.target.files[0] &&
-                                processFile(e.target.files[0])
-                              }
-                            />
-
-                            {uploading ? (
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
-                                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                              </div>
-                            ) : null}
-
-                            <div className="w-10 h-10 rounded-full overflow-hidden border border-white/10 grayscale group-hover:grayscale-0 transition-all">
-                              <ProgressiveImage
-                                src={profileAvatarSrc}
-                                alt="Custom"
-                                containerClassName="w-full h-full"
-                                className="w-full h-full object-cover"
-                                fallback={<img src={profileFallbackAvatar} alt="Custom" className="w-full h-full object-cover" />}
-                              />
-                            </div>
-                            <span className="text-xs font-bold text-gray-300">
-                              {dragActive ? "Suelta aqui" : "Personal"}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <label className="text-gray-400 text-xs uppercase font-bold">
-                            O arrastra tu imagen aqui
-                          </label>
-                          <p className="text-[10px] text-gray-500">
-                            Haz clic en "Personal" o arrastra una imagen para
-                            subirla. Max 5MB.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {user && <MyDataRequest uid={user.uid} email={user.email} />}
-                  </>
-                )}
-
-                {preferencesTab === "search" && (
-                  <div className="space-y-6">
-                    <div>
-                      <h4 className="text-white font-bold mb-4 flex items-center gap-2">
-                        <Settings className="w-4 h-4 text-[var(--lt-accent)]" />{" "}
-                        Preferencias de busqueda
-                      </h4>
-                      <div className="flex flex-col gap-2 max-w-sm">
-                        <label className="text-gray-400 text-xs uppercase font-bold">
-                          Rango de distancia por defecto
-                        </label>
-                        <div className="flex items-center gap-3">
-                          <select
-                            value={editRange}
-                            onChange={(e) => setEditRange(e.target.value)}
-                            className="bg-black/20 border border-white/10 rounded-lg text-white px-3 py-2 outline-none focus:border-[var(--lt-accent-border)] w-full"
-                          >
-                            <option value="1">1 km</option>
-                            <option value="2">2 km</option>
-                            <option value="5">5 km</option>
-                            <option value="10">10 km</option>
-                            <option value="50">50 km</option>
-                            <option value="100">100 km</option>
-                            <option value="500">500 km</option>
-                            <option value="999999">Sin limite</option>
-                          </select>
-                        </div>
-                        <p className="text-[10px] text-gray-500 mt-1">
-                          Este rango se aplicara automaticamente cuando inicies
-                          nueva sesión.
-                        </p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-white font-bold mb-3 flex items-center gap-2">
-                        <MapPinIcon className="w-4 h-4 text-[var(--lt-accent)]" /> Capa de mapa preferida
-                      </h4>
-                      <div className="grid grid-cols-2 gap-2 max-w-sm">
-                        {([
-                          { id: 'standard', label: 'Estándar', emoji: '🗺️' },
-                          { id: 'light', label: 'Claro', emoji: '☀️' },
-                          { id: 'dark', label: 'Oscuro', emoji: '🌑' },
-                          { id: 'satellite', label: 'Satelital', emoji: '🛰️' },
-                        ] as const).map((layer) => (
-                          <button
-                            key={layer.id}
-                            type="button"
-                            onClick={() => setEditMapLayer(layer.id)}
-                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium transition-colors ${editMapLayer === layer.id
-                              ? 'bg-[var(--lt-accent)] border-[var(--lt-accent-border)] text-white'
-                              : 'bg-black/20 border-white/10 text-gray-300 hover:border-[var(--lt-accent-border)] hover:text-white'
-                              }`}
-                          >
-                            <span className="text-base">{layer.emoji}</span>
-                            {layer.label}
-                          </button>
-                        ))}
-                      </div>
-                      <p className="text-[10px] text-gray-500 mt-2">
-                        Se aplicará automáticamente cada vez que abras el mapa.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {preferencesTab === "notifications" && (
-                  <div className="space-y-3">
-                    <p className="text-xs text-gray-500">Elige qué notificaciones quieres recibir.</p>
-                    {[
-                      { key: "new_message", label: "Mensajes nuevos" },
-                      { key: "new_follower", label: "Nuevos seguidores" },
-                      { key: "review_comment", label: "Comentarios en tus reseñas" },
-                      { key: "review_like", label: "Likes en tus reseñas" },
-                      { key: "list_follow", label: "Alguien sigue una lista tuya" },
-                      { key: "level_up", label: "Subidas de nivel" },
-                      { key: "badge_earned", label: "Medallas desbloqueadas" },
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between py-2 border-b border-white/5">
-                        <span className="text-sm text-gray-300">{label}</span>
-                        <button
-                          type="button"
-                          onClick={() => setNotifPrefs(prev => ({ ...prev, [key]: !prev[key] }))}
-                          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors ${
-                            notifPrefs[key] !== false ? "bg-[var(--lt-accent)]" : "bg-white/10"
-                          }`}
-                        >
-                          <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
-                            notifPrefs[key] !== false ? "translate-x-5" : "translate-x-0"
-                          }`} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {preferencesTab === "appearance" && (
-                  <div className="space-y-5">
-                    <div>
-                      <h4 className="text-white font-bold mb-2 flex items-center gap-2">
-                        <Palette className="w-4 h-4 text-[var(--lt-accent)]" />
-                        Tema de la interfaz
-                      </h4>
-                      <p className="text-xs text-gray-400 mb-4 leading-relaxed">
-                        Cambia la paleta de colores de toda la aplicación. Se aplica al instante y se sincroniza entre tus dispositivos.
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {availableThemes.map((t) => {
-                          const isActive = activeTheme === t.id;
-                          return (
-                            <button
-                              key={t.id}
-                              type="button"
-                              onClick={() => { void applyTheme(t.id as ThemeId); }}
-                              aria-pressed={isActive}
-                              className={`relative group rounded-2xl overflow-hidden border text-left transition-all duration-200 ${isActive
-                                ? "border-[var(--lt-accent-border)] ring-2 ring-[var(--lt-accent)]"
-                                : "border-white/10 hover:border-white/30"
-                                }`}
-                            >
-                              {/* Preview strip */}
-                              <div
-                                className="h-24 relative overflow-hidden"
-                                style={{ background: t.preview.bg }}
-                              >
-                                <div
-                                  className="absolute -top-8 -right-8 w-32 h-32 rounded-full blur-2xl opacity-70"
-                                  style={{ background: t.preview.accent }}
-                                />
-                                <div
-                                  className="absolute -bottom-10 -left-8 w-32 h-32 rounded-full blur-2xl opacity-50"
-                                  style={{ background: t.preview.accent2 }}
-                                />
-                                <div className="absolute inset-0 p-3 flex flex-col justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <div
-                                      className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold text-white shadow-lg"
-                                      style={{ background: `linear-gradient(135deg, ${t.preview.accent}, ${t.preview.accent2})` }}
-                                    >
-                                      L
-                                    </div>
-                                    <span className="text-[11px] font-bold tracking-tight" style={{ color: t.preview.text }}>
-                                      Listopic
-                                    </span>
-                                  </div>
-                                  <div className="flex gap-1.5">
-                                    <div
-                                      className="h-5 w-14 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-                                      style={{ background: `linear-gradient(135deg, ${t.preview.accent}, ${t.preview.accent2})` }}
-                                    >
-                                      Todos
-                                    </div>
-                                    <div
-                                      className="h-5 w-14 rounded-full border flex items-center justify-center text-[9px] font-bold"
-                                      style={{
-                                        background: t.preview.card,
-                                        borderColor: 'rgba(255,255,255,0.08)',
-                                        color: t.preview.text,
-                                      }}
-                                    >
-                                      Cafés
-                                    </div>
-                                  </div>
-                                </div>
-                                {isActive && (
-                                  <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/95 text-[var(--lt-accent)] flex items-center justify-center shadow-lg">
-                                    <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                                  </div>
-                                )}
-                              </div>
-                              {/* Label */}
-                              <div className="px-3 py-2.5 bg-[var(--lt-bg-deep)]">
-                                <div className="flex items-baseline justify-between gap-2">
-                                  <span className="text-white text-sm font-bold">{t.label}</span>
-                                  <span className="text-[9px] uppercase tracking-wider text-gray-500 truncate">
-                                    {t.mood}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-gray-400 mt-1 leading-snug line-clamp-2">
-                                  {t.description}
-                                </p>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <p className="text-[10px] text-gray-500 mt-4">
-                        Tu preferencia se guarda en tu cuenta: la verás igual al entrar desde otro dispositivo.
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {preferencesTab === "delete" && (
-                  <div className="space-y-5">
-                    <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
-                      <p className="text-red-300 text-sm leading-relaxed">
-                        <span className="font-bold text-white">Esta acción es irreversible.</span> Se borran siempre tu perfil, tu foto, tus seguidores y seguidos, tus notificaciones, tus chats privados y tus mensajes en grupos. Revisa las opciones antes de continuar.
-                      </p>
-                    </div>
-
-                    {user && <MyDataRequest uid={user.uid} email={user.email} />}
-
-                    {/* Razón */}
-                    <div>
-                      <label className="text-gray-400 text-xs uppercase font-bold block mb-2">¿Por qué te vas?</label>
-                      <div className="space-y-2">
-                        {[
-                          "Ya no uso la app",
-                          "Quiero empezar desde cero",
-                          "Problemas de privacidad",
-                          "La app no cubre mis necesidades",
-                          "Otras razones",
-                          "Prefiero no decirlo",
-                        ].map((reason) => (
-                          <button
-                            key={reason}
-                            type="button"
-                            onClick={() => setDeleteReason(reason)}
-                            className={`w-full text-left px-3 py-2.5 rounded-xl border text-sm transition-colors ${deleteReason === reason
-                              ? "bg-red-600/20 border-red-500/50 text-white"
-                              : "bg-black/20 border-white/10 text-gray-300 hover:border-white/20 hover:text-white"
-                              }`}
-                          >
-                            {reason}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Reseñas */}
-                    <div>
-                      <label className="text-gray-400 text-xs uppercase font-bold block mb-1">¿Mantener tus aportaciones de forma anónima?</label>
-                      <p className="text-gray-500 text-xs mb-2">Reseñas, fotos, comentarios y mensajes en foros. Si dices que sí, se quedan en la app firmadas como «Usuario eliminado». Si dices que no, se borran.</p>
-                      <div className="flex gap-2">
-                        {([true, false] as const).map((val) => (
-                          <button
-                            key={String(val)}
-                            type="button"
-                            onClick={() => setDeleteKeepReviews(val)}
-                            className={`flex-1 py-2 rounded-xl border text-sm font-bold transition-colors ${deleteKeepReviews === val
-                              ? val ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-white" : "bg-red-600/20 border-red-500/50 text-white"
-                              : "bg-black/20 border-white/10 text-gray-400 hover:border-white/20 hover:text-white"
-                              }`}
-                          >
-                            {val ? "Sí, mantenerlas" : "No, eliminarlas"}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Sublistas */}
-                    <div>
-                      <label className="text-gray-400 text-xs uppercase font-bold block mb-1">¿Mantener tus minilistas?</label>
-                      <p className="text-gray-500 text-xs mb-2">Si dices que sí, tus minilistas quedarán en la app sin autor.</p>
-                      <div className="flex gap-2">
-                        {([true, false] as const).map((val) => (
-                          <button
-                            key={String(val)}
-                            type="button"
-                            onClick={() => setDeleteKeepSublists(val)}
-                            className={`flex-1 py-2 rounded-xl border text-sm font-bold transition-colors ${deleteKeepSublists === val
-                              ? val ? "bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-white" : "bg-red-600/20 border-red-500/50 text-white"
-                              : "bg-black/20 border-white/10 text-gray-400 hover:border-white/20 hover:text-white"
-                              }`}
-                          >
-                            {val ? "Sí, mantenerlas" : "No, eliminarlas"}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Confirmación */}
-                    <div>
-                      <label className="text-gray-400 text-xs uppercase font-bold block mb-2">Escribe ELIMINAR para confirmar</label>
-                      <input
-                        type="text"
-                        value={deleteConfirmText}
-                        onChange={(e) => setDeleteConfirmText(e.target.value)}
-                        placeholder="ELIMINAR"
-                        className="w-full bg-black/20 border border-red-500/30 rounded-lg text-white px-3 py-2 outline-none focus:border-red-500 placeholder:text-gray-600"
-                      />
-                    </div>
-
-                    {deleteError && (
-                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[11px] text-red-200">
-                        {deleteError}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div className="px-4 md:px-5 py-4 border-t border-white/10 bg-[var(--lt-card-strong)] space-y-3">
-                {preferencesTab !== "delete" && preferencesError && (
-                  <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 text-[11px] text-red-200">
-                    {preferencesError}
-                  </div>
-                )}
-                <div className="flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => !savingPreferences && !deletingAccount && setIsEditing(false)}
-                    disabled={savingPreferences || deletingAccount}
-                    className="px-3 py-2 text-xs font-bold rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Cancelar
-                  </button>
-                  {preferencesTab === "delete" ? (
-                    <button
-                      type="button"
-                      onClick={handleDeleteAccount}
-                      disabled={
-                        deletingAccount ||
-                        !deleteReason ||
-                        deleteKeepReviews === null ||
-                        deleteKeepSublists === null ||
-                        deleteConfirmText !== "ELIMINAR"
-                      }
-                      className="px-3 py-2 text-xs font-bold rounded-lg bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 min-w-[150px]"
-                    >
-                      {deletingAccount && (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      )}
-                      Eliminar mi cuenta
-                    </button>
-                  ) : preferencesTab === "appearance" ? (
-                    <span className="text-[11px] text-gray-500 italic">
-                      Los cambios de tema se aplican al instante.
-                    </span>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={savePreferences}
-                      disabled={savingPreferences}
-                      className="px-3 py-2 text-xs font-bold rounded-lg bg-[var(--lt-accent)] hover:bg-[var(--lt-accent)] disabled:opacity-60 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 min-w-[150px]"
-                    >
-                      {savingPreferences && (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      )}
-                      Guardar preferencias
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )}
+        {isOwnProfile && <EditProfileSheet isOpen={isEditing} onClose={() => setIsEditing(false)} profile={profile} />}
 
         {/* Main Content (Reviews are always visible below stats) */}
         <div className="mt-5 space-y-5 md:mt-8 md:space-y-6">

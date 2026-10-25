@@ -26,6 +26,7 @@ import { hasOpenSheet } from './hooks/useSheetDismiss';
 // Lazy Load Pages
 const HomePage = React.lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
 const HelpPage = React.lazy(() => import('./pages/HelpPage').then(m => ({ default: m.HelpPage })));
+const SettingsPage = React.lazy(() => import('./pages/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const ReviewPage = React.lazy(() => import('./pages/ReviewPage').then(m => ({ default: m.ReviewPage })));
 const PlansPage = React.lazy(() => import('./pages/PlansPage').then(m => ({ default: m.PlansPage })));
 const SearchPage = React.lazy(() => import('./pages/SearchPage').then(m => ({ default: m.SearchPage })));
@@ -267,7 +268,7 @@ const AppRoutes = () => {
               <Route path="/planes" element={<PlansPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/ayuda" element={<HelpPage />} />
-              <Route path="/preferencias" element={<HelpPage section="preferencias" />} />
+              <Route path="/preferencias" element={<SettingsPage />} />
               <Route path="/review/:listId/:reviewId" element={<ReviewPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/child-safety" element={<ChildSafetyPage />} />
