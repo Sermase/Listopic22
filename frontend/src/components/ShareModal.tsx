@@ -17,6 +17,7 @@ import { buildShareCriteriaGroups } from '../utils/shareCriteria';
 import { buildPublicUrl, buildShareRouteUrl, getLocalRouteFromUrl } from '../utils/publicUrl';
 import { buildShareText } from '../utils/shareTexts';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useBackToClose } from '../hooks/useSheetDismiss';
 import { useAuthPrompt } from '../context/AuthPromptContext';
 import { recordShareEvent, type AnalyticsShareChannel } from '../services/AnalyticsService';
 import { useNavigate } from 'react-router-dom';
@@ -298,6 +299,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         resetModalState();
         onClose();
     }, [onClose, resetModalState]);
+    useBackToClose(isOpen, handleRequestClose);
 
     React.useEffect(() => {
         if (!isOpen) {

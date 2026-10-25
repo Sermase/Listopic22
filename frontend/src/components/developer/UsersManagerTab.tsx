@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useBackToClose } from '../../hooks/useSheetDismiss';
 import { db } from '../../firebase';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { Search, X, Bot, Award, User, RefreshCw, Shield, ChevronDown, ChevronUp, Loader2, Star } from 'lucide-react';
@@ -53,6 +54,7 @@ interface UserModalProps {
 }
 
 const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSaved, availableBadges }) => {
+    useBackToClose(true, onClose);
     const currentTypes: string[] = Array.isArray(user.userType) ? user.userType : (user.userType ? [user.userType] : []);
     const [roles, setRoles] = useState<string[]>(currentTypes.filter(r => USER_ROLES.includes(r as UserRole)));
     const [badges, setBadges] = useState<string[]>(

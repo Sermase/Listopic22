@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useBackToClose } from '../../hooks/useSheetDismiss';
 import { X, Save, Search, Loader2, ExternalLink, User, Tag, Star, Image as ImageIcon, AlertCircle, Copy, ChevronDown, Bot, ShieldCheck } from 'lucide-react';
 import { computeReviewScore, computingCriteria, normalizeCriteria } from '../../lib/scoring';
 import { formatWeight } from '../../lib/criteria';
@@ -25,6 +26,7 @@ const initialTags = (review: Record<string, unknown>): string[] => [...new Set([
  * La nota global no se escribe a mano si la Lista tiene criterios: se recalcula como al valorar.
  */
 export const ReviewAdminModal: React.FC<Props> = ({ path, onClose, onSaved }) => {
+    useBackToClose(true, onClose);
     const [detail, setDetail] = useState<AdminReviewDetail | null>(null);
     const [loadError, setLoadError] = useState<string | null>(null);
     const [itemName, setItemName] = useState('');

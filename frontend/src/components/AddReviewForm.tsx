@@ -18,6 +18,7 @@ import { ListSearch } from './ListSearch';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { isGooglePlacePhotoUrl } from '../utils/placeImages';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useBackToClose } from '../hooks/useSheetDismiss';
 import { IMMUTABLE_UPLOAD_CACHE_CONTROL } from '../lib/storageCache';
 import { computeReviewScore, criterionWeight, isComputingCriterion } from '../lib/scoring';
 import { formatScore, SCORE_BADGE, SCORE_BAND_EMOJI, SCORE_BAND_LABEL, scoreBand, scoreTextColor } from '../lib/scoreScale';
@@ -37,6 +38,8 @@ interface AddReviewFormProps {
     prefillItemName?: string;
     editReviewId?: string;
     lockList?: boolean;
+    /** «Atrás» cierra el formulario (false cuando es una página, no una ventana). */
+    closeOnBack?: boolean;
     onClose: () => void;
     onSuccess: () => void;
     suggestedListIds?: string[]; // IDs of lists where this place is already present
@@ -184,8 +187,9 @@ const fileFromExistingPhoto = async (url: string, index: number, storagePath?: s
     return new File([blob], `review-photo-${index + 1}.${extension}`, { type });
 };
 
-export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId: editReviewIdProp, lockList = false, onClose, onSuccess, suggestedListIds }) => {
+export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId: editReviewIdProp, lockList = false, closeOnBack = true, onClose, onSuccess, suggestedListIds }) => {
     useBodyScrollLock(true);
+    useBackToClose(closeOnBack, onClose);
     const { user } = useAuth();
     // Editable aquí: si ya tienes reseña de ese plato, «Editar la mía» la abre en este mismo formulario.
     const [editReviewId, setEditReviewId] = useState<string | undefined>(editReviewIdProp);

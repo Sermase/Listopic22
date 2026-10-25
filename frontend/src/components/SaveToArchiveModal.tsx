@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useArchives, type SavedItemEntity } from '../hooks/useArchives';
 import { Folder, Check, Plus, X } from 'lucide-react';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { MarqueeText } from './ui/MarqueeText';
 import { useToast } from '../context/ToastContext';
 
@@ -21,6 +22,7 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
     const [isCreating, setIsCreating] = useState(false);
     const { showToast } = useToast();
     useBodyScrollLock(isOpen);
+    const panelRef = useSheetDismiss(onClose, isOpen);
 
     useEffect(() => {
         if (isOpen) {
@@ -116,6 +118,7 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
     return (
         <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-end sm:items-center justify-center sm:p-4 bg-black/75 backdrop-blur-sm animate-fade-in" onClick={onClose}>
             <div
+                ref={panelRef}
                 role="dialog"
                 aria-modal="true"
                 aria-label="Guardar en una colección"

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useJefeClaim } from '../hooks/useJefeClaim';
+import { useBackToClose } from '../hooks/useSheetDismiss';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { PlaceService } from '../services/PlaceService';
 import { BADGE_PRESET_PACKS } from '../config/badgePresets';
@@ -166,6 +167,7 @@ export const DeveloperPage: React.FC = () => {
     const [loadingBadges, setLoadingBadges] = useState(false);
     const [editingBadge, setEditingBadge] = useState<any | null>(null);
     const [badgeModalOpen, setBadgeModalOpen] = useState(false);
+    useBackToClose(badgeModalOpen, () => setBadgeModalOpen(false));
     const [importingBadgePackId, setImportingBadgePackId] = useState<string | null>(null);
 
 

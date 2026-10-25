@@ -4,6 +4,7 @@ import { collection, query, where, getDocs, doc, getDoc, updateDoc, arrayUnion, 
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { useToast } from '../context/ToastContext';
 
 interface ShareListModalProps {
@@ -42,6 +43,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
     // Resolved display names: uid → username/displayName
     const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
     useBodyScrollLock(isOpen);
+    const panelRef = useSheetDismiss(onClose, isOpen);
 
     // Sync props to state when modal opens and resolve UIDs to display names
     useEffect(() => {
@@ -182,7 +184,7 @@ export const ShareListModal: React.FC<ShareListModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="bg-[var(--lt-card-strong)] w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <div ref={panelRef} className="bg-[var(--lt-card-strong)] w-full max-w-lg rounded-2xl border border-white/10 shadow-2xl overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[90vh]" onClick={e => e.stopPropagation()}>
 
                 {/* Header */}
                 <div className="p-4 border-b border-white/5 flex items-center justify-between bg-[var(--lt-bg)]/50">

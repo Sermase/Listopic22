@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useBackToClose } from '../../hooks/useSheetDismiss';
 import { collection, getDocs, query, where, orderBy, limit as firestoreLimit, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -30,6 +31,7 @@ export const ListsManagerTab: React.FC = () => {
     const [lists, setLists] = useState<ListRecord[]>([]);
     const [loading, setLoading] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    useBackToClose(showCreateModal, () => setShowCreateModal(false));
     const [editingListId, setEditingListId] = useState<string | null>(null);
     const [editModalListId, setEditModalListId] = useState<string | null>(null);
     const [updatingId, setUpdatingId] = useState<string | null>(null);

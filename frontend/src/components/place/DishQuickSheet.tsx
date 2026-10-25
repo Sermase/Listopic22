@@ -7,6 +7,7 @@ import { scoreBadgeStyle } from '../../lib/scoreScale';
 import { useAuth } from '../../context/AuthContext';
 import { useAuthPrompt } from '../../context/AuthPromptContext';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { useSheetDismiss } from '../../hooks/useSheetDismiss';
 import { dishReviewUrl } from './dishReviewUrl';
 import { reviewItemId, type ReviewItemRef } from '../../lib/placeItems';
 import { APT_ITEM_KEYS, aptSummary, itemAptCounts } from '../../lib/aptFor';
@@ -58,6 +59,7 @@ const norm = (value: string | undefined) => (value ?? '').trim().toLowerCase();
  */
 export const DishQuickSheet: React.FC<DishQuickSheetProps> = ({ placeId, dish, reviews, aptFor, onClose }) => {
     useBodyScrollLock(true);
+    const panelRef = useSheetDismiss(onClose);
     const navigate = useNavigate();
     const { user } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
@@ -85,7 +87,7 @@ export const DishQuickSheet: React.FC<DishQuickSheetProps> = ({ placeId, dish, r
 
     return (
         <div className="fixed inset-0 z-[10000] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in sm:items-center sm:p-4" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div role="dialog" aria-label={dish.name} className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[2rem] border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-2xl sm:max-w-md sm:rounded-3xl">
+            <div ref={panelRef} role="dialog" aria-label={dish.name} className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[2rem] border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-2xl sm:max-w-md sm:rounded-3xl">
                 <div className="relative h-44 shrink-0 bg-[var(--lt-card)]">
                     {dish.photo ? (
                         <ProgressiveImage src={dish.photo} alt={dish.name} containerClassName="h-full w-full" className="h-full w-full object-cover" />

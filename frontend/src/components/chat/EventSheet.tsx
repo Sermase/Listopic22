@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { CalendarPlus, ExternalLink, MapPin, Phone, X } from 'lucide-react';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { useSheetDismiss } from '../../hooks/useSheetDismiss';
 import { usePlaceDetails } from '../../hooks/usePlaceDetails';
 import { todayHours } from '../../lib/openingHours';
 import { formatScore, scoreBadgeStyle } from '../../lib/scoreScale';
@@ -56,6 +57,7 @@ export const EventSheet: React.FC<Props> = ({
     onRespond, onProposeDate, onChangeDate, onAcceptProposal, onCancel,
 }) => {
     useBodyScrollLock(true);
+    const panelRef = useSheetDismiss(onClose);
     const navigate = useNavigate();
     const { place } = usePlaceDetails(invite.placeId);
     const [confirmCancel, setConfirmCancel] = useState(false);
@@ -111,7 +113,7 @@ export const EventSheet: React.FC<Props> = ({
 
     return createPortal(
         <div className="fixed inset-0 z-[10000] flex items-end md:items-center justify-center bg-black/70 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="w-full md:max-w-lg max-h-[94vh] overflow-y-auto bg-[var(--lt-card-strong)] border border-white/10 rounded-t-3xl md:rounded-3xl shadow-2xl pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <div ref={panelRef} className="w-full md:max-w-lg max-h-[94vh] overflow-y-auto bg-[var(--lt-card-strong)] border border-white/10 rounded-t-3xl md:rounded-3xl shadow-2xl pb-[max(1rem,env(safe-area-inset-bottom))]">
                 <div className={`relative h-52 bg-gradient-to-br from-[var(--lt-accent)] to-[var(--lt-bg-deep)] ${invite.cancelled ? 'grayscale' : ''}`}>
                     {photo
                         ? <img src={photo} alt="" className="absolute inset-0 w-full h-full object-cover" />

@@ -8,6 +8,7 @@ import { buildShareText } from '../utils/shareTexts';
 import { buildShareRouteUrl, PUBLIC_ORIGIN } from '../utils/publicUrl';
 import { CARD_PALETTE_IDS, CARD_PALETTES, type CardPalette, type CardPaletteId } from '../lib/shareCardPalettes';
 import { SCORE_BADGE, SCORE_BAND_LABEL, SCORE_TEXT_ON_DARK, scoreBand } from '../lib/scoreScale';
+import { useBackToClose } from '../hooks/useSheetDismiss';
 
 export type ModernCardVariant = 'story' | 'portrait' | 'square' | 'landscape';
 
@@ -1253,6 +1254,7 @@ export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, varian
         setFeedback(null);
         onRequestClose?.();
     };
+    useBackToClose(isOpen && !!previewImage, close);
 
     if (loading) {
         return (

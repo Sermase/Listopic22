@@ -14,6 +14,7 @@ import { useAuthPrompt } from '../context/AuthPromptContext';
 import { PageAnalyticsModal } from './PageAnalyticsModal';
 import { isTrackableAnalyticsPath } from '../services/AnalyticsService';
 import { useManagedBusinesses } from '../hooks/useManagedBusinesses';
+import { useSheetDismiss } from '../hooks/useSheetDismiss';
 
 const FIREBASE_STORAGE_HOST = 'firebasestorage.googleapis.com';
 
@@ -92,6 +93,7 @@ export const Navbar: React.FC = () => {
     };
     const activeLogoUrl = themeLogoUrls[theme] || config.logoUrl;
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const menuRef = useSheetDismiss(() => setIsMenuOpen(false), isMenuOpen);
     const [scrolled, setScrolled] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [notificationPanelMode, setNotificationPanelMode] = useState<'desktop' | 'mobile'>('desktop');
@@ -401,6 +403,7 @@ export const Navbar: React.FC = () => {
                     <button type="button" aria-label="Cerrar menú" onClick={() => setIsMenuOpen(false)} className="absolute inset-0 bg-black/55 backdrop-blur-sm animate-fade-in" />
                     {/* Hoja que sube desde abajo. No repite lo que ya está en la barra inferior. */}
                     <div
+                        ref={menuRef}
                         role="dialog"
                         aria-label="Menú"
                         className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-[2rem] border-t border-[var(--lt-border)] bg-[var(--lt-card-strong)] px-4 pt-2 shadow-[0_-12px_40px_rgba(0,0,0,0.45)] animate-slide-up"

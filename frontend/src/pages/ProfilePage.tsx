@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
 import { useAuth } from "../context/AuthContext";
 import { useTheme, type ThemeId } from "../context/ThemeContext";
 import { useUserProfile, type UserProfileEntity } from "../hooks/useUserProfile";
+import { useBackToClose, useSheetDismiss } from '../hooks/useSheetDismiss';
 import { computeTasteMatch } from "../utils/tasteMatch";
 import { TastePassport } from "../components/profile/TastePassport";
 import { useLists } from "../hooks/useLists";
@@ -315,6 +316,7 @@ export const ProfilePage: React.FC = () => {
   const [editLocation, setEditLocation] = useState("");
   const [editBio, setEditBio] = useState("");
   const [savingPreferences, setSavingPreferences] = useState(false);
+  useBackToClose(isEditing, () => { if (!savingPreferences) setIsEditing(false); });
   const [preferencesError, setPreferencesError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -329,6 +331,7 @@ export const ProfilePage: React.FC = () => {
   );
   const [reviewListFilter, setReviewListFilter] = useState<string>("all");
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
+  useBackToClose(isAvatarModalOpen, () => setIsAvatarModalOpen(false));
   const [reviewSortMode, setReviewSortMode] = useState<"recent" | "top_rated">(
     "recent",
   );
@@ -353,6 +356,7 @@ export const ProfilePage: React.FC = () => {
 
   // Details Modal State
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const detailsRef = useSheetDismiss(() => setIsDetailsModalOpen(false), isDetailsModalOpen);
   const [detailsModalTab, setDetailsModalTab] =
     useState<DetailsModalTab>("stats");
   useBodyScrollLock(isAvatarModalOpen || isEditing || isDetailsModalOpen);
@@ -3228,6 +3232,7 @@ export const ProfilePage: React.FC = () => {
             onClick={() => setIsDetailsModalOpen(false)}
           >
             <div
+              ref={detailsRef}
               className="w-full h-full md:h-[88vh] md:max-h-[88vh] md:max-w-2xl rounded-none md:rounded-3xl border-0 md:border border-white/10 bg-[var(--lt-card-strong)] shadow-none md:shadow-2xl overflow-hidden flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >

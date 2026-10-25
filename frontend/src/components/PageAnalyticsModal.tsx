@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart3, Eye, Loader2, Monitor, RefreshCw, Share2, UserCheck, Users, X } from 'lucide-react';
 import { getPageAnalytics, normalizeAnalyticsPath, type PageAnalyticsResult } from '../services/AnalyticsService';
+import { useSheetDismiss } from '../hooks/useSheetDismiss';
 
 const SOURCE_LABELS: Record<string, string> = {
     direct: 'Directo',
@@ -26,6 +27,7 @@ export const PageAnalyticsModal: React.FC<{ pathname: string; onClose: () => voi
     const [data, setData] = useState<PageAnalyticsResult | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const panelRef = useSheetDismiss(onClose);
     const path = normalizeAnalyticsPath(pathname);
 
     const load = async () => {
@@ -72,7 +74,7 @@ export const PageAnalyticsModal: React.FC<{ pathname: string; onClose: () => voi
     return (
         <div className="pointer-events-auto fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-3 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Estadísticas de la página">
             <button type="button" className="absolute inset-0 cursor-default" onClick={onClose} aria-label="Cerrar" />
-            <div className="relative z-10 max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/10 bg-[var(--lt-bg-deep)] p-5 shadow-2xl sm:p-6">
+            <div ref={panelRef} className="relative z-10 max-h-[90dvh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/10 bg-[var(--lt-bg-deep)] p-5 shadow-2xl sm:p-6">
                 <div className="flex items-start justify-between gap-4">
                     <div>
                         <h2 className="flex items-center gap-2 text-xl font-black text-[var(--lt-text)]">

@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { getNotificationLink } from '../utils/notificationLinks';
 
 interface NotificationModalProps {
@@ -26,6 +27,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
     const [loading, setLoading] = useState(true);
     const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
     useBodyScrollLock(mobile);
+    const panelRef = useSheetDismiss(onClose);
     // showHistory removed, controlled by parent
 
     useEffect(() => {
@@ -322,6 +324,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         return createPortal(
             <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in md:p-4 pointer-events-auto" onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}>
                 <div
+                    ref={panelRef}
                     data-notification-panel
                     className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[80vh] mx-4"
                     onClick={(event) => event.stopPropagation()}

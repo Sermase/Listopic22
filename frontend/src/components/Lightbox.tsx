@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useBackToClose } from '../hooks/useSheetDismiss';
 import { X, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
@@ -13,6 +14,7 @@ export const Lightbox: React.FC<LightboxProps> = ({ isOpen, onClose, images, ini
     const [currentIndex, setCurrentIndex] = useState(initialIndex);
     const [scale, setScale] = useState(1);
     const [isZoomed, setIsZoomed] = useState(false);
+    useBackToClose(isOpen, onClose);
 
     // Sync index if initial changes (e.g. reopening)
     useEffect(() => {

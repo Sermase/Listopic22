@@ -13,6 +13,7 @@ import type { ShareEntityPayload } from '../types/share';
 import { getShareEntityLabel } from '../types/share';
 import { getLocalRouteFromUrl, buildPublicRouteUrl } from '../utils/publicUrl';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { useVisualViewport } from '../hooks/useVisualViewport';
 import { useToast } from '../context/ToastContext';
 import { MessageBubble } from '../components/chat/MessageBubble';
@@ -89,6 +90,7 @@ export const ChatsPage: React.FC = () => {
     const [newChatOpen, setNewChatOpen] = useState(false);
 
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+    const infoRef = useSheetDismiss(() => setIsInfoModalOpen(false), isInfoModalOpen);
     const [participantInput, setParticipantInput] = useState('');
     const [addingParticipant, setAddingParticipant] = useState(false);
     const [groupNameDraft, setGroupNameDraft] = useState('');
@@ -900,7 +902,7 @@ export const ChatsPage: React.FC = () => {
 
             {isInfoModalOpen && activeChatObj && user && createPortal(
                 <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) setIsInfoModalOpen(false); }}>
-                    <div className="bg-[var(--lt-card-strong)] rounded-3xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden lt-mobile-modal-panel overflow-y-auto" onClick={e => e.stopPropagation()}>
+                    <div ref={infoRef} className="bg-[var(--lt-card-strong)] rounded-3xl w-full max-w-sm border border-white/10 shadow-2xl overflow-hidden lt-mobile-modal-panel overflow-y-auto" onClick={e => e.stopPropagation()}>
                         <div className="p-4 border-b border-white/5 flex justify-between items-center">
                             <h2 className="text-lg font-bold text-white">{activeChatObj.type === 'group' ? 'Grupo' : 'Chat'}</h2>
                             <button onClick={() => setIsInfoModalOpen(false)} className="text-gray-400 hover:text-white" aria-label="Cerrar">

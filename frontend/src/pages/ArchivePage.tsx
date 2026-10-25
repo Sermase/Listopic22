@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { HelpTip } from '../components/HelpTip';
 import { useArchives, type SavedItemEntity } from '../hooks/useArchives';
+import { useBackToClose } from '../hooks/useSheetDismiss';
 import { Folder, MapPin, MessageSquare, List as ListIcon, Trash2, Map as MapIcon, X, Filter, Edit2, Search, Check, MoreVertical, Image as ImageIcon, ArrowLeft, Plus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -237,6 +238,7 @@ export const ArchivePage: React.FC = () => {
     const confirm = useConfirm();
 
     const [viewMode, setViewMode] = useState<'grid' | 'map'>('grid');
+    useBackToClose(viewMode === 'map', () => setViewMode('grid'));
     const [activeSection, setActiveSection] = useState<ArchiveSection>('collections');
     const [photoFilter, setPhotoFilter] = useState<PhotoFilter>('all');
     const [filterType, setFilterType] = useState<CollectionFilter>('all');
@@ -252,6 +254,7 @@ export const ArchivePage: React.FC = () => {
     const [loadingPlacePhotos, setLoadingPlacePhotos] = useState(false);
     const [loadingReviewPhotos, setLoadingReviewPhotos] = useState(false);
     const [viewerPhoto, setViewerPhoto] = useState<PhotoGridItem | null>(null);
+    useBackToClose(viewerPhoto !== null, () => setViewerPhoto(null));
     const [mapSource, setMapSource] = useState<'saved' | 'photos'>('saved');
     const [editingPlacePhoto, setEditingPlacePhoto] = useState<UploadedPlacePhoto | null>(null);
     const [editingCaption, setEditingCaption] = useState('');

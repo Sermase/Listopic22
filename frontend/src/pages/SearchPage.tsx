@@ -35,6 +35,7 @@ import { SearchQueryParser } from '../services/SearchQueryParser';
 import { ListItemCard } from '../components/ListItemCard';
 import { SearchMapView } from '../components/SearchMapView';
 import { useLocation } from '../hooks/useLocation';
+import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { getPlaceTypeLabel, getPlaceTypeLabels } from '../utils/placeTypeLabels';
 import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/placeStatus';
 import { placeCardScore } from '../lib/placeRating';
@@ -1314,6 +1315,7 @@ export const SearchPage: React.FC = () => {
         typeParam === 'all' ? {} : { [typeParam]: resolveSortValue(typeParam, sortParam) }
     ));
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+    const filtersRef = useSheetDismiss(() => setMobileFiltersOpen(false), mobileFiltersOpen);
     const [includeClosedPlaces, setIncludeClosedPlaces] = useState(false);
     const [geoActive, setGeoActive] = useState(() => (
         (typeParam === 'places' || typeParam === 'items') && geoParam
@@ -1645,7 +1647,7 @@ export const SearchPage: React.FC = () => {
                         {mobileFiltersOpen && (
                             <div className="fixed inset-0 z-[2000] lg:hidden">
                                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setMobileFiltersOpen(false)} />
-                                <div role="dialog" aria-modal="true" aria-label="Filtros" className="absolute inset-x-0 bottom-0 flex max-h-[82dvh] flex-col rounded-t-3xl bg-[var(--lt-card-strong)] border-t border-[var(--lt-border)] shadow-2xl overflow-hidden animate-slide-up-modal">
+                                <div ref={filtersRef} role="dialog" aria-modal="true" aria-label="Filtros" className="absolute inset-x-0 bottom-0 flex max-h-[82dvh] flex-col rounded-t-3xl bg-[var(--lt-card-strong)] border-t border-[var(--lt-border)] shadow-2xl overflow-hidden animate-slide-up-modal">
                                     <div className="px-5 pt-3 pb-3 border-b border-[var(--lt-border)]">
                                         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--lt-border-strong)]" />
                                         <div className="flex justify-between items-center gap-3">

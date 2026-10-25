@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { SmilePlus } from 'lucide-react';
 import { DOUBLE_TAP_REACTION, QUICK_REACTIONS, summarizeReactions, type ReactionMap } from '../../lib/chatExtras';
+import { useBackToClose } from '../../hooks/useSheetDismiss';
 
 const LONG_PRESS_MS = 450;
 const DOUBLE_TAP_MS = 300;
@@ -25,6 +26,7 @@ export const MessageBubble: React.FC<{
 }> = ({ messageId, isOwn, uid, reactions, onReact, onReply, wide = false, children }) => {
     const [menuPos, setMenuPos] = useState<React.CSSProperties | null>(null);
     const menuOpen = menuPos !== null;
+    useBackToClose(menuOpen, () => setMenuPos(null));
     const bubbleRef = useRef<HTMLDivElement>(null);
     // El menú flota sobre todo (portal); cerca del borde de arriba va debajo del mensaje.
     const setMenuOpen = (open: boolean) => {

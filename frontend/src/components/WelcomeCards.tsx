@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
 import { markWelcomeSeen, welcomeSeen, WELCOME_EVENT } from '../lib/welcome';
+import { useSheetDismiss } from '../hooks/useSheetDismiss';
 
 const CARDS = [
     { emoji: '🏆', title: 'Rankings de cosas concretas', text: 'Cada lista es un ranking: las mejores bravas, tortillas, cocidos… según la gente.' },
@@ -29,14 +30,16 @@ export const WelcomeCards: React.FC = () => {
         return () => window.removeEventListener(WELCOME_EVENT, reopen);
     }, []);
 
-    if (!open) return null;
     const close = () => { markWelcomeSeen(); setClosed(true); setForced(false); };
+    const panelRef = useSheetDismiss(close, open);
+
+    if (!open) return null;
     const card = CARDS[step];
     const last = step === CARDS.length - 1;
 
     return createPortal(
         <div className="fixed inset-0 z-[10002] flex items-end justify-center bg-black/65 backdrop-blur-sm animate-fade-in sm:items-center sm:p-4">
-            <div role="dialog" aria-label="Bienvenida" className="w-full rounded-t-[2rem] border border-[var(--lt-border)] bg-[var(--lt-card-strong)] p-6 text-center shadow-2xl sm:max-w-sm sm:rounded-[2rem]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
+            <div ref={panelRef} role="dialog" aria-label="Bienvenida" className="w-full rounded-t-[2rem] border border-[var(--lt-border)] bg-[var(--lt-card-strong)] p-6 text-center shadow-2xl sm:max-w-sm sm:rounded-[2rem]" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}>
                 <div className="text-5xl" aria-hidden="true">{card.emoji}</div>
                 <h2 className="mt-3 font-display text-xl font-bold text-[var(--lt-text)]">{card.title}</h2>
                 <p className="mt-2 text-sm leading-relaxed text-[var(--lt-text-muted)]">{card.text}</p>
