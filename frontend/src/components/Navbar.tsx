@@ -230,7 +230,7 @@ export const Navbar: React.FC = () => {
     }, [user]);
 
     const profileLabel = profileUsername ? `@${profileUsername}` : (user?.displayName || 'Mi cuenta');
-    // «Bote a pachas»: Pachote ya con tu cuenta de Listopic (o sin cuenta si no has entrado).
+    // «Pachote»: abre Pachote ya con tu cuenta de Listopic (o sin cuenta si no has entrado).
     const pachoteOn = isLabAppEnabled(config, 'pachote', isJefe);
     const openPachote = () => {
         setIsMenuOpen(false);
@@ -287,7 +287,7 @@ export const Navbar: React.FC = () => {
                         {pachoteOn && (
                             <button type="button" onClick={openPachote} className="flex items-center gap-2 px-4 py-2 rounded-full text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/5 transition-all duration-300 group">
                                 <PiggyBank className="w-4 h-4 group-hover:text-[var(--lt-accent)] transition-colors" />
-                                <span className="text-sm">Bote a pachas</span>
+                                <span className="text-sm">Pachote</span>
                             </button>
                         )}
                     </nav>
@@ -467,7 +467,7 @@ export const Navbar: React.FC = () => {
                                 />
                             )}
                             <MenuTile to="/create-sublist" icon={Plus} label="Crear minilista" onClick={guardProtectedLink('crear una minilista')} />
-                            {pachoteOn && <MenuTile icon={PiggyBank} label="Bote a pachas" onClick={openPachote} />}
+                            {pachoteOn && <MenuTile icon={PiggyBank} label="Pachote" onClick={openPachote} />}
                             <MenuTile to="/planes" icon={Sparkles} label="Planes" onClick={() => setIsMenuOpen(false)} />
                             <MenuTile to="/preferencias" icon={SlidersHorizontal} label="Preferencias" onClick={() => setIsMenuOpen(false)} />
                             <MenuTile to="/ayuda" icon={LifeBuoy} label="Ayuda" onClick={() => setIsMenuOpen(false)} />

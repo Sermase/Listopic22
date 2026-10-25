@@ -1,7 +1,7 @@
 // Pachote dentro del chat de Listopic: crear cuentas con la gente del grupo,
 // abrirlas en Pachote (servido desde su repo, en su dominio y con estos mismos
 // emuladores) ya con la cuenta de Listopic, apuntar un gasto y ver el saldo en
-// Listopic. Y «Bote a pachas» en el menú, también con la cuenta.
+// Listopic. Y «Pachote» en el menú, también con la cuenta.
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -106,13 +106,13 @@ test('Pachote en el chat: crear cuentas, abrir Pachote con la cuenta, apuntar y 
   void errors;
 });
 
-test('«Bote a pachas» del menú abre Pachote con la cuenta de Listopic', async ({ page, context, errors }) => {
+test('«Pachote» del menú abre Pachote con la cuenta de Listopic', async ({ page, context, errors }) => {
   await servePachote(context);
   await login(page, 'luis');
   await page.goto('/');
   await page.getByRole('button', { name: 'Abrir menú' }).click();
   const popupPromise = page.waitForEvent('popup');
-  await page.getByRole('dialog', { name: 'Menú' }).getByRole('button', { name: 'Bote a pachas' }).click();
+  await page.getByRole('dialog', { name: 'Menú' }).getByRole('button', { name: 'Pachote', exact: true }).click();
   const pachote = await popupPromise;
   await expect.poll(() => pachoteUser(pachote), { timeout: 30_000 }).toEqual(expect.objectContaining({ uid: 'luis', anon: false }));
   expect(pachote.url()).not.toContain('auth=');
