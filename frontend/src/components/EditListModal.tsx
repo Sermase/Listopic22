@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Save, Loader } from 'lucide-react';
 import { EditListForm } from './EditListForm';
+import { useBackToClose } from '../hooks/useSheetDismiss';
 
 interface EditListModalProps {
     listId: string;
@@ -14,6 +15,7 @@ const FORM_ID = 'edit-list-modal-form';
 
 export const EditListModal: React.FC<EditListModalProps> = ({ listId, onClose, onSaved, onDeleted }) => {
     const [saving, setSaving] = useState(false);
+    useBackToClose(true, onClose);
 
     const handleSuccess = () => {
         onSaved?.();

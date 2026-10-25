@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useBackToClose } from '../hooks/useSheetDismiss';
 import { createPortal } from 'react-dom';
 import { AlertTriangle } from 'lucide-react';
 
@@ -37,6 +38,7 @@ export const ConfirmProvider: React.FC<{ children: React.ReactNode }> = ({ child
             return null;
         });
     }, []);
+    useBackToClose(!!pending, () => close(false));
 
     useEffect(() => {
         if (!pending) return;

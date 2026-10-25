@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useBackToClose } from '../../hooks/useSheetDismiss';
 import { db, storage } from '../../firebase';
 import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -21,6 +22,7 @@ export const DeveloperItemModal: React.FC<DeveloperItemModalProps> = ({
     onSaved,
     onUpdateFromGoogle,
 }) => {
+    useBackToClose(isOpen && !!item, onClose);
     const [jsonStr, setJsonStr] = useState('{}');
     const [isSaving, setIsSaving] = useState(false);
     const [isUpdatingGoogle, setIsUpdatingGoogle] = useState(false);

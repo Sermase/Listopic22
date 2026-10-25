@@ -9,6 +9,7 @@ import { ProgressiveImage } from '../components/ProgressiveImage';
 import { FeaturedQuote } from '../components/FeaturedQuote';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
 import { usePlaceDetails } from '../hooks/usePlaceDetails';
+import { useBackToClose } from '../hooks/useSheetDismiss';
 import { PlaceService } from '../services/PlaceService';
 import { ReviewCard } from '../components/ReviewCard';
 import { ReviewCardList } from '../components/ReviewCardList';
@@ -216,6 +217,7 @@ export const PlacePage: React.FC = () => {
     const [isPlacePhotoUploadOpen, setIsPlacePhotoUploadOpen] = useState(false);
     const [isBusinessClaimOpen, setIsBusinessClaimOpen] = useState(false);
     const [isReservationOpen, setIsReservationOpen] = useState(false);
+    useBackToClose(isReservationOpen, () => setIsReservationOpen(false));
     const [isBusinessDetailsExpanded, setIsBusinessDetailsExpanded] = useState(false);
     const [isAccessibilityExpanded, setIsAccessibilityExpanded] = useState(false);
     const [isFamilyExpanded, setIsFamilyExpanded] = useState(false);

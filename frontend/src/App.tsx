@@ -21,6 +21,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { AuthPromptProvider } from './context/AuthPromptContext';
 import { PageAnalyticsTracker } from './components/PageAnalyticsTracker';
 import { useScrollRestoration } from './hooks/useScrollRestoration';
+import { hasOpenSheet } from './hooks/useSheetDismiss';
 
 // Lazy Load Pages
 const HomePage = React.lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
@@ -202,6 +203,10 @@ const AppRoutes = () => {
     });
 
     const backListener = CapApp.addListener('backButton', () => {
+      if (hasOpenSheet()) {
+        window.history.back();
+        return;
+      }
       if (location.pathname.startsWith('/lab')) {
         window.dispatchEvent(new CustomEvent('listopic:lab-back'));
         return;

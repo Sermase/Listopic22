@@ -7,6 +7,7 @@ import {
     type Zone, type ZoneNode, type ZoneRecord,
 } from '../../lib/searchZones';
 import { useBotOnlyFilter } from './botOnlyFilter';
+import { useSheetDismiss } from '../../hooks/useSheetDismiss';
 
 const LEVEL_NAME: Record<GeoLevel, string> = { country: 'país', region: 'comunidad', province: 'provincia', city: 'ciudad' };
 const MAX_RECORDS = 1000;
@@ -38,6 +39,7 @@ export const ZonePicker: React.FC<ZonePickerProps> = ({ tab, zones: committedZon
         commitZones(next);
     };
     const [open, setOpen] = useState(false);
+    const panelRef = useSheetDismiss(() => setOpen(false), open);
     const [tree, setTree] = useState<ZoneNode[] | null>(null);
     const [truncated, setTruncated] = useState(false);
     const [loading, setLoading] = useState(false);
@@ -204,6 +206,7 @@ export const ZonePicker: React.FC<ZonePickerProps> = ({ tab, zones: committedZon
                 <>
                     <button type="button" aria-label="Cerrar" onClick={() => setOpen(false)} className="fixed inset-0 z-[1190] bg-black/60 backdrop-blur-sm sm:hidden" />
                     <div
+                        ref={panelRef}
                         role="dialog"
                         aria-label="Elegir zona"
                         className="fixed inset-x-0 bottom-0 z-[1200] flex max-h-[80vh] flex-col overflow-hidden rounded-t-3xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:left-0 sm:top-full sm:mt-2 sm:max-h-[65vh] sm:w-96 sm:rounded-3xl"

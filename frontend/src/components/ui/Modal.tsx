@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { IconButton } from './IconButton';
+import { useSheetDismiss } from '../../hooks/useSheetDismiss';
 
 type ModalSize = 'md' | 'lg' | 'xl';
 
@@ -38,6 +39,7 @@ export const Modal: React.FC<ModalProps> = ({
   size = 'md',
 }) => {
   const titleId = React.useId();
+  const panelRef = useSheetDismiss(onClose, isOpen);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -66,6 +68,7 @@ export const Modal: React.FC<ModalProps> = ({
     >
       <button className="absolute inset-0 cursor-default" aria-label={closeLabel} onClick={onClose} />
       <section
+        ref={panelRef}
         className={cn(
           'relative flex w-full flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[var(--lt-card-strong)] shadow-2xl sm:rounded-2xl',
           sizeClasses[size],

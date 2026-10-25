@@ -4,6 +4,7 @@ import { createBusinessClaim } from '../services/BusinessClaimService';
 import type { BusinessClaim } from '../services/BusinessClaimService';
 import type { User } from 'firebase/auth';
 import { PlaceSearch } from './PlaceSearch';
+import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import type { PlaceResult } from '../services/PlaceService';
 
 interface BusinessClaimModalProps {
@@ -52,6 +53,7 @@ export const BusinessClaimModal: React.FC<BusinessClaimModalProps> = ({
     const canSubmit = useMemo(() => {
         return Boolean(user && selectedPlace?.id && role.trim().length >= 2 && contactEmail.trim().includes('@') && message.trim().length >= 20 && truthDeclarationAccepted);
     }, [contactEmail, message, role, selectedPlace?.id, truthDeclarationAccepted, user]);
+    const panelRef = useSheetDismiss(onClose, isOpen);
 
     if (!isOpen) return null;
 
@@ -106,7 +108,7 @@ export const BusinessClaimModal: React.FC<BusinessClaimModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-[220] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 py-8">
-            <div className="w-full max-w-2xl max-h-[calc(100dvh-4rem)] overflow-y-auto rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] shadow-2xl">
+            <div ref={panelRef} className="w-full max-w-2xl max-h-[calc(100dvh-4rem)] overflow-y-auto rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] shadow-2xl">
                 <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-white/10 bg-[var(--lt-card-strong)] px-5 py-4">
                     <div className="flex items-center gap-3 min-w-0">
                         <div className="w-10 h-10 rounded-xl bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] grid place-items-center shrink-0">

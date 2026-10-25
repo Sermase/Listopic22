@@ -23,6 +23,7 @@
  *   onDone?: (id: string, message: RowMessage) => void   para repetir el aviso en la fila
  */
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useBackToClose } from '../../hooks/useSheetDismiss';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -650,6 +651,7 @@ const UserPanel: React.FC<PanelProps & { initial: PlanUser }> = ({ initial, pres
 
 export const PlanActionDrawer: React.FC<PlanActionDrawerProps> = ({ target, preset, onClose, onDone }) => {
     const titleId = useId();
+    useBackToClose(!!target, onClose);
     const closeRef = useRef<HTMLButtonElement>(null);
     // Mientras hay un confirm abierto, Esc lo cierra a él, no al panel.
     const confirming = useRef(false);

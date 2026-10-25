@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useBackToClose } from '../../hooks/useSheetDismiss';
 import { X, Loader2, AlertCircle, ExternalLink, Copy, Star, List as ListIcon, Image as ImageIcon, Building2, FileText, Search, Shield } from 'lucide-react';
 import { adminUserOverview, formatAdminDate, type AdminUserOverview } from '../../services/developerAdmin';
 import { ReviewAdminModal } from './ReviewAdminModal';
@@ -18,6 +19,7 @@ const fold = (text: string) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toL
 
 /** Ficha completa de un usuario en Developer (adminUserOverview): todo lo suyo, con detalle. */
 export const UserAdminPanel: React.FC<Props> = ({ uid, onClose, onEditRoles }) => {
+    useBackToClose(true, onClose);
     const [data, setData] = useState<AdminUserOverview | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [tab, setTab] = useState<PanelTab>('reviews');

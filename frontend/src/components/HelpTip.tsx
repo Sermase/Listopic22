@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Info, X } from 'lucide-react';
 import { helpTopic, type HelpTopicId } from '../lib/helpTopics';
 import { usePreferences } from '../context/PreferencesContext';
+import { useSheetDismiss } from '../hooks/useSheetDismiss';
 
 interface HelpTipProps {
     topic: HelpTopicId;
@@ -17,6 +18,7 @@ interface HelpTipProps {
 export const HelpTip: React.FC<HelpTipProps> = ({ topic, className = '' }) => {
     const { prefs, setPref } = usePreferences();
     const [open, setOpen] = useState(false);
+    const panelRef = useSheetDismiss(() => setOpen(false), open);
     if (!prefs.showHelpTips) return null;
     const t = helpTopic(topic);
 
@@ -32,7 +34,7 @@ export const HelpTip: React.FC<HelpTipProps> = ({ topic, className = '' }) => {
             </button>
             {open && createPortal(
                 <div className="fixed inset-0 z-[10001] flex items-end justify-center bg-black/60 backdrop-blur-sm animate-fade-in sm:items-center sm:p-4" onClick={() => setOpen(false)}>
-                    <div role="dialog" aria-label={t.title} className="w-full rounded-t-3xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] p-5 shadow-2xl sm:max-w-sm sm:rounded-3xl" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)' }} onClick={(e) => e.stopPropagation()}>
+                    <div ref={panelRef} role="dialog" aria-label={t.title} className="w-full rounded-t-3xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] p-5 shadow-2xl sm:max-w-sm sm:rounded-3xl" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.25rem)' }} onClick={(e) => e.stopPropagation()}>
                         <div className="mb-3 flex items-start gap-3">
                             <span className="text-2xl" aria-hidden="true">{t.emoji}</span>
                             <h2 className="flex-1 font-display text-lg font-bold leading-tight text-[var(--lt-text)]">{t.title}</h2>

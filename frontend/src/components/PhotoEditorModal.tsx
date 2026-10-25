@@ -7,6 +7,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, 
 import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useBackToClose } from '../hooks/useSheetDismiss';
 
 interface SortablePhotoProps {
     p: PhotoEntry;
@@ -118,6 +119,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
     confirmLabel = 'Guardar fotos',
 }) => {
     useBodyScrollLock(true);
+    useBackToClose(true, onClose);
     const [photos, setPhotos] = useState<PhotoEntry[]>(() =>
         initialFiles.slice(0, maxPhotos).map((f, i) => ({ id: `p${i}-${Date.now()}`, src: URL.createObjectURL(f) }))
     );

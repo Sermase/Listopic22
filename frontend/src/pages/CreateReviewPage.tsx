@@ -24,6 +24,7 @@ export const CreateReviewPage: React.FC = () => {
                 prefillPlaceId={placeId || undefined}
                 prefillItemName={itemName || undefined}
                 lockList={Boolean(listId)}
+                closeOnBack={false}
                 onClose={() => navigate(fallbackRoute)}
                 onSuccess={() => navigate(fallbackRoute)}
             />

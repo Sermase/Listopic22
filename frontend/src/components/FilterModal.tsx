@@ -2,6 +2,7 @@ import React from 'react';
 import { X, SlidersHorizontal, Star, Trash2, ChevronDown } from 'lucide-react';
 import type { FilterState } from '../pages/ListPage';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
+import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { HelpTip } from './HelpTip';
 
 const ACCESSIBILITY_FILTER_LABELS: Record<string, string> = {
@@ -92,6 +93,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     resultCount,
 }) => {
     useBodyScrollLock(isOpen);
+    const panelRef = useSheetDismiss(onClose, isOpen);
 
     if (!isOpen) return null;
 
@@ -125,7 +127,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div role="dialog" aria-label="Filtros" className="bg-[var(--lt-card-strong)] w-full sm:max-w-md sm:rounded-2xl shadow-2xl border-0 sm:border border-[var(--lt-border)] overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[90vh] rounded-t-2xl" onClick={e => e.stopPropagation()}>
+            <div ref={panelRef} role="dialog" aria-label="Filtros" className="bg-[var(--lt-card-strong)] w-full sm:max-w-md sm:rounded-2xl shadow-2xl border-0 sm:border border-[var(--lt-border)] overflow-hidden flex flex-col lt-mobile-modal-panel sm:max-h-[90vh] rounded-t-2xl" onClick={e => e.stopPropagation()}>
 
                 <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--lt-border)] px-4 py-3">
                     <h2 className="flex items-center gap-2 text-lg font-bold text-[var(--lt-text)]">

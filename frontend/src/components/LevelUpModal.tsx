@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { X, Sparkles, TrendingUp, ChevronRight } from 'lucide-react';
 import type { LevelInfo } from '../utils/gamification';
+import { useBackToClose } from '../hooks/useSheetDismiss';
 
 interface LevelUpModalProps {
     isOpen: boolean;
@@ -25,6 +26,7 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({
 }) => {
     const [animPhase, setAnimPhase] = useState<'enter' | 'fill' | 'complete'>('enter');
     const [fillPercent, setFillPercent] = useState(0);
+    useBackToClose(isOpen, onClose);
 
     useEffect(() => {
         if (!isOpen) {

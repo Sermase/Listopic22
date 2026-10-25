@@ -4,12 +4,14 @@ import { db } from '../firebase';
 import { collection, query, where, getDocs, type QueryDocumentSnapshot, type DocumentData } from 'firebase/firestore';
 import { X, List as ListIcon, Search, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useSheetDismiss } from '../hooks/useSheetDismiss';
 
 export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: (listId: string) => void, onCancel: () => void, preselectedId?: string | null }) => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [lists, setLists] = useState<{ id: string; name: string; parentListId?: string }[]>([]);
     const [loading, setLoading] = useState(true);
+    const panelRef = useSheetDismiss(onCancel);
     const [searchTerm, setSearchTerm] = useState('');
     const onSelectRef = useRef(onSelect);
     const preselectedIdRef = useRef(preselectedId);
@@ -103,7 +105,7 @@ export const ListSelector = ({ onSelect, onCancel, preselectedId }: { onSelect: 
         <div className="fixed inset-0 z-[105] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={(e) => {
             if (e.target === e.currentTarget) onCancel();
         }}>
-            <div className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl flex flex-col max-h-[70vh] animate-in fade-in zoom-in-95 duration-200">
+            <div ref={panelRef} className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl flex flex-col max-h-[70vh] animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="p-4 border-b border-white/5 flex justify-between items-center bg-[var(--lt-bg)]/50 sticky top-0 z-10">
                     <h3 className="font-bold text-white text-lg">Seleccionar Lista</h3>
