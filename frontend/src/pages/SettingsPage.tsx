@@ -37,12 +37,13 @@ const FILTERS: { id: FilterGroupId; emoji: string; label: string }[] = [
     { id: 'pets', emoji: '🐾', label: 'Mascotas' },
 ];
 
-const readMapLayer = (): MapLayerId => {
+const validLayer = (value: unknown): MapLayerId | null => (typeof value === 'string' && value in MAP_LAYERS ? value as MapLayerId : null);
+
+const readMapLayer = (): MapLayerId | null => {
     try {
-        const stored = localStorage.getItem(MAP_LAYER_STORAGE_KEY) as MapLayerId | null;
-        return stored && MAP_LAYERS[stored] ? stored : DEFAULT_MAP_LAYER;
+        return validLayer(localStorage.getItem(MAP_LAYER_STORAGE_KEY));
     } catch {
-        return DEFAULT_MAP_LAYER;
+        return null;
     }
 };
 
@@ -108,11 +109,13 @@ export const SettingsPage: React.FC = () => {
     const { theme, setTheme, themes } = useTheme();
     const { prefs, setPref } = usePreferences();
     const [sheet, setSheet] = useState<SheetId | null>(null);
-    const [mapLayer, setMapLayer] = useState<MapLayerId>(readMapLayer);
+    const [mapChoice, setMapChoice] = useState<MapLayerId | null>(readMapLayer);
     const [notifOverride, setNotifOverride] = useState<Record<string, boolean> | null>(null);
     const close = () => setSheet(null);
 
     const notif = { ...(profile?.notificationPreferences || {}), ...(notifOverride || {}) };
+    // En este dispositivo manda lo guardado aquí (como en el mapa); si no hay, lo de la cuenta.
+    const mapLayer = mapChoice ?? validLayer(profile?.mapLayerPreference) ?? DEFAULT_MAP_LAYER;
     const notifOn = NOTIFICATIONS.filter((n) => notif[n.key] !== false).length;
     const distance = user ? (profile?.defaultDistanceKm ?? DEFAULT_RANGE_KM) : (range ?? NO_LIMIT);
     const themeMeta = themes.find((t) => t.id === theme);
@@ -125,16 +128,16 @@ export const SettingsPage: React.FC = () => {
         close();
     };
     const pickMap = (id: MapLayerId) => {
-        setMapLayer(id);
+        setMapChoice(id);
         try { localStorage.setItem(MAP_LAYER_STORAGE_KEY, id); } catch { /* opcional */ }
         if (user) void updateUserSettings(user.uid, { mapLayerPreference: id }).catch((e) => console.warn('Preferencias: mapa', e));
         close();
     };
     const toggleNotif = (key: string, on: boolean) => {
         if (!user) return;
-        const next = { ...Object.fromEntries(NOTIFICATIONS.map((n) => [n.key, notif[n.key] !== false])), [key]: on };
-        setNotifOverride(next);
-        void updateUserSettings(user.uid, { notificationPreferences: next }).catch((e) => console.warn('Preferencias: avisos', e));
+        setNotifOverride((prev) => ({ ...(prev || {}), [key]: on }));
+        // Solo la clave tocada: el resto de avisos guardados no se pisa aunque el perfil aún no haya cargado.
+        void updateUserSettings(user.uid, { notificationPreferences: { [key]: on } }).catch((e) => console.warn('Preferencias: avisos', e));
     };
     const logout = async () => {
         await signOut(auth);

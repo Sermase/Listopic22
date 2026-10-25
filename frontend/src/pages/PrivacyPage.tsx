@@ -75,9 +75,9 @@ export const PrivacyPage: React.FC = () => (
         <LegalSection title="8. Tus derechos">
             <p>Puedes ejercer en cualquier momento tus derechos de <LegalStrong>acceso, rectificación, supresión, oposición, limitación y portabilidad</LegalStrong>, y retirar tu consentimiento sin que eso afecte a lo hecho antes.</p>
             <ul className="list-disc list-inside space-y-1 mt-2">
-                <li><LegalStrong>Copia de tus datos (acceso y portabilidad):</LegalStrong> pídela desde <LegalStrong>Perfil → Editar perfil</LegalStrong> («Solicitar mis datos») o escribiendo a <LegalMail /> desde el correo de tu cuenta. Te enviaremos un PDF legible y un archivo JSON reutilizable.</li>
+                <li><LegalStrong>Copia de tus datos (acceso y portabilidad):</LegalStrong> pídela desde <LegalStrong>Menú → Preferencias → Tus datos</LegalStrong> («Solicitar mis datos») o escribiendo a <LegalMail /> desde el correo de tu cuenta. Te enviaremos un PDF legible y un archivo JSON reutilizable.</li>
                 <li><LegalStrong>Rectificación:</LegalStrong> edita tu perfil o escríbenos.</li>
-                <li><LegalStrong>Supresión:</LegalStrong> borra tu cuenta desde Editar perfil o escríbenos.</li>
+                <li><LegalStrong>Supresión:</LegalStrong> borra tu cuenta desde <LegalStrong>Menú → Preferencias → Eliminar cuenta</LegalStrong> o escríbenos.</li>
             </ul>
             <p className="mt-2">Respondemos en un plazo máximo de <LegalStrong>un mes</LegalStrong> (ampliable dos meses más en casos complejos, avisándote), sin coste. Si la petición no llega desde el correo de la cuenta, podemos pedirte que confirmes tu identidad.</p>
             <p className="mt-2">Si crees que no hemos tratado bien tus datos, puedes reclamar ante la <LegalExternal href="https://www.aepd.es">Agencia Española de Protección de Datos (AEPD)</LegalExternal>.</p>

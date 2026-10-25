@@ -63,7 +63,7 @@ export const TermsPage: React.FC = () => (
         </LegalSection>
 
         <LegalSection title="8. Dar de baja tu cuenta">
-            <p>Puedes borrar tu cuenta cuando quieras desde <LegalStrong>Perfil → Editar perfil → Eliminar cuenta</LegalStrong>, o pedírnoslo por correo (lo haremos en un plazo máximo de 30 días).</p>
+            <p>Puedes borrar tu cuenta cuando quieras desde <LegalStrong>Menú → Preferencias → Eliminar cuenta</LegalStrong>, o pedírnoslo por correo (lo haremos en un plazo máximo de 30 días).</p>
             <ul className="list-disc list-inside space-y-1">
                 <li>Se borran siempre tu perfil, tu foto de perfil, tus seguidores y seguidos, tus notificaciones, tus chats privados y tus mensajes en chats de grupo.</li>
                 <li>Tú eliges qué pasa con tus aportaciones (reseñas, fotos, comentarios, mensajes en foros y sublistas): <LegalStrong>borrarlas</LegalStrong> o <LegalStrong>conservarlas de forma anónima</LegalStrong>, firmadas como «Usuario eliminado».</li>
