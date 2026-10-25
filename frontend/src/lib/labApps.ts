@@ -24,3 +24,11 @@ export function isLabAppVisible(config: LabConfig, id: LabAppId, isJefe = false)
     if (isJefe) return true;
     return config.showLab && config.labApps?.[id] !== false;
 }
+
+/**
+ * Lo que una app ya mete dentro de Listopic (las «💸 Cuentas» de Pachote en el chat):
+ * no depende del laboratorio, solo lo apaga su propio interruptor. Los jefes lo ven siempre.
+ */
+export function isLabAppEnabled(config: Pick<LabConfig, 'labApps'>, id: LabAppId, isJefe = false): boolean {
+    return isJefe || config.labApps?.[id] !== false;
+}

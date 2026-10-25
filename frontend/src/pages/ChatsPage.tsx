@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useAppConfig } from '../context/AppConfigContext';
+import { isLabAppEnabled } from '../lib/labApps';
 import { ChatService, type Chat, type Message } from '../services/ChatService';
 import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, X, Users, User, ExternalLink, SquarePen, ChevronDown } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -25,9 +27,14 @@ import { PollSheet } from '../components/chat/PollSheet';
 import { RouletteSheet } from '../components/chat/RouletteSheet';
 import { PinnedEvents } from '../components/chat/PinnedEvents';
 import { NewChatSheet } from '../components/chat/NewChatSheet';
+import { ChatSheet } from '../components/chat/ChatSheet';
 import { Avatar, type Person } from '../components/chat/Avatars';
 import { JoinLinkBox } from '../components/chat/JoinLinkBox';
 import { JoinRequests } from '../components/chat/JoinRequests';
+import { PachoteCard } from '../components/chat/PachoteCard';
+import { PachotePanel } from '../components/chat/PachotePanel';
+import { PachoteSheet } from '../components/chat/PachoteSheet';
+import { PachoteService } from '../services/PachoteService';
 import {
     QUEDADA_MS,
     chatDayLabel,
@@ -48,6 +55,7 @@ type ChatTool =
     | { kind: 'poll' }
     | { kind: 'datepoll' }
     | { kind: 'roulette' }
+    | { kind: 'pachote' }
     | { kind: 'date'; messageId: string; mode: 'propose' | 'change' }
     | null;
 
@@ -64,7 +72,10 @@ const listTime = (seconds?: number) => {
 };
 
 export const ChatsPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, isJefe } = useAuth();
+    const config = useAppConfig();
+    // Developer → Proyectos → Pachote «🙈 Oculta» quita las cuentas del chat (las tarjetas ya enviadas siguen).
+    const pachoteOn = isLabAppEnabled(config, 'pachote', isJefe);
     const { showToast } = useToast();
     const navigate = useNavigate();
     const { chatId } = useParams();
@@ -90,6 +101,7 @@ export const ChatsPage: React.FC = () => {
     const [toolsOpen, setToolsOpen] = useState(false);
     const [tool, setTool] = useState<ChatTool>(null);
     const [openEvent, setOpenEvent] = useState<{ id: string; focus?: 'duel' } | null>(null);
+    const [pachoteOpen, setPachoteOpen] = useState<string | null>(null);
     const [fetchedEvent, setFetchedEvent] = useState<Message | null>(null);
     const [unseen, setUnseen] = useState(0);
     const [atBottom, setAtBottom] = useState(true);
@@ -171,6 +183,7 @@ export const ChatsPage: React.FC = () => {
         setEmojiOpen(false);
         setToolsOpen(false);
         setOpenEvent(null);
+        setPachoteOpen(null);
         setUnseen(0);
         setMessages([]);
         lastCountRef.current = 0;
@@ -240,6 +253,7 @@ export const ChatsPage: React.FC = () => {
 
     const activeChatObj = chats.find(c => c.id === activeChat);
     const participants = activeChatObj?.participants || [];
+    const chatPeople = participants.map((uid) => ({ uid, name: profileName(uid) }));
     const activePrivateParticipantId = activeChatObj?.type === 'private' ? activeChatObj.participants.find(p => p !== user?.uid) || null : null;
     const activePrivateUser = activePrivateParticipantId ? usersMap[activePrivateParticipantId] : null;
 
@@ -431,8 +445,8 @@ export const ChatsPage: React.FC = () => {
         const sharedEntity = parseSharedEntity(msg);
         const isShareMessage = (msg.type === 'share' || msg.type === 'review-share') && Boolean(sharedEntity);
         const shareLabel = sharedEntity ? (sharedEntity.badgeLabel || getShareEntityLabel(sharedEntity.type)) : 'Contenido';
-        const bigEmoji = msg.type !== 'invite' && msg.type !== 'poll' && msg.type !== 'datepoll' && !isShareMessage && !msg.replyTo && isEmojiOnly(msg.text);
-        const isCard = (msg.type === 'invite' && msg.invite) || (msg.type === 'poll' && msg.poll) || (msg.type === 'datepoll' && msg.datePoll);
+        const bigEmoji = msg.type !== 'invite' && msg.type !== 'poll' && msg.type !== 'datepoll' && msg.type !== 'pachote' && !isShareMessage && !msg.replyTo && isEmojiOnly(msg.text);
+        const isCard = (msg.type === 'invite' && msg.invite) || (msg.type === 'poll' && msg.poll) || (msg.type === 'datepoll' && msg.datePoll) || (msg.type === 'pachote' && msg.pachote);
         const corner = isOwnMessage
             ? (joinsNext ? 'rounded-br-lg' : 'rounded-br-md') + (joinsPrev ? ' rounded-tr-lg' : '')
             : (joinsNext ? 'rounded-bl-lg' : 'rounded-bl-md') + (joinsPrev ? ' rounded-tl-lg' : '');
@@ -475,6 +489,9 @@ export const ChatsPage: React.FC = () => {
                     onOpenEvent={(id) => setOpenEvent({ id })}
                 />
             );
+        } else if (msg.type === 'pachote' && msg.pachote) {
+            const card = msg.pachote;
+            body = <PachoteCard gid={card.gid} name={card.name} uid={user.uid} onOpen={() => setPachoteOpen(card.gid)} />;
         } else if (bigEmoji) {
             body = <p className="text-5xl leading-tight px-1 animate-fade-in" title={time}>{msg.text.trim()}</p>;
         } else {
@@ -712,18 +729,19 @@ export const ChatsPage: React.FC = () => {
                                 </div>
                             )}
                             {toolsOpen && (
-                                <div className="grid grid-cols-4 gap-2 px-3 pt-3 animate-fade-in">
+                                <div className={`grid ${pachoteOn ? 'grid-cols-5' : 'grid-cols-4'} gap-1.5 px-3 pt-3 animate-fade-in`}>
                                     {[
                                         { label: 'Invitar a comer', icon: '🍽️', open: () => setTool({ kind: 'invite' }) },
                                         { label: '¿Cuándo quedamos?', icon: '📅', open: () => setTool({ kind: 'datepoll' }) },
                                         { label: '¿Dónde comemos?', icon: '🗳️', open: () => setTool({ kind: 'poll' }) },
                                         { label: 'Ruleta del antojo', icon: '🎰', open: () => setTool({ kind: 'roulette' }) },
+                                        ...(pachoteOn ? [{ label: 'Cuentas', icon: '💸', open: () => setTool({ kind: 'pachote' }) }] : []),
                                     ].map((t) => (
                                         <button
                                             key={t.label}
                                             type="button"
                                             onClick={() => { setToolsOpen(false); t.open(); }}
-                                            className="flex flex-col items-center gap-1 rounded-2xl bg-white/5 hover:bg-white/10 py-3 text-[11px] font-semibold text-gray-200"
+                                            className="flex flex-col items-center gap-1 rounded-2xl bg-white/5 hover:bg-white/10 py-3 px-0.5 text-[10px] leading-tight text-center font-semibold text-gray-200"
                                         >
                                             <span className="text-2xl">{t.icon}</span>
                                             {t.label}
@@ -826,6 +844,31 @@ export const ChatsPage: React.FC = () => {
                     onShare={(dish) => runChatAction(() => shareDishToChat(dish))}
                 />
             )}
+            {user && activeChatObj && tool?.kind === 'pachote' && (
+                <ChatSheet title="💸 Cuentas" onClose={() => setTool(null)}>
+                    <PachotePanel
+                        chat={activeChatObj}
+                        chatName={getChatName(activeChatObj)}
+                        me={me()}
+                        people={chatPeople}
+                        onOpen={(gid) => { setTool(null); setPachoteOpen(gid); }}
+                    />
+                </ChatSheet>
+            )}
+            {user && activeChat && pachoteOpen && (
+                <PachoteSheet
+                    gid={pachoteOpen}
+                    chatId={activeChat}
+                    uid={user.uid}
+                    personOf={personOf}
+                    onShare={() => {
+                        const name = activeChatObj?.pachote?.[pachoteOpen]?.name || 'las cuentas';
+                        setPachoteOpen(null);
+                        void runChatAction(() => PachoteService.shareCard(activeChat, user.uid, pachoteOpen, name), 'No se pudo enviar.');
+                    }}
+                    onClose={() => setPachoteOpen(null)}
+                />
+            )}
             {user && activeChat && tool?.kind === 'date' && dateTool?.invite && (
                 <DateSheet
                     title={tool.mode === 'change' ? '📅 Cambiar fecha' : '🗓️ Proponer otro día'}
@@ -897,6 +940,16 @@ export const ChatsPage: React.FC = () => {
                             </div>
 
                             {activeChatObj.type === 'group' && <JoinLinkBox chat={activeChatObj} byName={me().name} />}
+
+                            {pachoteOn && (
+                                <PachotePanel
+                                    chat={activeChatObj}
+                                    chatName={getChatName(activeChatObj)}
+                                    me={me()}
+                                    people={chatPeople}
+                                    onOpen={(gid) => { setIsInfoModalOpen(false); setPachoteOpen(gid); }}
+                                />
+                            )}
 
                             <h4 className="text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">Participantes ({participants.length})</h4>
                             <div className="space-y-1 max-h-48 overflow-y-auto pr-1 mb-5">

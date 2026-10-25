@@ -123,7 +123,7 @@ export const IstariCorePage: React.FC = () => {
                             <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-[var(--lt-accent)] transition-colors shrink-0" />
                         </Link>
 
-                        {/* Pachote: app independiente (su propio proyecto de Firebase). Solo se enlaza.
+                        {/* Pachote: app aparte (su propio hosting) sobre el Firebase de Listopic. Aquí solo se enlaza.
                             De momento, visible solo con el laboratorio activado (beta). */}
                         {isLabAppVisible(config, 'pachote') && (
                             <a

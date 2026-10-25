@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('./https');
 const { getStorage } = require('firebase-admin/storage');
 const fetch = require('node-fetch');
 

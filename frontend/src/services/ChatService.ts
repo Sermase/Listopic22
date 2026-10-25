@@ -20,6 +20,7 @@ import {
 import { db } from '../firebase';
 import type { ShareEntityPayload } from '../types/share';
 import { getShareEntityLabel } from '../types/share';
+import type { ChatPachoteLink } from '../lib/pachote';
 import {
     compact,
     eventNoteText,
@@ -55,9 +56,11 @@ export interface Message {
     poll?: ChatPoll;
     datePoll?: ChatDatePoll;
     event?: ChatEventNote;
+    /** Tarjeta viva con las cuentas de un grupo de Pachote enlazado. */
+    pachote?: { gid: string; name: string };
 }
 
-export type MessageType = 'text' | 'image' | 'share' | 'review-share' | 'invite' | 'poll' | 'datepoll' | 'event';
+export type MessageType = 'text' | 'image' | 'share' | 'review-share' | 'invite' | 'poll' | 'datepoll' | 'event' | 'pachote';
 
 export interface ShareMessageMetadata {
     share: ShareEntityPayload;
@@ -80,6 +83,8 @@ export interface Chat {
     joinCode?: string;
     /** Con el enlace no se entra directo: alguien del grupo acepta la solicitud. */
     joinApproval?: boolean;
+    /** Grupos de Pachote enlazados (id del grupo → nombre). */
+    pachote?: Record<string, ChatPachoteLink>;
 }
 
 /** Vista previa pública del enlace de invitación (chatInvites/{código}). */
@@ -158,7 +163,7 @@ export const ChatService = {
         text: string,
         type: MessageType = 'text',
         metadata?: MessageMetadata,
-        extra?: Pick<Message, 'replyTo' | 'invite' | 'poll' | 'datePoll' | 'event'>
+        extra?: Pick<Message, 'replyTo' | 'invite' | 'poll' | 'datePoll' | 'event' | 'pachote'>
     ) => {
         const messagesRef = collection(db, 'chats', chatId, 'messages');
         const safeText = typeof text === 'string' ? text : '';
@@ -178,6 +183,7 @@ export const ChatService = {
         if (extra?.poll) payload.poll = extra.poll;
         if (extra?.datePoll) payload.datePoll = compact(extra.datePoll);
         if (extra?.event) payload.event = compact(extra.event);
+        if (extra?.pachote) payload.pachote = extra.pachote;
 
         const messageRef = await addDoc(messagesRef, {
             ...payload

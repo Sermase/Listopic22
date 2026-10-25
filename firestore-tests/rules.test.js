@@ -41,6 +41,8 @@ let env;
 const anon = () => env.unauthenticatedContext().firestore();
 const as = (uid, claims = {}) => env.authenticatedContext(uid, claims).firestore();
 const jefe = () => as('jefe', { admin: true });
+// Usuario anónimo de Pachote (mismo proyecto de Firebase).
+const anonUser = (uid) => as(uid, { firebase: { sign_in_provider: 'anonymous' } });
 
 const criteria = {
   carne: { type: 'slider', label: 'Carne', min: 0, max: 10, step: 0.5, ponderable: true },
@@ -113,6 +115,13 @@ async function seed() {
     await put('chats/c1', { participants: ['alice', 'bob'], type: 'private', unreadCount: { alice: 0, bob: 0 } });
     await put('chats/g1', { participants: ['alice', 'bob'], type: 'group', groupName: 'Comilona', joinCode: 'abcd2345ef', unreadCount: {} });
     await put('chatInvites/abcd2345ef', { chatId: 'g1', groupName: 'Comilona', byName: 'Alice' });
+    await put('chats/ajeno', { participants: ['bob', 'carol'], type: 'group', groupName: 'Otro', unreadCount: {} });
+    // Pachote: «Riaño» está enlazado al grupo g1 (alice y bob); «Piso» es de un usuario anónimo.
+    await put('pachoteGroups/riano', { name: 'Riaño', owner: 'alice', inviteToken: 'tok_riano_1234567890', chatId: 'g1', members: [], households: [] });
+    await put('pachoteGroups/riano/access/alice', { role: 'admin', memberId: 'm1', joined: 1 });
+    await put('pachoteGroups/riano/movs/x1', { id: 'x1', desc: 'Cena', amount: 4800, payer: 'm:m1' });
+    await put('pachoteGroups/piso', { name: 'Piso', owner: 'anon1', inviteToken: 'tok_piso_12345678901', members: [], households: [] });
+    await put('pachoteGroups/piso/access/anon1', { role: 'admin', memberId: null, joined: 1 });
     await put('chats/c1/messages/hola', { text: 'Hola', senderId: 'alice', type: 'text', readBy: ['alice'] });
     await put('chats/c1/messages/inv', {
       text: '🍽️ Te invito', senderId: 'alice', type: 'invite', readBy: ['alice'],
@@ -923,5 +932,65 @@ describe('Developer: las colas «Pendientes / Resueltos» las lee el jefe y nadi
     const reopen = { status: 'pending', resolvedAt: deleteField(), resolvedBy: deleteField(), resolvedClosedStatus: deleteField() };
     await assertFails(updateDoc(doc(as('bob'), 'reports/r1'), reopen));
     await assertSucceeds(updateDoc(doc(jefe(), 'reports/r1'), reopen));
+  });
+});
+
+describe('V12 · Pachote en el mismo Firebase: anónimos solo en Pachote', () => {
+  it('❌ un anónimo no escribe ni lee nada privado de Listopic', async () => {
+    const db = anonUser('anon1');
+    await assertFails(setDoc(doc(db, 'users/anon1'), { username: 'anon1', displayName: 'Anon' }));
+    await assertFails(setDoc(doc(db, 'lists/nueva'), { name: 'Bravas', userId: 'anon1', isPublic: true }));
+    await assertFails(setDoc(doc(db, 'chats/nuevo'), { participants: ['anon1', 'bob'], type: 'private' }));
+    await assertFails(getDoc(doc(db, 'chats/c1')));
+    await assertFails(updateDoc(doc(db, 'chats/g1'), { participants: ['alice', 'bob', 'anon1'], joinedWith: 'abcd2345ef' }));
+    // Control: el mismo uid con cuenta de verdad sí puede.
+    await assertSucceeds(setDoc(doc(as('anon1'), 'chats/nuevo'), { participants: ['anon1', 'bob'], type: 'private' }));
+    // Lo público se sigue leyendo como sin sesión.
+    await assertSucceeds(getDoc(doc(db, 'lists/pub')));
+  });
+
+  it('✅ un anónimo crea su grupo de Pachote, su acceso y su lista de grupos', async () => {
+    const db = anonUser('anon2');
+    await assertSucceeds(setDoc(doc(db, 'pachoteGroups/viaje'), { name: 'Viaje', owner: 'anon2', inviteToken: 'tok_viaje_123456789', members: [], households: [] }));
+    await assertSucceeds(setDoc(doc(db, 'pachoteGroups/viaje/access/anon2'), { role: 'admin', memberId: null, joined: 1 }));
+    await assertSucceeds(setDoc(doc(db, 'pachoteUsers/anon2'), { groups: { viaje: { joined: 1 } } }, { merge: true }));
+    await assertSucceeds(setDoc(doc(db, 'pachoteGroups/viaje/movs/g1'), { id: 'g1', desc: 'Gasolina', amount: 6000 }));
+    await assertFails(getDoc(doc(db, 'pachoteUsers/anon1')));
+  });
+
+  it('✅ entra con el link vigente como editor; ❌ con uno viejo o como administrador', async () => {
+    const db = anonUser('anon3');
+    await assertFails(setDoc(doc(db, 'pachoteGroups/piso/access/anon3'), { role: 'editor', token: 'viejo_123456789012', joined: 1 }));
+    await assertFails(setDoc(doc(db, 'pachoteGroups/piso/access/anon3'), { role: 'admin', token: 'tok_piso_12345678901', joined: 1 }));
+    await assertFails(getDoc(doc(db, 'pachoteGroups/piso')));
+    await assertSucceeds(setDoc(doc(db, 'pachoteGroups/piso/access/anon3'), { role: 'editor', token: 'tok_piso_12345678901', memberId: null, joined: 1 }));
+    await assertSucceeds(getDoc(doc(db, 'pachoteGroups/piso')));
+    await assertSucceeds(setDoc(doc(db, 'pachoteGroups/piso/movs/m9'), { id: 'm9', desc: 'Luz', amount: 3000 }));
+    await assertFails(updateDoc(doc(db, 'pachoteGroups/piso'), { inviteToken: 'mio_1234567890123456' }));
+    await assertSucceeds(updateDoc(doc(db, 'pachoteGroups/piso'), { summary: { v: 1, spent: 3000 } }));
+  });
+
+  it('✅ los del chat enlazado leen la ficha y entran sin link; ❌ los de fuera no', async () => {
+    await assertSucceeds(getDoc(doc(as('bob'), 'pachoteGroups/riano')));
+    await assertFails(getDocs(collection(as('bob'), 'pachoteGroups/riano/movs')));
+    await assertFails(getDoc(doc(as('carol'), 'pachoteGroups/riano')));
+    await assertFails(setDoc(doc(as('carol'), 'pachoteGroups/riano/access/carol'), { role: 'editor', joined: 1 }));
+    await assertFails(setDoc(doc(as('bob'), 'pachoteGroups/riano/access/bob'), { role: 'admin', joined: 1 }));
+    await assertSucceeds(setDoc(doc(as('bob'), 'pachoteGroups/riano/access/bob'), { role: 'editor', memberId: 'm2', joined: 1 }));
+    await assertSucceeds(getDocs(collection(as('bob'), 'pachoteGroups/riano/movs')));
+  });
+
+  it('✅ crear cuentas desde un chat propio; ❌ enlazar a un chat ajeno o que un editor cambie el enlace', async () => {
+    const nuevo = { name: 'Cañas', owner: 'alice', inviteToken: 'tok_canas_123456789', chatId: 'g1', members: [], households: [] };
+    await assertSucceeds(setDoc(doc(as('alice'), 'pachoteGroups/canas'), nuevo));
+    await assertSucceeds(setDoc(doc(as('alice'), 'pachoteGroups/canas/access/alice'), { role: 'admin', memberId: null, joined: 1 }));
+    await assertSucceeds(updateDoc(doc(as('alice'), 'chats/g1'), { 'pachote.canas': { name: 'Cañas' } }));
+    await assertFails(setDoc(doc(as('alice'), 'pachoteGroups/otras'), { ...nuevo, chatId: 'ajeno' }));
+    await assertFails(setDoc(doc(anonUser('anon4'), 'pachoteGroups/otras'), { ...nuevo, owner: 'anon4', chatId: 'g1' }));
+    await assertFails(updateDoc(doc(as('alice'), 'pachoteGroups/riano'), { chatId: 'ajeno' }));
+    await assertFails(updateDoc(doc(as('alice'), 'pachoteGroups/piso'), { name: 'x' }));
+    await assertSucceeds(setDoc(doc(as('bob'), 'pachoteGroups/riano/access/bob'), { role: 'editor', memberId: null, joined: 1 }));
+    await assertFails(updateDoc(doc(as('bob'), 'pachoteGroups/riano'), { chatId: deleteField() }));
+    await assertSucceeds(updateDoc(doc(as('alice'), 'pachoteGroups/riano'), { chatId: deleteField() }));
   });
 });

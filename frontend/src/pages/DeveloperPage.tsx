@@ -1118,7 +1118,7 @@ export const DeveloperPage: React.FC = () => {
                                             <div className="flex-1 min-w-0">
                                                 <h3 className="text-lg font-bold text-white">Pachote</h3>
                                                 <p className="text-sm text-gray-400 mt-1">
-                                                    Gastos compartidos para viajes y casas con familias, peques con peso, cuentas conjuntas y saldos por familia. App independiente con su propio Firebase.
+                                                    Gastos compartidos para viajes y casas con familias, peques con peso, cuentas conjuntas y saldos por familia. Vive en el Firebase de Listopic: misma cuenta y «💸 Cuentas» en el chat de cada grupo. «🙈 Oculta» también las quita del chat.
                                                 </p>
                                                 <div className="flex flex-wrap gap-2 mt-3">
                                                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-500/20 text-orange-300 border border-orange-500/20">PWA</span>

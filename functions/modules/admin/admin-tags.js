@@ -2,7 +2,7 @@
 //
 // Función admin para reemplazar etiquetas en listas y reseñas en masa.
 
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, HttpsError } = require('../https');
 const logger = require('firebase-functions/logger');
 const { getFirestore } = require('firebase-admin/firestore');
 const { assertJefeAccess, writeAuditLog } = require('../lib/auth');

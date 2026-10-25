@@ -15,7 +15,7 @@
 // con un enlace a su fila en Developer (B8, lib/notify-jefes.js).
 
 const crypto = require("crypto");
-const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("./https");
 const logger = require("firebase-functions/logger");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { assertJefeAccess, rateLimit, rateLimitKey, writeAuditLog } = require("./lib/auth");
