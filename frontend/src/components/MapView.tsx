@@ -315,7 +315,7 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                     <Marker
                         ref={(marker) => { if (marker) markerRefs.current.set(item.id, marker); else markerRefs.current.delete(item.id); }}
                         position={[item.lat, item.lng]}
-                        icon={createMapPinIcon({ score: item.rating, emoji: item.emoji, color: item.color, sponsored: isSponsored })}
+                        icon={createMapPinIcon({ score: item.rating, botScore: item.botRating, emoji: item.emoji, color: item.color, sponsored: isSponsored })}
                         eventHandlers={{
                             popupopen: () => {
                                 if (!isJefe) campaignIds.forEach((campaignId) => {
@@ -331,7 +331,7 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                                 photoUrl={item.photoUrl}
                                 score={item.rating}
                                 sponsored={isSponsored}
-                                subtitle={item.subtitle || (item.reviewsCount ? `${item.reviewsCount} ${item.reviewsCount === 1 ? 'reseña' : 'reseñas'}` : null)}
+                                subtitle={item.subtitle || (!item.rating && item.botRating ? `🤖 ${formatScore(item.botRating)} de bots · aún sin nota de personas` : null) || (item.reviewsCount ? `${item.reviewsCount} ${item.reviewsCount === 1 ? 'reseña' : 'reseñas'}` : null)}
                                 onNavigate={() => {
                                     if (!isJefe) campaignIds.forEach((campaignId) => {
                                         void Promise.all([

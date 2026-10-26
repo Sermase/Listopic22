@@ -8,6 +8,8 @@ export interface MapItem {
     name: string;
     photoUrl?: string;
     rating?: number;
+    /** Sitio sin nota pública pero con reseñas de bots: su media, que no cuenta. */
+    botRating?: number | null;
     reviewsCount?: number;
     emoji?: string;
     color?: string;
@@ -52,6 +54,7 @@ export const normalizeMapItems = (items: MapInputItem[]): MapItem[] => items.fla
         name: item.name ?? item.placeName ?? 'Lugar desconocido',
         photoUrl: item.photoUrl ?? item.placeMainImage ?? item.mainImageUrl,
         rating: item.rating ?? item.placeAverageRating ?? item.overallRating ?? item.avgRating ?? 0,
+        botRating: item.botRating ?? null,
         reviewsCount: item.reviewsCount ?? item.reviewCount ?? item.count ?? 0,
         emoji: item.emoji,
         color: item.color,

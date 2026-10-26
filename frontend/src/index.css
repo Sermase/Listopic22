@@ -1468,6 +1468,19 @@ html.theme-light .lt-on-accent {
     --pin-ring: #f59e0b;
 }
 
+.lt-pin--bot {
+    --pin-bg: #e2e8f0;
+    --pin-fg: #475569;
+    --pin-ring: #94a3b8;
+    font-weight: 700;
+    opacity: 0.9;
+}
+
+.lt-pin__bot {
+    font-size: 10px;
+    filter: grayscale(1);
+}
+
 .lt-pin__star {
     color: #b45309;
     font-size: 10px;
