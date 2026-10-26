@@ -30,6 +30,9 @@ import { parseReviewDraft, reviewDraftKey, REVIEW_DRAFT_VERSION, shouldRestoreRe
 import { usePlaceElementsInList } from '../hooks/usePlaceElementsInList';
 import { itemNameKey } from '../lib/placeItems';
 import { findSameElementReview } from '../lib/reviewUniqueness';
+import { useAppConfig } from '../context/AppConfigContext';
+import { useTheme } from '../context/ThemeContext';
+import { celebrateReview } from './surprises/celebrateReview';
 
 interface AddReviewFormProps {
     listId: string | null;
@@ -258,6 +261,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     }, [listId]);
 
     const isNew = !editReviewId;
+    const appConfig = useAppConfig();
+    const abuela = useTheme().theme === 'abuela';
 
     // Borrador: va atado a lista + sitio y solo se recupera al elegir ese mismo
     // sitio (lib/reviewDraft). Antes salía en cualquier reseña de la lista.
@@ -1050,7 +1055,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
             showToast({
                 variant: 'success',
-                title: isNew ? 'Reseña publicada' : 'Cambios guardados',
+                title: isNew ? (abuela ? '¡Muy bien, hijo!' : 'Reseña publicada') : 'Cambios guardados',
                 message: isNew ? pickRandom(REVIEW_CREATE_TOASTS) : pickRandom(REVIEW_EDIT_TOASTS),
             });
             // El borrador se guarda con la lista elegida (en una Minilista no es finalListId).
@@ -1064,6 +1069,15 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     })
                     .catch((autoErr) => console.error('Archive automation error:', autoErr));
             }
+            celebrateReview(appConfig, {
+                overallRating,
+                criteria: criteriaList,
+                scores: criteriaScores,
+                listName: listData?.name,
+                itemName,
+                tags: customTags,
+                abuela,
+            }, isNew);
             onSuccess();
             onClose();
 
@@ -1193,7 +1207,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             </div>
                             <div>
                                 <h2 className="text-base font-bold text-white font-display leading-tight">
-                                    {isNew ? 'Nueva reseña' : 'Editar reseña'}
+                                    {isNew ? (abuela ? '¿Qué has comido, hijo?' : 'Nueva reseña') : 'Editar reseña'}
                                 </h2>
                                 {listData?.name && (
                                     <p className="text-xs text-[var(--lt-accent)]/60 mt-0.5">en {listData.name}</p>

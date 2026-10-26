@@ -13,7 +13,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 
-export type ThemeId = 'dark' | 'light' | 'warm' | 'cool' | 'neon' | 'graphite' | 'sunset' | 'lagoon';
+export type ThemeId = 'dark' | 'light' | 'warm' | 'cool' | 'neon' | 'graphite' | 'sunset' | 'lagoon' | 'abuela';
 
 export interface ThemeMeta {
     id: ThemeId;
@@ -28,6 +28,8 @@ export interface ThemeMeta {
         text: string;
     };
     statusBarStyle: 'light' | 'dark';
+    /** Tema secreto: solo sale en la lista al desbloquearlo (medalla «Bien comido»). */
+    secret?: boolean;
 }
 
 export const THEMES: ThemeMeta[] = [
@@ -95,6 +97,15 @@ export const THEMES: ThemeMeta[] = [
         preview: { bg: '#1d5566', card: '#26697b', accent: '#f472b6', accent2: '#fb923c', text: '#f2fffd' },
         statusBarStyle: 'dark',
     },
+    {
+        id: 'abuela',
+        label: 'Abuela',
+        mood: 'Mantel · Tomate',
+        description: 'Cocina de abuela: mantel de cuadros, guiso al fuego y «¿has comido?».',
+        preview: { bg: '#2b1a14', card: '#3a241b', accent: '#d9412b', accent2: '#e9a23b', text: '#fff6e8' },
+        statusBarStyle: 'dark',
+        secret: true,
+    },
 ];
 
 const THEME_CLASS: Record<ThemeId, string> = {
@@ -106,10 +117,12 @@ const THEME_CLASS: Record<ThemeId, string> = {
     graphite: 'theme-graphite',
     sunset: 'theme-sunset',
     lagoon: 'theme-lagoon',
+    abuela: 'theme-abuela',
 };
 
 const LS_KEY = 'listopic-theme';
-const VALID_IDS = new Set<ThemeId>(['dark', 'light', 'warm', 'cool', 'neon', 'graphite', 'sunset', 'lagoon']);
+const VALID_IDS = new Set<ThemeId>(['dark', 'light', 'warm', 'cool', 'neon', 'graphite', 'sunset', 'lagoon', 'abuela']);
+const ABUELA_BADGE = 'BIEN_COMIDO';
 
 function sanitizeTheme(value: unknown): ThemeId | null {
     if (typeof value !== 'string') return null;
@@ -161,7 +174,8 @@ const ThemeContext = createContext<ThemeContextType>({
 export const useTheme = () => useContext(ThemeContext);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { user } = useAuth();
+    const { user, isJefe } = useAuth();
+    const [abuelaUnlocked, setAbuelaUnlocked] = useState(false);
     const [theme, setThemeState] = useState<ThemeId>(() => readInitialTheme());
     // Tracks whether the next Firestore snapshot reflects a write we just issued
     // locally — avoids a round-trip that could flip the class back while we wait.
@@ -184,6 +198,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const unsub = onSnapshot(
             ref,
             (snap) => {
+                const badges = snap.data()?.badges;
+                setAbuelaUnlocked(Array.isArray(badges) && badges.includes(ABUELA_BADGE));
                 const remote = sanitizeTheme(snap.data()?.themePreference);
                 if (!remote) return;
                 if (lastWriteRef.current === remote) {
@@ -213,9 +229,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         [user],
     );
 
+    // Los temas secretos solo salen al desbloquearlos (o si ya se llevan puestos).
+    const themes = useMemo(
+        () => THEMES.filter((t) => !t.secret || t.id === theme || isJefe || (t.id === 'abuela' && abuelaUnlocked)),
+        [theme, isJefe, abuelaUnlocked],
+    );
+
     const value = useMemo<ThemeContextType>(
-        () => ({ theme, setTheme, themes: THEMES }),
-        [theme, setTheme],
+        () => ({ theme, setTheme, themes }),
+        [theme, setTheme, themes],
     );
 
     return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

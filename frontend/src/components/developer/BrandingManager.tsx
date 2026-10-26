@@ -38,6 +38,7 @@ export const BrandingManager: React.FC = () => {
         graphite: config.logoUrlGraphite || null,
         sunset: config.logoUrlSunset || null,
         lagoon: config.logoUrlLagoon || null,
+        abuela: config.logoUrlAbuela || null,
     });
     const themeInputRefs: Record<ThemeId, React.RefObject<HTMLInputElement | null>> = {
         dark: useRef<HTMLInputElement>(null),
@@ -48,6 +49,7 @@ export const BrandingManager: React.FC = () => {
         graphite: useRef<HTMLInputElement>(null),
         sunset: useRef<HTMLInputElement>(null),
         lagoon: useRef<HTMLInputElement>(null),
+        abuela: useRef<HTMLInputElement>(null),
     };
 
     // Track which theme files have been selected

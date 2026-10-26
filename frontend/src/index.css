@@ -822,6 +822,42 @@
         radial-gradient(circle at 85% 92%, rgba(253, 224, 71, 0.12), transparent 45%);
 }
 
+/* Tema secreto «Abuela» (medalla «Bien comido»): mantel de cuadros y guiso. */
+.theme-abuela {
+    color-scheme: dark;
+    --lt-bg: #2b1a14;
+    --lt-bg-deep: #22140f;
+    --lt-text: #fff6e8;
+    --lt-text-muted: #d8bfa3;
+    --lt-card: rgba(66, 40, 29, 0.66);
+    --lt-card-strong: #3a241b;
+    --lt-card-strong-alpha: rgba(58, 36, 27, 0.82);
+    --lt-glass: rgba(255, 230, 200, 0.06);
+    --lt-border: rgba(255, 214, 170, 0.13);
+    --lt-border-strong: rgba(255, 214, 170, 0.28);
+    --lt-nav-scrolled: rgba(58, 36, 27, 0.82);
+    --lt-accent: #d9412b;
+    --lt-accent-2: #e9a23b;
+    --lt-accent-grad: linear-gradient(135deg, #d9412b, #e9a23b);
+    --lt-accent-border: #f08a6c;
+    --lt-accent-shadow: rgba(217, 65, 43, 0.42);
+    --lt-accent-soft: rgba(217, 65, 43, 0.18);
+    --lt-success: #a3d977;
+    --lt-success-soft: rgba(163, 217, 119, 0.16);
+    --lt-warning: #f2c14e;
+    --lt-warning-soft: rgba(242, 193, 78, 0.16);
+    --lt-danger: #fca5a5;
+    --lt-danger-soft: rgba(252, 165, 165, 0.16);
+    --lt-promo: #f2c14e;
+    --lt-promo-soft: rgba(242, 193, 78, 0.16);
+    --lt-hero-grad: linear-gradient(90deg, #f2c14e, #e9a23b, #d9412b);
+    --lt-brand-mark: linear-gradient(135deg, #f2c14e, #d9412b);
+    --lt-body-mesh:
+        repeating-linear-gradient(0deg, rgba(217, 65, 43, 0.10) 0 22px, transparent 22px 44px),
+        repeating-linear-gradient(90deg, rgba(217, 65, 43, 0.10) 0 22px, transparent 22px 44px),
+        radial-gradient(circle at 50% 0%, rgba(233, 162, 59, 0.16), transparent 55%);
+}
+
 /* =====================================================================
    Legacy tokens mapeados a --lt-*. Así los componentes viejos que usan
    --bg-primary, --card-bg, --glass-bg, etc. cambian de tema automático.

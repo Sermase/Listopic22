@@ -13,6 +13,7 @@ export interface AppConfig {
     logoUrlGraphite?: string;
     logoUrlSunset?: string;
     logoUrlLagoon?: string;
+    logoUrlAbuela?: string;
     faviconType: 'default' | 'image';
     faviconUrl?: string;
     appName: string;
@@ -26,6 +27,8 @@ export interface AppConfig {
     showLab: boolean;
     /** Apps del laboratorio ocultadas una a una (lib/labApps): `false` = oculta. */
     labApps: Partial<Record<string, boolean>>;
+    /** Sorpresas apagadas una a una (lib/surprises): `false` = apagada para todos. */
+    surprises: Partial<Record<string, boolean>>;
     showWeeklyDuel: boolean;
     showTastePassport: boolean;
     /** Página de Lista: título = sitio y segunda línea = elemento (false: al revés). */
@@ -50,6 +53,7 @@ const defaultConfig: AppConfig = {
     homeReviewsMonths: 12,
     showLab: false,
     labApps: {},
+    surprises: {},
     showWeeklyDuel: false,
     showTastePassport: false,
     listTitlePlaceFirst: true,
@@ -92,6 +96,7 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         ? data.showLab
                         : defaultConfig.showLab,
                     labApps: data.labApps && typeof data.labApps === 'object' ? data.labApps : {},
+                    surprises: data.surprises && typeof data.surprises === 'object' ? data.surprises : {},
                     showWeeklyDuel: typeof data.showWeeklyDuel === 'boolean'
                         ? data.showWeeklyDuel
                         : defaultConfig.showWeeklyDuel,

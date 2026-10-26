@@ -16,6 +16,7 @@ import { useDeveloperPendingCounts } from '../hooks/useDeveloperInbox';
 import { DeveloperSidebar } from '../components/developer/DeveloperSidebar';
 import { developerTabLabel } from '../components/developer/developerNav';
 import { LabAppToggle } from '../components/developer/LabAppToggle';
+import { SurprisesPanel } from '../components/developer/SurprisesPanel';
 import { useAppConfig } from '../context/AppConfigContext';
 import {
     buildTabSearchParams,
@@ -1148,6 +1149,8 @@ export const DeveloperPage: React.FC = () => {
                                 </div>
                             </div>
                         )}
+
+                        {activeTab === 'sorpresas' && <SurprisesPanel />}
 
                         {activeTab === 'others' && (
                             <div className="max-w-4xl mx-auto space-y-6">

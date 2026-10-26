@@ -36,6 +36,7 @@ export const DEVELOPER_TABS = [
     'branding',
     'others',
     'proyectos',
+    'sorpresas',
     'lists',
     'places',
     'reviews',

@@ -16,6 +16,8 @@ import { EditProfileSheet } from '../components/settings/EditProfileSheet';
 import { DeleteAccountSheet } from '../components/settings/DeleteAccountSheet';
 import { FilterGroup, FilterSummary, Knob, Toggle, type FilterGroupId } from '../components/settings/MyFilters';
 import { NavTabsEditor, NavTabsSummary } from '../components/settings/NavTabsEditor';
+import { setUserWantsSurprises, userWantsSurprises } from '../lib/surprises';
+import { requestShakePermission, shakeNeedsPermission } from '../components/surprises/useShake';
 
 type SheetId = 'profile' | 'notifications' | 'data' | 'distance' | 'map' | 'theme' | 'nav' | FilterGroupId | 'delete';
 
@@ -111,6 +113,14 @@ export const SettingsPage: React.FC = () => {
     const [mapChoice, setMapChoice] = useState<MapLayerId | null>(readMapLayer);
     const [notifOverride, setNotifOverride] = useState<Record<string, boolean> | null>(null);
     const close = () => setSheet(null);
+    const [surprises, setSurprises] = useState(userWantsSurprises);
+    const [shakeAsk, setShakeAsk] = useState(shakeNeedsPermission);
+    const toggleSurprises = (on: boolean) => {
+        setUserWantsSurprises(on);
+        setSurprises(on);
+        // En iPhone, agitar el móvil necesita permiso, y solo se puede pedir con un toque.
+        if (on && shakeAsk) void requestShakePermission().then((ok) => { if (ok) setShakeAsk(false); });
+    };
 
     const notif = { ...(profile?.notificationPreferences || {}), ...(notifOverride || {}) };
     // En este dispositivo manda lo guardado aquí (como en el mapa); si no hay, lo de la cuenta.
@@ -185,6 +195,10 @@ export const SettingsPage: React.FC = () => {
                     {/* La barra de abajo solo existe en el móvil. */}
                     <div className="md:hidden"><Row emoji="📱" label="Barra de abajo" value={<NavTabsSummary />} onClick={() => setSheet('nav')} /></div>
                     <SwitchRow emoji="ⓘ" label="Ayudas en la app" hint="Los iconos ⓘ que explican cada parte" checked={prefs.showHelpTips} onChange={(v) => setPref('showHelpTips', v)} />
+                    <SwitchRow emoji="🥚" label="Sorpresas" hint="Animaciones y minijuegos escondidos. ¿Cuáles? Eso es cosa tuya." checked={surprises} onChange={toggleSurprises} />
+                    {surprises && shakeAsk && (
+                        <Row emoji="📳" label="Agitar el móvil" value="Permitir" onClick={() => void requestShakePermission().then((ok) => { if (ok) setShakeAsk(false); })} />
+                    )}
                 </Section>
 
                 <Section

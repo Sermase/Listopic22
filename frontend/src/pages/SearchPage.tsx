@@ -41,6 +41,7 @@ import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/pl
 import { placeCardScore } from '../lib/placeRating';
 import { HomeFeedCard } from '../components/home/HomeFeedCard';
 import type { HomeFeedCard as HomeFeedCardData } from '../lib/homeFeeds';
+import { useSearchEggs } from '../components/surprises/useSearchEggs';
 import { MarqueeText } from '../components/ui/MarqueeText';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -1302,6 +1303,7 @@ const QuickFilters = ({
 export const SearchPage: React.FC = () => {
     const [searchParams, setSearchParams] = useSearchParams();
     const queryParam = searchParams.get('q') || '';
+    useSearchEggs(queryParam);
     // Llegada desde una Lista («Explorar otra zona en Buscar…»): se busca dentro de ella.
     const listIdParam = searchParams.get('listId') || '';
     const listNameParam = searchParams.get('listName') || '';

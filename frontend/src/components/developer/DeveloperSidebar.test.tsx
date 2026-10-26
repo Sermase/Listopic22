@@ -25,7 +25,7 @@ describe('DeveloperSidebar', () => {
         const nav = screen.getByRole('navigation', { name: 'Herramientas de Developer' });
         const tabs = within(nav).getAllByRole('button').filter((button) => button.getAttribute('aria-label') !== 'Cerrar menú');
         expect(tabs[0]).toHaveTextContent('Pendientes');
-        expect(tabs).toHaveLength(24);
+        expect(tabs).toHaveLength(25);
         expect(screen.getByText('Negocios y planes')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /Pendientes/ })).toHaveAttribute('aria-current', 'page');
     });

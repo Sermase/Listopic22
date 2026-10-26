@@ -4,6 +4,12 @@ import { useAppConfig } from '../context/AppConfigContext';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { isLabAppVisible } from '../lib/labApps';
+import { LAB_EGG_KEY } from '../lib/surprises';
+
+/** Buscar «ansievi» deja pasar al Baile aunque el laboratorio esté oculto. */
+const hasEggPass = (): boolean => {
+    try { return sessionStorage.getItem(LAB_EGG_KEY) === '1'; } catch { return false; }
+};
 
 export const LabPage: React.FC = () => {
     const config = useAppConfig();
@@ -37,7 +43,7 @@ export const LabPage: React.FC = () => {
         };
     }, [navigate, requestSimulatorBack]);
 
-    if (!isLabAppVisible(config, 'apegos', isJefe)) {
+    if (!isLabAppVisible(config, 'apegos', isJefe) && !hasEggPass()) {
         return (
             <div className="fixed inset-0 flex flex-col items-center justify-center bg-slate-900 text-white gap-4">
                 <div className="text-6xl">🔒</div>

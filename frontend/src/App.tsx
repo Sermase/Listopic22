@@ -55,6 +55,7 @@ const CookiesPage = React.lazy(() => import('./pages/CookiesPage').then(m => ({ 
 const LegalNoticePage = React.lazy(() => import('./pages/LegalNoticePage').then(m => ({ default: m.LegalNoticePage })));
 const LabPage = React.lazy(() => import('./pages/LabPage').then(m => ({ default: m.LabPage })));
 const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage').then(m => ({ default: m.NotFoundPage })));
+const SurpriseHost = React.lazy(() => import('./components/surprises/SurpriseHost').then(m => ({ default: m.SurpriseHost })));
 
 // Los enlaces compartidos /s/... los sirve una Cloud Function con la vista
 // previa (Open Graph). Si la app Android intercepta el enlace, o alguien llega
@@ -310,6 +311,7 @@ function App() {
               <NotificationBanner />
               <AppRoutes />
               <BottomNav />
+              <Suspense fallback={null}><SurpriseHost /></Suspense>
               <WelcomeCards />
               <PushSetup />
               <LegalAcceptanceGate />
