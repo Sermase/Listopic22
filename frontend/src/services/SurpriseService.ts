@@ -1,6 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
 import { auth, functions } from '../firebase';
-import { fireSurprise, type TortillaSide } from '../lib/surprises';
+import { fireSurprise, type PollId, type PollSide } from '../lib/surprises';
 
 /** Medallas secretas (las define y las da functions/modules/surprises.js). */
 export type SecretBadgeId = 'BIEN_COMIDO' | 'AVE_NOCTURNA' | 'CROQUETERO' | 'DETECTIVE' | 'JUEZ_TORTILLA' | 'PALADAR_DE_HIERRO';
@@ -41,21 +41,21 @@ export async function claimSecretBadge(id: SecretBadgeId): Promise<boolean> {
     }
 }
 
-export interface TortillaTally {
+export interface PollTally {
     con: number;
     sin: number;
 }
 
-export interface TortillaResults {
-    total: TortillaTally;
+export interface PollResults {
+    total: PollTally;
     /** Celda de unos 10 km donde votaste (si había ubicación). */
-    zone: (TortillaTally & { label?: string }) | null;
-    mine: TortillaSide | null;
+    zone: (PollTally & { label?: string }) | null;
+    mine: PollSide | null;
 }
 
-/** Vota (o solo mira, sin `side`) en la encuesta eterna de la tortilla. */
-export async function tortillaPoll(input: { side?: TortillaSide; lat?: number; lng?: number; city?: string }): Promise<TortillaResults> {
-    const call = httpsCallable<typeof input, TortillaResults>(functions, 'tortillaPoll');
+/** Vota (o solo mira, sin `side`) en una encuesta eterna (la Function se llama tortillaPoll por la primera). */
+export async function foodPoll(input: { poll: PollId; side?: PollSide; lat?: number; lng?: number; city?: string }): Promise<PollResults> {
+    const call = httpsCallable<typeof input, PollResults>(functions, 'tortillaPoll');
     const { data } = await call(input);
     return data;
 }

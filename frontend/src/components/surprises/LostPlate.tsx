@@ -11,7 +11,7 @@ const DUDS: ReadonlyArray<[string, string]> = [
     ['🦴', 'Solo queda el hueso.'],
     ['🧊', 'Un cubito. Del gazpacho, suponemos.'],
 ];
-const PRIZES = ['🍝', '🥘', '🍕', '🍔', '🍰', '🥟'];
+const PRIZES = ['🍝', '🥘', '🍕', '🍔', '🍰', '🧆'];
 
 /** Plato perdido (404): levanta campanas hasta encontrar el plato. */
 export const LostPlate: React.FC = () => {

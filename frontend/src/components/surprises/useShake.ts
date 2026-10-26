@@ -21,7 +21,7 @@ export async function requestShakePermission(): Promise<boolean> {
 const THRESHOLD = 22; // m/s² de cambio brusco
 const HITS = 3;
 const WINDOW_MS = 900;
-const COOLDOWN_MS = 5000;
+const COOLDOWN_MS = 2500;
 
 /** Llama a `onShake` al agitar el móvil (tres sacudidas fuertes seguidas). */
 export function useShake(enabled: boolean, onShake: () => void): void {

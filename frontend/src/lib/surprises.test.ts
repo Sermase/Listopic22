@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { dishEmoji, isAnsieviQuery, isPartyFood, reviewSurprises, tapCounter, tortillaQuery } from './surprises';
+import { dishEmoji, isAnsieviQuery, isPartyFood, reviewSurprises, tapCounter, pollQuery } from './surprises';
 
 const at = (h: number) => new Date(2026, 9, 26, h, 30);
 
@@ -11,11 +11,14 @@ describe('sorpresas', () => {
         expect(dishEmoji('Algo raro')).toBe('😋');
     });
 
-    it('un 10 llueve y un 1 rompe el plato', () => {
+    it('desde el 9 llueve y con suspenso se rompe el plato', () => {
         const base = { criteria: [], scores: {}, listName: 'Tartas de queso', now: at(14) };
         expect(reviewSurprises({ ...base, overallRating: 10 }).map((s) => s.id)).toEqual(['perfectTen']);
         expect(reviewSurprises({ ...base, overallRating: 1 }).map((s) => s.id)).toEqual(['brokenPlate']);
+        expect(reviewSurprises({ ...base, overallRating: 9 }).map((s) => s.id)).toEqual(['perfectTen']);
+        expect(reviewSurprises({ ...base, overallRating: 4.9 }).map((s) => s.id)).toEqual(['brokenPlate']);
         expect(reviewSurprises({ ...base, overallRating: 7 })).toEqual([]);
+        expect(reviewSurprises({ ...base, overallRating: 5 })).toEqual([]);
     });
 
     it('picante al máximo', () => {
@@ -39,9 +42,14 @@ describe('sorpresas', () => {
     });
 
     it('buscador', () => {
-        expect(tortillaQuery('Tortilla con cebolla')).toBe('con');
-        expect(tortillaQuery('tortilla de patata sin cebolla')).toBe('sin');
-        expect(tortillaQuery('tortilla')).toBeNull();
+        expect(pollQuery('Tortilla con cebolla')).toEqual({ poll: 'tortilla', side: 'con' });
+        expect(pollQuery('tortilla de patata sin cebolla')).toEqual({ poll: 'tortilla', side: 'sin' });
+        expect(pollQuery('tortilla')).toEqual({ poll: 'tortilla', side: undefined });
+        expect(pollQuery('pizza hawaiana')).toEqual({ poll: 'pizza', side: 'con' });
+        expect(pollQuery('pizza sin piña')).toEqual({ poll: 'pizza', side: 'sin' });
+        expect(pollQuery('piña')).toEqual({ poll: 'pizza', side: undefined });
+        expect(pollQuery('bravas')).toBeNull();
+        expect(pollQuery('espinacas')).toBeNull();
         expect(isAnsieviQuery(' Ansievi ')).toBe(true);
     });
 
