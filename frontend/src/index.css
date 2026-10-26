@@ -749,6 +749,79 @@
         radial-gradient(circle at 85% 85%, rgba(129, 140, 248, 0.06), transparent 45%);
 }
 
+/* Fondo intermedio: ni noche ni día. Texto blanco, fondo de color con cuerpo. */
+.theme-sunset {
+    color-scheme: dark;
+    --lt-bg: #4a2b52;
+    --lt-bg-deep: #3c2244;
+    --lt-text: #fff7f0;
+    --lt-text-muted: #e9c6d9;
+    --lt-card: rgba(103, 60, 112, 0.62);
+    --lt-card-strong: #5e3767;
+    --lt-card-strong-alpha: rgba(94, 55, 103, 0.78);
+    --lt-glass: rgba(255, 210, 190, 0.07);
+    --lt-border: rgba(255, 190, 170, 0.16);
+    --lt-border-strong: rgba(255, 190, 170, 0.32);
+    --lt-nav-scrolled: rgba(94, 55, 103, 0.8);
+    --lt-accent: #ff7a59;
+    --lt-accent-2: #f43f5e;
+    --lt-accent-grad: linear-gradient(135deg, #ffb347, #ff7a59, #f43f5e);
+    --lt-accent-border: #ffa48a;
+    --lt-accent-shadow: rgba(255, 122, 89, 0.42);
+    --lt-accent-soft: rgba(255, 122, 89, 0.2);
+    --lt-success: #6ee7b7;
+    --lt-success-soft: rgba(110, 231, 183, 0.18);
+    --lt-warning: #fcd34d;
+    --lt-warning-soft: rgba(252, 211, 77, 0.18);
+    --lt-danger: #fda4af;
+    --lt-danger-soft: rgba(253, 164, 175, 0.2);
+    --lt-promo: #fde047;
+    --lt-promo-soft: rgba(253, 224, 71, 0.18);
+    --lt-hero-grad: linear-gradient(90deg, #fde68a, #ff7a59, #f472b6);
+    --lt-brand-mark: linear-gradient(135deg, #fde68a, #ff7a59, #f43f5e);
+    --lt-body-mesh:
+        radial-gradient(circle at 12% 10%, rgba(255, 140, 90, 0.30), transparent 45%),
+        radial-gradient(circle at 90% 18%, rgba(244, 63, 94, 0.22), transparent 42%),
+        radial-gradient(circle at 50% 70%, rgba(168, 85, 247, 0.20), transparent 50%),
+        radial-gradient(circle at 85% 92%, rgba(253, 224, 71, 0.12), transparent 45%);
+}
+
+.theme-lagoon {
+    color-scheme: dark;
+    --lt-bg: #1d5566;
+    --lt-bg-deep: #164655;
+    --lt-text: #f2fffd;
+    --lt-text-muted: #b5e3e3;
+    --lt-card: rgba(39, 110, 128, 0.6);
+    --lt-card-strong: #26697b;
+    --lt-card-strong-alpha: rgba(38, 105, 123, 0.8);
+    --lt-glass: rgba(200, 255, 250, 0.07);
+    --lt-border: rgba(180, 250, 245, 0.16);
+    --lt-border-strong: rgba(180, 250, 245, 0.32);
+    --lt-nav-scrolled: rgba(38, 105, 123, 0.8);
+    --lt-accent: #f472b6;
+    --lt-accent-2: #fb923c;
+    --lt-accent-grad: linear-gradient(135deg, #f472b6, #fb923c);
+    --lt-accent-border: #f9a8d4;
+    --lt-accent-shadow: rgba(244, 114, 182, 0.42);
+    --lt-accent-soft: rgba(244, 114, 182, 0.2);
+    --lt-success: #86efac;
+    --lt-success-soft: rgba(134, 239, 172, 0.18);
+    --lt-warning: #fdba74;
+    --lt-warning-soft: rgba(253, 186, 116, 0.18);
+    --lt-danger: #fda4af;
+    --lt-danger-soft: rgba(253, 164, 175, 0.2);
+    --lt-promo: #fde047;
+    --lt-promo-soft: rgba(253, 224, 71, 0.18);
+    --lt-hero-grad: linear-gradient(90deg, #fde047, #f472b6, #fb923c);
+    --lt-brand-mark: linear-gradient(135deg, #fde047, #fb923c, #f472b6);
+    --lt-body-mesh:
+        radial-gradient(circle at 10% 12%, rgba(45, 212, 191, 0.30), transparent 45%),
+        radial-gradient(circle at 88% 20%, rgba(244, 114, 182, 0.20), transparent 42%),
+        radial-gradient(circle at 50% 68%, rgba(56, 189, 248, 0.18), transparent 50%),
+        radial-gradient(circle at 85% 92%, rgba(253, 224, 71, 0.12), transparent 45%);
+}
+
 /* =====================================================================
    Legacy tokens mapeados a --lt-*. Así los componentes viejos que usan
    --bg-primary, --card-bg, --glass-bg, etc. cambian de tema automático.

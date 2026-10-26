@@ -13,7 +13,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { db } from '../firebase';
 import { useAuth } from './AuthContext';
 
-export type ThemeId = 'dark' | 'light' | 'warm' | 'cool' | 'neon' | 'graphite';
+export type ThemeId = 'dark' | 'light' | 'warm' | 'cool' | 'neon' | 'graphite' | 'sunset' | 'lagoon';
 
 export interface ThemeMeta {
     id: ThemeId;
@@ -79,6 +79,22 @@ export const THEMES: ThemeMeta[] = [
         preview: { bg: '#050506', card: '#141417', accent: '#38bdf8', accent2: '#818cf8', text: '#f4f4f5' },
         statusBarStyle: 'dark',
     },
+    {
+        id: 'sunset',
+        label: 'Atardecer',
+        mood: 'Malva · Coral',
+        description: 'Ni de noche ni de día: malva templado con coral y naranja.',
+        preview: { bg: '#4a2b52', card: '#5e3767', accent: '#ff7a59', accent2: '#f43f5e', text: '#fff7f0' },
+        statusBarStyle: 'dark',
+    },
+    {
+        id: 'lagoon',
+        label: 'Laguna',
+        mood: 'Turquesa · Rosa',
+        description: 'Turquesa de agua tropical con rosa y mango.',
+        preview: { bg: '#1d5566', card: '#26697b', accent: '#f472b6', accent2: '#fb923c', text: '#f2fffd' },
+        statusBarStyle: 'dark',
+    },
 ];
 
 const THEME_CLASS: Record<ThemeId, string> = {
@@ -88,10 +104,12 @@ const THEME_CLASS: Record<ThemeId, string> = {
     cool: 'theme-cool',
     neon: 'theme-neon',
     graphite: 'theme-graphite',
+    sunset: 'theme-sunset',
+    lagoon: 'theme-lagoon',
 };
 
 const LS_KEY = 'listopic-theme';
-const VALID_IDS = new Set<ThemeId>(['dark', 'light', 'warm', 'cool', 'neon', 'graphite']);
+const VALID_IDS = new Set<ThemeId>(['dark', 'light', 'warm', 'cool', 'neon', 'graphite', 'sunset', 'lagoon']);
 
 function sanitizeTheme(value: unknown): ThemeId | null {
     if (typeof value !== 'string') return null;

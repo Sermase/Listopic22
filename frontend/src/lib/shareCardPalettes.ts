@@ -1,5 +1,5 @@
-/** Colores de la tarjeta, sacados de los temas oscuros de la app. */
-export type CardPaletteId = 'dark' | 'neon' | 'graphite' | 'warm' | 'cool';
+/** Colores de la tarjeta, sacados de los temas de fondo oscuro o intermedio. */
+export type CardPaletteId = 'dark' | 'neon' | 'graphite' | 'warm' | 'cool' | 'sunset' | 'lagoon';
 
 export interface CardPalette {
     label: string;
@@ -42,6 +42,16 @@ export const CARD_PALETTES: Record<CardPaletteId, CardPalette> = {
         label: 'Fresco', bg: '#031a20', bgRgb: '3,26,32', panelRgb: '12,42,50',
         accent: '#14b8a6', accent2: '#06b6d4', accentRgb: '20,184,166', accentSoft: '#99f6e4', chipText: '#ccfbf1',
         highlight: '#5eead4', pin: '#2dd4bf', glow: 'rgba(17,94,89,0.9)', glow2: 'rgba(14,116,144,0.35)',
+    },
+    sunset: {
+        label: 'Atardecer', bg: '#4a2b52', bgRgb: '74,43,82', panelRgb: '94,55,103',
+        accent: '#ff7a59', accent2: '#f43f5e', accentRgb: '255,122,89', accentSoft: '#ffc2ad', chipText: '#ffe4d6',
+        highlight: '#fde68a', pin: '#ff8a65', glow: 'rgba(234,88,12,0.55)', glow2: 'rgba(190,24,93,0.4)',
+    },
+    lagoon: {
+        label: 'Laguna', bg: '#1d5566', bgRgb: '29,85,102', panelRgb: '38,105,123',
+        accent: '#f472b6', accent2: '#fb923c', accentRgb: '244,114,182', accentSoft: '#fbcfe8', chipText: '#fce7f3',
+        highlight: '#fde047', pin: '#f9a8d4', glow: 'rgba(20,184,166,0.55)', glow2: 'rgba(219,39,119,0.35)',
     },
 };
 

@@ -98,6 +98,8 @@ export const Navbar: React.FC = () => {
         cool: config.logoUrlCool,
         neon: config.logoUrlNeon,
         graphite: config.logoUrlGraphite,
+        sunset: config.logoUrlSunset,
+        lagoon: config.logoUrlLagoon,
     };
     const activeLogoUrl = themeLogoUrls[theme] || config.logoUrl;
     const [isMenuOpen, setIsMenuOpen] = useState(false);
