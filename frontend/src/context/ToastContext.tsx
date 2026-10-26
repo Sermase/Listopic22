@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useRef, useState, useEffect } from 'react';
 import { CheckCircle2, Info, AlertTriangle, X } from 'lucide-react';
 
 type ToastVariant = 'success' | 'info' | 'error';
@@ -82,6 +82,13 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }, entry.durationMs);
         timersRef.current[id] = timeoutId;
     }, [removeToast]);
+
+    // Al desmontar (cambio de pantalla o fin de un test) se cancelan los avisos pendientes:
+    // si no, un temporizador podía actualizar el estado sin página y tumbar los tests («window is not defined»).
+    useEffect(() => () => {
+        Object.values(timersRef.current).forEach((t) => window.clearTimeout(t));
+        timersRef.current = {};
+    }, []);
 
     const value = useMemo<ToastContextValue>(() => ({ showToast }), [showToast]);
 
