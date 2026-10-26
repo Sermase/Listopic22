@@ -4,6 +4,10 @@ import { Mail, Sparkles, Target, Heart, ExternalLink } from 'lucide-react';
 import { Footer } from '../components/Footer';
 import { useAppConfig } from '../context/AppConfigContext';
 import { isLabAppVisible } from '../lib/labApps';
+import { fireSurprise, tapCounter } from '../lib/surprises';
+
+/** 7 toques seguidos a la imagen: «Atrapa la croqueta» (como la versión en Android). */
+const imageTap = tapCounter(7, 3000, () => fireSurprise({ kind: 'croqueta', gated: true }));
 
 const ValueCard: React.FC<{ emoji: string; title: string; text: string }> = ({ emoji, title, text }) => (
     <div className="bg-[var(--lt-card-strong)]/60 border border-white/10 rounded-3xl p-6 flex flex-col gap-3 hover:border-[var(--lt-accent-border)] transition-colors">
@@ -27,7 +31,9 @@ export const IstariCorePage: React.FC = () => {
                     <img
                         src="/images/istari-core-logo.png"
                         alt="Istari Core"
-                        className="w-56 sm:w-72 h-auto object-contain mb-4 drop-shadow-[0_0_30px_rgba(139,92,246,0.4)]"
+                        onClick={imageTap}
+                        draggable={false}
+                        className="w-56 sm:w-72 h-auto object-contain mb-4 drop-shadow-[0_0_30px_rgba(139,92,246,0.4)] select-none [-webkit-tap-highlight-color:transparent]"
                     />
                     <p className="text-gray-400 text-sm max-w-xs">Un proyecto, una persona, muchas ganas.</p>
                 </div>
