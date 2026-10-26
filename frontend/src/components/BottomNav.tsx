@@ -115,7 +115,7 @@ export const BottomNav: React.FC = () => {
                 className="fixed inset-x-0 bottom-0 z-40 md:hidden"
                 style={{ paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}
             >
-                <div className="relative mx-3 mb-2 grid grid-cols-5 items-end rounded-[1.75rem] border border-[var(--lt-border)] px-1 shadow-[0_12px_32px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl backdrop-saturate-150"
+                <div className="lt-bottom-bar relative mx-3 mb-2 grid grid-cols-5 items-end rounded-[1.75rem] border border-[var(--lt-border)] px-1 shadow-[0_12px_32px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl backdrop-saturate-150"
                     style={{ background: 'color-mix(in srgb, var(--lt-card-strong) 90%, transparent)' }}
                 >
                     {tabs.slice(0, 2).map(renderTab)}

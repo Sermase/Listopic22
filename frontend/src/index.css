@@ -822,40 +822,76 @@
         radial-gradient(circle at 85% 92%, rgba(253, 224, 71, 0.12), transparent 45%);
 }
 
-/* Tema secreto «Abuela» (medalla «Bien comido»): mantel de cuadros y guiso. */
+/* Tema secreto «Abuela» (medalla «Bien comido»): casa de pueblo. Va encima de
+   .theme-light (ThemeContext pone las dos clases): pared encalada, mantel de
+   cuadros rojo y blanco en el menú, y rojo tomate, verde huerta y amarillo. */
 .theme-abuela {
-    color-scheme: dark;
-    --lt-bg: #2b1a14;
-    --lt-bg-deep: #22140f;
-    --lt-text: #fff6e8;
-    --lt-text-muted: #d8bfa3;
-    --lt-card: rgba(66, 40, 29, 0.66);
-    --lt-card-strong: #3a241b;
-    --lt-card-strong-alpha: rgba(58, 36, 27, 0.82);
-    --lt-glass: rgba(255, 230, 200, 0.06);
-    --lt-border: rgba(255, 214, 170, 0.13);
-    --lt-border-strong: rgba(255, 214, 170, 0.28);
-    --lt-nav-scrolled: rgba(58, 36, 27, 0.82);
-    --lt-accent: #d9412b;
-    --lt-accent-2: #e9a23b;
-    --lt-accent-grad: linear-gradient(135deg, #d9412b, #e9a23b);
-    --lt-accent-border: #f08a6c;
-    --lt-accent-shadow: rgba(217, 65, 43, 0.42);
-    --lt-accent-soft: rgba(217, 65, 43, 0.18);
-    --lt-success: #a3d977;
-    --lt-success-soft: rgba(163, 217, 119, 0.16);
-    --lt-warning: #f2c14e;
-    --lt-warning-soft: rgba(242, 193, 78, 0.16);
-    --lt-danger: #fca5a5;
-    --lt-danger-soft: rgba(252, 165, 165, 0.16);
-    --lt-promo: #f2c14e;
-    --lt-promo-soft: rgba(242, 193, 78, 0.16);
-    --lt-hero-grad: linear-gradient(90deg, #f2c14e, #e9a23b, #d9412b);
-    --lt-brand-mark: linear-gradient(135deg, #f2c14e, #d9412b);
+    --lt-hero-top: rgba(253, 248, 236, 0.6);
+    --lt-bg: #fdf8ec;
+    --lt-bg-deep: #f5ecd6;
+    --lt-text: #3a2a1c;
+    --lt-text-muted: #6f5a45;
+    --lt-card: rgba(255, 253, 246, 0.94);
+    --lt-card-strong: #fffdf6;
+    --lt-card-strong-alpha: rgba(255, 253, 246, 0.9);
+    --lt-glass: rgba(200, 32, 44, 0.06);
+    --lt-border: rgba(58, 42, 28, 0.12);
+    --lt-border-strong: rgba(58, 42, 28, 0.24);
+    --lt-nav-scrolled: rgba(253, 248, 236, 0.9);
+    --lt-accent: #c0202c;
+    --lt-accent-2: #3f7a2a;
+    --lt-accent-grad: linear-gradient(135deg, #c0202c, #d9531e);
+    --lt-accent-border: #d9605f;
+    --lt-accent-shadow: rgba(192, 32, 44, 0.28);
+    --lt-accent-soft: rgba(192, 32, 44, 0.10);
+    --lt-success: #3f7a2a;
+    --lt-success-soft: rgba(63, 122, 42, 0.12);
+    --lt-warning: #9a5b00;
+    --lt-warning-soft: rgba(230, 170, 30, 0.16);
+    --lt-danger: #b91c1c;
+    --lt-danger-soft: rgba(185, 28, 28, 0.10);
+    --lt-promo: #8a6200;
+    --lt-promo-soft: rgba(240, 190, 40, 0.18);
+    --lt-hero-grad: linear-gradient(90deg, #3f7a2a, #e0a81c, #c0202c);
+    --lt-brand-mark: linear-gradient(135deg, #e0a81c, #c0202c);
+    --lt-gingham:
+        linear-gradient(90deg, rgba(200, 32, 44, 0.16) 50%, transparent 50%),
+        linear-gradient(rgba(200, 32, 44, 0.16) 50%, transparent 50%);
     --lt-body-mesh:
-        repeating-linear-gradient(0deg, rgba(217, 65, 43, 0.10) 0 22px, transparent 22px 44px),
-        repeating-linear-gradient(90deg, rgba(217, 65, 43, 0.10) 0 22px, transparent 22px 44px),
-        radial-gradient(circle at 50% 0%, rgba(233, 162, 59, 0.16), transparent 55%);
+        radial-gradient(circle at 8% 10%, rgba(63, 122, 42, 0.10), transparent 40%),
+        radial-gradient(circle at 92% 18%, rgba(224, 168, 28, 0.12), transparent 40%),
+        radial-gradient(circle at 80% 90%, rgba(192, 32, 44, 0.07), transparent 45%);
+}
+
+/* El menú es el mantel de la mesa, con la despensa al pie. */
+.theme-abuela .lt-menu-sheet {
+    background-color: #fffdf6;
+    background-image: var(--lt-gingham);
+    background-size: 28px 28px;
+    border-top: 6px solid #c0202c;
+}
+
+/* Los botones del menú, como platos sobre el mantel. */
+.theme-abuela .lt-menu-sheet :is(a, button)[class*="rounded"] {
+    background-color: rgba(255, 253, 246, 0.94);
+}
+
+.theme-abuela .lt-menu-sheet::after {
+    content: '🍅 🥕 🧄 🫑 🌶️ 🍋 🫒 🥖 🧀';
+    display: block;
+    margin-top: 0.75rem;
+    text-align: center;
+    font-size: 1.25rem;
+    letter-spacing: 0.2em;
+}
+
+/* Barra de abajo: ribete de mantel. */
+.theme-abuela .lt-bottom-bar {
+    border: 4px solid transparent;
+    background:
+        linear-gradient(#fffdf6, #fffdf6) padding-box,
+        linear-gradient(rgba(200, 32, 44, 0.45) 50%, transparent 50%) border-box 0 0 / 12px 12px,
+        linear-gradient(90deg, rgba(200, 32, 44, 0.45) 50%, #fffdf6 50%) border-box 0 0 / 12px 12px !important;
 }
 
 /* =====================================================================

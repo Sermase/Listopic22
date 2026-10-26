@@ -4,7 +4,9 @@ import { useLocation } from 'react-router-dom';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { useTheme } from '../../context/ThemeContext';
 import {
+    ABUELA_EVERY_MS,
     RESPIN_EVENT,
+    abuelaLine,
     SURPRISE_EVENT,
     fireSurprise,
     isSurpriseOn,
@@ -158,9 +160,10 @@ export const SurpriseHost: React.FC = () => {
         else fireSurprise({ kind: 'roulette' });
     });
 
-    // La abuela saluda una vez al día.
+    // La abuela saluda una vez al día y luego suelta una frase cada 2 minutos o así.
+    const abuelaOn = theme === 'abuela' && isSurpriseOn(config, 'abuela');
     useEffect(() => {
-        if (theme !== 'abuela' || pathname !== '/') return;
+        if (!abuelaOn || pathname !== '/') return;
         const today = new Date().toDateString();
         try {
             if (localStorage.getItem('listopic_abuela_hola') === today) return;
@@ -170,7 +173,23 @@ export const SurpriseHost: React.FC = () => {
             fireSurprise({ kind: 'bubble', emoji: '👵', text: '¿Has comido? Estás en los huesos.' });
         }, 1200);
         return () => window.clearTimeout(t);
-    }, [theme, pathname]);
+    }, [abuelaOn, pathname]);
+
+    const sheetOpen = sheet !== null;
+    useEffect(() => {
+        if (!abuelaOn || sheetOpen) return;
+        let t = 0;
+        const next = () => {
+            const wait = ABUELA_EVERY_MS.min + Math.random() * (ABUELA_EVERY_MS.max - ABUELA_EVERY_MS.min);
+            t = window.setTimeout(() => {
+                // Con la pestaña escondida no habla: no se acumulan frases.
+                if (document.visibilityState === 'visible') fireSurprise({ kind: 'bubble', emoji: '👵', text: abuelaLine() });
+                next();
+            }, wait);
+        };
+        next();
+        return () => window.clearTimeout(t);
+    }, [abuelaOn, sheetOpen]);
 
     const still = prefersReducedMotion();
     const close = () => setSheet(null);

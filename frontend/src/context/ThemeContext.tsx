@@ -100,10 +100,10 @@ export const THEMES: ThemeMeta[] = [
     {
         id: 'abuela',
         label: 'Abuela',
-        mood: 'Mantel · Tomate',
-        description: 'Cocina de abuela: mantel de cuadros, guiso al fuego y «¿has comido?».',
-        preview: { bg: '#2b1a14', card: '#3a241b', accent: '#d9412b', accent2: '#e9a23b', text: '#fff6e8' },
-        statusBarStyle: 'dark',
+        mood: 'Mantel · Huerta',
+        description: 'Casa de pueblo: pared encalada, mantel de cuadros y la huerta a mano. «¿Has comido?».',
+        preview: { bg: '#fdf8ec', card: '#fffdf6', accent: '#c0202c', accent2: '#3f7a2a', text: '#3a2a1c' },
+        statusBarStyle: 'light',
         secret: true,
     },
 ];
@@ -117,7 +117,8 @@ const THEME_CLASS: Record<ThemeId, string> = {
     graphite: 'theme-graphite',
     sunset: 'theme-sunset',
     lagoon: 'theme-lagoon',
-    abuela: 'theme-abuela',
+    // Encima del claro: hereda sus arreglos de contraste.
+    abuela: 'theme-light theme-abuela',
 };
 
 const LS_KEY = 'listopic-theme';
@@ -144,8 +145,8 @@ function readInitialTheme(): ThemeId {
 function applyThemeClass(theme: ThemeId): void {
     if (typeof document === 'undefined') return;
     const root = document.documentElement;
-    (Object.values(THEME_CLASS) as string[]).forEach((cls) => root.classList.remove(cls));
-    root.classList.add(THEME_CLASS[theme]);
+    (Object.values(THEME_CLASS) as string[]).forEach((cls) => root.classList.remove(...cls.split(' ')));
+    root.classList.add(...THEME_CLASS[theme].split(' '));
     root.setAttribute('data-theme', theme);
     const meta = THEMES.find((t) => t.id === theme);
     if (meta) {
