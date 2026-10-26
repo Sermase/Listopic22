@@ -57,10 +57,10 @@ describe('geoAreas', () => {
         ];
         const ranks = contextualRanks(items);
         // En Valladolid: a (9 con 5) > b (8,5 con 5) > c (10 con 1): una reseña no basta.
-        expect(ranks.get('a')!.find((r) => r.level === 'city')!.label).toBe('#1 en Valladolid');
-        expect(ranks.get('c')!.find((r) => r.level === 'city')!.label).toBe('#3 en Valladolid');
-        expect(ranks.get('d')!.find((r) => r.level === 'region')!.label).toBe('#1 en Castilla y León');
-        expect(ranks.get('e')!.find((r) => r.level === 'country')!.label).toBe('#5 en España');
+        expect(ranks.get('a')!.find((r) => r.level === 'city')!.label).toBe('#1 de 3 en Valladolid');
+        expect(ranks.get('c')!.find((r) => r.level === 'city')!.label).toBe('#3 de 3 en Valladolid');
+        expect(ranks.get('d')!.find((r) => r.level === 'region')!.label).toBe('#1 de 4 en Castilla y León');
+        expect(ranks.get('e')!.find((r) => r.level === 'country')!.label).toBe('#5 de 5 en España');
         // León y Madrid tienen menos de 3 elementos: sin puesto de ciudad.
         expect(ranks.get('d')!.some((r) => r.level === 'city')).toBe(false);
     });
@@ -68,8 +68,8 @@ describe('geoAreas', () => {
     it('el puesto principal es el más concreto que no sea la zona que ya se mira', () => {
         const items = [1, 2, 3].map((n) => ({ id: `v${n}`, ...vll, average: 7 + n, count: 3 }));
         const ranks = contextualRanks(items).get('v3');
-        expect(primaryContextRank(ranks, { kind: 'near' })!.label).toBe('#1 en Valladolid');
-        expect(primaryContextRank(ranks, { kind: 'city', value: 'Valladolid' })!.label).toBe('#1 en Valladolid provincia');
+        expect(primaryContextRank(ranks, { kind: 'near' })!.label).toBe('#1 de 3 en Valladolid');
+        expect(primaryContextRank(ranks, { kind: 'city', value: 'Valladolid' })!.label).toBe('#1 de 3 en Valladolid provincia');
         expect(primaryContextRank([], { kind: 'near' })).toBeNull();
     });
 
@@ -78,7 +78,7 @@ describe('geoAreas', () => {
             .concat([{ id: 'v', ...vll, average: 8, count: 3 }]);
         const ranks = contextualRanks(items).get('m3');
         // Mirando «Madrid» (3 elementos): «Madrid provincia» y la CCAA son lo mismo → se muestra España.
-        expect(primaryContextRank(ranks, { kind: 'city', value: 'Madrid' }, 3)!.label).toBe('#1 en España');
+        expect(primaryContextRank(ranks, { kind: 'city', value: 'Madrid' }, 3)!.label).toBe('#1 de 4 en España');
         // Mirando toda la Lista (4 elementos): «#… en España» sobra.
         expect(primaryContextRank(contextualRanks(items).get('v'), { kind: 'near' }, 4)).toBeNull();
     });
@@ -86,7 +86,7 @@ describe('geoAreas', () => {
     it('sin repeticiones cuando ciudad, provincia, CCAA y país son el mismo conjunto', () => {
         const items = [1, 2, 3].map((n) => ({ id: `v${n}`, ...vll, average: 7 + n, count: 3 }));
         const labels = distinctContextRanks(contextualRanks(items).get('v3')!).map((r) => r.label);
-        expect(labels).toEqual(['#1 en Valladolid']);
+        expect(labels).toEqual(['#1 de 3 en Valladolid']);
     });
 });
 

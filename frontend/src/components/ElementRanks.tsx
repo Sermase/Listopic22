@@ -19,8 +19,8 @@ const PROVISIONAL_BELOW = 3;
 
 /**
  * Puesto del elemento en sus Listas: uno principal y bien visible
- * («#3 en Valladolid») y los más amplios como información secundaria
- * («#18 en Castilla y León · #126 en España»). Nada si no hay puesto.
+ * («#3 de 9 en Valladolid») y los más amplios como información secundaria
+ * («#18 de 40 en Castilla y León · #126 de 300 en España»). Nada si no hay puesto.
  */
 export const ElementRanks: React.FC<ElementRanksProps> = ({ placeId, itemName, listIds, listNames }) => {
     const shown = listIds.slice(0, MAX_LISTS);
@@ -33,11 +33,11 @@ export const ElementRanks: React.FC<ElementRanksProps> = ({ placeId, itemName, l
         const element = (ranks.byList[listId] ?? []).find((e) => e.id === key);
         if (!element) return null;
         const distinct = distinctContextRanks(element.contextRanks);
-        const [main, ...rest] = distinct.length > 0 ? distinct.map((r) => r.label) : [`#${element.rank} en la Lista`];
-        // Con pocas reseñas el puesto aún puede bailar: se dice.
-        if (element.count < PROVISIONAL_BELOW) rest.unshift(`Provisional: ${element.count} ${element.count === 1 ? 'reseña' : 'reseñas'}`);
-        return { listId, main, rest };
-    }).filter((row): row is { listId: string; main: string; rest: string[] } => row !== null);
+        const [main, ...rest] = distinct.length > 0 ? distinct.map((r) => r.label) : [`#${element.rank} de ${ranks.byList[listId].length} en la Lista`];
+        // Con pocas reseñas el puesto aún puede bailar: se dice aparte.
+        const provisional = element.count < PROVISIONAL_BELOW ? element.count : null;
+        return { listId, main, rest, provisional };
+    }).filter((row): row is { listId: string; main: string; rest: string[]; provisional: number | null } => row !== null);
 
     if (rows.length === 0) return null;
 
@@ -54,6 +54,11 @@ export const ElementRanks: React.FC<ElementRanksProps> = ({ placeId, itemName, l
                         </p>
                         {row.rest.length > 0 && (
                             <p className="text-xs text-[var(--lt-text-muted)]">{row.rest.join(' · ')}</p>
+                        )}
+                        {row.provisional !== null && (
+                            <p className="mt-1 text-[11px] text-amber-300/90">
+                                Provisional: con {row.provisional} {row.provisional === 1 ? 'reseña' : 'reseñas'} el puesto aún puede cambiar.
+                            </p>
                         )}
                     </div>
                 </div>

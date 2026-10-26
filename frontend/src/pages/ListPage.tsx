@@ -28,10 +28,10 @@ import { useAppConfig } from '../context/AppConfigContext';
 import { usePreferences } from '../context/PreferencesContext';
 import { HelpTip } from '../components/HelpTip';
 import { compareElementsByRank, isScoreValue, reviewScoreForList } from '../lib/scoring';
-import { elementKey } from '../lib/listElements';
+import { elementKey, rankListElements } from '../lib/listElements';
 import { scoreBadgeStyle } from '../lib/scoreScale';
 import { useStoredChoice } from '../hooks/useStoredChoice';
-import { AREA_STORAGE_KEY, buildAreaOptions, contextualRanks, decodeArea, distanceLabel, encodeArea, geoAreaLabel, inferUserGeo, localAreaOptions, matchesArea, primaryContextRank, type GeoFields, type ListArea } from '../lib/geoAreas';
+import { AREA_STORAGE_KEY, buildAreaOptions, decodeArea, distanceLabel, encodeArea, geoAreaLabel, inferUserGeo, localAreaOptions, matchesArea, primaryContextRank, type GeoFields, type ListArea } from '../lib/geoAreas';
 import { exploreSearchUrl } from '../lib/searchZones';
 import { AreaSelect } from '../components/AreaSelect';
 import { recordListVisit } from '../lib/searchLandingStorage';
@@ -715,12 +715,13 @@ export const ListPage: React.FC = () => {
         }));
     }, [listId, list?.name, navigate, effectiveArea]);
 
-    // Puesto con contexto («#3 en Valladolid»), con la misma función que la ficha del sitio.
-    const contextRanksById = useMemo(() => contextualRanks(
-        groupedItems
-            .filter(item => !isClosedPlaceStatus(item.placeClosedStatus))
-            .map(item => ({ id: item.id, average: item.avgRating, count: item.reviewCount, ...item.geo })),
-    ), [groupedItems]);
+    // Puesto con contexto («#3 de 9 en Valladolid»): el mismo cálculo que la ficha
+    // del plato (sin bots ni cerrados), aunque aquí se enciendan Bots o Críticos.
+    const contextRanksById = useMemo(() => {
+        const bots = new Set([...authorRolesMap].filter(([, roles]) => roles.includes('bot')).map(([uid]) => uid));
+        const ranked = rankListElements(reviews, list, { grouping: groupingMode === 'dish' ? 'dish' : 'place', excludeAuthorIds: bots });
+        return new Map(ranked.map(element => [element.id, element.contextRanks]));
+    }, [reviews, list, authorRolesMap, groupingMode]);
 
     const filteredByTagItems = useMemo(() => {
         if (selectedTags.length === 0) return groupedItems;
@@ -1243,10 +1244,12 @@ export const ListPage: React.FC = () => {
                                     <MarqueeText text={list.authorName || 'Usuario'} className="text-xs font-medium text-white/85 max-w-[110px]" />
                                 </Link>
                             )}
-                            <div className="flex items-center gap-1 bg-black/30 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/10 text-pink-400 text-xs font-bold shrink-0">
-                                <Heart className={`w-3 h-3 ${isLiked ? 'fill-current' : ''}`} />
-                                <span>{likeCount}</span>
-                            </div>
+                            {likeCount > 0 && (
+                                <div title={`${likeCount} ${likeCount === 1 ? 'persona sigue' : 'personas siguen'} esta lista`} className="flex items-center gap-1 bg-black/30 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/10 text-pink-400 text-xs font-bold shrink-0">
+                                    <Heart className={`w-3 h-3 ${isLiked ? 'fill-current' : ''}`} />
+                                    <span>{likeCount}</span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Right: actions */}
@@ -1268,7 +1271,7 @@ export const ListPage: React.FC = () => {
                                 {(!user || list.userId !== user.uid) && (
                                     <button onClick={toggleLike} className={`px-3 py-2 text-sm font-bold rounded-xl border flex items-center gap-1.5 transition-all ${isLiked ? 'border-white/20 text-white hover:border-pink-500 hover:text-pink-400' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}>
                                         <Heart className={`w-4 h-4 ${isLiked ? 'fill-current text-pink-400' : ''}`} />
-                                        {isLiked ? 'Guardada' : 'Guardar'}
+                                        {isLiked ? 'Siguiendo' : 'Seguir'}
                                     </button>
                                 )}
                                 {!list.parentListId && (
@@ -1322,7 +1325,7 @@ export const ListPage: React.FC = () => {
                                                 className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-medium text-[var(--lt-text)] hover:bg-[var(--lt-glass)] transition-colors text-left"
                                             >
                                                 <Heart className={`w-4 h-4 shrink-0 ${isLiked ? 'fill-current text-pink-400' : ''}`} />
-                                                {isLiked ? 'Quitar de guardados' : 'Guardar lista'}
+                                                {isLiked ? 'Dejar de seguir' : 'Seguir lista'}
                                             </button>
                                         )}
                                         {!list.parentListId && (

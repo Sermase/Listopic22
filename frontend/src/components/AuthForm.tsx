@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
     createUserWithEmailAndPassword,
     GoogleAuthProvider,
+    sendPasswordResetEmail,
     signInWithCredential,
     signInWithEmailAndPassword,
     signInWithPopup,
@@ -49,6 +50,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ initialMode = 'login', onAut
     const [ageConfirmed, setAgeConfirmed] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [resetSent, setResetSent] = useState<string | null>(null);
 
     useEffect(() => {
         setIsRegistering(initialMode === 'register');
@@ -72,6 +74,33 @@ export const AuthForm: React.FC<AuthFormProps> = ({ initialMode = 'login', onAut
         } catch (err: unknown) {
             console.error('Google Login Error:', err);
             setError(`Error Google: ${getAuthErrorMessage(err)}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePasswordReset = async () => {
+        setError(null);
+        setResetSent(null);
+        const target = email.trim();
+        if (!target) {
+            setError('Escribe arriba tu correo y te mandamos un enlace para poner otra contraseña.');
+            return;
+        }
+        setLoading(true);
+        try {
+            auth.languageCode = 'es';
+            // En la app (Capacitor) el origen es https://localhost, que el navegador del correo no abre.
+            const origin = Capacitor.isNativePlatform() ? 'https://listopic.es' : window.location.origin;
+            await sendPasswordResetEmail(auth, target, { url: `${origin}/login` });
+            setResetSent(target);
+        } catch (err: unknown) {
+            const code = getAuthErrorCode(err);
+            if (code === 'auth/invalid-email') setError('Ese correo no parece válido.');
+            else if (code === 'auth/too-many-requests') setError('Demasiados intentos. Espera un poco y vuelve a probar.');
+            // Si el correo no existe no lo decimos (así nadie averigua quién tiene cuenta).
+            else if (code === 'auth/user-not-found') setResetSent(target);
+            else setError('No se pudo enviar el correo. Inténtalo otra vez.');
         } finally {
             setLoading(false);
         }
@@ -121,16 +150,22 @@ export const AuthForm: React.FC<AuthFormProps> = ({ initialMode = 'login', onAut
                     L
                 </div>
                 <h1 className="text-2xl font-bold text-[var(--lt-text)] mb-2">
-                    {isRegistering ? 'Crear cuenta' : 'Bienvenido de nuevo'}
+                    {isRegistering ? 'Crear cuenta' : 'Entra en Listopic'}
                 </h1>
                 <p className="text-[var(--lt-text-muted)] text-sm">
-                    {isRegistering ? 'Únete a la comunidad de Listopic' : 'Accede sin perder lo que estabas viendo'}
+                    {isRegistering ? 'Únete a la comunidad de Listopic' : 'Con tu cuenta o creando una nueva en un momento'}
                 </p>
             </div>
 
             {error && (
                 <div className="bg-red-500/10 border border-red-500/20 text-red-200 p-3 rounded-lg text-sm mb-6 text-center" role="alert">
                     {error}
+                </div>
+            )}
+
+            {resetSent && (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-200 p-3 rounded-lg text-sm mb-6 text-center" role="status">
+                    Si {resetSent} tiene cuenta, te acaba de llegar un correo para poner otra contraseña. Mira también en spam.
                 </div>
             )}
 
@@ -176,6 +211,14 @@ export const AuthForm: React.FC<AuthFormProps> = ({ initialMode = 'login', onAut
                         minLength={6}
                     />
                 </div>
+
+                {!isRegistering && (
+                    <div className="-mt-2 text-right">
+                        <button type="button" onClick={() => void handlePasswordReset()} disabled={loading} className="text-xs font-medium text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:underline disabled:opacity-50">
+                            ¿Olvidaste la contraseña?
+                        </button>
+                    </div>
+                )}
 
                 {isRegistering && (
                     <LegalConsentChecks
@@ -228,6 +271,7 @@ export const AuthForm: React.FC<AuthFormProps> = ({ initialMode = 'login', onAut
                     type="button"
                     onClick={() => {
                         setError(null);
+                        setResetSent(null);
                         setIsRegistering((current) => !current);
                     }}
                     className="text-[var(--lt-accent)] text-sm font-medium hover:underline transition-colors"
