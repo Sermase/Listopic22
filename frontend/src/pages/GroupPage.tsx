@@ -933,7 +933,8 @@ export const GroupPage: React.FC = () => {
                                 </button>
                             )}
                         </div>
-                        {groupActiveTab === 'reviews' && reviews.length > 0 && (
+                        {/* Con una o dos reseñas, cambiar de vista no aporta: menos botones. */}
+                        {groupActiveTab === 'reviews' && reviews.length >= 3 && (
                             <div className="flex shrink-0 bg-[var(--lt-card)] rounded-full p-1 border border-[var(--lt-border)]">
                                 <button
                                     onClick={() => setReviewViewMode('list')}
