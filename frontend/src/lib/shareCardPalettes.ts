@@ -30,8 +30,8 @@ export const CARD_PALETTES: Record<CardPaletteId, CardPalette> = {
     },
     graphite: {
         label: 'Grafito', bg: '#050506', bgRgb: '5,5,6', panelRgb: '20,20,23',
-        accent: '#38bdf8', accent2: '#818cf8', accentRgb: '56,189,248', accentSoft: '#bae6fd', chipText: '#e0f2fe',
-        highlight: '#7dd3fc', pin: '#38bdf8', glow: 'rgba(39,39,42,0.95)', glow2: 'rgba(12,74,110,0.3)',
+        accent: '#84cc16', accent2: '#22d3ee', accentRgb: '132,204,22', accentSoft: '#d9f99d', chipText: '#ecfccb',
+        highlight: '#bef264', pin: '#a3e635', glow: 'rgba(54,83,20,0.85)', glow2: 'rgba(14,116,144,0.3)',
     },
     warm: {
         label: 'Cálido', bg: '#1a0f0c', bgRgb: '26,15,12', panelRgb: '42,24,18',

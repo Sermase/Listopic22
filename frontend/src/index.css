@@ -728,13 +728,13 @@
     --lt-border: rgba(255, 255, 255, 0.08);
     --lt-border-strong: rgba(255, 255, 255, 0.16);
     --lt-nav-scrolled: rgba(20, 20, 23, 0.8);
-    --lt-accent: #38bdf8;
-    --lt-accent-2: #818cf8;
-    --lt-accent-grad: linear-gradient(135deg, #38bdf8, #818cf8);
-    --lt-accent-border: #7dd3fc;
-    --lt-accent-shadow: rgba(56, 189, 248, 0.35);
-    --lt-accent-soft: rgba(56, 189, 248, 0.13);
-    --lt-success: #4ade80;
+    --lt-accent: #84cc16;
+    --lt-accent-2: #22d3ee;
+    --lt-accent-grad: linear-gradient(135deg, #a3e635, #22d3ee);
+    --lt-accent-border: #bef264;
+    --lt-accent-shadow: rgba(163, 230, 53, 0.45);
+    --lt-accent-soft: rgba(163, 230, 53, 0.16);
+    --lt-success: #34d399;
     --lt-success-soft: rgba(74, 222, 128, 0.14);
     --lt-warning: #fb923c;
     --lt-warning-soft: rgba(251, 146, 60, 0.14);
@@ -742,11 +742,11 @@
     --lt-danger-soft: rgba(248, 113, 113, 0.14);
     --lt-promo: #fbbf24;
     --lt-promo-soft: rgba(251, 191, 36, 0.14);
-    --lt-hero-grad: linear-gradient(90deg, #e4e4e7, #38bdf8, #818cf8);
-    --lt-brand-mark: linear-gradient(135deg, #7dd3fc, #38bdf8, #818cf8);
+    --lt-hero-grad: linear-gradient(90deg, #ecfccb, #a3e635, #22d3ee);
+    --lt-brand-mark: linear-gradient(135deg, #ecfccb, #a3e635, #22d3ee);
     --lt-body-mesh:
-        radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.07), transparent 45%),
-        radial-gradient(circle at 85% 85%, rgba(129, 140, 248, 0.06), transparent 45%);
+        radial-gradient(circle at 15% 10%, rgba(163, 230, 53, 0.16), transparent 45%),
+        radial-gradient(circle at 85% 85%, rgba(34, 211, 238, 0.12), transparent 45%);
 }
 
 /* Fondo intermedio: ni noche ni día. Texto blanco, fondo de color con cuerpo. */

@@ -74,9 +74,9 @@ export const THEMES: ThemeMeta[] = [
     {
         id: 'graphite',
         label: 'Grafito',
-        mood: 'Negro · Celeste',
-        description: 'Negro puro, sobrio y cómodo para pantallas OLED.',
-        preview: { bg: '#050506', card: '#141417', accent: '#38bdf8', accent2: '#818cf8', text: '#f4f4f5' },
+        mood: 'Negro · Lima',
+        description: 'Negro puro con verde lima eléctrico. Ideal para pantallas OLED.',
+        preview: { bg: '#050506', card: '#141417', accent: '#84cc16', accent2: '#22d3ee', text: '#f4f4f5' },
         statusBarStyle: 'dark',
     },
     {
