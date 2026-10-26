@@ -1287,6 +1287,24 @@ service cloud.firestore {
         || after.get('chatId', '') == '' || pInChat(after.get('chatId', ''));
     }
 
+    // Forma mínima de los datos de Pachote: si un fallo de la app intentara guardar algo roto, se rechaza.
+    // Es permisiva a propósito (campos opcionales) para no romper datos antiguos ni campos nuevos.
+    function pOptStr(d, k, n) { return !(k in d) || (d[k] is string && d[k].size() <= n); }
+    function pMovOk(d) {
+      return d.amount is int && d.amount > 0 && d.amount <= 10000000000
+        && pOptStr(d, 'desc', 200) && pOptStr(d, 'payer', 80) && pOptStr(d, 'to', 80)
+        && pOptStr(d, 'date', 10) && pOptStr(d, 'dateStart', 10) && pOptStr(d, 'dateEnd', 10) && pOptStr(d, 'cat', 40)
+        && (!('parts' in d) || (d.parts is list && d.parts.size() <= 500))
+        && (!('kind' in d) || d.kind in ['gasto', 'ingreso', 'transfer'])
+        && d.keys().size() <= 40;
+    }
+    function pCoreOk(d) {
+      return pOptStr(d, 'name', 120) && pOptStr(d, 'desc', 200)
+        && (!('members' in d) || (d.members is list && d.members.size() <= 1000))
+        && (!('households' in d) || (d.households is list && d.households.size() <= 300));
+    }
+    function pLogOk(d) { return d.txt is string && d.txt.size() <= 4000 && pOptStr(d, 'who', 120); }
+
     // Mis grupos y mi perfil de Pachote: solo yo.
     match /pachoteUsers/{uid} {
       allow read, write: if pSignedIn() && request.auth.uid == uid;
@@ -1297,22 +1315,23 @@ service cloud.firestore {
       allow list: if false;
       allow create: if pSignedIn() && request.resource.data.owner == request.auth.uid
                     && request.resource.data.inviteToken is string && request.resource.data.inviteToken.size() >= 16
-                    && pChatLinkOk(request.resource.data, {});
+                    && pChatLinkOk(request.resource.data, {}) && pCoreOk(request.resource.data);
       // Los editores cambian gente, familias, opciones y el resumen; el dueño, el link y el chat enlazado solo un administrador.
-      allow update: if pCanEdit(gid) && pChatLinkOk(request.resource.data, resource.data) && (pIsAdmin(gid) ||
+      allow update: if pCanEdit(gid) && pChatLinkOk(request.resource.data, resource.data) && pCoreOk(request.resource.data) && (pIsAdmin(gid) ||
                     !request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'inviteToken', 'allAdmin', 'chatId']));
       allow delete: if pIsAdmin(gid);
 
       // Un documento por movimiento.
       match /movs/{mid} {
         allow read: if pIsMember(gid);
-        allow write: if pCanEdit(gid);
+        allow create, update: if pCanEdit(gid) && pMovOk(request.resource.data);
+        allow delete: if pCanEdit(gid);
       }
 
       // Historial de cambios: cualquiera que pueda apuntar añade entradas a su nombre; nadie las edita.
       match /log/{lid} {
         allow read: if pIsMember(gid);
-        allow create: if pCanEdit(gid) && request.resource.data.uid == request.auth.uid && request.resource.data.at == request.time;
+        allow create: if pCanEdit(gid) && request.resource.data.uid == request.auth.uid && request.resource.data.at == request.time && pLogOk(request.resource.data);
         allow update: if false;
         allow delete: if pIsAdmin(gid);
       }
