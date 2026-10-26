@@ -422,10 +422,11 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
 
                         {/* Mini barras de criterios */}
                         {criteriaPreview.length > 0 && (
-                            <div className="mt-auto grid grid-cols-4 gap-x-2 gap-y-0.5">
-                                {criteriaPreview.slice(0, 4).map(({ key, label, score }) => {
+                            // En el móvil caben dos con su nombre entero; el resto, en la ficha del plato.
+                            <div className="mt-auto grid grid-cols-2 sm:grid-cols-4 gap-x-3 sm:gap-x-2 gap-y-0.5">
+                                {criteriaPreview.slice(0, 4).map(({ key, label, score }, index) => {
                                     return (
-                                        <div key={key} className="flex min-w-0 flex-col">
+                                        <div key={key} className={`min-w-0 flex-col ${index >= 2 ? 'hidden sm:flex' : 'flex'}`}>
                                             <div className="flex justify-between items-end gap-1 text-[9px] text-[var(--lt-text-muted)] leading-none mb-1">
                                                 <span className="truncate">{label}</span>
                                                 <span className="font-bold text-[var(--lt-text)]">{score.toFixed(1)}</span>

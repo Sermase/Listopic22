@@ -78,6 +78,9 @@ export const PachotePanel: React.FC<{
     return (
         <div className="mb-5">
             <h4 className="text-xs font-bold uppercase text-gray-400 mb-2 tracking-wider">💸 Cuentas con Pachote</h4>
+            {links.length === 0 && (
+                <p className="mb-2 text-xs text-[var(--lt-text-muted)]">Pachote apunta los gastos del grupo y dice quién debe a quién, a pachas.</p>
+            )}
             {links.length > 0 && (
                 <div className="space-y-1.5 mb-2">
                     {links.map(([gid, l]) => <Row key={gid} gid={gid} fallback={l.name} uid={me.uid} onOpen={() => onOpen(gid)} />)}

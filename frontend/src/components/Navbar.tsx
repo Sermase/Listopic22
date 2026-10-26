@@ -43,7 +43,7 @@ const NavItem = ({ to, icon: Icon, label, badge, count, isActive, onClick }: { t
             onClick={onClick}
             title={label}
             aria-label={label}
-            className={`flex items-center gap-2 px-3 xl:px-4 py-2 rounded-full transition-all duration-300 group
+            className={`flex flex-col xl:flex-row items-center gap-0.5 xl:gap-2 px-2.5 xl:px-4 py-1 xl:py-2 rounded-full transition-all duration-300 group
                 ${isActive
                     ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] font-medium'
                     : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/5'
@@ -58,14 +58,14 @@ const NavItem = ({ to, icon: Icon, label, badge, count, isActive, onClick }: { t
                     </span>
                 )}
             </div>
-            {/* En tablets y portátiles pequeños solo el icono: así cabe la cabecera. */}
-            <span className="hidden xl:inline text-sm">{label}</span>
+            {/* En tablets y portátiles pequeños, el nombre pequeño debajo del icono: así cabe la cabecera y se entiende. */}
+            <span className="text-[10px] leading-none xl:text-sm xl:leading-normal">{label}</span>
         </Link>
     );
 };
 
 /** Casilla del menú móvil: icono grande y etiqueta corta. */
-const MenuTile = ({ to, icon: Icon, label, badge, highlight, onClick }: { to?: string; icon: React.ElementType; label: string; badge?: number; highlight?: boolean; onClick?: React.MouseEventHandler<HTMLElement> }) => {
+const MenuTile = ({ to, icon: Icon, label, hint, badge, highlight, onClick }: { to?: string; icon: React.ElementType; label: string; hint?: string; badge?: number; highlight?: boolean; onClick?: React.MouseEventHandler<HTMLElement> }) => {
     const className = `relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border px-2 py-3.5 text-center text-xs font-bold transition-colors active:scale-[0.97] ${highlight
         ? 'border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] text-[var(--lt-text)]'
         : 'border-[var(--lt-border)] bg-[var(--lt-glass)] text-[var(--lt-text)] hover:border-[var(--lt-accent-border)]'}`;
@@ -73,6 +73,7 @@ const MenuTile = ({ to, icon: Icon, label, badge, highlight, onClick }: { to?: s
         <>
             <Icon className="h-5 w-5 text-[var(--lt-accent)]" />
             <span className="leading-tight">{label}</span>
+            {hint && <span className="-mt-1 text-[10px] font-medium leading-tight text-[var(--lt-text-muted)]">{hint}</span>}
             {badge !== undefined && badge > 0 && (
                 <span className="absolute right-2 top-2 min-w-[18px] rounded-full bg-red-500 px-1 text-[10px] font-bold leading-[18px] text-white">{badge > 9 ? '9+' : badge}</span>
             )}
@@ -266,9 +267,9 @@ export const Navbar: React.FC = () => {
                         <NavItem to="/chats" icon={MessageSquare} label="Chats" count={unreadChatCount} isActive={location.pathname === '/chats'} onClick={guardProtectedLink('abrir tus chats')} />
                         <NavItem to="/planes" icon={Sparkles} label="Planes" isActive={location.pathname === '/planes'} />
                         {pachoteOn && (
-                            <button type="button" onClick={openPachote} title="Pachote" aria-label="Pachote" className="flex items-center gap-2 px-3 xl:px-4 py-2 rounded-full text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/5 transition-all duration-300 group">
+                            <button type="button" onClick={openPachote} title="Pachote" aria-label="Pachote" className="flex flex-col xl:flex-row items-center gap-0.5 xl:gap-2 px-2.5 xl:px-4 py-1 xl:py-2 rounded-full text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/5 transition-all duration-300 group">
                                 <PiggyBank className="w-4 h-4 group-hover:text-[var(--lt-accent)] transition-colors" />
-                                <span className="hidden xl:inline text-sm">Pachote</span>
+                                <span className="text-[10px] leading-none xl:text-sm xl:leading-normal">Pachote</span>
                             </button>
                         )}
                     </nav>
@@ -351,7 +352,7 @@ export const Navbar: React.FC = () => {
                             </Link>
                         ) : (
                             <Link to="/login" className="btn-glass">
-                                Iniciar Sesión
+                                Entrar
                             </Link>
                         )}
                     </div>
@@ -436,13 +437,14 @@ export const Navbar: React.FC = () => {
                             {/* Lo que cada uno no lleva en la barra de abajo (se elige en Preferencias). */}
                             {navOrder.filter((id) => id !== 'perfil' && (id !== 'pachote' || pachoteOn) && !inBar.includes(id)).map((id) => {
                                 const tab = NAV_TABS[id];
-                                if (id === 'pachote') return <MenuTile key={id} icon={tab.icon} label={tab.label} onClick={openPachote} />;
+                                if (id === 'pachote') return <MenuTile key={id} icon={tab.icon} label={tab.label} hint="Gastos a pachas" onClick={openPachote} />;
                                 return (
                                     <MenuTile
                                         key={id}
                                         to={tab.to}
                                         icon={tab.icon}
                                         label={id === 'minilista' ? 'Crear minilista' : tab.label}
+                                        hint={id === 'minilista' ? 'Tu ranking propio' : undefined}
                                         badge={id === 'chats' ? unreadChatCount : undefined}
                                         onClick={tab.action ? guardProtectedLink(tab.action) : () => setIsMenuOpen(false)}
                                     />
@@ -460,7 +462,7 @@ export const Navbar: React.FC = () => {
                                     }}
                                 />
                             )}
-                            <MenuTile to="/planes" icon={Sparkles} label="Planes" onClick={() => setIsMenuOpen(false)} />
+                            <MenuTile to="/planes" icon={Sparkles} label="Planes" hint="Para negocios" onClick={() => setIsMenuOpen(false)} />
                             <MenuTile to="/preferencias" icon={SlidersHorizontal} label="Preferencias" onClick={() => setIsMenuOpen(false)} />
                             <MenuTile to="/ayuda" icon={LifeBuoy} label="Ayuda" onClick={() => setIsMenuOpen(false)} />
                             {config.showRandomChoiceButton && (

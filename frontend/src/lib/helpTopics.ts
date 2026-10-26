@@ -12,6 +12,11 @@ export type HelpTopicId =
     | 'minilistas'
     | 'guardados'
     | 'preferencias'
+    | 'puestos'
+    | 'mapa'
+    | 'chat'
+    | 'pachote'
+    | 'compartir'
     | 'impulsos'
     | 'businessPro';
 
@@ -48,7 +53,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Criterios',
         body: [
             'Son las cosas que se puntúan en una lista. Los que «cuentan» hacen la nota; los opcionales solo informan.',
-            'Toca «Ver las notas» en una reseña para ver cada criterio, y «Comparar» en un plato para verlo frente a la media de la lista.',
+            'Cada reseña enseña sus notas por criterio; los opcionales van en gris. En un plato, cada barra marca también la media de la lista.',
         ],
     },
     {
@@ -75,7 +80,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         title: 'Reseñas',
         body: [
             'Una reseña son tus notas y, si quieres, unas líneas contando qué tal. El texto es lo que más ayuda a otros a decidir.',
-            'Dale a 👍 a las reseñas que te gusten: la más votada sale destacada en el sitio y en el plato.',
+            'Dale a 👍 a las reseñas que te gusten (o 👎 si no). Las reseñas salen de la más nueva a la más antigua.',
         ],
     },
     {
@@ -104,6 +109,53 @@ export const HELP_TOPICS: HelpTopic[] = [
         body: [
             'En Menú → Preferencias → Mis filtros. Si eliges «Sin gluten» o «Vegetariano», las listas filtran solas y verás un aviso arriba para quitarlo cuando quieras.',
             'Depende de que la gente marque esas etiquetas al reseñar: es información de usuarios, no una garantía para alérgicos.',
+        ],
+    },
+    {
+        id: 'puestos',
+        emoji: '🥇',
+        title: 'Puestos',
+        body: [
+            'En una lista, el número de la esquina (#1, #2…) es el puesto entre lo que estás viendo: con la distancia o los filtros que tengas puestos.',
+            '«#3 de 9 en Madrid» es el puesto entre los 9 platos de esa lista en Madrid. «Provisional» quiere decir que tiene menos de 3 reseñas y aún puede moverse.',
+        ],
+    },
+    {
+        id: 'mapa',
+        emoji: '🗺️',
+        title: 'El mapa',
+        body: [
+            'Los círculos con un número juntan varios sitios cercanos: tócalos o acércate para separarlos. El color va de rojo (flojo) a verde (muy bueno).',
+            'La chapa gris 🤖 es un sitio con reseñas solo de bots: enseña su media, pero no cuenta en los círculos.',
+            'El botón de pantalla completa abre el mapa grande con filtros (nota mínima, lista, orden) y la lista de sitios al lado.',
+        ],
+    },
+    {
+        id: 'chat',
+        emoji: '💬',
+        title: 'Chats y quedadas',
+        body: [
+            'Escribe a alguien o crea un grupo desde Chats. Con el botón 🍽️ puedes invitar a comer a un sitio o plato, hacer una encuesta «¿Dónde comemos?», proponer fechas con «¿Cuándo quedamos?» o tirar la ruleta del antojo.',
+            'Desde la información del grupo puedes sacar un enlace de invitación: quien lo abra entra directo o, si lo activas, tras aprobarlo alguien del grupo.',
+            'Después de la quedada, cada uno valora lo que comió y salen las notas de la mesa.',
+        ],
+    },
+    {
+        id: 'pachote',
+        emoji: '💸',
+        title: 'Pachote',
+        body: [
+            'Pachote es la app hermana de Listopic para apuntar los gastos de un grupo y saber quién debe a quién, a pachas.',
+            'Ábrela desde el menú o crea las cuentas de un grupo desde la información del chat: se enlazan y el saldo se ve en el propio chat.',
+        ],
+    },
+    {
+        id: 'compartir',
+        emoji: '📤',
+        title: 'Compartir',
+        body: [
+            'En una lista, un sitio, un plato, una reseña o un perfil, «Compartir» crea una tarjeta con foto y nota en el formato que elijas (historia, post…).',
+            'El enlace se copia solo. En Instagram, los enlaces solo se pueden tocar en las historias, con el sticker de enlace.',
         ],
     },
     {

@@ -568,6 +568,17 @@ export const HomePage: React.FC = () => {
         };
     }, [appConfig.showAffinityCarousel, user?.uid]);
 
+    // La frase de carga sale solo si la carga tarda: en una visita rápida no ocupa sitio.
+    const [slowLoading, setSlowLoading] = useState(false);
+    useEffect(() => {
+        if (!homeContentLoading) {
+            setSlowLoading(false);
+            return;
+        }
+        const timeoutId = window.setTimeout(() => setSlowLoading(true), 1200);
+        return () => window.clearTimeout(timeoutId);
+    }, [homeContentLoading]);
+
     useEffect(() => {
         if (!homeContentLoading) return;
         const intervalId = window.setInterval(() => {
@@ -1330,7 +1341,7 @@ export const HomePage: React.FC = () => {
         },
     }), [reviewsInRange, filteredPlaces, lists, topUsers, botUserIds, feedSeed, areaFilter, range, user?.uid, memoriesInRange, rankedPlaces, rankedDishes]);
     const firstName = (user?.displayName || '').trim().split(/\s+/)[0];
-    const greeting = user ? `Hola${firstName ? `, ${firstName}` : ''}` : 'Bienvenido a Listopic';
+    const greeting = user ? `Hola${firstName ? `, ${firstName}` : ''}` : 'Hola 👋, esto es Listopic';
 
     return (
         <>
@@ -1432,7 +1443,7 @@ export const HomePage: React.FC = () => {
                         )}
                     </div>
 
-                    {homeContentLoading && (
+                    {homeContentLoading && slowLoading && (
                         <div className="mt-4 flex justify-center">
                             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/10 bg-[var(--lt-card-strong)]/90 text-sm text-gray-300">
                                 <Loader2 className="w-4 h-4 text-[var(--lt-accent)] animate-spin" />

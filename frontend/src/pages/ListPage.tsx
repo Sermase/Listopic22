@@ -29,6 +29,7 @@ import { usePreferences } from '../context/PreferencesContext';
 import { HelpTip } from '../components/HelpTip';
 import { compareElementsByRank, isScoreValue, reviewScoreForList } from '../lib/scoring';
 import { elementKey, rankListElements } from '../lib/listElements';
+import { listItemNoun } from '../lib/listNoun';
 import { scoreBadgeStyle } from '../lib/scoreScale';
 import { useStoredChoice } from '../hooks/useStoredChoice';
 import { AREA_STORAGE_KEY, buildAreaOptions, decodeArea, distanceLabel, encodeArea, geoAreaLabel, inferUserGeo, localAreaOptions, matchesArea, primaryContextRank, type GeoFields, type ListArea } from '../lib/geoAreas';
@@ -192,6 +193,7 @@ export const ListPage: React.FC = () => {
     const navigate = useNavigate();
     const [sortMode, setSortMode] = useState<'rating' | 'newest' | 'oldest' | 'count'>('rating');
     const { list, reviews, sublists, loading, error } = useListDetails(listId);
+    const listCategoryId = (list as { categoryId?: string } | null | undefined)?.categoryId;
     const { user } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
 
@@ -1202,8 +1204,8 @@ export const ListPage: React.FC = () => {
                             {list.parentListId ? 'Minilista' : 'Lista'}
                         </span>
                         {groupedItems.length > 0 && (
-                            <span className="px-2 py-0.5 rounded-md bg-[var(--lt-card-strong-alpha)] border border-[var(--lt-border)] text-[var(--lt-text-muted)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" title="Elementos en toda la Lista">
-                                {groupedItems.length} {groupedItems.length === 1 ? 'elemento' : 'elementos'}
+                            <span className="px-2 py-0.5 rounded-md bg-[var(--lt-card-strong-alpha)] border border-[var(--lt-border)] text-[var(--lt-text-muted)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" title="En toda la Lista">
+                                {groupedItems.length} {listItemNoun(listCategoryId, groupedItems.length, groupingMode)}
                             </span>
                         )}
                         {/* Public/private only shown on sublists (user-owned) or to jefe */}
@@ -1259,7 +1261,8 @@ export const ListPage: React.FC = () => {
                             {canAddReview && (
                                 <button
                                     onClick={handleOpenAddReview}
-                                    className="lt-on-accent flex items-center gap-1.5 px-3.5 sm:px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-sm font-bold rounded-full shadow-lg shadow-emerald-500/25 transition-all active:scale-95"
+                                    className="lt-on-accent flex items-center gap-1.5 px-3.5 sm:px-4 py-2 text-sm font-bold rounded-xl shadow-lg shadow-[var(--lt-accent-shadow)] hover:opacity-90 transition-all active:scale-95"
+                                    style={{ backgroundImage: 'var(--lt-accent-grad)' }}
                                 >
                                     <Plus className="w-4 h-4" />
                                     <span>Valorar</span>
@@ -1442,9 +1445,6 @@ export const ListPage: React.FC = () => {
                                     className="w-full bg-transparent border-none p-0 pl-6 text-sm text-[var(--lt-text)] placeholder:text-[var(--lt-text-muted)] focus:ring-0 focus:outline-none transition-colors"
                                 />
                             </div>
-                            <div className="text-xs min-w-[2rem] text-center px-2.5 py-1.5 rounded-full text-[var(--lt-accent)] font-bold bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] flex-shrink-0" title="Elementos visibles">
-                                {filteredItemsAll.length}
-                            </div>
                         </div>
 
                         {/* Barra de herramientas: cada botón dice lo que hace */}
@@ -1513,10 +1513,20 @@ export const ListPage: React.FC = () => {
                             <HelpTip topic="nota" />
                         </h2>
                         <p className="mt-0.5 truncate text-xs text-[var(--lt-text-muted)] font-medium" aria-live="polite">
-                            {filteredItemsAll.length} {filteredItemsAll.length === 1 ? 'elemento' : 'elementos'}
-                            {sortMode === 'rating' && ` · puestos ${effectiveArea.kind !== 'near'
+                            {filteredItemsAll.length < groupedItems.length
+                                ? `${filteredItemsAll.length} de ${groupedItems.length} ${listItemNoun(listCategoryId, groupedItems.length, groupingMode)}`
+                                : `${filteredItemsAll.length} ${listItemNoun(listCategoryId, filteredItemsAll.length, groupingMode)}`}
+                            {` · ${effectiveArea.kind !== 'near'
                                 ? `en ${geoAreaLabel(effectiveArea.kind, effectiveArea.value)}`
                                 : range !== null ? distanceLabel(range).toLowerCase() : 'en toda la Lista'}`}
+                            {(effectiveArea.kind !== 'near' || range !== null) && filteredItemsAll.length < groupedItems.length && (
+                                <>
+                                    {' · '}
+                                    <button type="button" onClick={() => handleAreaSelect('r:all')} className="font-bold text-[var(--lt-accent)] hover:underline">
+                                        Ver todos
+                                    </button>
+                                </>
+                            )}
                         </p>
                     </div>
                 )}

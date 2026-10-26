@@ -48,7 +48,7 @@ import { MarqueeText } from '../components/ui/MarqueeText';
 const RECENT_SEARCHES_KEY = 'listopic_recent_searches';
 
 const TAB_LABELS: Record<string, string> = {
-    lists: 'Listas', places: 'Sitios', users: 'Usuarios', items: 'Elementos',
+    lists: 'Listas', places: 'Sitios', users: 'Gente', items: 'Platos',
 };
 const TAB_ICONS: Record<string, React.ElementType> = {
     lists: ListIcon, places: MapIcon, users: Users, items: MessageCircle,
@@ -119,8 +119,8 @@ const EMPTY_MESSAGES: Record<string, { title: string; hint: string }> = {
     lists: { title: 'No hay listas', hint: 'Prueba por nombre, etiqueta o categoría.' },
     places: { title: 'No hay sitios', hint: 'Prueba otra ciudad o tipo.' },
     users: { title: 'No hay usuarios', hint: 'Busca por nombre o prueba @nombre.' },
-    items: { title: 'No hay elementos', hint: 'Prueba #etiqueta o el nombre del plato.' },
-    grouped_items: { title: 'No hay elementos', hint: 'Prueba #etiqueta o el nombre del plato.' },
+    items: { title: 'No hay platos', hint: 'Prueba #etiqueta o el nombre del plato.' },
+    grouped_items: { title: 'No hay platos', hint: 'Prueba #etiqueta o el nombre del plato.' },
     all: { title: 'Sin resultados', hint: 'Cambia las palabras o los filtros.' },
 };
 
@@ -1631,7 +1631,7 @@ export const SearchPage: React.FC = () => {
                         <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" subtitle="Rankings con opinión propia" type="lists" icon={ListIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('lists')} />
                         <FederatedSection indexName={INDEX_NAMES.places} title="Sitios" subtitle="Donde ir a comprobarlo" type="places" icon={MapIcon} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('places'), PLACES_WITH_REVIEWS_FILTER])} onViewAll={() => handleTabChange('places')} />
                         <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" subtitle="Gente que opina (y mucho)" type="users" icon={Users} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('users')} />
-                        <FederatedSection indexName={INDEX_NAMES.items} title="Elementos" subtitle="Platos y cosas concretas" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('items'), HIDE_BOT_ONLY])} onViewAll={() => handleTabChange('items')} />
+                        <FederatedSection indexName={INDEX_NAMES.items} title="Platos" subtitle="Platos y cosas concretas en un sitio" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('items'), HIDE_BOT_ONLY])} onViewAll={() => handleTabChange('items')} />
                     </div>
                 ) : (
                     <Index indexName={activeIndexName}>
