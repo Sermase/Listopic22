@@ -1274,7 +1274,9 @@ service cloud.firestore {
     function pAccPath(gid) { return /databases/$(database)/documents/pachoteGroups/$(gid)/access/$(request.auth.uid); }
     function pIsMember(gid) { return pSignedIn() && exists(pAccPath(gid)); }
     function pRole(gid) { return get(pAccPath(gid)).data.role; }
-    function pCanEdit(gid) { return pIsMember(gid) && pRole(gid) in ['admin', 'editor']; }
+    function pCanEdit(gid) { return pIsMember(gid) && pRole(gid) in ['admin', 'editor']
+      // Grupos con «hace falta cuenta para apuntar»: sin cuenta (anónimo) solo se mira.
+      && (pGrp(gid).data.get('needAccount', false) != true || isUser()); }
     // Administra quien tiene el rol de administrador o, si el grupo lo permite («todos administran»), cualquiera que pueda apuntar.
     function pIsAdmin(gid) { return pIsMember(gid) && (pRole(gid) == 'admin' || (pRole(gid) == 'editor' && pGrp(gid).data.get('allAdmin', false) == true)); }
     function pInChat(chatId) {
@@ -1313,12 +1315,13 @@ service cloud.firestore {
     match /pachoteGroups/{gid} {
       allow get: if pIsMember(gid) || pInChat(resource.data.get('chatId', ''));
       allow list: if false;
-      allow create: if pSignedIn() && request.resource.data.owner == request.auth.uid
+      // Crear grupos pide cuenta de verdad (no anónima): evita grupos basura. Con el link se entra sin cuenta.
+      allow create: if isUser() && request.resource.data.owner == request.auth.uid
                     && request.resource.data.inviteToken is string && request.resource.data.inviteToken.size() >= 16
                     && pChatLinkOk(request.resource.data, {}) && pCoreOk(request.resource.data);
       // Los editores cambian gente, familias, opciones y el resumen; el dueño, el link y el chat enlazado solo un administrador.
       allow update: if pCanEdit(gid) && pChatLinkOk(request.resource.data, resource.data) && pCoreOk(request.resource.data) && (pIsAdmin(gid) ||
-                    !request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'inviteToken', 'allAdmin', 'chatId']));
+                    !request.resource.data.diff(resource.data).affectedKeys().hasAny(['owner', 'inviteToken', 'allAdmin', 'needAccount', 'chatId']));
       allow delete: if pIsAdmin(gid);
 
       // Un documento por movimiento.
