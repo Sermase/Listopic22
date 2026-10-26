@@ -90,7 +90,9 @@ export const AuthForm: React.FC<AuthFormProps> = ({ initialMode = 'login', onAut
         setLoading(true);
         try {
             auth.languageCode = 'es';
-            await sendPasswordResetEmail(auth, target, { url: `${window.location.origin}/login` });
+            // En la app (Capacitor) el origen es https://localhost, que el navegador del correo no abre.
+            const origin = Capacitor.isNativePlatform() ? 'https://listopic.es' : window.location.origin;
+            await sendPasswordResetEmail(auth, target, { url: `${origin}/login` });
             setResetSent(target);
         } catch (err: unknown) {
             const code = getAuthErrorCode(err);
