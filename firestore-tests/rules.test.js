@@ -949,13 +949,30 @@ describe('V12 · Pachote en el mismo Firebase: anónimos solo en Pachote', () =>
     await assertSucceeds(getDoc(doc(db, 'lists/pub')));
   });
 
-  it('✅ un anónimo crea su grupo de Pachote, su acceso y su lista de grupos', async () => {
-    const db = anonUser('anon2');
-    await assertSucceeds(setDoc(doc(db, 'pachoteGroups/viaje'), { name: 'Viaje', owner: 'anon2', inviteToken: 'tok_viaje_123456789', members: [], households: [] }));
-    await assertSucceeds(setDoc(doc(db, 'pachoteGroups/viaje/access/anon2'), { role: 'admin', memberId: null, joined: 1 }));
-    await assertSucceeds(setDoc(doc(db, 'pachoteUsers/anon2'), { groups: { viaje: { joined: 1 } } }, { merge: true }));
+  it('❌ un anónimo no crea grupos de Pachote; ✅ con cuenta sí (grupo, acceso y lista)', async () => {
+    const anon = anonUser('anon2');
+    await assertFails(setDoc(doc(anon, 'pachoteGroups/viaje'), { name: 'Viaje', owner: 'anon2', inviteToken: 'tok_viaje_123456789', members: [], households: [] }));
+    await assertSucceeds(setDoc(doc(anon, 'pachoteUsers/anon2'), { groups: {} }, { merge: true }));
+    await assertFails(getDoc(doc(anon, 'pachoteUsers/anon1')));
+    const db = as('dave');
+    await assertSucceeds(setDoc(doc(db, 'pachoteGroups/viaje'), { name: 'Viaje', owner: 'dave', inviteToken: 'tok_viaje_123456789', members: [], households: [] }));
+    await assertSucceeds(setDoc(doc(db, 'pachoteGroups/viaje/access/dave'), { role: 'admin', memberId: null, joined: 1 }));
+    await assertSucceeds(setDoc(doc(db, 'pachoteUsers/dave'), { groups: { viaje: { joined: 1 } } }, { merge: true }));
     await assertSucceeds(setDoc(doc(db, 'pachoteGroups/viaje/movs/g1'), { id: 'g1', desc: 'Gasolina', amount: 6000 }));
-    await assertFails(getDoc(doc(db, 'pachoteUsers/anon1')));
+  });
+
+  it('🔐 grupo con «hace falta cuenta para apuntar»: el anónimo mira pero no escribe; ❌ un editor no lo quita', async () => {
+    const anon = anonUser('anon5');
+    await assertSucceeds(setDoc(doc(anon, 'pachoteGroups/piso/access/anon5'), { role: 'editor', token: 'tok_piso_12345678901', memberId: null, joined: 1 }));
+    await assertSucceeds(updateDoc(doc(anonUser('anon1'), 'pachoteGroups/piso'), { needAccount: true }));
+    await assertSucceeds(getDoc(doc(anon, 'pachoteGroups/piso')));
+    await assertSucceeds(getDocs(collection(anon, 'pachoteGroups/piso/movs')));
+    await assertFails(setDoc(doc(anon, 'pachoteGroups/piso/movs/z1'), { id: 'z1', desc: 'Pan', amount: 300 }));
+    await assertFails(updateDoc(doc(anon, 'pachoteGroups/piso'), { name: 'Piso nuevo' }));
+    await assertFails(updateDoc(doc(anon, 'pachoteGroups/piso'), { needAccount: false }));
+    await assertSucceeds(setDoc(doc(as('erin'), 'pachoteGroups/piso/access/erin'), { role: 'editor', token: 'tok_piso_12345678901', memberId: null, joined: 1 }));
+    await assertSucceeds(setDoc(doc(as('erin'), 'pachoteGroups/piso/movs/z2'), { id: 'z2', desc: 'Pan', amount: 300 }));
+    await assertFails(updateDoc(doc(as('erin'), 'pachoteGroups/piso'), { needAccount: false }));
   });
 
   it('✅ entra con el link vigente como editor; ❌ con uno viejo o como administrador', async () => {
