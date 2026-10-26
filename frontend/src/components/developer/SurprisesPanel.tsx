@@ -12,7 +12,8 @@ const PREVIEW: Partial<Record<SurpriseId, () => void>> = {
     lateNight: () => fireSurprise({ kind: 'bubble', emoji: '🌙', text: '¿Kebab de madrugada? Aquí no juzgamos.' }),
     croqueta: () => fireSurprise({ kind: 'croqueta' }),
     shakeRoulette: () => fireSurprise({ kind: 'roulette' }),
-    tortilla: () => fireSurprise({ kind: 'tortilla', side: 'con' }),
+    tortilla: () => fireSurprise({ kind: 'poll', poll: 'tortilla' }),
+    pizzaPoll: () => fireSurprise({ kind: 'poll', poll: 'pizza', side: 'con' }),
     abuela: () => fireSurprise({ kind: 'bubble', emoji: '👵', text: '¿Has comido? Estás en los huesos.' }),
 };
 

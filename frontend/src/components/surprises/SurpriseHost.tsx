@@ -10,14 +10,15 @@ import {
     isSurpriseOn,
     prefersReducedMotion,
     type SurpriseEffect,
-    type TortillaSide,
+    type PollId,
+    type PollSide,
 } from '../../lib/surprises';
 import { useShake } from './useShake';
 import { triggerHaptic } from '../../utils/haptics';
 
 const CroquetaGame = lazy(() => import('./CroquetaGame'));
 const ShakeRoulette = lazy(() => import('./ShakeRoulette'));
-const TortillaPoll = lazy(() => import('./TortillaPoll'));
+const FoodPoll = lazy(() => import('./FoodPoll'));
 
 const STYLES = `
 @keyframes lt-egg-fall { from { transform: translateY(-12vh) rotate(0deg); } to { transform: translateY(112vh) rotate(var(--spin)); } }
@@ -114,7 +115,7 @@ export const SurpriseHost: React.FC = () => {
     const { pathname } = useLocation();
     const { theme } = useTheme();
     const [running, setRunning] = useState<Running[]>([]);
-    const [sheet, setSheet] = useState<{ kind: 'croqueta' | 'roulette' | 'tortilla'; side?: TortillaSide } | null>(null);
+    const [sheet, setSheet] = useState<{ kind: 'croqueta' | 'roulette' | 'poll'; poll?: PollId; side?: PollSide } | null>(null);
     const counter = useRef(0);
     const configRef = useRef(config);
     useEffect(() => { configRef.current = config; }, [config]);
@@ -126,8 +127,12 @@ export const SurpriseHost: React.FC = () => {
             const effect = (event as CustomEvent<SurpriseEffect>).detail;
             if (!effect) return;
             if (effect.kind === 'croqueta' && effect.gated && !isSurpriseOn(configRef.current, 'croqueta')) return;
-            if (effect.kind === 'croqueta' || effect.kind === 'roulette' || effect.kind === 'tortilla') {
-                setSheet({ kind: effect.kind, side: effect.kind === 'tortilla' ? effect.side : undefined });
+            if (effect.kind === 'poll') {
+                setSheet({ kind: 'poll', poll: effect.poll, side: effect.side });
+                return;
+            }
+            if (effect.kind === 'croqueta' || effect.kind === 'roulette') {
+                setSheet({ kind: effect.kind });
                 return;
             }
             const key = ++counter.current;
@@ -190,7 +195,7 @@ export const SurpriseHost: React.FC = () => {
             <Suspense fallback={null}>
                 {sheet?.kind === 'croqueta' && <CroquetaGame onClose={close} />}
                 {sheet?.kind === 'roulette' && <ShakeRoulette onClose={close} />}
-                {sheet?.kind === 'tortilla' && <TortillaPoll side={sheet.side} onClose={close} />}
+                {sheet?.kind === 'poll' && sheet.poll && <FoodPoll poll={sheet.poll} side={sheet.side} onClose={close} />}
             </Suspense>
         </>
     );

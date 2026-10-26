@@ -17,6 +17,7 @@ export type SurpriseId =
     | 'lostPlate'
     | 'shakeRoulette'
     | 'tortilla'
+    | 'pizzaPoll'
     | 'secretBadges'
     | 'abuela'
     | 'ansievi';
@@ -36,7 +37,8 @@ export const SURPRISES: readonly SurpriseMeta[] = [
     { id: 'croqueta', emoji: '🧆', name: 'Atrapa la croqueta', how: 'Tocar 7 veces seguidas el logo.' },
     { id: 'lostPlate', emoji: '🍽️', name: 'Plato perdido', how: 'Minijuego en la página de enlace roto (404).' },
     { id: 'shakeRoulette', emoji: '📳', name: 'Agitar = ruleta', how: 'Agitar el móvil en Inicio: plato cercano con media de más de 8.' },
-    { id: 'tortilla', emoji: '⚔️', name: 'Encuesta de la tortilla', how: 'Buscar «tortilla con cebolla» o «sin cebolla».' },
+    { id: 'tortilla', emoji: '⚔️', name: 'Encuesta de la tortilla', how: 'Buscar «tortilla»: ¿con o sin cebolla?' },
+    { id: 'pizzaPoll', emoji: '🍍', name: 'Encuesta de la piña', how: 'Buscar «piña» o «hawaiana»: ¿pizza con o sin piña?' },
     { id: 'secretBadges', emoji: '🏅', name: 'Medallas secretas', how: 'Medallas escondidas que se ganan con las sorpresas.' },
     { id: 'abuela', emoji: '👵', name: 'Tema Abuela', how: '3 valoraciones en un domingo: medalla «Bien comido» y tema Abuela.' },
     { id: 'ansievi', emoji: '💃', name: '«ansievi»', how: 'Buscar «ansievi» abre el Baile de los apegos.' },
@@ -79,7 +81,7 @@ export type SurpriseEffect =
     | { kind: 'bubble'; emoji: string; text: string }
     | { kind: 'croqueta'; gated?: boolean }
     | { kind: 'roulette' }
-    | { kind: 'tortilla'; side?: TortillaSide };
+    | { kind: 'poll'; poll: PollId; side?: PollSide };
 
 export const SURPRISE_EVENT = 'listopic:surprise';
 /** Agitar otra vez con la ruleta abierta: otra vuelta. */
@@ -195,13 +197,40 @@ export function reviewSurprises(input: ReviewSurpriseInput): ReviewSurprise[] {
 
 // ── Buscador ────────────────────────────────────────────────────────────────
 
-export type TortillaSide = 'con' | 'sin';
+export type PollId = 'tortilla' | 'pizza';
+export type PollSide = 'con' | 'sin';
 
-/** «tortilla con cebolla» → 'con'; «tortilla sin cebolla» → 'sin'; otra cosa → null. */
-export function tortillaQuery(query: string): TortillaSide | null {
+export const POLL_SURPRISE: Record<PollId, SurpriseId> = { tortilla: 'tortilla', pizza: 'pizzaPoll' };
+
+/**
+ * Encuesta que despierta una búsqueda: «tortilla» (con o sin cebolla) y «piña»
+ * o «hawaiana» (pizza con o sin piña). Si la búsqueda ya dice el bando, se marca.
+ */
+export function pollQuery(query: string): { poll: PollId; side?: PollSide } | null {
     const q = foldText(query).replace(/\s+/g, ' ').trim();
-    const m = /tortilla(?: de patatas?)? (con|sin) cebolla/.exec(q);
-    return m ? (m[1] as TortillaSide) : null;
+    if (/tortilla/.test(q)) {
+        const m = /(con|sin) cebolla/.exec(q);
+        return { poll: 'tortilla', side: m ? (m[1] as PollSide) : undefined };
+    }
+    if (/\bpinas?\b|hawai/.test(q)) {
+        if (/sin pina/.test(q)) return { poll: 'pizza', side: 'sin' };
+        return { poll: 'pizza', side: /con pina|hawai/.test(q) ? 'con' : undefined };
+    }
+    return null;
+}
+
+const VOTED_KEY = 'listopic_polls_voted';
+
+/** Encuestas ya votadas en este dispositivo: el buscador ya no las vuelve a abrir solas. */
+export function pollVotedHere(poll: PollId): boolean {
+    try { return (JSON.parse(localStorage.getItem(VOTED_KEY) || '[]') as string[]).includes(poll); } catch { return false; }
+}
+
+export function markPollVoted(poll: PollId): void {
+    try {
+        const list = JSON.parse(localStorage.getItem(VOTED_KEY) || '[]') as string[];
+        if (!list.includes(poll)) localStorage.setItem(VOTED_KEY, JSON.stringify([...list, poll]));
+    } catch { /* opcional */ }
 }
 
 export const isAnsieviQuery = (query: string): boolean => foldText(query).trim() === 'ansievi';

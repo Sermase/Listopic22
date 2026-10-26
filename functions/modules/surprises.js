@@ -4,8 +4,9 @@
 // - claimSurpriseBadge: da una medalla secreta. Las define este archivo (se
 //   crean en `badges` la primera vez). «Bien comido» se comprueba aquí; el resto
 //   son bromas que pasan en el móvil y se fían de él.
-// - tortillaPoll: la encuesta eterna «¿con o sin cebolla?». Un voto por cuenta
-//   (se puede cambiar) y la zona como celda de 0,1° (~10 km), nunca el punto exacto.
+// - tortillaPoll: las encuestas eternas («poll»): tortilla con o sin cebolla y
+//   pizza con o sin piña. Un voto por cuenta y encuesta (se puede cambiar) y la
+//   zona como celda de 0,1° (~10 km), nunca el punto exacto.
 // - reviewSecretBadges (cada madrugada): repasa las medallas que se pueden
 //   comprobar con los datos (Bien comido, Ave nocturna, Paladar de hierro, Juez
 //   de la tortilla): las da a quien las merece y las quita a quien las perdió
@@ -106,7 +107,11 @@ const claimSurpriseBadge = onCall(async (request) => {
 
 // ── Encuesta de la tortilla ────────────────────────────────────────────────
 
-const POLL_REF = () => db.doc('surpriseStats/tortilla');
+// Cada encuesta: su recuento en surpriseStats/{id} y sus votos en {votes}/{uid}.
+const POLLS = {
+  tortilla: { votes: 'tortillaVotes', surprise: 'tortilla' },
+  pizza: { votes: 'pizzaVotes', surprise: 'pizzaPoll' },
+};
 const SIDES = new Set(['con', 'sin']);
 
 function cellOf(lat, lng) {
@@ -120,24 +125,28 @@ const tally = (v) => ({ con: Math.max(0, Number(v?.con) || 0), sin: Math.max(0, 
 
 const tortillaPoll = onCall(async (request) => {
   const uid = request.auth?.uid || null;
+  const pollId = request.data?.poll === undefined ? 'tortilla' : request.data.poll;
+  const poll = POLLS[pollId];
+  if (!poll || !Object.prototype.hasOwnProperty.call(POLLS, pollId)) throw new HttpsError('invalid-argument', 'Esa encuesta no existe.');
+  const pollRef = db.doc(`surpriseStats/${pollId}`);
   const side = request.data?.side;
   const cell = cellOf(request.data?.lat, request.data?.lng);
   const city = cleanCity(request.data?.city);
 
   if (side !== undefined && !SIDES.has(side)) throw new HttpsError('invalid-argument', 'Con o sin, no hay más.');
   if (side && !uid) throw new HttpsError('unauthenticated', 'Entra para votar.');
-  if (side && !(await surpriseEnabled('tortilla'))) throw new HttpsError('failed-precondition', 'La encuesta está cerrada.');
+  if (side && !(await surpriseEnabled(poll.surprise))) throw new HttpsError('failed-precondition', 'La encuesta está cerrada.');
   if (side) {
-    const limit = await rateLimit('tortillaPoll', uid, 10, 3600);
+    const limit = await rateLimit(`poll_${pollId}`, uid, 10, 3600);
     if (!limit.allowed) throw new HttpsError('resource-exhausted', 'Demasiados cambios de bando.');
   }
 
-  const voteRef = uid ? db.collection('tortillaVotes').doc(uid) : null;
+  const voteRef = uid ? db.collection(poll.votes).doc(uid) : null;
   return db.runTransaction(async (tx) => {
-    const [pollSnap, voteSnap] = await Promise.all([tx.get(POLL_REF()), voteRef ? tx.get(voteRef) : Promise.resolve(null)]);
-    const poll = pollSnap.exists ? pollSnap.data() : {};
-    const total = tally(poll);
-    const cells = poll.cells && typeof poll.cells === 'object' ? poll.cells : {};
+    const [pollSnap, voteSnap] = await Promise.all([tx.get(pollRef), voteRef ? tx.get(voteRef) : Promise.resolve(null)]);
+    const stats = pollSnap.exists ? pollSnap.data() : {};
+    const total = tally(stats);
+    const cells = stats.cells && typeof stats.cells === 'object' ? stats.cells : {};
     const prev = voteSnap?.exists ? voteSnap.data() : null;
     let mine = prev && SIDES.has(prev.side) ? prev.side : null;
     let myCell = prev?.cell || cell;
@@ -165,8 +174,8 @@ const tortillaPoll = onCall(async (request) => {
         }
       }
       updates.updatedAt = FieldValue.serverTimestamp();
-      if (pollSnap.exists) tx.update(POLL_REF(), updates);
-      else tx.set(POLL_REF(), { con: total.con, sin: total.sin, cells: Object.fromEntries(Object.entries(cells)), updatedAt: FieldValue.serverTimestamp() });
+      if (pollSnap.exists) tx.update(pollRef, updates);
+      else tx.set(pollRef, { con: total.con, sin: total.sin, cells: Object.fromEntries(Object.entries(cells)), updatedAt: FieldValue.serverTimestamp() });
       tx.set(voteRef, { side, cell: myCell, updatedAt: FieldValue.serverTimestamp() });
       mine = side;
     }
