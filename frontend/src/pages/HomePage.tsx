@@ -780,6 +780,7 @@ export const HomePage: React.FC = () => {
                         photoUrl: data.thumbnailUrl || data.mainImageUrl || data.photoUrl || data.coverUrl || data.imageUrl,
                         // Solo la nota pública de Listopic (personas); nunca la de Google en su lugar.
                         rating: placeRating(data).average ?? 0,
+                        botRating: placeRating(data).bots?.average ?? null,
                         // Actividad visible (también bots): el sitio sale aunque no tenga nota pública.
                         reviewsCount: placeRating(data).visibleCount,
                         closedStatus: data.closedStatus || null,

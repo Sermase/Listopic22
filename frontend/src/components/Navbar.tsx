@@ -41,7 +41,9 @@ const NavItem = ({ to, icon: Icon, label, badge, count, isActive, onClick }: { t
         <Link
             to={to}
             onClick={onClick}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 group
+            title={label}
+            aria-label={label}
+            className={`flex items-center gap-2 px-3 xl:px-4 py-2 rounded-full transition-all duration-300 group
                 ${isActive
                     ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] font-medium'
                     : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/5'
@@ -56,7 +58,8 @@ const NavItem = ({ to, icon: Icon, label, badge, count, isActive, onClick }: { t
                     </span>
                 )}
             </div>
-            <span className="text-sm">{label}</span>
+            {/* En tablets y portátiles pequeños solo el icono: así cabe la cabecera. */}
+            <span className="hidden xl:inline text-sm">{label}</span>
         </Link>
     );
 };
@@ -244,7 +247,7 @@ export const Navbar: React.FC = () => {
                                         <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
                                     </div>
                                 </div>
-                                <span className="text-xl font-display font-bold tracking-tight text-[var(--lt-text)] group-hover:text-[var(--lt-accent)] transition-colors">
+                                <span className="md:hidden lg:inline text-xl font-display font-bold tracking-tight text-[var(--lt-text)] group-hover:text-[var(--lt-accent)] transition-colors">
                                     {config.appName}
                                 </span>
                             </div>
@@ -261,17 +264,17 @@ export const Navbar: React.FC = () => {
                         <NavItem to="/chats" icon={MessageSquare} label="Chats" count={unreadChatCount} isActive={location.pathname === '/chats'} onClick={guardProtectedLink('abrir tus chats')} />
                         <NavItem to="/planes" icon={Sparkles} label="Planes" isActive={location.pathname === '/planes'} />
                         {pachoteOn && (
-                            <button type="button" onClick={openPachote} className="flex items-center gap-2 px-4 py-2 rounded-full text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/5 transition-all duration-300 group">
+                            <button type="button" onClick={openPachote} title="Pachote" aria-label="Pachote" className="flex items-center gap-2 px-3 xl:px-4 py-2 rounded-full text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/5 transition-all duration-300 group">
                                 <PiggyBank className="w-4 h-4 group-hover:text-[var(--lt-accent)] transition-colors" />
-                                <span className="text-sm">Pachote</span>
+                                <span className="hidden xl:inline text-sm">Pachote</span>
                             </button>
                         )}
                     </nav>
 
-                    <div className="hidden md:flex items-center gap-4">
-                        <Link to="/create-sublist" onClick={guardProtectedLink('crear una minilista')} className="btn-primary">
+                    <div className="hidden md:flex items-center gap-1 xl:gap-2">
+                        <Link to="/create-sublist" onClick={guardProtectedLink('crear una minilista')} title="Crear minilista" aria-label="Crear minilista" className="btn-primary !px-2.5 xl:!px-4 !py-2 whitespace-nowrap">
                             <Plus className="w-4 h-4" />
-                            <span>Crear Minilista</span>
+                            <span className="hidden xl:inline">Minilista</span>
                         </Link>
 
                         {isJefe && isTrackableAnalyticsPath(location.pathname) && (
@@ -328,7 +331,7 @@ export const Navbar: React.FC = () => {
 
                         {user ? (
                             <Link to={`/profile/${user.uid}`} className="flex items-center gap-3 ml-2 group">
-                                <span className="text-sm font-medium text-[var(--lt-text)] group-hover:text-[var(--lt-accent)] transition-colors text-right hidden lg:block">
+                                <span className="text-sm font-medium text-[var(--lt-text)] group-hover:text-[var(--lt-accent)] transition-colors text-right hidden 2xl:block">
                                     <span className="block text-xs text-[var(--lt-text-muted)]">Hola,</span>
                                     {profileLabel}
                                 </span>

@@ -11,6 +11,7 @@ import type { MapLayerId, MapLayerConfig } from '../utils/mapUtils';
 import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/placeStatus';
 import { NO_PUBLIC_RATING_LABEL, placeCardScore } from '../lib/placeRating';
 import { whenMapSized } from '../lib/mapMotion';
+import { formatScore } from '../lib/scoreScale';
 
 type SearchMapHit = {
     objectID: string;
@@ -169,8 +170,10 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
 
     const clusterPoints = useMemo(() => geoHits.map((hit) => {
         const placeScore = activeTab === 'places' ? placeCardScore(hit, false) : null;
+        const botScore = placeScore && placeScore.avgRating === null ? placeCardScore(hit, true) : null;
         return {
             hit,
+            botScore: botScore?.scoreKind === 'bot' ? botScore.avgRating : null,
             id: hit.objectID,
             lat: hit._geoloc.lat,
             lng: hit._geoloc.lng,
@@ -299,7 +302,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                         />
                     )}
 
-                    <ClusteredPins points={clusterPoints} renderPin={({ hit }) => {
+                    <ClusteredPins points={clusterPoints} renderPin={({ hit, botScore }) => {
                         const isPlace = activeTab === 'places';
                         // Sitios: solo la nota pública (personas); un sitio solo con bots va sin nota.
                         const placeScore = isPlace ? placeCardScore(hit, false) : null;
@@ -315,7 +318,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                         return (
                             <Marker
                                 position={[hit._geoloc.lat, hit._geoloc.lng]}
-                                icon={createMapPinIcon({ score: rating, highlighted: isHighlighted })}
+                                icon={createMapPinIcon({ score: rating, botScore, highlighted: isHighlighted })}
                                 zIndexOffset={isHighlighted ? 1000 : 0}
                                 eventHandlers={{
                                     click: () => onMarkerClick?.(hit.objectID),
@@ -329,7 +332,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                                             to={href}
                                             photoUrl={photo}
                                             score={rating}
-                                            subtitle={reviewCount > 0 ? `${reviewCount} ${reviewCount === 1 ? 'reseña' : 'reseñas'}` : placeScore ? NO_PUBLIC_RATING_LABEL : 'Sin reseñas'}
+                                            subtitle={reviewCount > 0 ? `${reviewCount} ${reviewCount === 1 ? 'reseña' : 'reseñas'}` : botScore ? `🤖 ${formatScore(botScore)} de bots · ${NO_PUBLIC_RATING_LABEL.toLowerCase()}` : placeScore ? NO_PUBLIC_RATING_LABEL : 'Sin reseñas'}
                                         />
                                     </Popup>
                                 )}
