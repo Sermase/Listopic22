@@ -20,6 +20,10 @@ import { barTabs, NAV_TABS, useNavOrder } from '../lib/navTabs';
 import { isLabAppEnabled } from '../lib/labApps';
 import { PACHOTE_URL } from '../lib/pachote';
 import { PachoteService } from '../services/PachoteService';
+import { fireSurprise, tapCounter } from '../lib/surprises';
+
+// Siete toques seguidos al logo: «Atrapa la croqueta» (SurpriseHost mira si está activa).
+const logoTap = tapCounter(7, 3000, () => fireSurprise({ kind: 'croqueta', gated: true }));
 
 const FIREBASE_STORAGE_HOST = 'firebasestorage.googleapis.com';
 
@@ -100,6 +104,7 @@ export const Navbar: React.FC = () => {
         graphite: config.logoUrlGraphite,
         sunset: config.logoUrlSunset,
         lagoon: config.logoUrlLagoon,
+        abuela: config.logoUrlAbuela || config.logoUrlWarm,
     };
     const activeLogoUrl = themeLogoUrls[theme] || config.logoUrl;
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -236,7 +241,7 @@ export const Navbar: React.FC = () => {
                     }`}
             >
                 <div className="flex items-center justify-between h-12 md:h-14">
-                    <Link to="/" className="flex items-center gap-3 group brand-logo relative z-50">
+                    <Link to="/" onClick={logoTap} className="flex items-center gap-3 group brand-logo relative z-50">
                         {isConfigLoading ? (
                             <div className="w-32 h-8 rounded-lg bg-[var(--lt-accent-soft)] animate-pulse" />
                         ) : config.logoType === 'image' && activeLogoUrl ? (
