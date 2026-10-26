@@ -970,6 +970,22 @@ describe('V12 · Pachote en el mismo Firebase: anónimos solo en Pachote', () =>
     await assertSucceeds(updateDoc(doc(db, 'pachoteGroups/piso'), { summary: { v: 1, spent: 3000 } }));
   });
 
+  it('✅ movimientos bien formados; ❌ importes rotos, textos enormes o tipos raros', async () => {
+    const db = as('alice');
+    const ok = { id: 'v1', desc: 'Cena', amount: 4550, payer: 'm:m1', parts: ['m1', 'm2'], mode: 'peso', date: '2026-10-26', cat: 'comida', created: 1 };
+    await assertSucceeds(setDoc(doc(db, 'pachoteGroups/riano/movs/v1'), ok));
+    await assertSucceeds(setDoc(doc(db, 'pachoteGroups/riano/movs/v2'), { ...ok, id: 'v2', kind: 'transfer', to: 'm:m2', parts: [] }));
+    await assertFails(setDoc(doc(db, 'pachoteGroups/riano/movs/v3'), { ...ok, amount: 45.5 }));
+    await assertFails(setDoc(doc(db, 'pachoteGroups/riano/movs/v3'), { ...ok, amount: 0 }));
+    await assertFails(setDoc(doc(db, 'pachoteGroups/riano/movs/v3'), { ...ok, amount: '4550' }));
+    await assertFails(setDoc(doc(db, 'pachoteGroups/riano/movs/v3'), { ...ok, desc: 'x'.repeat(500) }));
+    await assertFails(setDoc(doc(db, 'pachoteGroups/riano/movs/v3'), { ...ok, kind: 'raro' }));
+    await assertFails(setDoc(doc(db, 'pachoteGroups/riano/movs/v3'), { ...ok, parts: 'm1' }));
+    await assertSucceeds(deleteDoc(doc(db, 'pachoteGroups/riano/movs/v2')));
+    await assertFails(updateDoc(doc(db, 'pachoteGroups/riano'), { name: 'x'.repeat(300) }));
+    await assertSucceeds(updateDoc(doc(db, 'pachoteGroups/riano'), { name: 'Riaño 2026' }));
+  });
+
   it('✅ los del chat enlazado leen la ficha y entran sin link; ❌ los de fuera no', async () => {
     await assertSucceeds(getDoc(doc(as('bob'), 'pachoteGroups/riano')));
     await assertFails(getDocs(collection(as('bob'), 'pachoteGroups/riano/movs')));
