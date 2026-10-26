@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
 import { Loader2, ShieldCheck } from 'lucide-react';
-import { auth } from '../../firebase';
+import { signOutAndForget } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import { LEGAL_PATHS, LEGAL_VERSION } from '../../config/legal';
 import { isLegalAcceptedThisSession, recordLegalAcceptance } from '../../services/LegalService';
@@ -73,7 +72,7 @@ export const LegalAcceptanceGate: React.FC = () => {
                     </button>
                     <button
                         type="button"
-                        onClick={() => { void signOut(auth); }}
+                        onClick={() => { void signOutAndForget('/'); }}
                         disabled={saving}
                         className="w-full py-2.5 text-sm font-semibold text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]"
                     >

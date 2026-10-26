@@ -14,6 +14,8 @@ interface ElementRanksProps {
 }
 
 const MAX_LISTS = 3;
+/** Por debajo de estas reseñas, el puesto se marca como provisional. */
+const PROVISIONAL_BELOW = 3;
 
 /**
  * Puesto del elemento en sus Listas: uno principal y bien visible
@@ -32,6 +34,8 @@ export const ElementRanks: React.FC<ElementRanksProps> = ({ placeId, itemName, l
         if (!element) return null;
         const distinct = distinctContextRanks(element.contextRanks);
         const [main, ...rest] = distinct.length > 0 ? distinct.map((r) => r.label) : [`#${element.rank} en la Lista`];
+        // Con pocas reseñas el puesto aún puede bailar: se dice.
+        if (element.count < PROVISIONAL_BELOW) rest.unshift(`Provisional: ${element.count} ${element.count === 1 ? 'reseña' : 'reseñas'}`);
         return { listId, main, rest };
     }).filter((row): row is { listId: string; main: string; rest: string[] } => row !== null);
 

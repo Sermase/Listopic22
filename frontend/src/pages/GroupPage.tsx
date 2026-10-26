@@ -14,7 +14,6 @@ import { ReviewCard } from '../components/ReviewCard';
 import { ReviewCardList } from '../components/ReviewCardList';
 import { LazyAddReviewForm as AddReviewForm, LazyShareModal as ShareModal } from '../components/lazy';
 import { SaveToArchiveModal } from '../components/SaveToArchiveModal';
-import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import { type ReviewEntity } from '../hooks/useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
 import { buildPublicRouteUrl } from '../utils/publicUrl';
@@ -670,7 +669,6 @@ export const GroupPage: React.FC = () => {
                 alt={decodedName}
                 ready={heroReady}
                 onImageLoad={() => setHeroReady(true)}
-                fallback={<PlacePhotoPlaceholder compact variant="group" />}
             >
 
                         {/* Title & Place Info */}
@@ -783,8 +781,8 @@ export const GroupPage: React.FC = () => {
                         />
                     )}
 
-                    {/* Una frase de la gente, antes de las notas */}
-                    <FeaturedQuote reviews={reviews} onSeeAll={() => document.getElementById('resenas')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />
+                    {/* Una frase de la gente, antes de las notas (con una sola reseña, ya se ve abajo) */}
+                    {reviews.length > 1 && <FeaturedQuote reviews={reviews} onSeeAll={() => document.getElementById('resenas')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />}
 
                     {/* 1. Detailed Stats (Refactored) */}
                     {stats && (stats.ponderable.length > 0 || stats.nonPonderable.length > 0) && (

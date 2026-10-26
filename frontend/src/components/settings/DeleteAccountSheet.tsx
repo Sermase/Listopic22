@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { signOut, type User } from 'firebase/auth';
+import { type User } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
-import { auth, functions } from '../../firebase';
+import { functions, signOutAndForget } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
 import { MyDataRequest } from '../profile/MyDataRequest';
 import { Modal } from '../ui/Modal';
@@ -36,7 +35,6 @@ export const DeleteAccountSheet: React.FC<{ isOpen: boolean; onClose: () => void
 };
 
 const DeleteAccountForm: React.FC<{ user: User; onClose: () => void }> = ({ user, onClose }) => {
-    const navigate = useNavigate();
     const [reason, setReason] = useState('');
     const [keepReviews, setKeepReviews] = useState<boolean | null>(null);
     const [keepSublists, setKeepSublists] = useState<boolean | null>(null);
@@ -51,8 +49,7 @@ const DeleteAccountForm: React.FC<{ user: User; onClose: () => void }> = ({ user
         setError(null);
         try {
             await httpsCallable(functions, 'deleteOwnAccount')({ keepReviews: keepReviews === true, keepSublists: keepSublists === true });
-            await signOut(auth).catch(() => undefined);
-            navigate('/');
+            await signOutAndForget('/');
         } catch (err) {
             const code = (err as { code?: string })?.code;
             setError(code === 'functions/unauthenticated' || code === 'auth/requires-recent-login'

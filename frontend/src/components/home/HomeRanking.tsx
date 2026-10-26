@@ -13,6 +13,8 @@ export interface RankingRow {
     subtitle?: string;
     imageUrl?: string;
     score: number | null;
+    /** Reseñas que hay detrás de la nota: explica por qué un 8,6 con muchas va antes que un 9,2 con una. */
+    count?: number;
     /** Distancia ya formateada («a 350 m»). */
     distanceLabel?: string;
     /** «Tu colega Cris le dio un 9». */
@@ -63,11 +65,18 @@ const Row: React.FC<{ row: RankingRow; position: number; fallbackIcon: React.Ele
                     <span className="block truncate text-[11px] font-semibold text-[var(--lt-accent)]">{row.friendNote}</span>
                 )}
             </span>
-            <span
-                className="min-w-[2.6rem] rounded-full px-2 py-1 text-center font-display text-sm font-bold tabular-nums"
-                style={scoreBadgeStyle(row.score)}
-            >
-                {typeof row.score === 'number' ? row.score.toFixed(1) : '–'}
+            <span className="flex flex-col items-center gap-0.5">
+                <span
+                    className="min-w-[2.6rem] rounded-full px-2 py-1 text-center font-display text-sm font-bold tabular-nums"
+                    style={scoreBadgeStyle(row.score)}
+                >
+                    {typeof row.score === 'number' ? row.score.toFixed(1) : '–'}
+                </span>
+                {typeof row.count === 'number' && row.count > 0 && (
+                    <span className="text-[10px] font-semibold tabular-nums text-[var(--lt-text-muted)]">
+                        {row.count} {row.count === 1 ? 'reseña' : 'reseñas'}
+                    </span>
+                )}
             </span>
         </Link>
     </li>

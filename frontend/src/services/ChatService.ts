@@ -235,6 +235,8 @@ export const ChatService = {
         return onSnapshot(
             q,
             (snapshot) => {
+                // Con la caché del dispositivo, la primera respuesta puede llegar vacía antes que el servidor: no se pinta «vacío» por error.
+                if (snapshot.empty && snapshot.metadata.fromCache) return;
                 const chats = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
@@ -264,6 +266,8 @@ export const ChatService = {
         return onSnapshot(
             q,
             (snapshot) => {
+                // Con la caché del dispositivo, la primera respuesta puede llegar vacía antes que el servidor: no se pinta «vacío» por error.
+                if (snapshot.empty && snapshot.metadata.fromCache) return;
                 const messages = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
