@@ -772,6 +772,8 @@ export const HomePage: React.FC = () => {
                     photoUrl: data.thumbnailUrl || data.mainImageUrl || data.photoUrl || data.coverUrl || data.imageUrl,
                     // Solo la nota pública de Listopic (personas); nunca la de Google en su lugar.
                     rating: placeRating(data).average ?? 0,
+                    // Reseñas de personas detrás de la nota (sin bots), para el «N reseñas» del ranking.
+                    ratingCount: placeRating(data).count,
                     botRating: placeRating(data).bots?.average ?? null,
                     // Actividad visible (también bots): el sitio sale aunque no tenga nota pública.
                     reviewsCount: placeRating(data).visibleCount,
@@ -1259,7 +1261,8 @@ export const HomePage: React.FC = () => {
             if (!r.placeId || typeof r.overallRating !== 'number' || !Number.isFinite(r.overallRating)) return;
             if (r.visibility && r.visibility !== 'public') return;
             if (isPermanentlyClosed(r.placeClosedStatus)) return;
-            if (r.listId && nonDishListIds.has(r.listId)) return;
+            const reviewCategory = typeof r.categoryId === 'string' && r.categoryId ? r.categoryId : null;
+            if (reviewCategory ? reviewCategory !== FOOD_CATEGORY_ID : (r.listId && nonDishListIds.has(r.listId))) return;
             const name = String(r.itemName || '').trim();
             if (!name || isJunkName(name)) return;
             const key = `${r.placeId}::${name.toLowerCase()}`;
@@ -1304,7 +1307,7 @@ export const HomePage: React.FC = () => {
         subtitle: place.address?.split(',')[0] || undefined,
         imageUrl: place.photoUrl || undefined,
         score: typeof place.rating === 'number' ? place.rating : null,
-        count: place.placeReviewsCount ?? place.reviewsCount,
+        count: place.placeReviewsCount ?? place.ratingCount ?? place.reviewsCount,
         distanceLabel: location && place.lat && place.lng ? formatDistance(calculateDistance(place.lat, place.lng)) : undefined,
     })), [filteredPlaces, location, calculateDistance]);
 

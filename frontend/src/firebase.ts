@@ -44,6 +44,8 @@ if (import.meta.env.VITE_USE_EMULATORS === 'true') {
  */
 export async function signOutAndForget(to = '/'): Promise<void> {
     await signOut(auth).catch(() => undefined);
+    // Las otras pestañas abiertas se recargan (ver abajo): su Firestore queda cerrado al borrar la caché.
+    try { localStorage.setItem(SIGNED_OUT_KEY, String(Date.now())); } catch { /* opcional */ }
     try {
         await terminate(db);
         await clearIndexedDbPersistence(db);
@@ -51,6 +53,13 @@ export async function signOutAndForget(to = '/'): Promise<void> {
         /* sin caché o en uso en otra pestaña: no pasa nada */
     }
     window.location.assign(to);
+}
+
+const SIGNED_OUT_KEY = 'listopic_signed_out_at';
+if (typeof window !== 'undefined') {
+    window.addEventListener('storage', (event) => {
+        if (event.key === SIGNED_OUT_KEY) window.location.reload();
+    });
 }
 
 export default app;
