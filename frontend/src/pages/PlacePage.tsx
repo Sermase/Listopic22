@@ -20,7 +20,6 @@ import { collection, doc, getDoc, getDocs, query, setDoc, deleteDoc, serverTimes
 import { db } from '../firebase';
 import { ReportModal } from '../components/ReportModal';
 import { Lightbox } from '../components/Lightbox';
-import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import { PlacePhotoUploadModal } from '../components/PlacePhotoUploadModal';
 import type { ReviewEntity } from '../hooks/useListDetails';
 import { EntityHero } from '../components/EntityHero';
@@ -872,7 +871,6 @@ export const PlacePage: React.FC = () => {
                 ready={heroReady}
                 onImageLoad={() => setHeroReady(true)}
                 onImageError={proHeroImageUrl ? () => setFailedProHero(proHeroImageUrl) : undefined}
-                fallback={<PlacePhotoPlaceholder compact />}
                 className={heroStyle.hero || undefined}
                 imageClassName={heroStyle.image || undefined}
             >

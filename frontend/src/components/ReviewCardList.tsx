@@ -40,8 +40,8 @@ interface ReviewCardListProps {
 
 const formatScore = (score: number | undefined) => {
     if (score === undefined || score === null) return '-';
-    const rounded = Math.round(score * 10) / 10;
-    return Number.isInteger(rounded) ? `${rounded}` : rounded.toFixed(1);
+    // Siempre con un decimal, como en el resto de la app («9.0», no «9»).
+    return (Math.round(score * 10) / 10).toFixed(1);
 };
 
 export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete, onEdit, reactionConfig, placeClosedStatus: placeClosedStatusProp, hidePlaceName }) => {

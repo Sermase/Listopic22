@@ -18,6 +18,7 @@ import { UserAvatar } from '../components/UserAvatar';
 import { Map as MapIcon, Maximize2, List as ListIcon, MessageCircle, Users, Loader2, Star, Clock, TrendingUp, Gem, HeartHandshake, Rows3, Search, Utensils, Sparkles, Camera, Trophy, History } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useLocation } from '../hooks/useLocation';
+import { useQuery } from '@tanstack/react-query';
 import { collection, collectionGroup, query, getDocs, limit, doc, getDoc, getDocFromServer, onSnapshot, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { updateProfile } from 'firebase/auth';
@@ -172,6 +173,9 @@ const MIN_NEARBY_PLACES = 5;
 const MAX_AUTO_RANGE_KM = 10;
 
 // Aspecto y enlace «Ver todo» de cada carrusel de lib/homeFeeds.
+/** Categoría de comida («Hmm...»): solo sus listas cuentan como platos. */
+const FOOD_CATEGORY_ID = 'comida_hmm';
+
 const HOME_FEED_LOOK: Record<string, { icon: React.ReactNode; accentClass: string; searchType: 'lists' | 'places' | 'items'; searchSort?: string }> = {
     platos: { icon: <Utensils className="w-5 h-5 text-amber-400" />, accentClass: 'bg-amber-500/20', searchType: 'items', searchSort: 'top_rated' },
     joyas: { icon: <Gem className="w-5 h-5 text-emerald-300" />, accentClass: 'bg-emerald-500/20', searchType: 'places', searchSort: 'rating' },
@@ -748,58 +752,39 @@ export const HomePage: React.FC = () => {
 
 
     // --- MAP DATA ENRICHMENT ---
-    // Fetch actual places from 'places' collection to populate Map beyond just Feed items
-    const [extraPlaces, setExtraPlaces] = useState<any[]>([]);
-    const [placesLimit, setPlacesLimit] = useState(20); // Start small for speed
-
-    useEffect(() => {
-        // Upgrade to full fetch after initial render (Background Loading)
-        const timer = setTimeout(() => {
-            setPlacesLimit(100);
-        }, 2000); // Wait 2s to allow main content to settle
-        return () => clearTimeout(timer);
-    }, []);
-
-    useEffect(() => {
-        const fetchExtraPlaces = async () => {
-            try {
-                // Fetch top rated and recent places to ensure map is populated
-                // Note: Real geo-querying would be better, but for now we fetch a healthy batch
-                const q = query(collection(db, 'places'), limit(placesLimit));
-                const snap = await getDocs(q);
-
-                const mapped = snap.docs.map(d => {
-                    const data = d.data();
-                    const lat = data.location?.latitude || data.coordinates?.latitude || data.lat;
-                    const lng = data.location?.longitude || data.coordinates?.longitude || data.lng;
-                    return {
-                        id: d.id,
-                        placeId: d.id,
-                        name: data.name,
-                        address: data.address || data.formatted_address,
-                        photoUrl: data.thumbnailUrl || data.mainImageUrl || data.photoUrl || data.coverUrl || data.imageUrl,
-                        // Solo la nota pública de Listopic (personas); nunca la de Google en su lugar.
-                        rating: placeRating(data).average ?? 0,
-                        botRating: placeRating(data).bots?.average ?? null,
-                        // Actividad visible (también bots): el sitio sale aunque no tenga nota pública.
-                        reviewsCount: placeRating(data).visibleCount,
-                        closedStatus: data.closedStatus || null,
-                        lat, lng,
-                        geo: { city: data.city || '', province: data.province || '', region: data.region || '', country: data.country || '' },
-                        items: [] // No specific items for these unless we fetch subcollections
-                    };
-                }).filter(p => p.lat && p.lng && p.reviewsCount > 0 && p.closedStatus !== 'permanently_closed'); // Only places with location AND reviews, exclude permanently closed
-
-                setExtraPlaces(mapped);
-            } catch (e) {
-                console.error("Error fetching map places:", e);
-            }
-        };
-
-        if (activeTab === 'explore') {
-            fetchExtraPlaces();
-        }
-    }, [activeTab, placesLimit]);
+    // Sitios extra para el mapa, «Sitios» y joyas: una sola lectura de 100 que
+    // se guarda 10 min (antes 20 + 100 en cada visita a Inicio).
+    const extraPlacesQuery = useQuery({
+        queryKey: ['home-extra-places'],
+        enabled: activeTab === 'explore',
+        staleTime: 10 * 60 * 1000,
+        queryFn: async () => {
+            const snap = await getDocs(query(collection(db, 'places'), limit(100)));
+            const mapped = snap.docs.map(d => {
+                const data = d.data();
+                const lat = data.location?.latitude || data.coordinates?.latitude || data.lat;
+                const lng = data.location?.longitude || data.coordinates?.longitude || data.lng;
+                return {
+                    id: d.id,
+                    placeId: d.id,
+                    name: data.name,
+                    address: data.address || data.formatted_address,
+                    photoUrl: data.thumbnailUrl || data.mainImageUrl || data.photoUrl || data.coverUrl || data.imageUrl,
+                    // Solo la nota pública de Listopic (personas); nunca la de Google en su lugar.
+                    rating: placeRating(data).average ?? 0,
+                    botRating: placeRating(data).bots?.average ?? null,
+                    // Actividad visible (también bots): el sitio sale aunque no tenga nota pública.
+                    reviewsCount: placeRating(data).visibleCount,
+                    closedStatus: data.closedStatus || null,
+                    lat, lng,
+                    geo: { city: data.city || '', province: data.province || '', region: data.region || '', country: data.country || '' },
+                    items: [] // No specific items for these unless we fetch subcollections
+                };
+            }).filter(p => p.lat && p.lng && p.reviewsCount > 0 && p.closedStatus !== 'permanently_closed'); // Only places with location AND reviews, exclude permanently closed
+            return mapped;
+        },
+    });
+    const extraPlaces = useMemo<any[]>(() => extraPlacesQuery.data ?? [], [extraPlacesQuery.data]);
 
     // 5. Derived Places (Unique from Reviews -> Filtered) + Extra Places
     const filteredPlaces = useMemo(() => {
@@ -1253,6 +1238,11 @@ export const HomePage: React.FC = () => {
     }, [range]);
 
     // Ranking de platos: cada plato (sitio + nombre) con su media y nº de reseñas.
+    // «Platos» solo con listas de comida: una playa no es un plato.
+    const nonDishListIds = useMemo(() => new Set(
+        lists.filter((l: any) => typeof l.categoryId === 'string' && l.categoryId && l.categoryId !== FOOD_CATEGORY_ID).map((l: any) => l.id as string),
+    ), [lists]);
+
     const rankedDishes = useMemo<RankingRow[]>(() => {
         const groups = new Map<string, { row: RankingRow; sum: number; count: number; friendScore: number }>();
         const following = new Set(followingIds);
@@ -1269,6 +1259,7 @@ export const HomePage: React.FC = () => {
             if (!r.placeId || typeof r.overallRating !== 'number' || !Number.isFinite(r.overallRating)) return;
             if (r.visibility && r.visibility !== 'public') return;
             if (isPermanentlyClosed(r.placeClosedStatus)) return;
+            if (r.listId && nonDishListIds.has(r.listId)) return;
             const name = String(r.itemName || '').trim();
             if (!name || isJunkName(name)) return;
             const key = `${r.placeId}::${name.toLowerCase()}`;
@@ -1303,8 +1294,8 @@ export const HomePage: React.FC = () => {
             .map((g) => ({ ...g, average: g.sum / g.count }))
             .sort((a, b) => compareByRank({ average: a.average, count: a.count }, { average: b.average, count: b.count }))
             .slice(0, 10)
-            .map((g) => ({ ...g.row, score: g.average }));
-    }, [reviewsInRange, followingIds, user?.uid, location, calculateDistance]);
+            .map((g) => ({ ...g.row, score: g.average, count: g.count }));
+    }, [reviewsInRange, followingIds, user?.uid, location, calculateDistance, nonDishListIds]);
 
     const rankedPlaces = useMemo<RankingRow[]>(() => filteredPlaces.slice(0, 10).map((place: any) => ({
         key: place.id,
@@ -1313,6 +1304,7 @@ export const HomePage: React.FC = () => {
         subtitle: place.address?.split(',')[0] || undefined,
         imageUrl: place.photoUrl || undefined,
         score: typeof place.rating === 'number' ? place.rating : null,
+        count: place.placeReviewsCount ?? place.reviewsCount,
         distanceLabel: location && place.lat && place.lng ? formatDistance(calculateDistance(place.lat, place.lng)) : undefined,
     })), [filteredPlaces, location, calculateDistance]);
 
@@ -1461,7 +1453,7 @@ export const HomePage: React.FC = () => {
 
                                     <div className="flex items-center justify-end gap-2 sm:gap-3 min-w-0 flex-1 ml-2">
                                         <AreaSelect
-                                            value={areaFilter.kind === 'near' ? `r:${range ?? 'all'}` : encodeArea(areaFilter)}
+                                            value={areaFilter.kind === 'near' ? `r:${(location && range) || 'all'}` : encodeArea(areaFilter)}
                                             range={range}
                                             options={areaOptions}
                                             onChange={handleAreaSelect}
@@ -1483,9 +1475,9 @@ export const HomePage: React.FC = () => {
                                 isOpen={isMapOpen}
                                 onClose={() => setIsMapOpen(false)}
                                 title={areaFilter.kind === 'near' ? 'Cerca de ti' : areaFilter.value}
-                                subtitle={`${filteredPlaces.length} ${filteredPlaces.length === 1 ? 'sitio' : 'sitios'}${areaFilter.kind === 'near' && range ? ` a menos de ${range} km` : ''}`}
+                                subtitle={`${filteredPlaces.length} ${filteredPlaces.length === 1 ? 'sitio' : 'sitios'}${areaFilter.kind === 'near' && range && location ? ` a menos de ${range} km` : ''}`}
                                 items={filteredPlaces}
-                                range={areaFilter.kind === 'near' ? range : null}
+                                range={areaFilter.kind === 'near' && location ? range : null}
                             />
                         </div>
                     )}

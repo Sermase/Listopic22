@@ -19,6 +19,14 @@ interface EntityHeroProps {
 // Foto (o fondo) que se desvanece hacia abajo.
 const HERO_FADE = 'absolute inset-0 [mask-image:linear-gradient(to_bottom,black_50%,transparent)]';
 
+/** Fondo sin foto: degradado del tema, sin icono que choque con el título. */
+const DefaultHeroBackground = () => (
+  <div
+    className="absolute inset-0"
+    style={{ background: 'radial-gradient(120% 90% at 15% 0%, var(--lt-accent-soft), transparent 60%), linear-gradient(160deg, var(--lt-bg-deep, var(--lt-bg)) 0%, var(--lt-bg) 100%)' }}
+  />
+);
+
 export const EntityHero: React.FC<EntityHeroProps> = ({
   imageUrl,
   alt,
@@ -65,18 +73,13 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
             )}
             onLoad={onImageLoad}
             onError={onImageError}
-            fallback={fallback}
+            fallback={fallback || <DefaultHeroBackground />}
           />
         </div>
       </div>
     ) : (
       <div className={HERO_FADE}>
-        {fallback || (
-          <div
-            className="absolute inset-0"
-            style={{ background: 'radial-gradient(120% 90% at 15% 0%, var(--lt-accent-soft), transparent 60%), linear-gradient(160deg, var(--lt-bg-deep, var(--lt-bg)) 0%, var(--lt-bg) 100%)' }}
-          />
-        )}
+        {fallback || <DefaultHeroBackground />}
       </div>
     )}
 

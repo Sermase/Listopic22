@@ -9,7 +9,7 @@ const authState = {
     acceptedLegalVersion: null as string | null,
 };
 vi.mock('../../context/AuthContext', () => ({ useAuth: () => authState }));
-vi.mock('../../firebase', () => ({ auth: {}, db: {} }));
+vi.mock('../../firebase', () => ({ auth: {}, db: {}, signOutAndForget: () => signOutMock() }));
 const signOutMock = vi.fn(async () => undefined);
 vi.mock('firebase/auth', () => ({ signOut: () => signOutMock() }));
 const setDocMock = vi.fn<(...args: unknown[]) => Promise<undefined>>(async () => undefined);

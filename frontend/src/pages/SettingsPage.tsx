@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
+import { Link } from 'react-router-dom';
 import { Check, ChevronRight } from 'lucide-react';
-import { auth } from '../firebase';
+import { signOutAndForget } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useFilters, DEFAULT_RANGE_KM, RANGE_STEPS_KM } from '../context/FilterContext';
 import { useTheme } from '../context/ThemeContext';
@@ -104,7 +103,6 @@ const Choices = <T extends string | number>({ options, value, onPick }: { option
 /** Preferencias: todo lo que se ajusta de Listopic, en un sitio. Cada fila abre su ventana. */
 export const SettingsPage: React.FC = () => {
     const { user } = useAuth();
-    const navigate = useNavigate();
     const { profile } = useUserProfile(user?.uid);
     const { range, setRange } = useFilters();
     const { theme, setTheme, themes } = useTheme();
@@ -141,8 +139,7 @@ export const SettingsPage: React.FC = () => {
         void updateUserSettings(user.uid, { notificationPreferences: { [key]: on } }).catch((e) => console.warn('Preferencias: avisos', e));
     };
     const logout = async () => {
-        await signOut(auth);
-        navigate('/login');
+        await signOutAndForget('/login');
     };
 
     return (
