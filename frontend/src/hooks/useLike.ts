@@ -40,7 +40,7 @@ export const useLike = (listId: string, initialCount: number = 0) => {
 
     const toggleLike = async () => {
         if (!user) {
-            openAuthPrompt('guardar esta lista');
+            openAuthPrompt('seguir esta lista');
             return;
         }
 

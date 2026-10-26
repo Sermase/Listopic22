@@ -3,6 +3,7 @@ import { X, SlidersHorizontal, Star, Trash2, ChevronDown } from 'lucide-react';
 import type { FilterState } from '../pages/ListPage';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
+import { useAuth } from '../context/AuthContext';
 import { HelpTip } from './HelpTip';
 
 const ACCESSIBILITY_FILTER_LABELS: Record<string, string> = {
@@ -18,8 +19,8 @@ type SortMode = 'rating' | 'newest' | 'oldest' | 'count';
 const SORT_OPTIONS: Array<{ id: SortMode; label: string }> = [
     { id: 'rating', label: 'Mejor nota' },
     { id: 'count', label: 'Más reseñas' },
-    { id: 'newest', label: 'Lo último' },
-    { id: 'oldest', label: 'Lo primero' },
+    { id: 'newest', label: 'Lo más nuevo' },
+    { id: 'oldest', label: 'Lo más antiguo' },
 ];
 
 interface FilterModalProps {
@@ -94,6 +95,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
 }) => {
     useBodyScrollLock(isOpen);
     const panelRef = useSheetDismiss(onClose, isOpen);
+    const { user } = useAuth();
 
     if (!isOpen) return null;
 
@@ -189,7 +191,10 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                             <ToggleRow label="Agrupar por sitio" hint="Junta en una fila los platos de un mismo sitio." checked={!!groupByPlace} onChange={setGroupByPlace} />
                         )}
                         <ToggleRow label="Con fotos" checked={filters.hasPhoto} onChange={(v) => setFilters(prev => ({ ...prev, hasPhoto: v }))} />
-                        <ToggleRow label="Donde ya he estado" hint="Solo lo que tú ya has reseñado." checked={filters.visited} onChange={(v) => setFilters(prev => ({ ...prev, visited: v }))} />
+                        {/* Sin cuenta no hay reseñas propias: el filtro no podría funcionar. */}
+                        {(user || filters.visited) && (
+                            <ToggleRow label="Donde ya he estado" hint="Solo lo que tú ya has reseñado." checked={filters.visited} onChange={(v) => setFilters(prev => ({ ...prev, visited: v }))} />
+                        )}
                         {setCriticOnly && (
                             <ToggleRow label="Solo críticos" hint="Solo reseñas de gente con la insignia de crítico." checked={!!criticOnly} onChange={setCriticOnly} />
                         )}

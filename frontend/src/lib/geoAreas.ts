@@ -162,7 +162,8 @@ export function contextualRanks(items: ReadonlyArray<RankableGeoItem>): Map<stri
         groups.forEach((group, value) => {
             if (group.length < MIN_ELEMENTS_FOR_CONTEXT_RANK) return;
             [...group].sort(compareElementsByRank).forEach((item, index) => {
-                const label = `#${index + 1} en ${level === 'country' ? value : geoAreaLabel(level, value)}`;
+                // «de N» dice cuántos compiten: «#1 de 9 en Madrid» no choca con «#2 de 40 en España».
+                const label = `#${index + 1} de ${group.length} en ${level === 'country' ? value : geoAreaLabel(level, value)}`;
                 result.get(item.id)!.push({ level, value, rank: index + 1, total: group.length, label });
             });
         });

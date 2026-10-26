@@ -24,7 +24,7 @@ describe('rankListElements', () => {
         // Croqueta 9×3 → 8,0 · Tortilla 10×1 → 7,75 · Bravas 8×2 → 7,4
         expect(ranked.map((e) => e.itemName)).toEqual(['Croqueta', 'Tortilla', 'Bravas']);
         expect(ranked[0]).toMatchObject({ average: 9, count: 3, rank: 1 });
-        expect(ranked[2].contextRanks.find((r) => r.level === 'city')!.label).toBe('#3 en Valladolid');
+        expect(ranked[2].contextRanks.find((r) => r.level === 'city')!.label).toBe('#3 de 3 en Valladolid');
     });
 
     it('como la Lista por defecto: sin bots ni sitios cerrados', () => {
