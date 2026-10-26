@@ -29,6 +29,28 @@ const readRecord = (): number => {
 
 const clampPlate = (x: number) => Math.max(PLATE_W / 2, Math.min(W - PLATE_W / 2, x));
 
+/** Croqueta de verdad: cilindro dorado con pan rallado (no hay emoji de croqueta). */
+function drawCroqueta(ctx: CanvasRenderingContext2D, x: number, y: number, scale = 1): void {
+    const w = 34 * scale;
+    const h = 18 * scale;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(-0.25);
+    const grad = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+    grad.addColorStop(0, '#f2b45a');
+    grad.addColorStop(0.55, '#c9792a');
+    grad.addColorStop(1, '#8a4b17');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(-w / 2, -h / 2, w, h, h / 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 226, 160, 0.75)';
+    for (const [cx, cy] of [[-10, -3], [-4, 2], [3, -4], [9, 1], [-1, -1], [12, -3], [-12, 2], [6, 4]]) {
+        ctx.fillRect(cx * scale, cy * scale, 1.6 * scale, 1.6 * scale);
+    }
+    ctx.restore();
+}
+
 function paint(canvas: HTMLCanvasElement | null, f: Frame): void {
     const ctx = canvas?.getContext('2d');
     if (!ctx) return;
@@ -36,13 +58,15 @@ function paint(canvas: HTMLCanvasElement | null, f: Frame): void {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.font = '30px system-ui, "Apple Color Emoji", "Segoe UI Emoji"';
-    f.drops.forEach((d) => ctx.fillText(d.bad ? '🌶️' : '🥟', d.x, d.y));
+    f.drops.forEach((d) => (d.bad ? ctx.fillText('🌶️', d.x, d.y) : drawCroqueta(ctx, d.x, d.y)));
     ctx.font = '44px system-ui, "Apple Color Emoji", "Segoe UI Emoji"';
     ctx.fillText('🍽️', f.plate, H - 30);
     ctx.font = '16px system-ui';
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.textAlign = 'left';
-    ctx.fillText(`🥟 ${f.score}`, 10, 18);
+    drawCroqueta(ctx, 20, 18, 0.55);
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText(`${f.score}`, 34, 18);
     ctx.textAlign = 'right';
     ctx.fillText('❤️'.repeat(Math.max(0, f.lives)), W - 10, 18);
 }
@@ -133,7 +157,7 @@ const CroquetaGame: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     };
 
     return (
-        <ChatSheet title="🥟 Atrapa la croqueta" onClose={onClose}>
+        <ChatSheet title="🧆 Atrapa la croqueta" onClose={onClose}>
             <div className="relative mx-auto mb-3 w-full max-w-[320px] overflow-hidden rounded-2xl border border-white/10" style={{ background: 'radial-gradient(circle at 50% 0%, var(--lt-accent-soft), transparent 70%), var(--lt-bg)' }}>
                 <canvas
                     ref={canvasRef}
@@ -148,11 +172,11 @@ const CroquetaGame: React.FC<{ onClose: () => void }> = ({ onClose }) => {
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/55 p-6 text-center">
                         {state === 'over' ? (
                             <>
-                                <p className="text-3xl font-black text-white">{score} 🥟</p>
+                                <p className="text-3xl font-black text-white">{score} 🧆</p>
                                 <p className="text-sm text-gray-300">{score >= record && score > 0 ? '¡Nuevo récord!' : `Tu récord: ${record}`}</p>
                             </>
                         ) : (
-                            <p className="text-sm text-gray-200">Mueve el plato con el dedo. Atrapa las croquetas 🥟, esquiva las guindillas 🌶️ y no dejes caer ninguna.</p>
+                            <p className="text-sm text-gray-200">Mueve el plato con el dedo. Atrapa las croquetas, esquiva las guindillas 🌶️ y no dejes caer ninguna.</p>
                         )}
                         <button type="button" onClick={start} className="rounded-xl bg-[var(--lt-accent)] px-6 py-2.5 text-sm font-bold text-white">
                             {state === 'over' ? 'Otra' : 'Jugar'}

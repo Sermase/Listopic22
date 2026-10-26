@@ -6,6 +6,7 @@ import { searchDishes } from '../../lib/chatDishSearch';
 import { dishRoute, type DishRef } from '../../lib/chatExtras';
 import { useLocation } from '../../hooks/useLocation';
 import { triggerHaptic } from '../../utils/haptics';
+import { RESPIN_EVENT } from '../../lib/surprises';
 
 /** Media de más de 8 (Algolia no tiene «mayor que» con decimales exactos: 8,01). */
 const MIN_SCORE = 8.01;
@@ -54,11 +55,20 @@ const ShakeRoulette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Agitar otra vez: otra vuelta con los mismos platos.
+    const respin = useRef<() => void>(() => undefined);
+    useEffect(() => { respin.current = () => { if (pool?.length && !spinning) spin(pool); }; });
+    useEffect(() => {
+        const onRespin = () => respin.current();
+        window.addEventListener(RESPIN_EVENT, onRespin);
+        return () => window.removeEventListener(RESPIN_EVENT, onRespin);
+    }, []);
+
     const route = shown && !spinning ? dishRoute(shown) : null;
 
     return (
         <ChatSheet title="📳 El destino ha hablado" onClose={onClose}>
-            <p className="mb-3 text-xs text-gray-400">Has agitado el móvil: un plato cerca con media de más de 8.</p>
+            <p className="mb-3 text-xs text-gray-400">Has agitado el móvil: un plato cerca con media de más de 8. Agita otra vez para otra vuelta.</p>
             {pool && pool.length === 0 ? (
                 <p className="py-4 text-center text-sm text-gray-300">Por aquí no hay nada de más de 8… todavía. 🤷</p>
             ) : (

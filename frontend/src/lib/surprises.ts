@@ -29,11 +29,11 @@ export interface SurpriseMeta {
 }
 
 export const SURPRISES: readonly SurpriseMeta[] = [
-    { id: 'perfectTen', emoji: '🎉', name: 'Lluvia del 10', how: 'Al valorar con un 10 llueve el emoji del plato.' },
-    { id: 'brokenPlate', emoji: '💥', name: 'Plato roto', how: 'Con un 0 o un 1, el plato cae y se rompe: «¡puaj!».' },
+    { id: 'perfectTen', emoji: '🎉', name: 'Lluvia del sobresaliente', how: 'Al valorar con un 9 o más llueve el emoji del plato.' },
+    { id: 'brokenPlate', emoji: '💥', name: 'Plato roto', how: 'Con un suspenso (menos de 5), el plato cae y se rompe: «¡puaj!».' },
     { id: 'spicy', emoji: '🌶️', name: 'Picante', how: 'Picante al máximo: la pantalla tiembla medio segundo.' },
     { id: 'lateNight', emoji: '🌙', name: 'Madrugada', how: 'Valorar pizza, kebab o comida de fiesta entre las 3 y las 7.' },
-    { id: 'croqueta', emoji: '🥟', name: 'Atrapa la croqueta', how: 'Tocar 7 veces seguidas el logo.' },
+    { id: 'croqueta', emoji: '🧆', name: 'Atrapa la croqueta', how: 'Tocar 7 veces seguidas el logo.' },
     { id: 'lostPlate', emoji: '🍽️', name: 'Plato perdido', how: 'Minijuego en la página de enlace roto (404).' },
     { id: 'shakeRoulette', emoji: '📳', name: 'Agitar = ruleta', how: 'Agitar el móvil en Inicio: plato cercano con media de más de 8.' },
     { id: 'tortilla', emoji: '⚔️', name: 'Encuesta de la tortilla', how: 'Buscar «tortilla con cebolla» o «sin cebolla».' },
@@ -82,6 +82,8 @@ export type SurpriseEffect =
     | { kind: 'tortilla'; side?: TortillaSide };
 
 export const SURPRISE_EVENT = 'listopic:surprise';
+/** Agitar otra vez con la ruleta abierta: otra vuelta. */
+export const RESPIN_EVENT = 'listopic:roulette-respin';
 
 export function fireSurprise(effect: SurpriseEffect): void {
     if (typeof window === 'undefined') return;
@@ -97,7 +99,7 @@ const DISH_EMOJI: ReadonlyArray<[RegExp, string]> = [
     [/brava|patata|fritas/, '🥔'],
     [/tortilla/, '🍳'],
     [/tarta|pastel|cheesecake/, '🍰'],
-    [/croqueta/, '🥟'],
+    [/croqueta/, '🧆'],
     [/sushi|maki|nigiri/, '🍣'],
     [/nacho|taco|burrito|mexican/, '🌮'],
     [/paella|arroz/, '🥘'],
@@ -163,13 +165,13 @@ export function reviewSurprises(input: ReviewSurpriseInput): ReviewSurprise[] {
     const { overallRating, criteria, scores, listName, itemName } = input;
     const now = input.now ?? new Date();
 
-    if (overallRating !== null && overallRating >= 10) {
+    if (overallRating !== null && overallRating >= 9) {
         out.push({
             id: 'perfectTen',
-            effect: { kind: 'rain', emoji: dishEmoji(listName, itemName), title: input.abuela ? '¡Así me gusta, que comas bien!' : '¡Un 10! Que lo sepa el mundo' },
+            effect: { kind: 'rain', emoji: dishEmoji(listName, itemName), title: input.abuela ? '¡Así me gusta, que comas bien!' : overallRating >= 9.95 ? '¡Un 10! Que lo sepa el mundo' : '¡Sobresaliente! Que lo sepa el mundo' },
         });
-    } else if (overallRating !== null && overallRating <= 1) {
-        out.push({ id: 'brokenPlate', effect: { kind: 'broken', title: input.abuela ? '¡Ay, hijo, qué disgusto!' : '¡Puaj!' } });
+    } else if (overallRating !== null && overallRating < 5) {
+        out.push({ id: 'brokenPlate', effect: { kind: 'broken', title: input.abuela ? '¡Ay, hijo, qué disgusto!' : '¡Suspenso! ¡Puaj!' } });
     }
 
     const spicyMax = criteria.some((c) => {

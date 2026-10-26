@@ -7,7 +7,7 @@ import { SURPRISES, fireSurprise, type SurpriseId } from '../../lib/surprises';
 /** Lo que «Probar» enseña en esta pantalla (sin publicar nada). */
 const PREVIEW: Partial<Record<SurpriseId, () => void>> = {
     perfectTen: () => fireSurprise({ kind: 'rain', emoji: '🍕', title: '¡Un 10! Que lo sepa el mundo' }),
-    brokenPlate: () => fireSurprise({ kind: 'broken' }),
+    brokenPlate: () => fireSurprise({ kind: 'broken', title: '¡Suspenso! ¡Puaj!' }),
     spicy: () => fireSurprise({ kind: 'shake' }),
     lateNight: () => fireSurprise({ kind: 'bubble', emoji: '🌙', text: '¿Kebab de madrugada? Aquí no juzgamos.' }),
     croqueta: () => fireSurprise({ kind: 'croqueta' }),

@@ -11,11 +11,14 @@ describe('sorpresas', () => {
         expect(dishEmoji('Algo raro')).toBe('😋');
     });
 
-    it('un 10 llueve y un 1 rompe el plato', () => {
+    it('desde el 9 llueve y con suspenso se rompe el plato', () => {
         const base = { criteria: [], scores: {}, listName: 'Tartas de queso', now: at(14) };
         expect(reviewSurprises({ ...base, overallRating: 10 }).map((s) => s.id)).toEqual(['perfectTen']);
         expect(reviewSurprises({ ...base, overallRating: 1 }).map((s) => s.id)).toEqual(['brokenPlate']);
+        expect(reviewSurprises({ ...base, overallRating: 9 }).map((s) => s.id)).toEqual(['perfectTen']);
+        expect(reviewSurprises({ ...base, overallRating: 4.9 }).map((s) => s.id)).toEqual(['brokenPlate']);
         expect(reviewSurprises({ ...base, overallRating: 7 })).toEqual([]);
+        expect(reviewSurprises({ ...base, overallRating: 5 })).toEqual([]);
     });
 
     it('picante al máximo', () => {

@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { useTheme } from '../../context/ThemeContext';
 import {
+    RESPIN_EVENT,
     SURPRISE_EVENT,
     fireSurprise,
     isSurpriseOn,
@@ -20,13 +21,13 @@ const TortillaPoll = lazy(() => import('./TortillaPoll'));
 
 const STYLES = `
 @keyframes lt-egg-fall { from { transform: translateY(-12vh) rotate(0deg); } to { transform: translateY(112vh) rotate(var(--spin)); } }
-@keyframes lt-egg-pop { 0% { opacity: 0; transform: translate(-50%, -8px) scale(.9); } 12% { opacity: 1; transform: translate(-50%, 0) scale(1); } 85% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -6px); } }
+@keyframes lt-egg-pop { 0% { opacity: 0; transform: translate(-50%, -8px) scale(.9); } 8% { opacity: 1; transform: translate(-50%, 0) scale(1); } 90% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -6px); } }
 @keyframes lt-egg-drop { 0% { transform: translate(-50%, -60vh) rotate(-20deg); } 70% { transform: translate(-50%, 0) rotate(8deg); } 100% { transform: translate(-50%, 0) rotate(0); } }
 @keyframes lt-egg-shard-l { to { transform: translate(-140%, 40px) rotate(-55deg); opacity: 0; } }
 @keyframes lt-egg-shard-r { to { transform: translate(40%, 50px) rotate(60deg); opacity: 0; } }
 @keyframes lt-egg-shake { 0%,100% { transform: translate(0,0); } 20% { transform: translate(-6px, 2px); } 40% { transform: translate(5px,-3px); } 60% { transform: translate(-4px, 3px); } 80% { transform: translate(3px,-2px); } }
 @keyframes lt-egg-heat { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
-.lt-egg-shaking #root { animation: lt-egg-shake 450ms linear 1; }
+.lt-egg-shaking #root { animation: lt-egg-shake 450ms linear 2; }
 `;
 
 interface Running {
@@ -38,7 +39,7 @@ const Bubble: React.FC<{ emoji: string; text: string }> = ({ emoji, text }) => (
     <div
         role="status"
         className="fixed left-1/2 z-[12000] flex w-max max-w-[min(92vw,26rem)] items-center gap-2 rounded-2xl border border-[var(--lt-accent-border)] bg-[var(--lt-card-strong)] px-4 py-3 text-sm font-semibold text-[var(--lt-text)] shadow-2xl"
-        style={{ top: 'calc(env(safe-area-inset-top) + 4.5rem)', animation: 'lt-egg-pop 4s ease-out forwards' }}
+        style={{ top: 'calc(env(safe-area-inset-top) + 4.5rem)', animation: 'lt-egg-pop 6.5s ease-out forwards' }}
     >
         <span className="text-2xl" aria-hidden="true">{emoji}</span>
         <span>{text}</span>
@@ -46,10 +47,10 @@ const Bubble: React.FC<{ emoji: string; text: string }> = ({ emoji, text }) => (
 );
 
 const Rain: React.FC<{ emoji: string; title?: string; still: boolean }> = ({ emoji, title, still }) => {
-    const [drops] = useState(() => Array.from({ length: 26 }, (_, i) => ({
+    const [drops] = useState(() => Array.from({ length: 40 }, (_, i) => ({
         left: Math.random() * 100,
-        delay: Math.random() * 0.7,
-        duration: 1.4 + Math.random() * 0.9,
+        delay: Math.random() * 2.2,
+        duration: 2.6 + Math.random() * 1.4,
         size: 22 + Math.random() * 20,
         spin: `${Math.round(Math.random() * 540 - 270)}deg`,
         key: i,
@@ -84,10 +85,10 @@ const Broken: React.FC<{ title?: string; still: boolean }> = ({ title, still }) 
     <>
         {!still && (
             <div className="pointer-events-none fixed inset-0 z-[11999]" aria-hidden="true">
-                <div className="absolute left-1/2 top-[38%] text-7xl" style={{ animation: 'lt-egg-drop 600ms cubic-bezier(.5,0,.75,0) forwards' }}>
+                <div className="absolute left-1/2 top-[38%] text-7xl" style={{ animation: 'lt-egg-drop 1100ms cubic-bezier(.5,0,.75,0) forwards' }}>
                     <span className="relative inline-block">
-                        <span className="inline-block" style={{ clipPath: 'inset(0 50% 0 0)', animation: 'lt-egg-shard-l 700ms 620ms ease-out forwards' }}>🍽️</span>
-                        <span className="absolute left-0 top-0 inline-block" style={{ clipPath: 'inset(0 0 0 50%)', animation: 'lt-egg-shard-r 700ms 620ms ease-out forwards' }}>🍽️</span>
+                        <span className="inline-block" style={{ clipPath: 'inset(0 50% 0 0)', animation: 'lt-egg-shard-l 1600ms 1120ms ease-out forwards' }}>🍽️</span>
+                        <span className="absolute left-0 top-0 inline-block" style={{ clipPath: 'inset(0 0 0 50%)', animation: 'lt-egg-shard-r 1600ms 1120ms ease-out forwards' }}>🍽️</span>
                     </span>
                 </div>
             </div>
@@ -100,7 +101,7 @@ const Heat: React.FC = () => (
     <div
         className="pointer-events-none fixed inset-0 z-[11999]"
         aria-hidden="true"
-        style={{ boxShadow: 'inset 0 0 120px 30px rgba(239, 68, 68, 0.55)', animation: 'lt-egg-heat 900ms ease-out forwards' }}
+        style={{ boxShadow: 'inset 0 0 120px 30px rgba(239, 68, 68, 0.55)', animation: 'lt-egg-heat 1800ms ease-out forwards' }}
     />
 );
 
@@ -135,18 +136,22 @@ export const SurpriseHost: React.FC = () => {
                 void triggerHaptic('heavy');
                 if (!prefersReducedMotion()) {
                     document.documentElement.classList.add('lt-egg-shaking');
-                    window.setTimeout(() => document.documentElement.classList.remove('lt-egg-shaking'), 500);
+                    window.setTimeout(() => document.documentElement.classList.remove('lt-egg-shaking'), 950);
                 }
             }
-            window.setTimeout(() => remove(key), effect.kind === 'shake' ? 1000 : 4200);
+            window.setTimeout(() => remove(key), effect.kind === 'shake' ? 1900 : 6700);
         };
         window.addEventListener(SURPRISE_EVENT, onSurprise);
         return () => window.removeEventListener(SURPRISE_EVENT, onSurprise);
     }, [remove]);
 
-    // Agitar el móvil en Inicio: la ruleta del destino.
-    const shakeOn = pathname === '/' && !sheet && isSurpriseOn(config, 'shakeRoulette');
-    useShake(shakeOn, () => fireSurprise({ kind: 'roulette' }));
+    // Agitar el móvil en Inicio: la ruleta del destino. Con la ruleta abierta, otra vuelta.
+    const rouletteOpen = sheet?.kind === 'roulette';
+    const shakeOn = ((pathname === '/' && !sheet) || rouletteOpen) && isSurpriseOn(config, 'shakeRoulette');
+    useShake(shakeOn, () => {
+        if (rouletteOpen) window.dispatchEvent(new Event(RESPIN_EVENT));
+        else fireSurprise({ kind: 'roulette' });
+    });
 
     // La abuela saluda una vez al día.
     useEffect(() => {
