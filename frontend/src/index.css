@@ -1485,6 +1485,28 @@ html.theme-light .lt-on-accent {
     font-size: 9px;
 }
 
+/* Círculos que agrupan chinchetas al alejar el zoom (createClusterIcon): color gradual según la media. */
+.lt-cluster {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: var(--cl-bg);
+    color: var(--cl-fg);
+    border: 3px solid #ffffff;
+    font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--cl-bg) 35%, transparent), 0 4px 14px rgba(15, 23, 42, 0.4);
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.leaflet-marker-icon:hover .lt-cluster {
+    transform: scale(1.08);
+}
+
 .lt-user-dot {
     position: relative;
     box-sizing: border-box;

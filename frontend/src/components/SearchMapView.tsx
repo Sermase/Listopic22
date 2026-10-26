@@ -6,6 +6,7 @@ import L from 'leaflet';
 import { Maximize2, Minimize2, LocateFixed, Loader2, Layers } from 'lucide-react';
 import { MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY, createMapPinIcon, createUserLocationIcon } from '../utils/mapUtils';
 import { MapPopupCard } from './map/MapPopupCard';
+import { ClusteredPins } from './map/ClusteredPins';
 import type { MapLayerId, MapLayerConfig } from '../utils/mapUtils';
 import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/placeStatus';
 import { NO_PUBLIC_RATING_LABEL, placeCardScore } from '../lib/placeRating';
@@ -166,6 +167,19 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
         [geoHits]
     );
 
+    const clusterPoints = useMemo(() => geoHits.map((hit) => {
+        const placeScore = activeTab === 'places' ? placeCardScore(hit, false) : null;
+        return {
+            hit,
+            id: hit.objectID,
+            lat: hit._geoloc.lat,
+            lng: hit._geoloc.lng,
+            score: placeScore ? (placeScore.avgRating ?? 0) : (hit.averageRating || hit.avgGeneralScore || 0),
+            // El elegido en la lista no se esconde dentro de un círculo.
+            alwaysVisible: hit.objectID === selectedHitId || hit.objectID === hoveredHitId,
+        };
+    }), [activeTab, geoHits, selectedHitId, hoveredHitId]);
+
     const layer = MAP_LAYERS[layerId] || MAP_LAYERS.dark;
     const height = mode === 'mini' ? 'h-44' : 'h-full';
 
@@ -285,7 +299,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                         />
                     )}
 
-                    {geoHits.map((hit) => {
+                    <ClusteredPins points={clusterPoints} renderPin={({ hit }) => {
                         const isPlace = activeTab === 'places';
                         // Sitios: solo la nota pública (personas); un sitio solo con bots va sin nota.
                         const placeScore = isPlace ? placeCardScore(hit, false) : null;
@@ -300,7 +314,6 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
 
                         return (
                             <Marker
-                                key={hit.objectID}
                                 position={[hit._geoloc.lat, hit._geoloc.lng]}
                                 icon={createMapPinIcon({ score: rating, highlighted: isHighlighted })}
                                 zIndexOffset={isHighlighted ? 1000 : 0}
@@ -322,7 +335,7 @@ export const SearchMapView: React.FC<SearchMapViewProps> = ({
                                 )}
                             </Marker>
                         );
-                    })}
+                    }} />
                 </MapContainer>
             )}
         </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Bookmark, Bell, Building2, ChevronRight, Dice5, Eye, Info, LifeBuoy, Menu, MessageSquare, PiggyBank, Plus, Search, SlidersHorizontal, Sparkles, User, X } from 'lucide-react';
+import { Bookmark, Bell, Building2, ChevronRight, Dice5, Eye, Info, LifeBuoy, Menu, MessageSquare, PiggyBank, Plus, Search, Settings, SlidersHorizontal, Sparkles, User, X } from 'lucide-react';
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig, useAppConfigLoading } from '../context/AppConfigContext';
@@ -316,6 +316,15 @@ export const Navbar: React.FC = () => {
                                 )}
                             </div>
                         )}
+
+                        <Link
+                            to="/preferencias"
+                            title="Preferencias"
+                            aria-label="Preferencias"
+                            className={`p-2.5 rounded-full transition-all duration-300 ${location.pathname === '/preferencias' ? 'text-[var(--lt-accent)] bg-[var(--lt-accent-soft)]' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-white/10'}`}
+                        >
+                            <Settings className="w-5 h-5" />
+                        </Link>
 
                         {user ? (
                             <Link to={`/profile/${user.uid}`} className="flex items-center gap-3 ml-2 group">

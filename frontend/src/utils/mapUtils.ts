@@ -1,5 +1,5 @@
 import L from 'leaflet';
-import { SCORE_BADGE, formatScore, scoreBand } from '../lib/scoreScale';
+import { SCORE_BADGE, formatScore, scoreBand, scoreGradient } from '../lib/scoreScale';
 
 // ─── Capas de mapa disponibles ────────────────────────────────────────────────
 export type MapLayerId = 'standard' | 'light' | 'dark' | 'satellite';
@@ -122,3 +122,20 @@ export const createUserLocationIcon = (): L.DivIcon => L.divIcon({
     iconSize: [16, 16],
     iconAnchor: [8, 8],
 });
+
+/**
+ * Círculo que agrupa chinchetas cercanas al alejar el mapa: el número es cuántas hay
+ * y el color sigue, de forma gradual, la nota media de las que tienen nota.
+ */
+export const createClusterIcon = (count: number, average: number | null): L.DivIcon => {
+    const { bg, fg } = scoreGradient(average);
+    const size = Math.round(Math.min(58, 34 + Math.log2(count) * 6));
+    const label = count > 999 ? '999+' : String(count);
+    const title = average ? `${count} sitios · media ${formatScore(Math.round(average * 10) / 10)}` : `${count} sitios`;
+    return L.divIcon({
+        html: `<div class="lt-cluster" style="--cl-bg:${bg};--cl-fg:${fg};width:${size}px;height:${size}px;font-size:${size >= 46 ? 15 : 13}px" title="${title}">${label}</div>`,
+        className: 'lt-pin-icon',
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2],
+    });
+};
