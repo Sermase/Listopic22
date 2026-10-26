@@ -24,7 +24,6 @@ import { useAuthPrompt } from '../context/AuthPromptContext';
 import { itemNameKey, resolvePlaceItemByName, reviewItemId, type PlaceItemLike } from '../lib/placeItems';
 
 import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
-import { FeaturedQuote } from '../components/FeaturedQuote';
 import { HelpTip } from '../components/HelpTip';
 
 
@@ -781,8 +780,6 @@ export const GroupPage: React.FC = () => {
                         />
                     )}
 
-                    {/* Una frase de la gente, antes de las notas (con una sola reseña, ya se ve abajo) */}
-                    {reviews.length > 1 && <FeaturedQuote reviews={reviews} onSeeAll={() => document.getElementById('resenas')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} />}
 
                     {/* 1. Detailed Stats (Refactored) */}
                     {stats && (stats.ponderable.length > 0 || stats.nonPonderable.length > 0) && (
