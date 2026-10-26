@@ -145,6 +145,33 @@ async function seed() {
     participants: ['ana', 'luis', 'eva'], type: 'group', groupName: 'Viaje a Riaño',
     unreadCount: { ana: 0, luis: 0, eva: 0 }, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
   });
+  // Chat de quedadas.spec.ts: quedada pasada con notas de luis y gerente; prolífica fue y aún no ha valorado.
+  await db.doc('chats/mesa').set({
+    participants: ['luis', 'gerente', 'prolifica'], type: 'group', groupName: 'La mesa',
+    unreadCount: { luis: 0, gerente: 0, prolifica: 0 }, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
+  });
+  await db.doc('chats/mesa/messages/tortillada').set({
+    text: '🍽️ Te invito a comer Tortilla de la mesa en Bar Medina', senderId: 'luis', type: 'invite', readBy: ['luis'],
+    createdAt: Timestamp.fromMillis(Date.now() - 3 * 86_400_000),
+    invite: {
+      itemName: 'Tortilla de la mesa', placeName: 'Bar Medina', placeId: 'p_med', listId: 'pruebas',
+      when: Date.now() - 2 * 86_400_000,
+      responses: { gerente: { status: 'yes', at: 1 }, prolifica: { status: 'yes', at: 2 } },
+    },
+  });
+  // …y una cena que viene, para invitar a alguien de fuera con el enlace.
+  await db.doc('chats/mesa/messages/cena').set({
+    text: '🍽️ Te invito a comer en Bar Medina', senderId: 'luis', type: 'invite', readBy: ['luis'],
+    createdAt: Timestamp.fromMillis(Date.now() - 86_400_000),
+    invite: { placeName: 'Bar Medina', placeId: 'p_med', when: Date.now() + 5 * 86_400_000, responses: {} },
+  });
+  for (const [userId, sabor, salsa, overallRating] of [['luis', 9, 8, 8.5], ['gerente', 6, 8, 7]]) {
+    await db.doc(`lists/pruebas/reviews/mesa_${userId}`).set({
+      userId, authorName: userId, placeId: 'p_med', itemName: 'Tortilla de la mesa', visibility: 'public', listId: 'pruebas',
+      establishmentName: 'Bar Medina', scores: { sabor, salsa }, overallRating, authorUserType: ['basico'],
+      createdAt: Timestamp.fromMillis(Date.now() - 86_400_000),
+    });
+  }
   await db.doc('chats/comilona/messages/quedada').set({
     text: '🍽️ Te invito a comer Bravas en Bar Uno', senderId: 'ana', type: 'invite', readBy: ['ana'],
     createdAt: Timestamp.fromMillis(Date.now() - 3 * 86_400_000),

@@ -19,7 +19,6 @@ import {
     inviteIsPast,
     mapsUrl,
     placeRoute,
-    reviewRoute,
     sameItemName,
     summarizePlaceDishes,
     type ChatInvite,
@@ -42,6 +41,10 @@ interface Props {
     onChangeDate: () => void;
     onAcceptProposal: (fromUid: string, when: number) => void;
     onCancel: () => void;
+    /** Valorar sin salir del chat. */
+    onRate: () => void;
+    /** Solo en grupos: compartir la quedada con un enlace para gente de fuera. */
+    onInviteOutside?: () => void;
 }
 
 const Section: React.FC<{ title: string; children: React.ReactNode; innerRef?: React.Ref<HTMLElement> }> = ({ title, children, innerRef }) => (
@@ -54,7 +57,7 @@ const Section: React.FC<{ title: string; children: React.ReactNode; innerRef?: R
 /** Todo sobre la quedada: quién va, el sitio, los platos y, después, las notas de la mesa. */
 export const EventSheet: React.FC<Props> = ({
     invite, messageId, senderId, uid, participants, personOf, focus, onClose,
-    onRespond, onProposeDate, onChangeDate, onAcceptProposal, onCancel,
+    onRespond, onProposeDate, onChangeDate, onAcceptProposal, onCancel, onRate, onInviteOutside,
 }) => {
     useBodyScrollLock(true);
     const panelRef = useSheetDismiss(onClose);
@@ -162,14 +165,19 @@ export const EventSheet: React.FC<Props> = ({
                                 : <button type="button" onClick={() => setConfirmCancel(true)} className="flex-1 py-2.5 rounded-2xl text-sm font-bold bg-white/5 text-gray-400">🚫 Cancelar</button>}
                         </div>
                     )}
+                    {open && onInviteOutside && (
+                        <button type="button" onClick={onInviteOutside} className="w-full mt-2 py-2.5 rounded-2xl text-sm font-semibold bg-white/5 hover:bg-white/10 text-gray-100">
+                            🔗 Invitar a alguien de fuera
+                        </button>
+                    )}
                     {past && going && !invite.cancelled && (
-                        <button type="button" onClick={() => go(reviewRoute(invite))} className="w-full mt-4 py-3 rounded-2xl text-sm font-bold bg-emerald-500 text-white">⭐ ¿Qué tal estaba? Valóralo</button>
+                        <button type="button" onClick={onRate} className="w-full mt-4 py-3 rounded-2xl text-sm font-bold bg-emerald-500 text-white">⭐ ¿Qué tal estaba? Valóralo</button>
                     )}
                 </div>
 
                 {past && !invite.cancelled && (
                     <Section title="🥊 Notas de la mesa" innerRef={duelRef}>
-                        <DuelTable invite={invite} attendees={groups.going} uid={uid} nameOf={(id) => personOf(id).name} placeReviews={place?.reviews || null} />
+                        <DuelTable invite={invite} attendees={groups.going} uid={uid} nameOf={(id) => personOf(id).name} placeReviews={place?.reviews || null} onRate={onRate} />
                     </Section>
                 )}
 
