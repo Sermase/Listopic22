@@ -71,7 +71,7 @@ const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, s
     const hasPanel = allItems.length > 1;
     const tagOptions = useMemo(() => {
         const counts = new Map<string, number>();
-        allItems.forEach((item) => item.tags?.forEach((tag) => counts.set(tag, (counts.get(tag) || 0) + 1)));
+        allItems.forEach((item) => item.lists?.forEach((tag) => counts.set(tag, (counts.get(tag) || 0) + 1)));
         return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).map(([tag]) => tag);
     }, [allItems]);
 
@@ -87,7 +87,7 @@ const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, s
 
     const activeFilters = (minScore > 0 ? 1 : 0) + (tag ? 1 : 0);
     const shown = useMemo(() => {
-        const list = allItems.filter((item) => (!minScore || (item.rating ?? 0) >= minScore) && (!tag || item.tags?.includes(tag)));
+        const list = allItems.filter((item) => (!minScore || (item.rating ?? 0) >= minScore) && (!tag || item.lists?.includes(tag)));
         const withDistance = list.map((item) => ({
             item,
             km: location ? distanceKm(location.latitude, location.longitude, item.lat!, item.lng!) : null,

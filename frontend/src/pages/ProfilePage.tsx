@@ -2589,7 +2589,7 @@ export const ProfilePage: React.FC = () => {
       <FullMapModal
         isOpen={isMapOpen}
         onClose={() => setIsMapOpen(false)}
-        title={isOwnProfile ? "Tus sitios" : `Sitios de ${profileShareTitle}`}
+        title={isOwnProfile ? "Tu mapa" : `Mapa de ${profile.username || profileShareTitle}`}
         subtitle={`${sortedProfileReviews.length} ${sortedProfileReviews.length === 1 ? "reseña" : "reseñas"}${hasMore ? " (cargando más…)" : ""}`}
         items={sortedProfileReviews.map(r => ({
           ...r,

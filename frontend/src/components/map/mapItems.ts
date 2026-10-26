@@ -16,7 +16,7 @@ export interface MapItem {
     /** Línea bajo el nombre en la ficha (si no, el nº de reseñas). */
     subtitle?: string;
     /** Listas o categorías del sitio, para el filtro del mapa grande. */
-    tags?: string[];
+    lists?: string[];
     items?: {
         name: string;
         score: number;
@@ -59,7 +59,8 @@ export const normalizeMapItems = (items: MapInputItem[]): MapItem[] => items.fla
         emoji: item.emoji,
         color: item.color,
         subtitle: item.subtitle,
-        tags: item.tags ?? (item.listName ? [item.listName] : undefined),
+        // Solo listas: el campo «tags» de una reseña son sus etiquetas (Vegetariano…), no su lista.
+        lists: item.lists ?? (item.listName ? [item.listName] : undefined),
         items: item.items
     }];
 });
