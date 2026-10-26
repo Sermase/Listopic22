@@ -405,7 +405,7 @@ export const Navbar: React.FC = () => {
                         ref={menuRef}
                         role="dialog"
                         aria-label="Menú"
-                        className="absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-[2rem] border-t border-[var(--lt-border)] bg-[var(--lt-card-strong)] px-4 pt-2 shadow-[0_-12px_40px_rgba(0,0,0,0.45)] animate-slide-up"
+                        className="lt-menu-sheet absolute inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-[2rem] border-t border-[var(--lt-border)] bg-[var(--lt-card-strong)] px-4 pt-2 shadow-[0_-12px_40px_rgba(0,0,0,0.45)] animate-slide-up"
                         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
                     >
                         <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-[var(--lt-border)]" aria-hidden="true" />
