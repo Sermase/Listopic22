@@ -636,6 +636,14 @@ describe('V6c · Enlace de invitación a un grupo', () => {
     await assertFails(setDoc(doc(as('carol'), 'chatInvites/robado1234'), { chatId: 'g1', groupName: 'Comilona', byName: 'Carol' }));
     await assertFails(setDoc(doc(as('bob'), 'chatInvites/noesel1234'), { chatId: 'g1', groupName: 'Comilona', byName: 'Bob' }));
   });
+
+  it('✅ bob comparte una quedada en el enlace; ❌ carol (de fuera) no la toca', async () => {
+    const quedada = { title: 'Bravas en Bar Uno', placeName: 'Bar Uno', when: 1_800_000_000_000 };
+    await assertSucceeds(updateDoc(doc(as('bob'), 'chatInvites/abcd2345ef'), { 'events.m1': quedada }));
+    await assertSucceeds(getDoc(doc(anon(), 'chatInvites/abcd2345ef')));
+    await assertFails(updateDoc(doc(as('carol'), 'chatInvites/abcd2345ef'), { 'events.m2': quedada }));
+    await assertFails(updateDoc(doc(as('bob'), 'chatInvites/abcd2345ef'), { events: 'no' }));
+  });
 });
 
 // ---------------------------------------------------------------------------

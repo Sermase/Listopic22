@@ -1020,12 +1020,15 @@ service cloud.firestore {
 
     // Vista previa pública del enlace de invitación a un grupo. Solo se lee
     // sabiendo el código; la crean o cambian los del grupo con el código vigente.
+    // `events`: las quedadas que se han compartido por fuera (/g/{código}?q=…).
     match /chatInvites/{code} {
       allow get: if true;
       allow list: if false;
       allow create, update: if isUser()
-                             && request.resource.data.keys().hasOnly(['chatId', 'groupName', 'byName', 'approval', 'createdAt'])
+                             && request.resource.data.keys().hasOnly(['chatId', 'groupName', 'byName', 'approval', 'createdAt', 'events'])
                              && request.resource.data.get('approval', false) is bool
+                             && request.resource.data.get('events', {}) is map
+                             && request.resource.data.get('events', {}).size() <= 20
                              && request.resource.data.chatId is string
                              && request.resource.data.groupName is string && request.resource.data.groupName.size() <= 60
                              && request.resource.data.byName is string && request.resource.data.byName.size() <= 80

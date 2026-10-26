@@ -4,7 +4,7 @@ import { useAppConfig } from '../context/AppConfigContext';
 import { isLabAppEnabled } from '../lib/labApps';
 import { ChatService, type Chat, type Message } from '../services/ChatService';
 import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, X, Users, User, ExternalLink, SquarePen, ChevronDown } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { doc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -36,15 +36,18 @@ import { PachoteCard } from '../components/chat/PachoteCard';
 import { PachotePanel } from '../components/chat/PachotePanel';
 import { PachoteSheet } from '../components/chat/PachoteSheet';
 import { PachoteService } from '../services/PachoteService';
+import { LazyAddReviewForm } from '../components/lazy';
 import {
     QUEDADA_MS,
     chatDayLabel,
     dishRoute,
     eventNoteText,
     formatWhen,
+    inviteTitle,
     isEmojiOnly,
     startOfDay,
     upcomingEvents,
+    type ChatInvite,
     type DishRef,
     type InviteStatus,
     type PlaceRef,
@@ -105,6 +108,8 @@ export const ChatsPage: React.FC = () => {
     const [toolsOpen, setToolsOpen] = useState(false);
     const [tool, setTool] = useState<ChatTool>(null);
     const [openEvent, setOpenEvent] = useState<{ id: string; focus?: 'duel' } | null>(null);
+    // Valorar la quedada sin salir del chat; al publicar se abren las notas de la mesa.
+    const [rating, setRating] = useState<{ id: string; invite: ChatInvite } | null>(null);
     const [pachoteOpen, setPachoteOpen] = useState<string | null>(null);
     const [fetchedEvent, setFetchedEvent] = useState<Message | null>(null);
     const [unseen, setUnseen] = useState(0);
@@ -285,6 +290,15 @@ export const ChatsPage: React.FC = () => {
         if (stale.length) ChatService.prunePastEvents(activeChat, stale).catch(() => undefined);
     }, [activeChat, activeChatObj?.events]);
 
+    // Llegar con ?q={id} (enlace de una quedada): se abre su ficha.
+    const [searchParams, setSearchParams] = useSearchParams();
+    const eventFromLink = searchParams.get('q');
+    useEffect(() => {
+        if (!eventFromLink || !activeChat) return;
+        setOpenEvent({ id: eventFromLink });
+        setSearchParams({}, { replace: true });
+    }, [eventFromLink, activeChat, setSearchParams]);
+
     // La quedada abierta: de los mensajes cargados o, si es antigua, leída aparte.
     const eventMessage = openEvent ? (messages.find((m) => m.id === openEvent.id) || (fetchedEvent?.id === openEvent.id ? fetchedEvent : null)) : null;
     useEffect(() => {
@@ -410,6 +424,30 @@ export const ChatsPage: React.FC = () => {
         void runChatAction(() => ChatService.respondInvite(activeChat, msg, me(), status, proposedAt));
     };
 
+    // La quedada compartida por fuera (/g/…?q=…) enseña la fecha buena aunque cambie.
+    const refreshPreview = (msg: Message, patch: Partial<ChatInvite>) => {
+        if (!msg.invite) return;
+        ChatService.refreshEventPreview(activeChatObj?.joinCode, { ...msg, invite: { ...msg.invite, ...patch } }).catch(() => undefined);
+    };
+
+    /** Enlace de la quedada para gente de fuera: al abrirlo se apuntan y entran al grupo. */
+    const inviteOutside = async (msg: Message) => {
+        if (!activeChatObj || !msg.invite) return;
+        try {
+            const url = buildPublicRouteUrl(await ChatService.shareEventLink(activeChatObj, msg, me().name));
+            const text = `🍽️ ${inviteTitle(msg.invite)} · ${formatWhen(msg.invite.when)}. ¿Te vienes?`;
+            if (navigator.share) {
+                await navigator.share({ title: inviteTitle(msg.invite), text, url }).catch(() => undefined);
+                return;
+            }
+            await navigator.clipboard.writeText(`${text} ${url}`);
+            showToast({ variant: 'success', message: 'Enlace copiado: pégalo en WhatsApp o donde quieras' });
+        } catch (error) {
+            console.error(error);
+            showToast({ variant: 'error', message: 'No se pudo crear el enlace.' });
+        }
+    };
+
     const findMessage = (id: string) => messages.find((m) => m.id === id) || (fetchedEvent?.id === id ? fetchedEvent : null);
 
     const renderMessage = (msg: Message, index: number) => {
@@ -470,6 +508,7 @@ export const ChatsPage: React.FC = () => {
                     personOf={personOf}
                     onOpen={(focus) => setOpenEvent({ id: msg.id!, focus })}
                     onRespond={(status) => respond(msg, status)}
+                    onRate={() => setRating({ id: msg.id!, invite: msg.invite! })}
                 />
             );
         } else if (msg.type === 'poll' && msg.poll) {
@@ -883,9 +922,11 @@ export const ChatsPage: React.FC = () => {
                     cta={tool.mode === 'change' ? 'Cambiar' : 'Proponer'}
                     initial={tool.mode === 'change' ? dateTool.invite.when : undefined}
                     onClose={() => setTool(null)}
-                    onSend={(when) => runChatAction(() => (tool.mode === 'change'
-                        ? ChatService.changeInviteDate(activeChat, dateTool, me(), when)
-                        : ChatService.respondInvite(activeChat, dateTool, me(), 'other', when)))}
+                    onSend={(when) => runChatAction(async () => {
+                        if (tool.mode !== 'change') return ChatService.respondInvite(activeChat, dateTool, me(), 'other', when);
+                        await ChatService.changeInviteDate(activeChat, dateTool, me(), when);
+                        refreshPreview(dateTool, { when });
+                    })}
                 />
             )}
             {user && activeChat && openEvent && eventMessage?.invite && eventMessage.id && (
@@ -901,8 +942,27 @@ export const ChatsPage: React.FC = () => {
                     onRespond={(status) => respond(eventMessage, status)}
                     onProposeDate={() => setTool({ kind: 'date', messageId: eventMessage.id!, mode: 'propose' })}
                     onChangeDate={() => setTool({ kind: 'date', messageId: eventMessage.id!, mode: 'change' })}
-                    onAcceptProposal={(from, when) => runChatAction(() => ChatService.changeInviteDate(activeChat, eventMessage, me(), when, from))}
-                    onCancel={() => runChatAction(() => ChatService.cancelInvite(activeChat, eventMessage, me()))}
+                    onAcceptProposal={(from, when) => runChatAction(async () => {
+                        await ChatService.changeInviteDate(activeChat, eventMessage, me(), when, from);
+                        refreshPreview(eventMessage, { when });
+                    })}
+                    onCancel={() => runChatAction(async () => {
+                        await ChatService.cancelInvite(activeChat, eventMessage, me());
+                        refreshPreview(eventMessage, { cancelled: true });
+                    })}
+                    onRate={() => { setOpenEvent(null); setRating({ id: eventMessage.id!, invite: eventMessage.invite! }); }}
+                    onInviteOutside={activeChatObj?.type === 'group' ? () => void inviteOutside(eventMessage) : undefined}
+                />
+            )}
+
+            {user && rating && (
+                <LazyAddReviewForm
+                    listId={rating.invite.listId || null}
+                    prefillPlaceId={rating.invite.placeId || undefined}
+                    prefillItemName={rating.invite.itemName || undefined}
+                    lockList={Boolean(rating.invite.listId)}
+                    onClose={() => setRating(null)}
+                    onSuccess={() => setOpenEvent({ id: rating.id, focus: 'duel' })}
                 />
             )}
 

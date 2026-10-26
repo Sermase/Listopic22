@@ -25,6 +25,7 @@ import {
     compact,
     eventNoteText,
     inviteTitle,
+    inviteIsPast,
     invitePreviewText,
     pinnedFromInvite,
     type ChatEventNote,
@@ -87,13 +88,34 @@ export interface Chat {
     pachote?: Record<string, ChatPachoteLink>;
 }
 
+/** Lo que ve de una quedada quien recibe el enlace, antes de entrar al grupo. */
+export interface JoinEventPreview {
+    title: string;
+    placeName?: string;
+    placeCity?: string;
+    imageUrl?: string;
+    when: number;
+    cancelled?: boolean;
+}
+
 /** Vista previa pública del enlace de invitación (chatInvites/{código}). */
 export interface JoinInvite {
     chatId: string;
     groupName: string;
     byName: string;
     approval?: boolean;
+    /** Quedadas compartidas por fuera con este enlace (/g/{código}?q={id}). */
+    events?: Record<string, JoinEventPreview>;
 }
+
+const eventPreview = (invite: ChatInvite): JoinEventPreview => compact({
+    title: inviteTitle(invite).slice(0, 120),
+    placeName: invite.placeName,
+    placeCity: invite.placeCity,
+    imageUrl: invite.imageUrl,
+    when: invite.when,
+    cancelled: invite.cancelled || undefined,
+});
 
 /** Solicitud para entrar a un grupo con aprobación (chats/{id}/joinRequests/{uid}). */
 export interface JoinRequest {
@@ -376,6 +398,40 @@ export const ChatService = {
     answerJoinRequest: async (chatId: string, request: JoinRequest, accept: boolean, by: { uid: string; name: string }) => {
         if (accept) await ChatService.addParticipant(chatId, request.uid, { ...by, targetName: request.name });
         await deleteDoc(doc(db, 'chats', chatId, 'joinRequests', request.uid));
+    },
+
+    /** Enlace para invitar a una quedada a gente de fuera: el del grupo (se crea si no hay) apuntando a la quedada. */
+    shareEventLink: async (chat: Chat, message: Message, byName: string): Promise<string> => {
+        if (!message.id || !message.invite) throw new Error('No es una quedada');
+        const code = chat.joinCode || await ChatService.createJoinLink(chat.id, chat.groupName || 'Grupo', byName, undefined, Boolean(chat.joinApproval));
+        const current = await ChatService.getJoinInvite(code);
+        const stale = Object.entries(current?.events || {})
+            .filter(([id, e]) => id !== message.id && (!e || typeof e.when !== 'number' || inviteIsPast(e)))
+            .map(([id]) => id);
+        await updateDoc(doc(db, 'chatInvites', code), {
+            [`events.${message.id}`]: eventPreview(message.invite),
+            ...Object.fromEntries(stale.map((id) => [`events.${id}`, deleteField()])),
+        });
+        return `/g/${code}?q=${message.id}`;
+    },
+
+    /** Si la quedada se compartió por fuera, su vista previa sigue la fecha nueva o la cancelación. */
+    refreshEventPreview: async (code: string | undefined, message: Message) => {
+        if (!code || !message.id || !message.invite) return;
+        const current = await ChatService.getJoinInvite(code);
+        if (!current?.events?.[message.id]) return;
+        await updateDoc(doc(db, 'chatInvites', code), { [`events.${message.id}`]: eventPreview(message.invite) });
+    },
+
+    /** «Me apunto» desde el enlace de la quedada, ya dentro del grupo. */
+    joinEventFromLink: async (chatId: string, messageId: string, user: { uid: string; name: string }) => {
+        const snap = await getDoc(doc(db, 'chats', chatId, 'messages', messageId));
+        if (!snap.exists()) return;
+        const message = { id: snap.id, ...snap.data() } as Message;
+        const invite = message.invite;
+        if (!invite || invite.cancelled || inviteIsPast(invite) || message.senderId === user.uid) return;
+        if (invite.responses?.[user.uid]?.status === 'yes') return;
+        await ChatService.respondInvite(chatId, message, user, 'yes');
     },
 
     /** Una reacción por persona; la misma otra vez la quita. */

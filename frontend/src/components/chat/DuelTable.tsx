@@ -16,6 +16,7 @@ import {
 /**
  * Las notas de la mesa cara a cara. Con plato: criterio a criterio (de su
  * lista). Sin plato: cada plato del sitio que haya valorado alguien de la mesa.
+ * A ciegas: las de los demás solo se ven después de valorar tú.
  */
 export const DuelTable: React.FC<{
     invite: ChatInvite;
@@ -23,7 +24,8 @@ export const DuelTable: React.FC<{
     uid: string;
     nameOf: (uid: string) => string;
     placeReviews: PlaceReviewLike[] | null;
-}> = ({ invite, attendees, uid, nameOf, placeReviews }) => {
+    onRate?: () => void;
+}> = ({ invite, attendees, uid, nameOf, placeReviews, onRate }) => {
     const [state, setState] = useState<{ loading: boolean; columns: string[]; rows: DuelRow[] }>({ loading: true, columns: [], rows: [] });
     const attendeesKey = attendees.join(',');
 
@@ -66,7 +68,25 @@ export const DuelTable: React.FC<{
     const missing = attendees.filter((a) => !state.columns.includes(a));
 
     if (state.loading) return <p className="text-sm text-gray-500 text-center py-4">Cargando notas…</p>;
-    if (!state.columns.length) return <p className="text-sm text-gray-400 text-center py-4">Nadie de la mesa lo ha valorado todavía. ¡Estrénate! 😋</p>;
+    if (!state.columns.includes(uid)) {
+        const others = state.columns.filter((c) => c !== uid);
+        return (
+            <div className="rounded-2xl bg-white/5 border border-white/10 p-4 text-center" data-testid="duel-locked">
+                <p className="text-3xl">🙈</p>
+                <p className="mt-1 text-sm font-bold text-white">
+                    {others.length ? `${others.length} de la mesa ya ${others.length === 1 ? 'ha' : 'han'} valorado` : 'Nadie de la mesa ha valorado todavía'}
+                </p>
+                <p className="mt-1 text-xs text-gray-400">
+                    {others.length
+                        ? `${others.map(nameOf).join(', ')}. Sus notas se destapan cuando pongas la tuya, a ciegas.`
+                        : 'Pon tu nota a ciegas: verás las de los demás según vayan valorando.'}
+                </p>
+                {onRate && (
+                    <button type="button" onClick={onRate} className="mt-3 w-full py-2.5 rounded-xl text-sm font-bold bg-emerald-500 text-white">⭐ Valorar y ver las notas</button>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div>

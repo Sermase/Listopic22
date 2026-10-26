@@ -1,6 +1,5 @@
 import React from 'react';
 import { ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { formatScore, scoreBadgeStyle } from '../../lib/scoreScale';
 import {
     countdownLabel,
@@ -8,7 +7,6 @@ import {
     formatTime,
     groupResponses,
     inviteIsPast,
-    reviewRoute,
     type ChatInvite,
     type InviteStatus,
 } from '../../lib/chatExtras';
@@ -22,11 +20,12 @@ interface Props {
     personOf: (uid: string) => Person;
     onOpen: (section?: 'duel') => void;
     onRespond: (status: InviteStatus) => void;
+    /** Valorar sin salir del chat. */
+    onRate: () => void;
 }
 
 /** La quedada en el chat: grande, con foto, quién va y responder de un toque. Toca para ver todo. */
-export const EventCard: React.FC<Props> = ({ invite, senderId, uid, participants, personOf, onOpen, onRespond }) => {
-    const navigate = useNavigate();
+export const EventCard: React.FC<Props> = ({ invite, senderId, uid, participants, personOf, onOpen, onRespond, onRate }) => {
     const past = inviteIsPast(invite);
     const isMine = senderId === uid;
     const groups = groupResponses(invite, senderId, participants);
@@ -107,7 +106,7 @@ export const EventCard: React.FC<Props> = ({ invite, senderId, uid, participants
 
                 {past && !invite.cancelled && going && (
                     <div className="flex gap-1.5 pt-1">
-                        <button type="button" onClick={stop(() => navigate(reviewRoute(invite)))} className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-emerald-500 text-white">⭐ Valorar</button>
+                        <button type="button" onClick={stop(onRate)} className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-emerald-500 text-white">⭐ Valorar</button>
                         <button type="button" onClick={stop(() => onOpen('duel'))} className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-white/10 text-gray-100">🥊 Notas de la mesa</button>
                     </div>
                 )}
