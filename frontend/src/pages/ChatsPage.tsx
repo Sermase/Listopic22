@@ -82,6 +82,8 @@ export const ChatsPage: React.FC = () => {
     const { chatId } = useParams();
     const [chats, setChats] = useState<Chat[]>([]);
     const [messages, setMessages] = useState<Message[]>([]);
+    // Hasta la primera respuesta no se pinta el chat «vacío» (si no, asoma un instante al abrirlo).
+    const [messagesLoaded, setMessagesLoaded] = useState(false);
     const [newMessage, setNewMessage] = useState('');
     const [activeChat, setActiveChat] = useState<string | null>(chatId || null);
     const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
@@ -188,9 +190,13 @@ export const ChatsPage: React.FC = () => {
         setPachoteOpen(null);
         setUnseen(0);
         setMessages([]);
+        setMessagesLoaded(false);
         lastCountRef.current = 0;
         pendingJumpRef.current = true;
-        const unsubscribe = ChatService.subscribeToMessages(activeChat, setMessages);
+        const unsubscribe = ChatService.subscribeToMessages(activeChat, (next) => {
+            setMessages(next);
+            setMessagesLoaded(true);
+        });
         if (user) ChatService.markChatAsRead(activeChat, user.uid).catch(console.error);
         return () => unsubscribe();
     }, [activeChat, user]);
@@ -691,7 +697,7 @@ export const ChatsPage: React.FC = () => {
 
                         <div className="relative flex-1 min-h-0">
                             <div ref={scrollRef} onScroll={onScroll} className="h-full overflow-y-auto px-3 pt-2 pb-4">
-                                {messages.length === 0 && (
+                                {messagesLoaded && messages.length === 0 && (
                                     <div className="h-full flex flex-col items-center justify-center text-center text-gray-500 px-6">
                                         <span className="text-5xl mb-3">👋</span>
                                         <p className="text-sm">Saluda, o invita a comer con el botón 🍽️.</p>
