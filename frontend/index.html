@@ -80,13 +80,15 @@
     (function () {
       try {
         var t = localStorage.getItem('listopic-theme');
-        var valid = ['dark', 'light', 'warm', 'cool', 'neon', 'graphite'];
+        var valid = ['dark', 'light', 'warm', 'cool', 'neon', 'graphite', 'abuela'];
         if (t && valid.indexOf(t) !== -1) {
           var html = document.documentElement;
           html.classList.remove('theme-dark', 'theme-light', 'theme-warm', 'theme-cool', 'theme-neon', 'theme-graphite');
+          // Abuela va encima del claro.
+          if (t === 'abuela') html.classList.add('theme-light');
           html.classList.add('theme-' + t);
           html.setAttribute('data-theme', t);
-          var bg = { dark: '#0b1021', light: '#faf8f4', warm: '#1a0f0c', cool: '#031a20', neon: '#12081a', graphite: '#050506' }[t];
+          var bg = { dark: '#0b1021', light: '#faf8f4', warm: '#1a0f0c', cool: '#031a20', neon: '#12081a', graphite: '#050506', abuela: '#fdf8ec' }[t];
           var meta = document.querySelector('meta[name="theme-color"]');
           if (meta && bg) meta.setAttribute('content', bg);
           document.documentElement.style.backgroundColor = bg;
