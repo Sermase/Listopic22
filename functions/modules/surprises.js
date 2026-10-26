@@ -219,7 +219,8 @@ async function earnedFromData() {
     const r = docSnap.data() || {};
     const uid = typeof r.userId === 'string' ? r.userId : '';
     if (!uid) return;
-    const list = lists.get(parts[1]) || {};
+    // Las de una Minilista se guardan en la lista madre, pero cuentan con la Minilista (como al valorar).
+    const list = (typeof r.sublistId === 'string' && lists.get(r.sublistId)) || lists.get(parts[1]) || {};
     const created = r.createdAt && typeof r.createdAt.toDate === 'function' ? r.createdAt.toDate() : null;
 
     const scores = r.scores && typeof r.scores === 'object' ? r.scores : {};
