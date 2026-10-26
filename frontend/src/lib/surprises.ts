@@ -195,6 +195,66 @@ export function reviewSurprises(input: ReviewSurpriseInput): ReviewSurprise[] {
     return out;
 }
 
+// ── La abuela (tema secreto) ────────────────────────────────────────────────
+
+/** Cada cuánto habla la abuela con su tema puesto (unos 2 minutos, con algo de azar). */
+export const ABUELA_EVERY_MS = { min: 100_000, max: 140_000 };
+
+export const ABUELA_LINES: readonly string[] = [
+    '¿Has comido? Estás en los huesos.',
+    'Ponte una chaqueta, que refresca.',
+    'Come pan, que llena.',
+    'Eso con un huevo frito está mejor.',
+    '¿Y pareja para cuándo?',
+    'Tanto móvil, tanto móvil… te vas a quedar ciego.',
+    'En mi época esto se hacía con una sartén y ya está.',
+    'Llévate un táper, que sobra mucho.',
+    'No me digas que no tienes hambre, que te conozco.',
+    'Cómete la fruta, que tiene vitaminas.',
+    'Muy bonito el restaurante, pero como en casa, en ningún sitio.',
+    '¿Quieres que te haga unas croquetas?',
+    'Endereza la espalda, que te vas a quedar chepa.',
+    'Abrígate los pies, que el frío entra por ahí.',
+    '¡Pero qué mayor estás!',
+    'Eso no es cenar, eso es picar.',
+    'Rebaña el plato, que el pan está para eso.',
+    'El domingo hay cocido. Que lo sepas.',
+    'Lo caro no siempre es lo bueno.',
+    'Un poquito más, que no te va a hacer daño.',
+    '¿Ya te vas? Si acabas de llegar.',
+    'A mí esas pizzas con piña no me las traigas.',
+    'Bebe agua, que no bebes nada.',
+    'Eso es plato para un pajarito.',
+    'No andes descalzo, que te enfrías.',
+    'Dile a tu madre que luego la llamo.',
+    'Te he guardado la mejor tajada.',
+    'Con lo delgadito que estás y comiendo por ahí…',
+    'La tortilla, con cebolla. Y no se hable más.',
+    'Toma, para un café. No se lo digas a nadie.',
+    'Llama cuando llegues, que me quedo con el corazón en un puño.',
+    'Eso es de bote, que yo lo noto.',
+    'El chorizo del pueblo es otra cosa.',
+    'No dejes nada en el plato, que eso es pecado.',
+    'Que no se te enfríe, que luego no está igual.',
+    '¿Una reseña? Lo que tienes que hacer es comer más.',
+    'Ese bar lo conocía yo cuando era una tienda de ultramarinos.',
+    'Si tienes sed, es que tienes hambre.',
+    'Antes de la siesta, una fruta. Después, lo que quieras.',
+    'Nada de pedir a domicilio, que te hago yo un caldito.',
+];
+
+/** Frase de la abuela sin repetir hasta agotar el repertorio. */
+export function abuelaLine(): string {
+    const KEY = 'listopic_abuela_dichas';
+    let said: number[] = [];
+    try { said = JSON.parse(localStorage.getItem(KEY) || '[]') as number[]; } catch { /* sin almacenamiento */ }
+    let left = ABUELA_LINES.map((_, i) => i).filter((i) => !said.includes(i));
+    if (!left.length) { said = []; left = ABUELA_LINES.map((_, i) => i); }
+    const i = pick(left);
+    try { localStorage.setItem(KEY, JSON.stringify([...said, i])); } catch { /* opcional */ }
+    return ABUELA_LINES[i];
+}
+
 // ── Buscador ────────────────────────────────────────────────────────────────
 
 export type PollId = 'tortilla' | 'pizza';
