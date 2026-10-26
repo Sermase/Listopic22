@@ -76,7 +76,7 @@ export const THEMES: ThemeMeta[] = [
         label: 'Grafito',
         mood: 'Negro · Lima',
         description: 'Negro puro con verde lima eléctrico. Ideal para pantallas OLED.',
-        preview: { bg: '#050506', card: '#141417', accent: '#84cc16', accent2: '#22d3ee', text: '#f4f4f5' },
+        preview: { bg: '#050506', card: '#141417', accent: '#65a30d', accent2: '#0891b2', text: '#f4f4f5' },
         statusBarStyle: 'dark',
     },
     {

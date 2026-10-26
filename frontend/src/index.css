@@ -728,10 +728,10 @@
     --lt-border: rgba(255, 255, 255, 0.08);
     --lt-border-strong: rgba(255, 255, 255, 0.16);
     --lt-nav-scrolled: rgba(20, 20, 23, 0.8);
-    --lt-accent: #84cc16;
-    --lt-accent-2: #22d3ee;
-    --lt-accent-grad: linear-gradient(135deg, #a3e635, #22d3ee);
-    --lt-accent-border: #bef264;
+    --lt-accent: #65a30d;
+    --lt-accent-2: #0891b2;
+    --lt-accent-grad: linear-gradient(135deg, #65a30d, #0891b2);
+    --lt-accent-border: #a3e635;
     --lt-accent-shadow: rgba(163, 230, 53, 0.45);
     --lt-accent-soft: rgba(163, 230, 53, 0.16);
     --lt-success: #34d399;
