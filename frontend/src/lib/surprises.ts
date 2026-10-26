@@ -221,22 +221,3 @@ export function tapCounter(count: number, windowMs: number, onHit: () => void): 
         }
     };
 }
-
-// ── Abuela ──────────────────────────────────────────────────────────────────
-
-export const ABUELA_BADGE = 'BIEN_COMIDO';
-export const SUNDAY_REVIEWS_KEY = 'listopic_sunday_reviews';
-
-/** Cuenta las valoraciones publicadas hoy si es domingo (en este móvil). */
-export function countSundayReview(now = new Date()): number {
-    if (now.getDay() !== 0) return 0;
-    const day = now.toDateString();
-    try {
-        const saved = JSON.parse(localStorage.getItem(SUNDAY_REVIEWS_KEY) || 'null') as { day?: string; n?: number } | null;
-        const n = (saved?.day === day ? saved.n ?? 0 : 0) + 1;
-        localStorage.setItem(SUNDAY_REVIEWS_KEY, JSON.stringify({ day, n }));
-        return n;
-    } catch {
-        return 0;
-    }
-}

@@ -1,4 +1,4 @@
-import { countSundayReview, fireSurprise, isSurpriseOn, reviewSurprises, type ReviewSurpriseInput } from '../../lib/surprises';
+import { fireSurprise, isSurpriseOn, reviewSurprises, type ReviewSurpriseInput } from '../../lib/surprises';
 import { claimSecretBadge, type SecretBadgeId } from '../../services/SurpriseService';
 
 const BADGE_FOR: Partial<Record<string, SecretBadgeId>> = {
@@ -20,8 +20,9 @@ export function celebrateReview(
             const badge = BADGE_FOR[s.id];
             if (badge && badges) void claimSecretBadge(badge);
         });
-    // Tres valoraciones en un domingo: «Bien comido» y el tema Abuela (lo comprueba el servidor).
-    if (isNew && badges && isSurpriseOn(config, 'abuela') && countSundayReview(input.now) >= 3) {
+    // Tres valoraciones en un domingo: «Bien comido» y el tema Abuela. Las cuenta el servidor
+    // en toda la cuenta (valen las de otros dispositivos), así que se pregunta en cada una.
+    if (isNew && badges && isSurpriseOn(config, 'abuela') && (input.now ?? new Date()).getDay() === 0) {
         void claimSecretBadge('BIEN_COMIDO');
     }
 }
