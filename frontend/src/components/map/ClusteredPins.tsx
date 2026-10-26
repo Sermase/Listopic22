@@ -37,15 +37,29 @@ function buildClusters<T extends ClusterPoint>(map: L.Map, points: T[], zoom: nu
     // Primero las de más nota: son las que «tiran» del grupo y le dan su sitio.
     pool.sort((a, b) => (b.point.score ?? 0) - (a.point.score ?? 0));
     const used = new Array(pool.length).fill(false);
+    // Rejilla del tamaño del radio: cada chincheta solo mira sus 9 casillas, no todas las demás.
+    const cell = (v: number) => Math.floor(v / CLUSTER_RADIUS_PX);
+    const grid = new Map<string, number[]>();
+    pool.forEach(({ px }, index) => {
+        const key = `${cell(px.x)}:${cell(px.y)}`;
+        const bucket = grid.get(key);
+        if (bucket) bucket.push(index); else grid.set(key, [index]);
+    });
     const clusters: Cluster<T>[] = [];
     for (let i = 0; i < pool.length; i++) {
         if (used[i]) continue;
         used[i] = true;
         const group = [pool[i]];
-        for (let j = i + 1; j < pool.length; j++) {
-            if (!used[j] && pool[i].px.distanceTo(pool[j].px) <= CLUSTER_RADIUS_PX) {
-                used[j] = true;
-                group.push(pool[j]);
+        const cx = cell(pool[i].px.x);
+        const cy = cell(pool[i].px.y);
+        for (let dx = -1; dx <= 1; dx++) {
+            for (let dy = -1; dy <= 1; dy++) {
+                for (const j of grid.get(`${cx + dx}:${cy + dy}`) ?? []) {
+                    if (!used[j] && pool[i].px.distanceTo(pool[j].px) <= CLUSTER_RADIUS_PX) {
+                        used[j] = true;
+                        group.push(pool[j]);
+                    }
+                }
             }
         }
         if (group.length === 1) {
