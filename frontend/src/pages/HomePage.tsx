@@ -799,7 +799,7 @@ export const HomePage: React.FC = () => {
                     const existing = uniquePlaces.get(r.placeId);
                     existing.reviewsCount = (existing.reviewsCount || 0) + 1;
                     const listName = ((r as { listName?: string }).listName || '').trim();
-                    if (listName && existing.tags && !existing.tags.includes(listName)) existing.tags.push(listName);
+                    if (listName && existing.lists && !existing.lists.includes(listName)) existing.lists.push(listName);
                     if (!existing.photoUrl && (r.placeMainImage || r.photoUrl)) {
                         existing.photoUrl = r.placeMainImage || r.photoUrl;
                     }
@@ -819,7 +819,7 @@ export const HomePage: React.FC = () => {
                         closedStatus: (r as any).placeClosedStatus || null,
                         lat, lng,
                         items: [], // Can populate if needed
-                        tags: [((r as { listName?: string }).listName || '').trim()].filter(Boolean),
+                        lists: [((r as { listName?: string }).listName || '').trim()].filter(Boolean),
                         // Sacado de una reseña: su nota puede ser la de esa reseña, no la media pública.
                         fromReviews: true
                     });
@@ -1477,7 +1477,7 @@ export const HomePage: React.FC = () => {
                             <FullMapModal
                                 isOpen={isMapOpen}
                                 onClose={() => setIsMapOpen(false)}
-                                title={areaFilter.kind === 'near' ? 'Cerca de ti' : areaFilter.value}
+                                title={areaFilter.kind === 'near' ? 'Mapa cerca de ti' : `Mapa de ${areaFilter.value}`}
                                 subtitle={`${filteredPlaces.length} ${filteredPlaces.length === 1 ? 'sitio' : 'sitios'}${areaFilter.kind === 'near' && range && location ? ` a menos de ${range} km` : ''}`}
                                 items={filteredPlaces}
                                 range={areaFilter.kind === 'near' && location ? range : null}
