@@ -14,6 +14,9 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { whenMapSized } from '../lib/mapMotion';
 import { formatScore, scoreTextColor } from '../lib/scoreScale';
+import { ClusteredPins, CLUSTER_MAX_ZOOM } from './map/ClusteredPins';
+import { normalizeMapItems } from './map/mapItems';
+import type { MapItem, MapInputItem } from './map/mapItems';
 
 const USER_LOCATION_ICON = createUserLocationIcon();
 
@@ -98,38 +101,7 @@ const CustomLocateControl = () => {
     );
 };
 
-// Add placeId to MapItem interface (Line 85)
-export interface MapItem {
-    id: string;
-    placeId?: string; // Added field
-    lat?: number;
-    lng?: number;
-    name: string;
-    photoUrl?: string;
-    rating?: number;
-    reviewsCount?: number;
-    emoji?: string;
-    color?: string;
-    /** Línea bajo el nombre en la ficha (si no, el nº de reseñas). */
-    subtitle?: string;
-    items?: {
-        name: string;
-        score: number;
-    }[];
-}
-
-interface MapInputItem extends Partial<MapItem> {
-    latitude?: number;
-    longitude?: number;
-    placeName?: string;
-    placeMainImage?: string;
-    mainImageUrl?: string;
-    placeAverageRating?: number;
-    overallRating?: number;
-    avgRating?: number;
-    reviewCount?: number;
-    count?: number;
-}
+export type { MapItem, MapInputItem } from './map/mapItems';
 
 interface MapViewProps {
     items: MapInputItem[];
@@ -139,6 +111,28 @@ interface MapViewProps {
     showLayerControl?: boolean;
     /** Zoom con la rueda del ratón (en el mapa a pantalla completa). */
     scrollWheelZoom?: boolean;
+    /** Sitio elegido en la lista del mapa grande: el mapa va hasta él y abre su ficha. */
+    focusId?: string | null;
+    /** Cambia con cada toque en la lista, para volver al mismo sitio dos veces. */
+    focusNonce?: number;
+}
+
+// Vuela hasta el sitio elegido y abre su ficha cuando su chincheta ya está suelta.
+function FocusOnItem({ item, nonce, markers }: { item: MapItem | null; nonce?: number; markers: React.MutableRefObject<Map<string, L.Marker>> }) {
+    const map = useMap();
+    useEffect(() => {
+        if (!item) return;
+        let cancelled = false;
+        const open = () => {
+            if (cancelled) return;
+            // El grupo se deshace al acabar el zoom: la chincheta aparece en el siguiente pintado.
+            setTimeout(() => { if (!cancelled) markers.current.get(item.id)?.openPopup(); }, 60);
+        };
+        map.once('moveend', open);
+        map.flyTo([item.lat!, item.lng!], Math.max(map.getZoom(), CLUSTER_MAX_ZOOM), { duration: 0.8 });
+        return () => { cancelled = true; map.off('moveend', open); };
+    }, [item, nonce, map, markers]);
+    return null;
 }
 
 // Aplica un filtro CSS al tile pane del mapa (para capas claras/oscuras)
@@ -215,7 +209,7 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
 
 const DEFAULT_CENTER: [number, number] = [40.416, -3.703];
 
-export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center = DEFAULT_CENTER, range = null, showLayerControl = true, scrollWheelZoom = false }) => {
+export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center = DEFAULT_CENTER, range = null, showLayerControl = true, scrollWheelZoom = false, focusId = null, focusNonce }) => {
 
     const { location } = useLocation();
     const { user, isJefe } = useAuth();
@@ -270,34 +264,21 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
     };
 
     const activeLayer = MAP_LAYERS[currentLayer];
+    const markerRefs = useRef(new Map<string, L.Marker>());
 
     // Normalize Items based on input to match Interface. Memorizado: la
     // ubicación es compartida y cada cambio (p. ej. «buscando…») re-renderiza
     // el mapa; sin esto MapUpdater re-encuadraría y anularía «Centrar en mi
     // ubicación».
-    const validItems: MapItem[] = useMemo(() => items.flatMap((item, index) => {
-        const lat = item.lat ?? item.latitude;
-        const lng = item.lng ?? item.longitude;
-
-        if (typeof lat !== 'number' || typeof lng !== 'number' || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-            return [];
-        }
-
-        return [{
-            id: item.id ?? item.placeId ?? `map-item-${index}-${lat}-${lng}`,
-            placeId: item.placeId, // Preserve placeId
-            lat,
-            lng,
-            name: item.name ?? item.placeName ?? 'Lugar desconocido',
-            photoUrl: item.photoUrl ?? item.placeMainImage ?? item.mainImageUrl,
-            rating: item.rating ?? item.placeAverageRating ?? item.overallRating ?? item.avgRating ?? 0,
-            reviewsCount: item.reviewsCount ?? item.reviewCount ?? item.count ?? 0,
-            emoji: item.emoji,
-            color: item.color,
-            subtitle: item.subtitle,
-            items: item.items
-        }];
-    }), [items]);
+    const validItems: MapItem[] = useMemo(() => normalizeMapItems(items), [items]);
+    const clusterPoints = useMemo(() => validItems.map((item) => ({
+        ...item,
+        lat: item.lat!,
+        lng: item.lng!,
+        score: item.rating,
+        alwaysVisible: sponsoredCampaigns.has(item.placeId || item.id),
+    })), [validItems, sponsoredCampaigns]);
+    const focusItem = useMemo(() => (focusId ? validItems.find((item) => item.id === focusId) ?? null : null), [focusId, validItems]);
     const [centerLat, centerLng] = center;
     const stableCenter = useMemo<[number, number]>(() => [centerLat, centerLng], [centerLat, centerLng]);
 
@@ -325,13 +306,15 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                 <CustomLocateControl />
                 {showLayerControl && <LayerSelectorControl currentLayer={currentLayer} onLayerChange={handleLayerChange} />}
 
-                {validItems.map((item) => {
+                <FocusOnItem item={focusItem} nonce={focusNonce} markers={markerRefs} />
+
+                <ClusteredPins points={clusterPoints} renderPin={(item) => {
                     const campaignIds = sponsoredCampaigns.get(item.placeId || item.id) || [];
                     const isSponsored = campaignIds.length > 0;
                     return (
                     <Marker
-                        key={item.id}
-                        position={[item.lat!, item.lng!]}
+                        ref={(marker) => { if (marker) markerRefs.current.set(item.id, marker); else markerRefs.current.delete(item.id); }}
+                        position={[item.lat, item.lng]}
                         icon={createMapPinIcon({ score: item.rating, emoji: item.emoji, color: item.color, sponsored: isSponsored })}
                         eventHandlers={{
                             popupopen: () => {
@@ -375,7 +358,7 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                         </Popup>
                     </Marker>
                     );
-                })}
+                }} />
             </MapContainer>
         </div>
     );

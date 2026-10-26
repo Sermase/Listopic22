@@ -810,6 +810,8 @@ export const HomePage: React.FC = () => {
                 if (uniquePlaces.has(r.placeId)) {
                     const existing = uniquePlaces.get(r.placeId);
                     existing.reviewsCount = (existing.reviewsCount || 0) + 1;
+                    const listName = ((r as { listName?: string }).listName || '').trim();
+                    if (listName && existing.tags && !existing.tags.includes(listName)) existing.tags.push(listName);
                     if (!existing.photoUrl && (r.placeMainImage || r.photoUrl)) {
                         existing.photoUrl = r.placeMainImage || r.photoUrl;
                     }
@@ -829,6 +831,7 @@ export const HomePage: React.FC = () => {
                         closedStatus: (r as any).placeClosedStatus || null,
                         lat, lng,
                         items: [], // Can populate if needed
+                        tags: [((r as { listName?: string }).listName || '').trim()].filter(Boolean),
                         // Sacado de una reseña: su nota puede ser la de esa reseña, no la media pública.
                         fromReviews: true
                     });

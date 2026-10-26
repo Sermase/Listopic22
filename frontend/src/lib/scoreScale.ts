@@ -90,3 +90,38 @@ export function formatScore(score: unknown): string {
     if (typeof score !== 'number' || !Number.isFinite(score)) return '—';
     return Number.isInteger(score) ? String(score) : score.toFixed(1);
 }
+
+/** Paradas del degradado continuo: los mismos colores de las chapas, pero sin saltos entre tramos. */
+const SCORE_GRADIENT_STOPS: [number, string][] = [
+    [0, SCORE_BADGE.bad.bg],
+    [3, SCORE_BADGE.low.bg],
+    [5, SCORE_BADGE.ok.bg],
+    [7, SCORE_BADGE.good.bg],
+    [9, SCORE_BADGE.top.bg],
+];
+
+const hexToRgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+
+/**
+ * Color gradual para una media (círculos que agrupan chinchetas): un 6,2 cae entre
+ * el amarillo del 5 y el verde del 7. Sin nota, gris. El texto va blanco u oscuro según el fondo.
+ */
+export function scoreGradient(score: unknown): { bg: string; fg: string } {
+    if (typeof score !== 'number' || !Number.isFinite(score) || score <= 0) return SCORE_BADGE.none;
+    const s = Math.min(score, 10);
+    let rgb = hexToRgb(SCORE_GRADIENT_STOPS[SCORE_GRADIENT_STOPS.length - 1][1]);
+    for (let i = 1; i < SCORE_GRADIENT_STOPS.length; i++) {
+        const [hi, hiColor] = SCORE_GRADIENT_STOPS[i];
+        if (s > hi) continue;
+        const [lo, loColor] = SCORE_GRADIENT_STOPS[i - 1];
+        const t = (s - lo) / (hi - lo);
+        const a = hexToRgb(loColor);
+        const b = hexToRgb(hiColor);
+        rgb = a.map((v, k) => Math.round(v + (b[k] - v) * t));
+        break;
+    }
+    const [r, g, b] = rgb;
+    // Luminancia aproximada: con fondos claros (amarillo, verde claro) el número va oscuro.
+    const light = (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.6;
+    return { bg: `rgb(${r}, ${g}, ${b})`, fg: light ? '#0f172a' : '#ffffff' };
+}
