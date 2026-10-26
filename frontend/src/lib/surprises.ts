@@ -34,7 +34,7 @@ export const SURPRISES: readonly SurpriseMeta[] = [
     { id: 'brokenPlate', emoji: '💥', name: 'Plato roto', how: 'Con un suspenso (menos de 5), el plato cae y se rompe: «¡puaj!».' },
     { id: 'spicy', emoji: '🌶️', name: 'Picante', how: 'Picante al máximo: la pantalla tiembla medio segundo.' },
     { id: 'lateNight', emoji: '🌙', name: 'Madrugada', how: 'Valorar pizza, kebab o comida de fiesta entre las 3 y las 7.' },
-    { id: 'croqueta', emoji: '🧆', name: 'Atrapa la croqueta', how: 'Tocar 7 veces seguidas el logo.' },
+    { id: 'croqueta', emoji: '🧆', name: 'Atrapa la croqueta', how: 'Tocar 7 veces seguidas la imagen de Istari Core.' },
     { id: 'lostPlate', emoji: '🍽️', name: 'Plato perdido', how: 'Minijuego en la página de enlace roto (404).' },
     { id: 'shakeRoulette', emoji: '📳', name: 'Agitar = ruleta', how: 'Agitar el móvil en Inicio: plato cercano con media de más de 8.' },
     { id: 'tortilla', emoji: '⚔️', name: 'Encuesta de la tortilla', how: 'Buscar «tortilla»: ¿con o sin cebolla?' },
@@ -238,7 +238,7 @@ export const isAnsieviQuery = (query: string): boolean => foldText(query).trim()
 /** Pase para abrir el Baile de los apegos aunque el laboratorio esté oculto. */
 export const LAB_EGG_KEY = 'listopic_lab_egg';
 
-// ── Toques seguidos (logo) ──────────────────────────────────────────────────
+// ── Toques seguidos (imagen de Istari Core) ──────────────────────────────────────────────────
 
 /** Devuelve una función que cuenta toques y avisa al llegar a `count` en `windowMs`. */
 export function tapCounter(count: number, windowMs: number, onHit: () => void): () => void {
