@@ -16,7 +16,7 @@ import { isTrackableAnalyticsPath } from '../services/AnalyticsService';
 import { useManagedBusinesses } from '../hooks/useManagedBusinesses';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { useUnreadChats } from '../hooks/useUnreadChats';
-import { barTabs, NAV_TABS, useNavOrder } from '../lib/navTabs';
+import { barTabs, NAV_TABS, useNavOrder, OPEN_MENU_EVENT } from '../lib/navTabs';
 import { isLabAppEnabled } from '../lib/labApps';
 import { PACHOTE_URL } from '../lib/pachote';
 import { PachoteService } from '../services/PachoteService';
@@ -106,6 +106,11 @@ export const Navbar: React.FC = () => {
     const activeLogoUrl = themeLogoUrls[theme] || config.logoUrl;
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useSheetDismiss(() => setIsMenuOpen(false), isMenuOpen);
+    useEffect(() => {
+        const open = () => setIsMenuOpen(true);
+        window.addEventListener(OPEN_MENU_EVENT, open);
+        return () => window.removeEventListener(OPEN_MENU_EVENT, open);
+    }, []);
     const [scrolled, setScrolled] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);
     const [notificationPanelMode, setNotificationPanelMode] = useState<'desktop' | 'mobile'>('desktop');
