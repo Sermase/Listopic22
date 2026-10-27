@@ -43,6 +43,8 @@ function useHoldSwipeUpMenu(bar: React.RefObject<HTMLElement | null>, enabled: b
         };
         const start = (e: TouchEvent) => {
             stop();
+            // El navegador no siempre manda el clic tras un gesto: que no se coma el próximo toque.
+            swallowClick = false;
             if (e.touches.length !== 1) return;
             x0 = e.touches[0].clientX;
             y0 = e.touches[0].clientY;
