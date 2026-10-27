@@ -33,6 +33,7 @@ import { findSameElementReview } from '../lib/reviewUniqueness';
 import { useAppConfig } from '../context/AppConfigContext';
 import { useTheme } from '../context/ThemeContext';
 import { celebrateReview } from './surprises/celebrateReview';
+import { haptic } from '../utils/haptics';
 
 interface AddReviewFormProps {
     listId: string | null;
@@ -1053,6 +1054,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             if (finalPlaceId) queryClient.invalidateQueries({ queryKey: ['placeDetails', finalPlaceId], refetchType: 'none' });
             if (finalListId) queryClient.invalidateQueries({ queryKey: ['doc', 'lists', finalListId], refetchType: 'none' });
 
+            haptic('success');
             showToast({
                 variant: 'success',
                 title: isNew ? (abuela ? '¡Muy bien, hijo!' : 'Reseña publicada') : 'Cambios guardados',

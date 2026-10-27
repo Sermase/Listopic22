@@ -3,6 +3,7 @@ import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firest
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useAuthPrompt } from '../context/AuthPromptContext';
+import { haptic } from '../utils/haptics';
 
 export const useLike = (listId: string, initialCount: number = 0) => {
     const { user } = useAuth();
@@ -48,6 +49,7 @@ export const useLike = (listId: string, initialCount: number = 0) => {
         const previousState = isLiked;
 
         setIsLiked(!isLiked);
+        haptic(isLiked ? 'light' : 'medium');
         setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
         setLoading(true);
 

@@ -79,6 +79,3 @@ export function saveNavOrder(order: NavTabId[] | null) {
     } catch { /* sin almacenamiento: se queda el de por defecto */ }
     window.dispatchEvent(new Event(EVENT));
 }
-
-/** Mantener pulsada la barra de abajo y deslizar hacia arriba abre el menú (lo escucha Navbar). */
-export const OPEN_MENU_EVENT = 'listopic:open-menu';

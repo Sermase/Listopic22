@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Bookmark, Bell, Building2, ChevronRight, Dice5, Eye, Info, LifeBuoy, Menu, MessageSquare, PiggyBank, Plus, Search, Settings, SlidersHorizontal, Sparkles, User, X } from 'lucide-react';
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
@@ -16,7 +16,8 @@ import { isTrackableAnalyticsPath } from '../services/AnalyticsService';
 import { useManagedBusinesses } from '../hooks/useManagedBusinesses';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { useUnreadChats } from '../hooks/useUnreadChats';
-import { barTabs, NAV_TABS, useNavOrder, OPEN_MENU_EVENT } from '../lib/navTabs';
+import { barTabs, NAV_TABS, useNavOrder } from '../lib/navTabs';
+import { CLOSE_MENU_EVENT, OPEN_MENU_EVENT, registerMenuPanel } from '../lib/menuDrag';
 import { isLabAppEnabled } from '../lib/labApps';
 import { PACHOTE_URL } from '../lib/pachote';
 import { PachoteService } from '../services/PachoteService';
@@ -105,11 +106,21 @@ export const Navbar: React.FC = () => {
     };
     const activeLogoUrl = themeLogoUrls[theme] || config.logoUrl;
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const menuRef = useSheetDismiss(() => setIsMenuOpen(false), isMenuOpen);
+    const sheetRef = useSheetDismiss(() => setIsMenuOpen(false), isMenuOpen);
+    // El panel también lo mueve la barra de abajo al subir el menú con el dedo (lib/menuDrag).
+    const menuRef = useCallback((el: HTMLDivElement | null) => {
+        sheetRef(el);
+        registerMenuPanel(el);
+    }, [sheetRef]);
     useEffect(() => {
         const open = () => setIsMenuOpen(true);
+        const close = () => setIsMenuOpen(false);
         window.addEventListener(OPEN_MENU_EVENT, open);
-        return () => window.removeEventListener(OPEN_MENU_EVENT, open);
+        window.addEventListener(CLOSE_MENU_EVENT, close);
+        return () => {
+            window.removeEventListener(OPEN_MENU_EVENT, open);
+            window.removeEventListener(CLOSE_MENU_EVENT, close);
+        };
     }, []);
     const [scrolled, setScrolled] = useState(false);
     const [showNotifications, setShowNotifications] = useState(false);

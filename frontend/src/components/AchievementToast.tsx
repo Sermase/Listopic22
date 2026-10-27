@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Award, X } from 'lucide-react';
+import { haptic } from '../utils/haptics';
 
 interface AchievementToastProps {
     isVisible: boolean;
@@ -37,7 +38,7 @@ export const AchievementToast: React.FC<AchievementToastProps> = ({
                         colors: ['#FFD700', '#FFA500', '#FF8C00']
                     });
                 });
-                if (navigator.vibrate) navigator.vibrate([20, 10, 20]);
+                haptic('success');
             }, 50);
             const t2 = window.setTimeout(() => setPhase('leaving'), 5000);
             const t3 = window.setTimeout(() => {
