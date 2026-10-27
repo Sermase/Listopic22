@@ -36,6 +36,24 @@ function onPopState(event: PopStateEvent) {
 /** Hay alguna ventana abierta: «atrás» de Android debe cerrarla, no salir de la app. */
 export const hasOpenSheet = () => stack.length > 0;
 
+// Con una ventana abierta, deslizar hacia abajo no recarga la página (el «tirar para
+// actualizar» de Chrome sacaba de la ventana). Solo cuenta en <html>, no en <body>.
+let locks = 0;
+const PTR_CLASS = 'lt-no-pull-refresh';
+
+/** Bloquea el «tirar para actualizar» mientras `active`. */
+export function useNoPullToRefresh(active: boolean): void {
+    useEffect(() => {
+        if (!active || typeof document === 'undefined') return;
+        locks += 1;
+        document.documentElement.classList.add(PTR_CLASS);
+        return () => {
+            locks -= 1;
+            if (!locks) document.documentElement.classList.remove(PTR_CLASS);
+        };
+    }, [active]);
+}
+
 /** «Atrás» cierra la ventana mientras `open`. */
 export function useBackToClose(open: boolean, onClose: () => void): void {
     const id = useId();
@@ -43,6 +61,7 @@ export function useBackToClose(open: boolean, onClose: () => void): void {
     const tokenRef = useRef<string | null>(null);
     const closeRef = useRef(onClose);
     useLayoutEffect(() => { closeRef.current = onClose; });
+    useNoPullToRefresh(open);
 
     useEffect(() => {
         if (!open || typeof window === 'undefined') return;

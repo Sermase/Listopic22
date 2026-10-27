@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronUp, Navigation, SlidersHorizontal, X } from 'lucide-react';
@@ -98,7 +98,67 @@ const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, s
     }, [allItems, minScore, tag, sort, location]);
     const mapItems = useMemo(() => shown.map(({ item }) => item), [shown]);
 
-    const touchStart = useRef<number | null>(null);
+    // La hoja del móvil se arrastra entera: hacia arriba la sube y hacia abajo la baja
+    // (siguiendo el dedo), salvo si la lista está desplazada y el dedo está encima.
+    const sheetRef = useRef<HTMLDivElement | null>(null);
+    const sheetOpenRef = useRef(sheetOpen);
+    useLayoutEffect(() => { sheetOpenRef.current = sheetOpen; });
+    const hasSheet = hasPanel && !isDesktop;
+    useEffect(() => {
+        const sheet = sheetRef.current;
+        if (!hasSheet || !sheet) return;
+        let y0 = 0;
+        let t0 = 0;
+        let dy = 0;
+        let armed = false;
+        let dragging = false;
+        const listScrolled = (target: EventTarget | null) => {
+            for (let el = target as HTMLElement | null; el && el !== sheet; el = el.parentElement) {
+                if (el.scrollTop > 0) return true;
+            }
+            return false;
+        };
+        const start = (e: TouchEvent) => {
+            armed = e.touches.length === 1 && !(e.target as HTMLElement | null)?.closest('select,input');
+            dragging = false;
+            dy = 0;
+            y0 = e.touches[0].clientY;
+            t0 = performance.now();
+        };
+        const move = (e: TouchEvent) => {
+            if (!armed) return;
+            dy = e.touches[0].clientY - y0;
+            if (!dragging) {
+                if (Math.abs(dy) < 8) return;
+                // Abierta y hacia arriba es desplazar la lista; hacia abajo con la lista bajada, también.
+                if ((sheetOpenRef.current && dy < 0) || (dy > 0 && listScrolled(e.target))) { armed = false; return; }
+                dragging = true;
+                sheet.style.transition = 'none';
+            }
+            if (sheetOpenRef.current) sheet.style.transform = `translateY(${Math.max(0, dy)}px)`;
+            if (e.cancelable) e.preventDefault();
+        };
+        const end = () => {
+            if (!dragging) return;
+            dragging = false;
+            armed = false;
+            const fast = Math.abs(dy) / Math.max(1, performance.now() - t0) > 0.5;
+            sheet.style.transition = '';
+            sheet.style.transform = '';
+            if (sheetOpenRef.current && (dy > 90 || (dy > 30 && fast))) { setSheetOpen(false); setFiltersOpen(false); }
+            else if (!sheetOpenRef.current && dy < -30) setSheetOpen(true);
+        };
+        sheet.addEventListener('touchstart', start, { passive: true });
+        sheet.addEventListener('touchmove', move, { passive: false });
+        sheet.addEventListener('touchend', end);
+        sheet.addEventListener('touchcancel', end);
+        return () => {
+            sheet.removeEventListener('touchstart', start);
+            sheet.removeEventListener('touchmove', move);
+            sheet.removeEventListener('touchend', end);
+            sheet.removeEventListener('touchcancel', end);
+        };
+    }, [hasSheet]);
 
     const clearFilters = () => { setMinScore(0); setTag(''); };
     const pick = (item: MapItem) => {
@@ -245,20 +305,13 @@ const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, s
                 </div>
                 {hasPanel && !isDesktop && (
                     <div
-                        className={`absolute inset-x-0 bottom-0 z-[1001] flex flex-col rounded-t-3xl border-t border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-[0_-8px_24px_rgba(15,23,42,0.25)] transition-[max-height] duration-200 ${sheetOpen ? 'max-h-[62%]' : 'max-h-[76px]'}`}
+                        ref={sheetRef}
+                        className={`absolute inset-x-0 bottom-0 z-[1001] flex flex-col rounded-t-3xl border-t border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-[0_-8px_24px_rgba(15,23,42,0.25)] transition-[max-height,transform] duration-200 ${sheetOpen ? 'max-h-[62%]' : 'max-h-[76px]'}`}
                         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
                     >
                         <button
                             type="button"
                             onClick={() => { setSheetOpen((v) => !v); if (sheetOpen) setFiltersOpen(false); }}
-                            onTouchStart={(e) => { touchStart.current = e.touches[0].clientY; }}
-                            onTouchEnd={(e) => {
-                                if (touchStart.current === null) return;
-                                const dy = e.changedTouches[0].clientY - touchStart.current;
-                                touchStart.current = null;
-                                if (dy < -30) { e.preventDefault(); setSheetOpen(true); }
-                                else if (dy > 30) { e.preventDefault(); setSheetOpen(false); setFiltersOpen(false); }
-                            }}
                             aria-expanded={sheetOpen}
                             className="flex w-full shrink-0 flex-col items-center px-4 pb-3 pt-2"
                         >

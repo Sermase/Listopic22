@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAuthPrompt } from '../context/AuthPromptContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { useUnreadChats } from '../hooks/useUnreadChats';
-import { barTabs, NAV_TABS, useNavOrder, type NavTabId } from '../lib/navTabs';
+import { barTabs, NAV_TABS, OPEN_MENU_EVENT, useNavOrder, type NavTabId } from '../lib/navTabs';
 import { isLabAppEnabled } from '../lib/labApps';
 import { PACHOTE_URL } from '../lib/pachote';
 import { PachoteService } from '../services/PachoteService';
@@ -22,6 +22,82 @@ const HIDDEN_PATTERNS: RegExp[] = [
 ];
 
 const shouldShowBottomNav = (pathname: string) => !HIDDEN_PATTERNS.some((re) => re.test(pathname));
+
+const HOLD_MS = 220;
+
+/** Mantener pulsada la barra un momento y deslizar hacia arriba abre el menú. Devuelve si está «cogida». */
+function useHoldSwipeUpMenu(bar: React.RefObject<HTMLElement | null>, enabled: boolean) {
+    const [held, setHeld] = useState(false);
+    useEffect(() => {
+        const el = bar.current;
+        if (!enabled || !el) return;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        let x0 = 0;
+        let y0 = 0;
+        let holding = false;
+        let swallowClick = false;
+        const stop = () => {
+            clearTimeout(timer);
+            if (holding) setHeld(false);
+            holding = false;
+        };
+        const start = (e: TouchEvent) => {
+            stop();
+            // El navegador no siempre manda el clic tras un gesto: que no se coma el próximo toque.
+            swallowClick = false;
+            if (e.touches.length !== 1) return;
+            x0 = e.touches[0].clientX;
+            y0 = e.touches[0].clientY;
+            timer = setTimeout(() => {
+                holding = true;
+                setHeld(true);
+                navigator.vibrate?.(10);
+            }, HOLD_MS);
+        };
+        const move = (e: TouchEvent) => {
+            const t = e.touches[0];
+            if (!holding) {
+                // Se movió antes de tiempo: es un toque o un desplazamiento normal.
+                if (Math.hypot(t.clientX - x0, t.clientY - y0) > 10) clearTimeout(timer);
+                return;
+            }
+            if (e.cancelable) e.preventDefault();
+            if (y0 - t.clientY > 40) {
+                swallowClick = true;
+                stop();
+                window.dispatchEvent(new Event(OPEN_MENU_EVENT));
+            }
+        };
+        const end = () => {
+            // Soltar tras mantener sin deslizar no abre la pestaña.
+            if (holding) swallowClick = true;
+            stop();
+        };
+        const click = (e: MouseEvent) => {
+            if (!swallowClick) return;
+            swallowClick = false;
+            e.preventDefault();
+            e.stopPropagation();
+        };
+        const noMenu = (e: Event) => e.preventDefault();
+        el.addEventListener('touchstart', start, { passive: true });
+        el.addEventListener('touchmove', move, { passive: false });
+        el.addEventListener('touchend', end);
+        el.addEventListener('touchcancel', stop);
+        el.addEventListener('click', click, true);
+        el.addEventListener('contextmenu', noMenu);
+        return () => {
+            stop();
+            el.removeEventListener('touchstart', start);
+            el.removeEventListener('touchmove', move);
+            el.removeEventListener('touchend', end);
+            el.removeEventListener('touchcancel', stop);
+            el.removeEventListener('click', click, true);
+            el.removeEventListener('contextmenu', noMenu);
+        };
+    }, [bar, enabled]);
+    return held;
+}
 
 interface TabProps {
     to?: string;
@@ -72,8 +148,11 @@ export const BottomNav: React.FC = () => {
     const { pathname } = useLocation();
     const order = useNavOrder();
     const unreadChats = useUnreadChats(user?.uid);
+    const barRef = useRef<HTMLDivElement | null>(null);
+    const visible = shouldShowBottomNav(pathname);
+    const held = useHoldSwipeUpMenu(barRef, visible);
 
-    if (!shouldShowBottomNav(pathname)) return null;
+    if (!visible) return null;
 
     const pachoteOn = isLabAppEnabled(config, 'pachote', isJefe);
     const tabs = barTabs(order, (id) => id !== 'pachote' || pachoteOn);
@@ -115,7 +194,9 @@ export const BottomNav: React.FC = () => {
                 className="fixed inset-x-0 bottom-0 z-40 md:hidden"
                 style={{ paddingBottom: 'env(safe-area-inset-bottom)', paddingLeft: 'env(safe-area-inset-left)', paddingRight: 'env(safe-area-inset-right)' }}
             >
-                <div className="lt-bottom-bar relative mx-3 mb-2 grid grid-cols-5 items-end rounded-[1.75rem] border border-[var(--lt-border)] px-1 shadow-[0_12px_32px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl backdrop-saturate-150"
+                <div
+                    ref={barRef}
+                    className={`lt-bottom-bar relative mx-3 mb-2 grid grid-cols-5 items-end rounded-[1.75rem] border px-1 shadow-[0_12px_32px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl backdrop-saturate-150 select-none [-webkit-touch-callout:none] transition-transform duration-150 ${held ? '-translate-y-1 border-[var(--lt-accent-border)]' : 'border-[var(--lt-border)]'}`}
                     style={{ background: 'color-mix(in srgb, var(--lt-card-strong) 90%, transparent)' }}
                 >
                     {tabs.slice(0, 2).map(renderTab)}
