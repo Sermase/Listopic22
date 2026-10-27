@@ -115,6 +115,8 @@ function findBackdrop(panel: HTMLElement): HTMLElement | null {
 }
 
 const animateSheets = () => typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && typeof Element.prototype.animate === 'function'
     && window.matchMedia('(max-width: 767px)').matches
     && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
