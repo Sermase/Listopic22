@@ -1694,10 +1694,12 @@ html.theme-light .lt-on-accent {
     .lt-pin { transition: none; }
 }
 
-/* Ventanas que se deslizan (useSwipeToClose): entran desde abajo en el móvil, con un asa arriba. */
 /* Ventana abierta: deslizar hacia abajo no recarga la página (useNoPullToRefresh). */
 html.lt-no-pull-refresh, html.lt-no-pull-refresh body { overscroll-behavior-y: none; }
 
+/* Ventanas que se deslizan (useSwipeToClose): entran desde abajo en el móvil, con un asa arriba. */
+/* .lt-ghost: la copia que baja al cerrarse; sin repetir la animación de entrada. */
+.lt-ghost, .lt-ghost * { animation: none !important; }
 .lt-sheet-backdrop { animation: lt-sheet-fade .22s ease-out; }
 @keyframes lt-sheet-fade { from { opacity: 0; } to { opacity: 1; } }
 

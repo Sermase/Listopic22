@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Sparkles, TrendingUp, ChevronRight } from 'lucide-react';
 import type { LevelInfo } from '../utils/gamification';
 import { useBackToClose } from '../hooks/useSheetDismiss';
+import { haptic } from '../utils/haptics';
 
 interface LevelUpModalProps {
     isOpen: boolean;
@@ -58,9 +59,9 @@ export const LevelUpModal: React.FC<LevelUpModalProps> = ({
                         colors: ['#FFD700', '#FFA500', '#FF8C00', '#FF4500']
                     });
                 });
-                if (navigator.vibrate) navigator.vibrate([15, 30, 20]);
+                haptic('success');
             } else {
-                if (navigator.vibrate) navigator.vibrate([10]);
+                haptic('light');
             }
         }, 1800);
 

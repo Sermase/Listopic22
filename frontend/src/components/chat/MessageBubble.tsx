@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { SmilePlus } from 'lucide-react';
 import { DOUBLE_TAP_REACTION, QUICK_REACTIONS, summarizeReactions, type ReactionMap } from '../../lib/chatExtras';
 import { useBackToClose } from '../../hooks/useSheetDismiss';
+import { haptic } from '../../utils/haptics';
 
 const LONG_PRESS_MS = 450;
 const DOUBLE_TAP_MS = 300;
@@ -60,7 +61,7 @@ export const MessageBubble: React.FC<{
             timer: window.setTimeout(() => {
                 if (touch.current) touch.current.fired = true;
                 setMenuOpen(true);
-                if (navigator.vibrate) navigator.vibrate(10);
+                haptic('light');
             }, LONG_PRESS_MS),
         };
     };
@@ -101,6 +102,7 @@ export const MessageBubble: React.FC<{
     };
 
     const react = (emoji: string) => {
+        haptic(mine === emoji ? 'light' : 'medium');
         onReact(mine === emoji ? null : emoji);
         setMenuOpen(false);
     };

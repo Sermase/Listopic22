@@ -2,6 +2,7 @@ import React, { useId } from 'react';
 import { isScoreValue } from '../lib/scoring';
 import { formatScore, scoreBadge, scoreTextColor } from '../lib/scoreScale';
 import { formatWeight } from '../lib/criteria';
+import { haptic } from '../utils/haptics';
 
 export interface CriterionRatingCriterion {
     id: string;
@@ -41,7 +42,7 @@ export const CriterionRating: React.FC<CriterionRatingProps> = ({ criterion, val
         const next = parseFloat(raw);
         if (!Number.isFinite(next)) return;
         onChange(next);
-        navigator.vibrate?.(8);
+        haptic('selection');
     };
 
     return (

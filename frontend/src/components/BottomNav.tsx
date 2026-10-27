@@ -5,10 +5,12 @@ import { useAuth } from '../context/AuthContext';
 import { useAuthPrompt } from '../context/AuthPromptContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { useUnreadChats } from '../hooks/useUnreadChats';
-import { barTabs, NAV_TABS, OPEN_MENU_EVENT, useNavOrder, type NavTabId } from '../lib/navTabs';
+import { barTabs, NAV_TABS, useNavOrder, type NavTabId } from '../lib/navTabs';
+import { endMenuDrag, moveMenuDrag, startMenuDrag } from '../lib/menuDrag';
 import { isLabAppEnabled } from '../lib/labApps';
 import { PACHOTE_URL } from '../lib/pachote';
 import { PachoteService } from '../services/PachoteService';
+import { haptic } from '../utils/haptics';
 
 // Pantallas con formularios o a pantalla completa: ahí la barra estorba.
 const HIDDEN_PATTERNS: RegExp[] = [
@@ -25,7 +27,7 @@ const shouldShowBottomNav = (pathname: string) => !HIDDEN_PATTERNS.some((re) => 
 
 const HOLD_MS = 220;
 
-/** Mantener pulsada la barra un momento y deslizar hacia arriba abre el menú. Devuelve si está «cogida». */
+/** Mantener pulsada la barra un momento y deslizar hacia arriba sube el menú pegado al dedo. Devuelve si está «cogida». */
 function useHoldSwipeUpMenu(bar: React.RefObject<HTMLElement | null>, enabled: boolean) {
     const [held, setHeld] = useState(false);
     useEffect(() => {
@@ -35,11 +37,17 @@ function useHoldSwipeUpMenu(bar: React.RefObject<HTMLElement | null>, enabled: b
         let x0 = 0;
         let y0 = 0;
         let holding = false;
+        let pulling = false;
         let swallowClick = false;
+        // Velocidad al soltar: últimos puntos del dedo.
+        let lastY = 0;
+        let lastT = 0;
+        let speed = 0;
         const stop = () => {
             clearTimeout(timer);
             if (holding) setHeld(false);
             holding = false;
+            pulling = false;
         };
         const start = (e: TouchEvent) => {
             stop();
@@ -51,7 +59,7 @@ function useHoldSwipeUpMenu(bar: React.RefObject<HTMLElement | null>, enabled: b
             timer = setTimeout(() => {
                 holding = true;
                 setHeld(true);
-                navigator.vibrate?.(10);
+                haptic('medium');
             }, HOLD_MS);
         };
         const move = (e: TouchEvent) => {
@@ -62,15 +70,27 @@ function useHoldSwipeUpMenu(bar: React.RefObject<HTMLElement | null>, enabled: b
                 return;
             }
             if (e.cancelable) e.preventDefault();
-            if (y0 - t.clientY > 40) {
+            const now = performance.now();
+            if (!pulling && y0 - t.clientY > 6) {
+                pulling = true;
                 swallowClick = true;
-                stop();
-                window.dispatchEvent(new Event(OPEN_MENU_EVENT));
+                y0 = t.clientY;
+                lastY = t.clientY;
+                lastT = now;
+                speed = 0;
+                startMenuDrag();
+                return;
             }
+            if (!pulling) return;
+            speed = (lastY - t.clientY) / Math.max(1, now - lastT);
+            lastY = t.clientY;
+            lastT = now;
+            moveMenuDrag(y0 - t.clientY);
         };
         const end = () => {
             // Soltar tras mantener sin deslizar no abre la pestaña.
             if (holding) swallowClick = true;
+            if (pulling) endMenuDrag(performance.now() - lastT < 80 ? speed : 0);
             stop();
         };
         const click = (e: MouseEvent) => {
@@ -83,7 +103,7 @@ function useHoldSwipeUpMenu(bar: React.RefObject<HTMLElement | null>, enabled: b
         el.addEventListener('touchstart', start, { passive: true });
         el.addEventListener('touchmove', move, { passive: false });
         el.addEventListener('touchend', end);
-        el.addEventListener('touchcancel', stop);
+        el.addEventListener('touchcancel', end);
         el.addEventListener('click', click, true);
         el.addEventListener('contextmenu', noMenu);
         return () => {
@@ -91,7 +111,7 @@ function useHoldSwipeUpMenu(bar: React.RefObject<HTMLElement | null>, enabled: b
             el.removeEventListener('touchstart', start);
             el.removeEventListener('touchmove', move);
             el.removeEventListener('touchend', end);
-            el.removeEventListener('touchcancel', stop);
+            el.removeEventListener('touchcancel', end);
             el.removeEventListener('click', click, true);
             el.removeEventListener('contextmenu', noMenu);
         };

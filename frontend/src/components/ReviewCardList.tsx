@@ -27,6 +27,7 @@ import { scoreBadgeStyle, scoreTextColor } from '../lib/scoreScale';
 import { closedStatusKind } from '../utils/placeStatus';
 import { MarqueeText } from './ui/MarqueeText';
 import { ExpandableText } from './ui/ExpandableText';
+import { haptic } from '../utils/haptics';
 
 interface ReviewCardListProps {
     review: ReviewEntity;
@@ -163,6 +164,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
         setLikeCount((prev) => Math.max(0, newLiked ? prev + 1 : prev - 1));
         setReactionAnimationText(newLiked ? likeText : dislikeText);
         setReactionAnimationTone(newLiked ? 'like' : 'dislike');
+        haptic(newLiked ? 'medium' : 'light');
         setShowAnimation(false);
         window.setTimeout(() => setShowAnimation(true), 0);
         window.setTimeout(() => setShowAnimation(false), 1200);

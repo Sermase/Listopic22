@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef } from 'react';
+import { haptic } from '../utils/haptics';
 
 // Ventanas (modales y hojas) que se cierran como en Pachote: con «atrás» del
 // móvil o del navegador, y deslizando hacia abajo. Cada ventana abierta deja
@@ -113,6 +114,38 @@ function findBackdrop(panel: HTMLElement): HTMLElement | null {
     return null;
 }
 
+const animateSheets = () => typeof window !== 'undefined'
+    && window.matchMedia('(max-width: 767px)').matches
+    && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** Al cerrarse con su botón (o tocando fuera) la ventana desaparecía de golpe: una copia baja y se desvanece en su lugar.
+ * `ancestors` son los antepasados del panel cuando se abrió (`fixedAt`, el primero fijo): lo quitado se vuelve a poner, copiado, donde estaba. */
+function slideOutCopy(panel: HTMLElement, ancestors: HTMLElement[], fixedAt: number) {
+    if (!animateSheets()) return;
+    const parentAt = ancestors.findIndex((el) => el.isConnected);
+    if (parentAt === -1) return;
+    const removed = parentAt === 0 ? panel : ancestors[parentAt - 1];
+    // Solo si se quitó la ventana (no una página entera al navegar).
+    if (parentAt - 1 > fixedAt) return;
+    panel.setAttribute('data-lt-ghost', '');
+    const copy = removed.cloneNode(true) as HTMLElement;
+    panel.removeAttribute('data-lt-ghost');
+    const copyPanel = copy.matches('[data-lt-ghost]') ? copy : copy.querySelector<HTMLElement>('[data-lt-ghost]');
+    if (!copyPanel) return;
+    copy.classList.add('lt-ghost');
+    copy.setAttribute('aria-hidden', 'true');
+    copy.style.pointerEvents = 'none';
+    ancestors[parentAt].appendChild(copy);
+    const from = panel.style.transform || 'translateY(0)';
+    const timing = { duration: 240, easing: 'cubic-bezier(.4, 0, .9, .6)', fill: 'forwards' as const };
+    // El fondo oscuro se desvanece; el panel baja entero, sin volverse transparente.
+    const shades = Array.from(copy.children).filter((el) => !el.contains(copyPanel));
+    if (copy !== copyPanel) (shades.length ? shades : [copy]).forEach((el) => el.animate([{ opacity: 1 }, { opacity: 0 }], timing));
+    copyPanel.animate([{ transform: from }, { transform: 'translateY(100%)' }], timing).finished
+        .catch(() => undefined)
+        .then(() => copy.remove());
+}
+
 /** Desliza hacia abajo para cerrar: devuelve la ref del panel. Solo arrastra si lo de debajo del dedo está arriba del todo.
  * En el móvil la ventana entra desde abajo con un asa (clases lt-sheet en index.css) y el fondo se aclara al arrastrar. */
 export function useSwipeToClose(onClose: () => void) {
@@ -126,6 +159,11 @@ export function useSwipeToClose(onClose: () => void) {
         if (!panel) return;
         panel.classList.add('lt-sheet');
         const backdrop = findBackdrop(panel);
+        // Dónde está, para la copia que baja al cerrarse.
+        const ancestors: HTMLElement[] = [];
+        for (let el = panel.parentElement; el; el = el.parentElement) ancestors.push(el);
+        const fixedAt = ancestors.findIndex((el) => getComputedStyle(el).position === 'fixed');
+        let swiped = false;
         backdrop?.classList.add('lt-sheet-backdrop');
         let dim: number[] | null = null;
         const shade = (alpha: number, transition: string) => {
@@ -191,13 +229,15 @@ export function useSwipeToClose(onClose: () => void) {
             armed = false;
             const speed = dy / Math.max(1, performance.now() - t0);
             if (dy > Math.min(140, panel.offsetHeight * 0.25) || (dy > 30 && speed > 0.6)) {
+                swiped = true;
+                haptic('light');
                 panel.style.transition = 'transform .18s ease-in';
                 panel.style.transform = 'translateY(110%)';
                 shade(0, 'background-color .18s ease-in');
                 setTimeout(() => {
                     closeRef.current();
                     // Si la ventana no se ha ido (p. ej. pide confirmación), vuelve a su sitio.
-                    setTimeout(() => { if (panel.isConnected) reset(true); }, 350);
+                    setTimeout(() => { if (panel.isConnected) { swiped = false; reset(true); } }, 350);
                 }, 170);
             } else {
                 reset(true);
@@ -213,6 +253,8 @@ export function useSwipeToClose(onClose: () => void) {
             panel.removeEventListener('touchmove', move);
             panel.removeEventListener('touchend', end);
             panel.removeEventListener('touchcancel', end);
+            // Desmontada (no solo cambiada de ref): baja suave si no se fue ya deslizando.
+            requestAnimationFrame(() => { if (!panel.isConnected && !swiped) slideOutCopy(panel, ancestors, fixedAt); });
         };
     }, []);
 }
