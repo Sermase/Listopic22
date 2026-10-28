@@ -76,19 +76,28 @@ const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.ch
 // Mismo pin, mismo icono: si cambia el objeto, Leaflet rehace la chincheta en el DOM
 // (antes pasaba con cada render del mapa, en todas a la vez).
 const iconCache = new Map<string, L.DivIcon>();
+const ICON_CACHE_MAX = 600;
 function cachedIcon(key: string, build: () => L.DivIcon): L.DivIcon {
     let icon = iconCache.get(key);
-    if (!icon) {
-        if (iconCache.size > 600) iconCache.clear();
+    if (icon) {
+        iconCache.delete(key);
+    } else {
         icon = build();
-        iconCache.set(key, icon);
+        // Lleno: se va el que lleva más tiempo sin usarse, no todos.
+        if (iconCache.size >= ICON_CACHE_MAX) iconCache.delete(iconCache.keys().next().value!);
     }
+    iconCache.set(key, icon);
     return icon;
 }
 
+/** La nota como se ve en el pin (un decimal y su color): 8,26 y 8,34 comparten icono. */
+const shownScore = (value: number | null | undefined) => typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? `${formatScore(value)}/${scoreBand(value)}`
+    : '';
+
 export const createMapPinIcon = (options: MapPinOptions = {}): L.DivIcon => {
     const { score, botScore, emoji, color, sponsored = false, highlighted = false } = options;
-    return cachedIcon(`pin|${score ?? ''}|${botScore ?? ''}|${emoji ?? ''}|${color ?? ''}|${sponsored ? 1 : 0}|${highlighted ? 1 : 0}`, () => buildPinIcon(options));
+    return cachedIcon(`pin|${shownScore(score)}|${shownScore(botScore)}|${emoji ?? ''}|${color ?? ''}|${sponsored ? 1 : 0}|${highlighted ? 1 : 0}`, () => buildPinIcon(options));
 };
 
 const buildPinIcon = ({ score, botScore, emoji, color, sponsored = false, highlighted = false }: MapPinOptions): L.DivIcon => {
