@@ -29,4 +29,19 @@ describe('iconos del mapa', () => {
         expect(createClusterIcon(3, 7.24)).toBe(createClusterIcon(3, 7.21));
         expect(createClusterIcon(3, 7.2)).not.toBe(createClusterIcon(4, 7.2));
     });
+
+    it('comparte icono entre notas que se ven igual, pero no si cambia el color', () => {
+        expect(createMapPinIcon({ score: 8.26 })).toBe(createMapPinIcon({ score: 8.34 }));
+        // 8,96 se ve «9.0» pero aún no es de la franja alta (≥ 9).
+        expect(createMapPinIcon({ score: 8.96 })).not.toBe(createMapPinIcon({ score: 9 }));
+    });
+
+    it('al llenarse se van los que no se usan, no los que siguen en el mapa', () => {
+        const kept = createMapPinIcon({ score: 7.5 });
+        for (let i = 0; i < 1500; i++) {
+            createClusterIcon(i + 2, null);
+            if (i % 100 === 0) expect(createMapPinIcon({ score: 7.5 })).toBe(kept);
+        }
+        expect(createMapPinIcon({ score: 7.5 })).toBe(kept);
+    });
 });

@@ -1,5 +1,9 @@
 import type L from 'leaflet';
 
+/** Si el mapa se anima al moverse solo: no con «reducir movimiento» en el sistema. */
+export const animateMap = (): boolean => !(typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
 const hasSize = (map: L.Map) => {
     const size = map.getSize();
     return size.x > 0 && size.y > 0;

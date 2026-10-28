@@ -12,7 +12,7 @@ import L from 'leaflet';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { whenMapSized } from '../lib/mapMotion';
+import { animateMap, whenMapSized } from '../lib/mapMotion';
 import { formatScore, scoreTextColor } from '../lib/scoreScale';
 import { ClusteredPins, CLUSTER_MAX_ZOOM } from './map/ClusteredPins';
 import { useStableMapItems } from './map/mapItems';
@@ -68,7 +68,7 @@ const CustomLocateControl = () => {
         if (!pendingFlyRef.current || !location) return;
         pendingFlyRef.current = false;
         map.flyTo([location.latitude, location.longitude], 14, {
-            animate: true,
+            animate: animateMap(),
             duration: 1
         });
     }, [location, map]);
@@ -78,7 +78,7 @@ const CustomLocateControl = () => {
         const known = location;
         if (known) {
             map.flyTo([known.latitude, known.longitude], 14, {
-                animate: true,
+                animate: animateMap(),
                 duration: 1
             });
         }
@@ -130,7 +130,7 @@ function FocusOnItem({ item, nonce, markers }: { item: MapItem | null; nonce?: n
             setTimeout(() => { if (!cancelled) markers.current.get(item.id)?.openPopup(); }, 60);
         };
         map.once('moveend', open);
-        map.flyTo([item.lat!, item.lng!], Math.max(map.getZoom(), CLUSTER_MAX_ZOOM), { duration: 0.8 });
+        map.flyTo([item.lat!, item.lng!], Math.max(map.getZoom(), CLUSTER_MAX_ZOOM), { animate: animateMap(), duration: 0.8 });
         return () => { cancelled = true; map.off('moveend', open); };
     }, [item, nonce, map, markers]);
     return null;
@@ -179,9 +179,6 @@ function LayerSelectorControl({ currentLayer, onLayerChange }: { currentLayer: M
     );
 }
 
-const prefersReducedMotion = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 function MapUpdater({ center, items, range, location }: { center: [number, number], items: MapItem[], range: number | null, location: UserLocation | null }) {
     const map = useMap();
     // La ubicación solo cuenta con radio: sin él, «Centrar en mi ubicación» (que la
@@ -193,7 +190,7 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
 
     useEffect(() => whenMapSized(map, () => {
         const location = nearRef.current;
-        const animate = !prefersReducedMotion();
+        const animate = animateMap();
         const duration = 0.9;
         if (range !== null && location) {
             let zoom = 12;
