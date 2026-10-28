@@ -142,7 +142,11 @@ function slideOutCopy(panel: HTMLElement, ancestors: HTMLElement[], fixedAt: num
     const timing = { duration: 240, easing: 'cubic-bezier(.4, 0, .9, .6)', fill: 'forwards' as const };
     // El fondo oscuro se desvanece; el panel baja entero, sin volverse transparente.
     const shades = Array.from(copy.children).filter((el) => !el.contains(copyPanel));
-    if (copy !== copyPanel) (shades.length ? shades : [copy]).forEach((el) => el.animate([{ opacity: 1 }, { opacity: 0 }], timing));
+    // Desde la opacidad que tenía (al arrastrar el menú ya puede ir medio transparente).
+    if (copy !== copyPanel) (shades.length ? shades : [copy]).forEach((el) => {
+        const from = Number((el as HTMLElement).style.opacity || 1);
+        if (from > 0) el.animate([{ opacity: from }, { opacity: 0 }], timing);
+    });
     copyPanel.animate([{ transform: from }, { transform: 'translateY(100%)' }], timing).finished
         .catch(() => undefined)
         .then(() => copy.remove());
@@ -213,8 +217,8 @@ export function useSwipeToClose(onClose: () => void) {
                 const down = t.clientY - y0;
                 if (dx < 8 && Math.abs(down) < 8) return;
                 if (down <= dx || !atTop(e.target)) { armed = false; return; }
+                // Desde donde se puso el dedo (no desde aquí): el panel va pegado a él.
                 dragging = true;
-                y0 = t.clientY;
                 t0 = performance.now();
                 panel.style.transition = 'none';
                 const rgba = backdrop ? getComputedStyle(backdrop).backgroundColor.match(/[\d.]+/g)?.map(Number) : null;

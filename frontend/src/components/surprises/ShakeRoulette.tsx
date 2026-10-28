@@ -5,7 +5,7 @@ import { DishRow } from '../chat/DishRow';
 import { searchDishes } from '../../lib/chatDishSearch';
 import { dishRoute, type DishRef } from '../../lib/chatExtras';
 import { useLocation } from '../../hooks/useLocation';
-import { triggerHaptic } from '../../utils/haptics';
+import { triggerHaptic, triggerHapticSelection } from '../../utils/haptics';
 import { RESPIN_EVENT } from '../../lib/surprises';
 
 /** Media de más de 8 (Algolia no tiene «mayor que» con decimales exactos: 8,01). */
@@ -28,6 +28,8 @@ const ShakeRoulette: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         timer.current = window.setInterval(() => {
             ticks += 1;
             setShown(dishes[Math.floor(Math.random() * dishes.length)]);
+            // Cada plato que pasa, un «tic», como una ruleta de verdad.
+            void triggerHapticSelection();
             if (ticks >= 14 && timer.current) {
                 window.clearInterval(timer.current);
                 timer.current = null;

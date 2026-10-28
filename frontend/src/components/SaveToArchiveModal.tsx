@@ -5,6 +5,7 @@ import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { MarqueeText } from './ui/MarqueeText';
 import { useToast } from '../context/ToastContext';
+import { haptic } from '../utils/haptics';
 
 interface SaveToArchiveModalProps {
     isOpen: boolean;
@@ -82,6 +83,7 @@ export const SaveToArchiveModal: React.FC<SaveToArchiveModalProps> = ({ isOpen, 
     };
 
     const handleSave = async () => {
+        haptic('medium');
         setSaving(true);
         try {
             // Calculate diffs

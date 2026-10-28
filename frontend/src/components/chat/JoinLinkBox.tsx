@@ -3,6 +3,7 @@ import { Link2, Copy, Share2 } from 'lucide-react';
 import { ChatService, type Chat } from '../../services/ChatService';
 import { buildPublicRouteUrl } from '../../utils/publicUrl';
 import { useToast } from '../../context/ToastContext';
+import { haptic } from '../../utils/haptics';
 
 /** Enlace para unirse al grupo: quien lo abre entra (tras iniciar sesión) sin que nadie le añada. */
 export const JoinLinkBox: React.FC<{ chat: Chat; byName: string }> = ({ chat, byName }) => {
@@ -27,6 +28,7 @@ export const JoinLinkBox: React.FC<{ chat: Chat; byName: string }> = ({ chat, by
     const copy = async () => {
         try {
             await navigator.clipboard.writeText(url);
+            haptic('light');
             showToast({ variant: 'success', message: 'Enlace copiado' });
         } catch {
             showToast({ variant: 'info', message: url });

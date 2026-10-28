@@ -68,6 +68,7 @@ import { matchingAllergens, userAllergens } from '../lib/allergens';
 import { APT_PLACE_KEYS, aptSummary } from '../lib/aptFor';
 import { AllergenGuideModal } from '../components/place/AllergenGuideModal';
 import { summarizePlaceDishes } from '../lib/chatExtras';
+import { haptic } from '../utils/haptics';
 
 type PlaceReview = ReviewEntity & {
     placeMainImage?: string;
@@ -404,6 +405,7 @@ export const PlacePage: React.FC = () => {
             return;
         }
         if (!placeId) return;
+        haptic('medium');
 
         // Optimistic UI
         const prevState = isFollowed;

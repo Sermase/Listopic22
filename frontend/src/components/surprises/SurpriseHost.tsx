@@ -16,7 +16,17 @@ import {
     type PollSide,
 } from '../../lib/surprises';
 import { useShake } from './useShake';
-import { triggerHaptic } from '../../utils/haptics';
+import { haptic, type HapticKind } from '../../utils/haptics';
+
+// Cómo vibra cada sorpresa al salir (las burbujas, como digan; si no, suave).
+const EFFECT_HAPTIC: Partial<Record<SurpriseEffect['kind'], HapticKind>> = {
+    rain: 'success',
+    broken: 'heavy',
+    shake: 'heavy',
+    croqueta: 'medium',
+    roulette: 'heavy',
+    poll: 'medium',
+};
 
 const CroquetaGame = lazy(() => import('./CroquetaGame'));
 const ShakeRoulette = lazy(() => import('./ShakeRoulette'));
@@ -129,6 +139,7 @@ export const SurpriseHost: React.FC = () => {
             const effect = (event as CustomEvent<SurpriseEffect>).detail;
             if (!effect) return;
             if (effect.kind === 'croqueta' && effect.gated && !isSurpriseOn(configRef.current, 'croqueta')) return;
+            haptic(EFFECT_HAPTIC[effect.kind] ?? (effect.kind === 'bubble' ? effect.haptic ?? 'light' : 'light'));
             if (effect.kind === 'poll') {
                 setSheet({ kind: 'poll', poll: effect.poll, side: effect.side });
                 return;
@@ -140,7 +151,6 @@ export const SurpriseHost: React.FC = () => {
             const key = ++counter.current;
             setRunning((list) => [...list.slice(-2), { key, effect }]);
             if (effect.kind === 'shake') {
-                void triggerHaptic('heavy');
                 if (!prefersReducedMotion()) {
                     document.documentElement.classList.add('lt-egg-shaking');
                     window.setTimeout(() => document.documentElement.classList.remove('lt-egg-shaking'), 950);
@@ -156,7 +166,7 @@ export const SurpriseHost: React.FC = () => {
     const rouletteOpen = sheet?.kind === 'roulette';
     const shakeOn = ((pathname === '/' && !sheet) || rouletteOpen) && isSurpriseOn(config, 'shakeRoulette');
     useShake(shakeOn, () => {
-        if (rouletteOpen) window.dispatchEvent(new Event(RESPIN_EVENT));
+        if (rouletteOpen) { haptic('heavy'); window.dispatchEvent(new Event(RESPIN_EVENT)); }
         else fireSurprise({ kind: 'roulette' });
     });
 

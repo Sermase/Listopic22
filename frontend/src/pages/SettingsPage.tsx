@@ -18,6 +18,7 @@ import { FilterGroup, FilterSummary, Knob, Toggle, type FilterGroupId } from '..
 import { NavTabsEditor, NavTabsSummary } from '../components/settings/NavTabsEditor';
 import { setUserWantsSurprises, userWantsSurprises } from '../lib/surprises';
 import { requestShakePermission, shakeNeedsPermission } from '../components/surprises/useShake';
+import { haptic, isHapticsOn, setHapticsOn } from '../utils/haptics';
 
 type SheetId = 'profile' | 'notifications' | 'data' | 'distance' | 'map' | 'theme' | 'nav' | FilterGroupId | 'delete';
 
@@ -80,7 +81,7 @@ const SwitchRow: React.FC<{ emoji: string; label: string; hint: string; checked:
             <span className="block text-sm font-semibold text-[var(--lt-text)]">{label}</span>
             <span className="block text-xs text-[var(--lt-text-muted)]">{hint}</span>
         </span>
-        <input type="checkbox" className="sr-only" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+        <input type="checkbox" className="sr-only" checked={checked} onChange={(e) => { onChange(e.target.checked); haptic('selection'); }} />
         <Knob on={checked} />
     </label>
 );
@@ -115,6 +116,11 @@ export const SettingsPage: React.FC = () => {
     const close = () => setSheet(null);
     const [surprises, setSurprises] = useState(userWantsSurprises);
     const [shakeAsk, setShakeAsk] = useState(shakeNeedsPermission);
+    const [vibration, setVibration] = useState(isHapticsOn);
+    const toggleVibration = (on: boolean) => {
+        setHapticsOn(on);
+        setVibration(on);
+    };
     const toggleSurprises = (on: boolean) => {
         setUserWantsSurprises(on);
         setSurprises(on);
@@ -195,6 +201,7 @@ export const SettingsPage: React.FC = () => {
                     {/* La barra de abajo solo existe en el móvil. */}
                     <div className="md:hidden"><Row emoji="📱" label="Barra de abajo" value={<NavTabsSummary />} onClick={() => setSheet('nav')} /></div>
                     <SwitchRow emoji="ⓘ" label="Ayudas en la app" hint="Los iconos ⓘ que explican cada parte" checked={prefs.showHelpTips} onChange={(v) => setPref('showHelpTips', v)} />
+                    <SwitchRow emoji="📳" label="Vibración" hint="Un toquecito al votar, publicar, reaccionar o ganar una medalla" checked={vibration} onChange={toggleVibration} />
                     <SwitchRow emoji="🥚" label="Sorpresas" hint="Animaciones y minijuegos escondidos. ¿Cuáles? Eso es cosa tuya." checked={surprises} onChange={toggleSurprises} />
                     {surprises && shakeAsk && (
                         <Row emoji="📳" label="Agitar el móvil" value="Permitir" onClick={() => void requestShakePermission().then((ok) => { if (ok) setShakeAsk(false); })} />

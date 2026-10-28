@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { createMapPinIcon, createUserLocationIcon, MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
@@ -15,7 +15,8 @@ import { db } from '../firebase';
 import { whenMapSized } from '../lib/mapMotion';
 import { formatScore, scoreTextColor } from '../lib/scoreScale';
 import { ClusteredPins, CLUSTER_MAX_ZOOM } from './map/ClusteredPins';
-import { normalizeMapItems } from './map/mapItems';
+import { useStableMapItems } from './map/mapItems';
+import { haptic } from '../utils/haptics';
 import type { MapItem, MapInputItem } from './map/mapItems';
 
 const USER_LOCATION_ICON = createUserLocationIcon();
@@ -68,7 +69,7 @@ const CustomLocateControl = () => {
         pendingFlyRef.current = false;
         map.flyTo([location.latitude, location.longitude], 14, {
             animate: true,
-            duration: 1.5
+            duration: 1
         });
     }, [location, map]);
 
@@ -78,7 +79,7 @@ const CustomLocateControl = () => {
         if (known) {
             map.flyTo([known.latitude, known.longitude], 14, {
                 animate: true,
-                duration: 1.5
+                duration: 1
             });
         }
         pendingFlyRef.current = true;
@@ -178,10 +179,22 @@ function LayerSelectorControl({ currentLayer, onLayerChange }: { currentLayer: M
     );
 }
 
+const prefersReducedMotion = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 function MapUpdater({ center, items, range, location }: { center: [number, number], items: MapItem[], range: number | null, location: UserLocation | null }) {
     const map = useMap();
+    // La ubicación solo cuenta con radio: sin él, «Centrar en mi ubicación» (que la
+    // refresca) no debe volver a encuadrar todos los sitios. Redondeada (~100 m).
+    const near = range !== null && location ? location : null;
+    const nearKey = near ? `${near.latitude.toFixed(3)},${near.longitude.toFixed(3)}` : '';
+    const nearRef = useRef(near);
+    useLayoutEffect(() => { nearRef.current = near; });
 
     useEffect(() => whenMapSized(map, () => {
+        const location = nearRef.current;
+        const animate = !prefersReducedMotion();
+        const duration = 0.9;
         if (range !== null && location) {
             let zoom = 12;
             if (range <= 1) zoom = 15;
@@ -189,27 +202,29 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
             else if (range <= 10) zoom = 12;
             else zoom = 9;
 
-            map.flyTo([location.latitude, location.longitude], zoom, { duration: 1.5 });
+            map.flyTo([location.latitude, location.longitude], zoom, { animate, duration });
         } else if (items.length > 0) {
             if (items.length === 1 && items[0].lat && items[0].lng) {
-                map.flyTo([items[0].lat, items[0].lng], 14, { duration: 1.5 });
+                map.flyTo([items[0].lat, items[0].lng], 14, { animate, duration });
             } else {
                 const bounds = L.latLngBounds(items.map(i => [i.lat!, i.lng!] as [number, number]));
                 if (bounds.isValid()) {
-                    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true, duration: 1.5 });
+                    map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15, animate, duration });
                 }
             }
         } else {
-            map.flyTo(center, 10, { duration: 1.5 });
+            map.flyTo(center, 10, { animate, duration });
         }
-    }), [range, items, center, location, map]);
+    }), [range, items, center, nearKey, map]);
 
     return null;
 }
 
 const DEFAULT_CENTER: [number, number] = [40.416, -3.703];
 
-export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center = DEFAULT_CENTER, range = null, showLayerControl = true, scrollWheelZoom = false, focusId = null, focusNonce }) => {
+// Memorizado: el mapa a pantalla completa se vuelve a pintar al abrir filtros o la lista,
+// y el mapa no tiene que rehacerse por eso.
+export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ items, mode = 'global', center = DEFAULT_CENTER, range = null, showLayerControl = true, scrollWheelZoom = false, focusId = null, focusNonce }) {
 
     const { location } = useLocation();
     const { user, isJefe } = useAuth();
@@ -270,7 +285,7 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
     // ubicación es compartida y cada cambio (p. ej. «buscando…») re-renderiza
     // el mapa; sin esto MapUpdater re-encuadraría y anularía «Centrar en mi
     // ubicación».
-    const validItems: MapItem[] = useMemo(() => normalizeMapItems(items), [items]);
+    const validItems: MapItem[] = useStableMapItems(items);
     const clusterPoints = useMemo(() => validItems.map((item) => ({
         ...item,
         lat: item.lat!,
@@ -296,6 +311,9 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                     key={currentLayer}
                     attribution={activeLayer.attribution}
                     url={activeLayer.url}
+                    // Más teselas alrededor y sin pedirlas a medio zoom: al arrastrar no asoman huecos grises.
+                    keepBuffer={4}
+                    updateWhenZooming={false}
                 />
                 <TileFilterApplier filter={activeLayer.tileFilter} />
 
@@ -318,6 +336,7 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
                         icon={createMapPinIcon({ score: item.rating, botScore: item.botRating, emoji: item.emoji, color: item.color, sponsored: isSponsored })}
                         eventHandlers={{
                             popupopen: () => {
+                                haptic('selection');
                                 if (!isJefe) campaignIds.forEach((campaignId) => {
                                     void recordSponsoredEvent('placement', campaignId, 'impression').catch(() => undefined);
                                 });
@@ -362,4 +381,4 @@ export const MapView: React.FC<MapViewProps> = ({ items, mode = 'global', center
             </MapContainer>
         </div>
     );
-};
+});

@@ -1,7 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
 import { auth, functions } from '../firebase';
 import { fireSurprise, type PollId, type PollSide } from '../lib/surprises';
-import { haptic } from '../utils/haptics';
 
 /** Medallas secretas (las define y las da functions/modules/surprises.js). */
 export type SecretBadgeId = 'BIEN_COMIDO' | 'AVE_NOCTURNA' | 'CROQUETERO' | 'DETECTIVE' | 'JUEZ_TORTILLA' | 'PALADAR_DE_HIERRO';
@@ -33,8 +32,7 @@ export async function claimSecretBadge(id: SecretBadgeId): Promise<boolean> {
             try { localStorage.setItem(CLAIMED_KEY, JSON.stringify([...readClaimed(), key].slice(-50))); } catch { /* opcional */ }
         }
         if (data.awarded) {
-            haptic('success');
-            fireSurprise({ kind: 'bubble', emoji: data.icon || '🏅', text: `Medalla secreta: «${data.name || id}»` });
+            fireSurprise({ kind: 'bubble', emoji: data.icon || '🏅', text: `Medalla secreta: «${data.name || id}»`, haptic: 'success' });
         }
         return data.awarded;
     } catch (error) {

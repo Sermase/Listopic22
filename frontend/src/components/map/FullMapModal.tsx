@@ -1,11 +1,14 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentProps } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronUp, Navigation, SlidersHorizontal, X } from 'lucide-react';
 import { useBackToClose } from '../../hooks/useSheetDismiss';
+import { haptic } from '../../utils/haptics';
+import { AreaSelect } from '../AreaSelect';
+import type { AreaOption, GeoLevel } from '../../lib/geoAreas';
 import { useLocation } from '../../hooks/useLocation';
 import { LazyMapView as MapView } from '../lazy';
-import { normalizeMapItems } from './mapItems';
+import { useStableMapItems } from './mapItems';
 import type { MapItem } from './mapItems';
 import { formatScore, scoreBadgeStyle } from '../../lib/scoreScale';
 
@@ -21,7 +24,20 @@ interface FullMapModalProps {
     range?: number | null;
     /** «Cómo llegar»: abre la ruta en Google Maps. */
     directionsUrl?: string;
+    /**
+     * Selector de zona o radio de la página (p. ej. el de Inicio), que manda sobre los sitios.
+     * Sin él, el mapa trae su propio radio desde tu ubicación sobre los sitios que recibe.
+     */
+    areaControl?: React.ReactNode;
 }
+
+const NO_AREAS: Record<GeoLevel, AreaOption[]> = { city: [], province: [], region: [], country: [] };
+
+// La hoja del móvil: asoma 76 px (más la zona segura) y sube hasta el 62 % del alto.
+const SHEET_CLOSED = 'translateY(calc(100% - 76px - env(safe-area-inset-bottom)))';
+const SHEET_OPEN = 'translateY(0px)';
+const SHEET_EASE = 'transform .3s cubic-bezier(.2, .8, .2, 1)';
+const FADE_EASE = 'opacity .3s ease-out';
 
 const MIN_SCORES = [0, 5, 7, 9] as const;
 type SortKey = 'score' | 'near';
@@ -63,11 +79,11 @@ export const FullMapModal: React.FC<FullMapModalProps> = (props) => {
     return props.isOpen ? <FullMapContent {...props} /> : null;
 };
 
-const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, subtitle, items, mode = 'global', range = null, directionsUrl }) => {
+const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, subtitle, items, mode = 'global', range = null, directionsUrl, areaControl }) => {
     const isDesktop = useIsDesktop();
-    const { location } = useLocation();
+    const { location, requestLocation } = useLocation();
 
-    const allItems = useMemo(() => normalizeMapItems(items), [items]);
+    const allItems = useStableMapItems(items);
     const hasPanel = allItems.length > 1;
     const tagOptions = useMemo(() => {
         const counts = new Map<string, number>();
@@ -81,6 +97,10 @@ const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, s
     const [filtersOpen, setFiltersOpen] = useState(false);
     const [sheetOpen, setSheetOpen] = useState(false);
     const [focus, setFocus] = useState<{ id: string; nonce: number } | null>(null);
+    // Radio propio del mapa (sin selector de la página): filtra los sitios recibidos.
+    const [radius, setRadius] = useState<number | null>(range);
+    const ownRadius = !areaControl && hasPanel;
+    const effectiveRange = areaControl ? range : (ownRadius && location ? radius : null);
 
     // En el móvil, la hoja abierta es una ventana más: «atrás» la baja antes de cerrar el mapa.
     useBackToClose(isOpen && !isDesktop && sheetOpen, () => { setSheetOpen(false); setFiltersOpen(false); });
@@ -91,27 +111,33 @@ const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, s
         const withDistance = list.map((item) => ({
             item,
             km: location ? distanceKm(location.latitude, location.longitude, item.lat!, item.lng!) : null,
-        }));
+        })).filter(({ km }) => !ownRadius || radius === null || km === null || km <= radius);
         if (sort === 'near' && location) withDistance.sort((a, b) => (a.km ?? 0) - (b.km ?? 0));
         else withDistance.sort((a, b) => (b.item.rating ?? 0) - (a.item.rating ?? 0));
         return withDistance;
-    }, [allItems, minScore, tag, sort, location]);
+    }, [allItems, minScore, tag, sort, location, ownRadius, radius]);
     const mapItems = useMemo(() => shown.map(({ item }) => item), [shown]);
 
-    // La hoja del móvil se arrastra entera: hacia arriba la sube y hacia abajo la baja
-    // (siguiendo el dedo), salvo si la lista está desplazada y el dedo está encima.
+    // La hoja del móvil va pegada al dedo hacia arriba y hacia abajo, desde cualquier punto
+    // (salvo si la lista está desplazada y el dedo está encima). Al soltar se queda donde
+    // apunta el gesto: abierta, o asomando.
     const sheetRef = useRef<HTMLDivElement | null>(null);
-    const sheetOpenRef = useRef(sheetOpen);
-    useLayoutEffect(() => { sheetOpenRef.current = sheetOpen; });
+    // La lista se va viendo según sube la hoja (cerrada no asoma bajo el asa).
+    const sheetBodyRef = useRef<HTMLDivElement | null>(null);
     const hasSheet = hasPanel && !isDesktop;
     useEffect(() => {
         const sheet = sheetRef.current;
         if (!hasSheet || !sheet) return;
+        let x0 = 0;
         let y0 = 0;
-        let t0 = 0;
-        let dy = 0;
+        let base = 0;
+        let closedAt = 0;
+        let y = 0;
         let armed = false;
         let dragging = false;
+        let lastY = 0;
+        let lastT = 0;
+        let speed = 0;
         const listScrolled = (target: EventTarget | null) => {
             for (let el = target as HTMLElement | null; el && el !== sheet; el = el.parentElement) {
                 if (el.scrollTop > 0) return true;
@@ -121,32 +147,53 @@ const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, s
         const start = (e: TouchEvent) => {
             armed = e.touches.length === 1 && !(e.target as HTMLElement | null)?.closest('select,input');
             dragging = false;
-            dy = 0;
+            x0 = e.touches[0].clientX;
             y0 = e.touches[0].clientY;
-            t0 = performance.now();
         };
         const move = (e: TouchEvent) => {
             if (!armed) return;
-            dy = e.touches[0].clientY - y0;
+            const t = e.touches[0];
+            const dy = t.clientY - y0;
             if (!dragging) {
-                if (Math.abs(dy) < 8) return;
+                if (Math.abs(dy) < 6) return;
+                // Dónde está ahora (también a mitad de animación) y dónde asoma cerrada.
+                base = new DOMMatrixReadOnly(getComputedStyle(sheet).transform).m42;
+                closedAt = sheet.offsetHeight - 76 - (parseFloat(getComputedStyle(sheet).paddingBottom) || 0);
+                const open = base < closedAt / 2;
                 // Abierta y hacia arriba es desplazar la lista; hacia abajo con la lista bajada, también.
-                if ((sheetOpenRef.current && dy < 0) || (dy > 0 && listScrolled(e.target))) { armed = false; return; }
+                if (Math.abs(t.clientX - x0) > Math.abs(dy) || (open && dy < 0) || (dy > 0 && listScrolled(e.target))) { armed = false; return; }
                 dragging = true;
+                lastY = t.clientY;
+                lastT = performance.now();
+                speed = 0;
                 sheet.style.transition = 'none';
+                if (sheetBodyRef.current) sheetBodyRef.current.style.transition = 'none';
             }
-            if (sheetOpenRef.current) sheet.style.transform = `translateY(${Math.max(0, dy)}px)`;
+            const now = performance.now();
+            speed = (t.clientY - lastY) / Math.max(1, now - lastT);
+            lastY = t.clientY;
+            lastT = now;
+            y = Math.min(closedAt, Math.max(0, base + t.clientY - y0));
+            sheet.style.transform = `translateY(${y}px)`;
+            if (sheetBodyRef.current) sheetBodyRef.current.style.opacity = String(Math.min(1, Math.max(0, 1 - y / Math.max(1, closedAt)) * 1.6));
             if (e.cancelable) e.preventDefault();
         };
         const end = () => {
             if (!dragging) return;
             dragging = false;
             armed = false;
-            const fast = Math.abs(dy) / Math.max(1, performance.now() - t0) > 0.5;
-            sheet.style.transition = '';
-            sheet.style.transform = '';
-            if (sheetOpenRef.current && (dy > 90 || (dy > 30 && fast))) { setSheetOpen(false); setFiltersOpen(false); }
-            else if (!sheetOpenRef.current && dy < -30) setSheetOpen(true);
+            const v = performance.now() - lastT < 90 ? speed : 0;
+            const open = v < -0.35 || (v <= 0.35 && y < closedAt / 2);
+            // El mismo valor que pone React: la animación sigue desde donde se soltó.
+            sheet.style.transition = SHEET_EASE;
+            if (sheetBodyRef.current) {
+                sheetBodyRef.current.style.transition = FADE_EASE;
+                sheetBodyRef.current.style.opacity = open ? '1' : '0';
+            }
+            sheet.style.transform = open ? SHEET_OPEN : SHEET_CLOSED;
+            haptic('selection');
+            setSheetOpen(open);
+            if (!open) setFiltersOpen(false);
         };
         sheet.addEventListener('touchstart', start, { passive: true });
         sheet.addEventListener('touchmove', move, { passive: false });
@@ -169,6 +216,15 @@ const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, s
         setFiltersOpen((v) => !v);
         if (!isDesktop) setSheetOpen(true);
     };
+
+    const pickRadius = (value: string) => {
+        const raw = value.slice(2);
+        setRadius(raw === 'all' ? null : Number(raw));
+        if (raw !== 'all' && !location) void requestLocation();
+    };
+    const zoneControl = areaControl ?? (ownRadius && (
+        <AreaSelect value={`r:${(location && radius) || 'all'}`} range={radius} options={NO_AREAS} onChange={pickRadius} mode="explore" />
+    ));
 
     const countLabel = `${shown.length} ${shown.length === 1 ? 'sitio' : 'sitios'}${activeFilters ? ` de ${allItems.length}` : ''}`;
 
@@ -301,19 +357,24 @@ const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, s
                 )}
                 {/* En el móvil el mapa acaba donde asoma la hoja, para que no tape «Centrar en mi ubicación». */}
                 <div className="relative min-w-0 flex-1" style={hasPanel && !isDesktop ? { paddingBottom: 76 } : undefined}>
-                    <MapView items={mapItems} mode={mode} range={range} scrollWheelZoom focusId={focus?.id ?? null} focusNonce={focus?.nonce} />
+                    <MapView items={mapItems} mode={mode} range={effectiveRange} scrollWheelZoom focusId={focus?.id ?? null} focusNonce={focus?.nonce} />
+                    {/* Zona o radio, a mano sobre el mapa (a la derecha de los botones de zoom). */}
+                    {zoneControl && (
+                        <div className="absolute left-14 right-16 top-2.5 z-[1000] flex">{zoneControl}</div>
+                    )}
                 </div>
                 {hasPanel && !isDesktop && (
                     <div
                         ref={sheetRef}
-                        className={`absolute inset-x-0 bottom-0 z-[1001] flex flex-col rounded-t-3xl border-t border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-[0_-8px_24px_rgba(15,23,42,0.25)] transition-[max-height,transform] duration-200 ${sheetOpen ? 'max-h-[62%]' : 'max-h-[76px]'}`}
-                        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+                        className="absolute inset-x-0 bottom-0 z-[1001] flex h-[62%] flex-col rounded-t-3xl border-t border-[var(--lt-border)] bg-[var(--lt-card-strong)] shadow-[0_-8px_24px_rgba(15,23,42,0.25)] will-change-transform motion-reduce:!transition-none"
+                        style={{ paddingBottom: 'env(safe-area-inset-bottom)', transform: sheetOpen ? SHEET_OPEN : SHEET_CLOSED, transition: SHEET_EASE }}
                     >
                         <button
                             type="button"
                             onClick={() => { setSheetOpen((v) => !v); if (sheetOpen) setFiltersOpen(false); }}
                             aria-expanded={sheetOpen}
-                            className="flex w-full shrink-0 flex-col items-center px-4 pb-3 pt-2"
+                            // Tan alta como lo que asoma cerrada (76 px, igual que el hueco bajo el mapa).
+                            className="flex h-[76px] w-full shrink-0 flex-col items-center px-4 pt-2"
                         >
                             <span className="mb-2 h-1.5 w-10 rounded-full bg-[var(--lt-border-strong)]" aria-hidden="true" />
                             <span className="flex w-full items-center justify-between text-sm font-bold text-[var(--lt-text)]">
@@ -323,12 +384,11 @@ const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, s
                                 </span>
                             </span>
                         </button>
-                        {sheetOpen && (
-                            <div className="flex min-h-0 flex-1 flex-col">
-                                {filtersBlock}
-                                {list}
-                            </div>
-                        )}
+                        {/* Siempre montada: al arrastrar ya se ve la lista. Cerrada no se puede tocar. */}
+                        <div ref={sheetBodyRef} className="flex min-h-0 flex-1 flex-col" inert={!sheetOpen} style={{ opacity: sheetOpen ? 1 : 0, transition: FADE_EASE }}>
+                            {filtersBlock}
+                            {list}
+                        </div>
                     </div>
                 )}
             </div>

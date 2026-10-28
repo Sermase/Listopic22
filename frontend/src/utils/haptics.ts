@@ -5,7 +5,8 @@ import { Capacitor } from '@capacitor/core';
 // (navigator.vibrate) e iPhone en Safari, que no tiene vibrate pero da un
 // toquecito al pulsar un interruptor <input switch> (iOS 18+).
 
-type Kind = 'light' | 'medium' | 'heavy' | 'selection' | 'success';
+export type HapticKind = 'light' | 'medium' | 'heavy' | 'selection' | 'success' | 'error';
+type Kind = HapticKind;
 
 const PATTERNS: Record<Kind, number | number[]> = {
     selection: 6,
@@ -13,7 +14,25 @@ const PATTERNS: Record<Kind, number | number[]> = {
     medium: 20,
     heavy: 35,
     success: [15, 40, 25],
+    error: [30, 60, 30],
 };
+
+// Se puede apagar en Preferencias (por dispositivo).
+const OFF_KEY = 'listopic_haptics_off';
+let off: boolean | null = null;
+export function isHapticsOn(): boolean {
+    if (off === null) {
+        try { off = localStorage.getItem(OFF_KEY) === '1'; } catch { off = false; }
+    }
+    return !off;
+}
+export function setHapticsOn(on: boolean): void {
+    off = !on;
+    try {
+        if (on) localStorage.removeItem(OFF_KEY);
+        else localStorage.setItem(OFF_KEY, '1');
+    } catch { /* sin almacenamiento: vale para esta visita */ }
+}
 
 const isIOS = () => typeof navigator !== 'undefined'
     && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
@@ -30,6 +49,8 @@ function iosTick() {
         input.setAttribute('switch', '');
         input.tabIndex = -1;
         iosSwitch.appendChild(input);
+        // Que este clic de mentira no lo vea nadie más (p. ej. un «tocar fuera cierra»).
+        iosSwitch.addEventListener('click', (event) => event.stopPropagation());
         document.body.appendChild(iosSwitch);
     }
     iosSwitch.click();
@@ -37,11 +58,12 @@ function iosTick() {
 
 /** Vibra un poco. En iPhone (web) solo funciona dentro de un toque del usuario. */
 export function haptic(kind: Kind = 'light'): void {
+    if (!isHapticsOn()) return;
     if (Capacitor.isNativePlatform()) {
         const run = kind === 'selection'
             ? Haptics.selectionStart().then(() => Haptics.selectionChanged())
-            : kind === 'success'
-                ? Haptics.notification({ type: NotificationType.Success })
+            : kind === 'success' || kind === 'error'
+                ? Haptics.notification({ type: kind === 'success' ? NotificationType.Success : NotificationType.Error })
                 : Haptics.impact({ style: kind === 'light' ? ImpactStyle.Light : kind === 'medium' ? ImpactStyle.Medium : ImpactStyle.Heavy });
         run.catch(() => { /* sin vibración */ });
         return;

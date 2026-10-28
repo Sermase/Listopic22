@@ -112,7 +112,7 @@ test('«Pachote» del menú abre Pachote con la cuenta de Listopic', async ({ pa
   await page.goto('/');
   await page.getByRole('button', { name: 'Abrir menú' }).click();
   const popupPromise = page.waitForEvent('popup');
-  await page.getByRole('dialog', { name: 'Menú' }).getByRole('button', { name: 'Pachote', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Menú' }).getByRole('button', { name: /^Pachote/ }).click();
   const pachote = await popupPromise;
   await expect.poll(() => pachoteUser(pachote), { timeout: 30_000 }).toEqual(expect.objectContaining({ uid: 'luis', anon: false }));
   expect(pachote.url()).not.toContain('auth=');

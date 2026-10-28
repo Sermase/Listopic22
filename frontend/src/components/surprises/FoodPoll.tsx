@@ -6,6 +6,7 @@ import { useUserProfile } from '../../hooks/useUserProfile';
 import { useLocation } from '../../hooks/useLocation';
 import { claimSecretBadge, foodPoll, type PollResults, type PollTally } from '../../services/SurpriseService';
 import { markPollVoted, type PollId, type PollSide } from '../../lib/surprises';
+import { haptic } from '../../utils/haptics';
 
 interface PollCopy {
     title: string;
@@ -78,6 +79,7 @@ const FoodPoll: React.FC<{ poll: PollId; side?: PollSide; onClose: () => void }>
 
     const vote = async (choice: PollSide) => {
         if (!user) { onClose(); openAuthPrompt('votar en la encuesta'); return; }
+        haptic('medium');
         setBusy(true);
         setError(null);
         try {

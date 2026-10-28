@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useMemo, useRef, useState, useEffect } from 'react';
 import { CheckCircle2, Info, AlertTriangle, X } from 'lucide-react';
+import { haptic } from '../utils/haptics';
 
 type ToastVariant = 'success' | 'info' | 'error';
 
@@ -67,6 +68,8 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const showToast = useCallback((payload: ToastPayload) => {
         const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         const variant: ToastVariant = payload.variant || 'info';
+        // Los fallos se notan en la mano (los aciertos ya vibran donde pasan).
+        if (variant === 'error') haptic('error');
         const entry: ToastEntry = {
             id,
             title: payload.title,

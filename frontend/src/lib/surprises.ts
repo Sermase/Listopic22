@@ -7,6 +7,7 @@
  * animaciones se quedan en un aviso quieto.
  */
 import { foldText } from '../components/business/kit/text';
+import type { HapticKind } from '../utils/haptics';
 
 export type SurpriseId =
     | 'perfectTen'
@@ -78,7 +79,8 @@ export type SurpriseEffect =
     | { kind: 'rain'; emoji: string; title?: string }
     | { kind: 'broken'; title?: string }
     | { kind: 'shake' }
-    | { kind: 'bubble'; emoji: string; text: string }
+    /** `haptic`: cómo vibra al salir (por defecto, un toque suave). */
+    | { kind: 'bubble'; emoji: string; text: string; haptic?: HapticKind }
     | { kind: 'croqueta'; gated?: boolean }
     | { kind: 'roulette' }
     | { kind: 'poll'; poll: PollId; side?: PollSide };

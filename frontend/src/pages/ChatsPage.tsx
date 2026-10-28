@@ -53,6 +53,7 @@ import {
     type PlaceRef,
     type ReplyRef,
 } from '../lib/chatExtras';
+import { haptic } from '../utils/haptics';
 
 type ChatTool =
     | { kind: 'invite'; dish?: PlaceRef | null; when?: number; pollId?: string }
@@ -321,6 +322,7 @@ export const ChatsPage: React.FC = () => {
         e?.preventDefault();
         if (!user || !activeChat || !newMessage.trim()) return;
         const text = newMessage;
+        haptic('light');
         setNewMessage('');
         setReplyingTo(null);
         setEmojiOpen(false);
@@ -421,6 +423,7 @@ export const ChatsPage: React.FC = () => {
     const respond = (msg: Message, status: InviteStatus, proposedAt?: number) => {
         if (!user || !activeChat) return;
         if (msg.invite?.responses?.[user.uid]?.status === status && status !== 'other') return;
+        haptic(status === 'yes' ? 'success' : 'medium');
         void runChatAction(() => ChatService.respondInvite(activeChat, msg, me(), status, proposedAt));
     };
 
@@ -441,6 +444,7 @@ export const ChatsPage: React.FC = () => {
                 return;
             }
             await navigator.clipboard.writeText(`${text} ${url}`);
+            haptic('light');
             showToast({ variant: 'success', message: 'Enlace copiado: pégalo en WhatsApp o donde quieras' });
         } catch (error) {
             console.error(error);
@@ -518,7 +522,7 @@ export const ChatsPage: React.FC = () => {
                     uid={user.uid}
                     isMine={isOwnMessage}
                     nameOf={nameOf}
-                    onVote={(optionId) => runChatAction(() => ChatService.votePoll(activeChat, msg.id!, user.uid, optionId))}
+                    onVote={(optionId) => { haptic('medium'); void runChatAction(() => ChatService.votePoll(activeChat, msg.id!, user.uid, optionId)); }}
                     onInviteWinner={(dish) => setTool({ kind: 'invite', dish })}
                 />
             );
@@ -531,7 +535,7 @@ export const ChatsPage: React.FC = () => {
                     participants={participants}
                     personOf={personOf}
                     nameOf={nameOf}
-                    onVote={(optionId, vote) => runChatAction(() => ChatService.voteDate(activeChat, msg.id!, user.uid, optionId, vote))}
+                    onVote={(optionId, vote) => { haptic('selection'); void runChatAction(() => ChatService.voteDate(activeChat, msg.id!, user.uid, optionId, vote)); }}
                     onConvert={(row) => setTool({ kind: 'invite', dish: datePoll.place ?? null, when: row.when, pollId: msg.id })}
                     onOpenEvent={(id) => setOpenEvent({ id })}
                 />
