@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Marker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import { createClusterIcon } from '../../utils/mapUtils';
+import { haptic } from '../../utils/haptics';
 
 export interface ClusterPoint {
     id: string;
@@ -102,6 +103,7 @@ export function ClusteredPins<T extends ClusterPoint>({ points, renderPin }: { p
                     icon={createClusterIcon(cluster.members.length, cluster.average)}
                     eventHandlers={{
                         click: () => {
+                            haptic('selection');
                             const bounds = L.latLngBounds(cluster.members.map((m) => [m.lat, m.lng] as [number, number]));
                             // Todas en el mismo punto (varias reseñas del mismo sitio): basta con llegar al zoom sin grupos.
                             const target = Math.max(map.getBoundsZoom(bounds, false, L.point(60, 60)), zoom + 2);

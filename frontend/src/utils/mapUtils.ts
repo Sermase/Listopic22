@@ -73,7 +73,25 @@ const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (c) => `&#${c.ch
  * la nota en la escala de color de la app y un pico que marca el punto exacto.
  * Es HTML con clases de index.css (.lt-pin), así el tamaño se ajusta al texto.
  */
-export const createMapPinIcon = ({ score, botScore, emoji, color, sponsored = false, highlighted = false }: MapPinOptions = {}): L.DivIcon => {
+// Mismo pin, mismo icono: si cambia el objeto, Leaflet rehace la chincheta en el DOM
+// (antes pasaba con cada render del mapa, en todas a la vez).
+const iconCache = new Map<string, L.DivIcon>();
+function cachedIcon(key: string, build: () => L.DivIcon): L.DivIcon {
+    let icon = iconCache.get(key);
+    if (!icon) {
+        if (iconCache.size > 600) iconCache.clear();
+        icon = build();
+        iconCache.set(key, icon);
+    }
+    return icon;
+}
+
+export const createMapPinIcon = (options: MapPinOptions = {}): L.DivIcon => {
+    const { score, botScore, emoji, color, sponsored = false, highlighted = false } = options;
+    return cachedIcon(`pin|${score ?? ''}|${botScore ?? ''}|${emoji ?? ''}|${color ?? ''}|${sponsored ? 1 : 0}|${highlighted ? 1 : 0}`, () => buildPinIcon(options));
+};
+
+const buildPinIcon = ({ score, botScore, emoji, color, sponsored = false, highlighted = false }: MapPinOptions): L.DivIcon => {
     const s = typeof score === 'number' && Number.isFinite(score) && score > 0 ? score : null;
     const classes = ['lt-pin'];
     let style = '';
@@ -136,7 +154,10 @@ export const createUserLocationIcon = (): L.DivIcon => L.divIcon({
  * Círculo que agrupa chinchetas cercanas al alejar el mapa: el número es cuántas hay
  * y el color sigue, de forma gradual, la nota media de las que tienen nota.
  */
-export const createClusterIcon = (count: number, average: number | null): L.DivIcon => {
+export const createClusterIcon = (count: number, average: number | null): L.DivIcon =>
+    cachedIcon(`cl|${count}|${average === null ? '' : Math.round(average * 10)}`, () => buildClusterIcon(count, average));
+
+const buildClusterIcon = (count: number, average: number | null): L.DivIcon => {
     const { bg, fg } = scoreGradient(average);
     const size = Math.round(Math.min(58, 34 + Math.log2(count) * 6));
     const label = count > 999 ? '999+' : String(count);

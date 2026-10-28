@@ -85,6 +85,7 @@ import { EntityHero } from "../components/EntityHero";
 import { useAuthPrompt } from "../context/AuthPromptContext";
 import { useToast } from "../context/ToastContext";
 import { compareByRank } from "../lib/scoring";
+import { haptic } from '../utils/haptics';
 
 interface ListRatingStats {
   listId: string;
@@ -1346,6 +1347,12 @@ export const ProfilePage: React.FC = () => {
         getReviewCreatedAtMillis(a.createdAt),
     );
   }, [filteredReviewQuery.reviews, localReviews, reviewSortMode, reviewListFilter]);
+  // Memorizado: si cambia en cada render, el mapa vuelve a encuadrar y rehace sus chinchetas.
+  const profileMapItems = useMemo(() => sortedProfileReviews.map(r => ({
+    ...r,
+    lat: r.placeLat || r.lat || r.location?.latitude || r.coordinates?.latitude,
+    lng: r.placeLng || r.lng || r.location?.longitude || r.coordinates?.longitude
+  })), [sortedProfileReviews]);
 
   // Todas las Listas del perfil (lectura completa) más las del mosaico, por si
   // hay alguna recién creada que aún no está en las estadísticas.
@@ -1511,6 +1518,7 @@ export const ProfilePage: React.FC = () => {
       return;
     }
     if (!targetUserId) return;
+    haptic('medium');
     setFollowLoading(true);
 
     // Optimistic update: cambia el estado antes de esperar Firestore
@@ -2591,11 +2599,7 @@ export const ProfilePage: React.FC = () => {
         onClose={() => setIsMapOpen(false)}
         title={isOwnProfile ? "Tu mapa" : `Mapa de ${profile.username || profileShareTitle}`}
         subtitle={`${sortedProfileReviews.length} ${sortedProfileReviews.length === 1 ? "reseña" : "reseñas"}${hasMore ? " (cargando más…)" : ""}`}
-        items={sortedProfileReviews.map(r => ({
-          ...r,
-          lat: r.placeLat || r.lat || r.location?.latitude || r.coordinates?.latitude,
-          lng: r.placeLng || r.lng || r.location?.longitude || r.coordinates?.longitude
-        }))}
+        items={profileMapItems}
       />
       <ShareModal
         isOpen={isShareModalOpen}

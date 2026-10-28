@@ -18,6 +18,7 @@ import { PersonCard, RecentSearchChip } from './landing/LandingCards';
 import {
     followingQueryKey, useFollowing, useLandingPool, useOwnTaste, useProfiles, useRecentChats,
 } from './landing/useSearchLandingData';
+import { haptic } from '../../utils/haptics';
 
 const CARD_ITEM = 'w-auto';
 const NO_BOTS: ReadonlySet<string> = new Set();
@@ -108,6 +109,7 @@ export const SearchLanding: React.FC<{ onSearch: (query: string) => void }> = ({
             openAuthPrompt('seguir a gente');
             return;
         }
+        haptic('medium');
         const isFollowing = followingIds.has(target);
         setBusyFollow(target);
         try {

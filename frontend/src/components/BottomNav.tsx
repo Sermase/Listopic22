@@ -78,14 +78,14 @@ function useHoldSwipeUpMenu(bar: React.RefObject<HTMLElement | null>, enabled: b
                 lastY = t.clientY;
                 lastT = now;
                 speed = 0;
-                startMenuDrag();
+                startMenuDrag(t.clientY);
                 return;
             }
             if (!pulling) return;
-            speed = (lastY - t.clientY) / Math.max(1, now - lastT);
+            speed = (t.clientY - lastY) / Math.max(1, now - lastT);
             lastY = t.clientY;
             lastT = now;
-            moveMenuDrag(y0 - t.clientY);
+            moveMenuDrag(t.clientY);
         };
         const end = () => {
             // Soltar tras mantener sin deslizar no abre la pestaña.
@@ -151,9 +151,14 @@ const Tab: React.FC<TabProps> = ({ to, label, icon: Icon, active, badge, onClick
             />
         </>
     );
+    // Un «tic» al cambiar de pestaña.
+    const press: React.MouseEventHandler<HTMLElement> = (event) => {
+        if (!active) haptic('selection');
+        onClick?.(event);
+    };
     return to
-        ? <Link to={to} onClick={onClick} aria-current={active ? 'page' : undefined} className={className}>{content}</Link>
-        : <button type="button" onClick={onClick} className={className}>{content}</button>;
+        ? <Link to={to} onClick={press} aria-current={active ? 'page' : undefined} className={className}>{content}</Link>
+        : <button type="button" onClick={press} className={className}>{content}</button>;
 };
 
 /**

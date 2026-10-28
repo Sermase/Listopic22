@@ -1492,6 +1492,15 @@ export const HomePage: React.FC = () => {
                                 subtitle={`${filteredPlaces.length} ${filteredPlaces.length === 1 ? 'sitio' : 'sitios'}${areaFilter.kind === 'near' && range && location ? ` a menos de ${range} km` : ''}`}
                                 items={filteredPlaces}
                                 range={areaFilter.kind === 'near' && location ? range : null}
+                                areaControl={(
+                                    <AreaSelect
+                                        value={areaFilter.kind === 'near' ? `r:${(location && range) || 'all'}` : encodeArea(areaFilter)}
+                                        range={range}
+                                        options={areaOptions}
+                                        onChange={handleAreaSelect}
+                                        onExplore={() => navigate(exploreSearchUrl({ zone: areaFilter.kind === 'near' ? null : { level: areaFilter.kind, value: areaFilter.value } }))}
+                                    />
+                                )}
                             />
                         </div>
                     )}

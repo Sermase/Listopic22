@@ -1,4 +1,5 @@
 // Sin Leaflet: lo usan también el mapa grande y otras vistas sin cargar el mapa.
+import { useMemo, useState } from 'react';
 
 export interface MapItem {
     id: string;
@@ -65,3 +66,24 @@ export const normalizeMapItems = (items: MapInputItem[]): MapItem[] => items.fla
     }];
 });
 
+
+const signature = (items: MapItem[]) => items.map((i) => [
+    i.id, i.placeId, i.lat, i.lng, i.name, i.photoUrl, i.rating, i.botRating, i.reviewsCount, i.emoji, i.color, i.subtitle,
+    i.lists?.join(','), i.items?.map((sub) => `${sub.name}:${sub.score}`).join(','),
+].join('~')).join('|');
+
+/**
+ * normalizeMapItems estable: mientras los sitios sean los mismos devuelve el mismo array,
+ * aunque quien llama cree uno nuevo en cada render. Si no, el mapa vuelve a encuadrar
+ * (y deshace el zoom o el arrastre de la persona) cada vez que se pinta la página.
+ */
+export function useStableMapItems(items: MapInputItem[]): MapItem[] {
+    const normalized = useMemo(() => normalizeMapItems(items), [items]);
+    const sig = useMemo(() => signature(normalized), [normalized]);
+    const [kept, setKept] = useState({ sig, items: normalized });
+    if (kept.sig !== sig) {
+        setKept({ sig, items: normalized });
+        return normalized;
+    }
+    return kept.items;
+}

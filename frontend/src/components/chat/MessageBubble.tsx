@@ -82,6 +82,7 @@ export const MessageBubble: React.FC<{
     };
     const doubleTap = () => {
         if (mine !== DOUBLE_TAP_REACTION) onReact(DOUBLE_TAP_REACTION);
+        haptic('medium');
         setBurst(true);
         window.setTimeout(() => setBurst(false), 650);
     };

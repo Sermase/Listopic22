@@ -23,6 +23,7 @@ import { recordShareEvent, type AnalyticsShareChannel } from '../services/Analyt
 import { useNavigate } from 'react-router-dom';
 import { InviteSheet } from './chat/InviteSheet';
 import type { PlaceRef } from '../lib/chatExtras';
+import { haptic } from '../utils/haptics';
 
 interface ShareModalProps {
     isOpen: boolean;
@@ -425,6 +426,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         if (platform === 'clipboard') {
             try {
                 await navigator.clipboard.writeText(shareTextForExternal);
+                haptic('light');
                 trackSuccessfulShare('clipboard');
                 setStatusTone('success');
                 setStatusMessage('Enlace copiado al portapapeles');

@@ -99,7 +99,8 @@ describe('useSwipeToClose', () => {
         touch(panel, 'touchstart', 100, 100);
         touch(panel, 'touchmove', 102, 120);
         touch(panel, 'touchmove', 102, 300);
-        expect(panel.style.transform).toBe('translateY(180px)');
+        // Pegado al dedo: lo que ha bajado desde donde se puso (300 - 100).
+        expect(panel.style.transform).toBe('translateY(200px)');
         touch(panel, 'touchend', 102, 300);
         act(() => { vi.advanceTimersByTime(200); });
         expect(onClose).toHaveBeenCalledTimes(1);

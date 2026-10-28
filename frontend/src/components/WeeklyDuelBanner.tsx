@@ -6,6 +6,7 @@ import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { mapDuel, type Duel, type DuelSide } from '../types/duel';
 import { useAuthPrompt } from '../context/AuthPromptContext';
+import { haptic } from '../utils/haptics';
 
 // El Duelo de la semana: dos platos rivales, la comunidad vota. Se activa
 // desde Developer (flag showWeeklyDuel) y los duelos se gestionan en
@@ -64,6 +65,7 @@ export const WeeklyDuelBanner: React.FC = () => {
             return;
         }
         if (voting || myVote === side) return;
+        haptic('medium');
         setVoting(true);
         try {
             await setDoc(doc(db, 'duels', duel.id, 'votes', user.uid), {
