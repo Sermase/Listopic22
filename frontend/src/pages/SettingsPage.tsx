@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Check, ChevronRight } from 'lucide-react';
+import { Check, ChevronRight, Lock } from 'lucide-react';
 import { signOutAndForget } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useFilters, DEFAULT_RANGE_KM, RANGE_STEPS_KM } from '../context/FilterContext';
@@ -108,7 +108,7 @@ export const SettingsPage: React.FC = () => {
     const { user } = useAuth();
     const { profile } = useUserProfile(user?.uid);
     const { range, setRange } = useFilters();
-    const { theme, setTheme, themes } = useTheme();
+    const { theme, setTheme, themes, nextLocked } = useTheme();
     const { prefs, setPref } = usePreferences();
     const [sheet, setSheet] = useState<SheetId | null>(null);
     const [mapChoice, setMapChoice] = useState<MapLayerId | null>(readMapLayer);
@@ -280,8 +280,20 @@ export const SettingsPage: React.FC = () => {
                             </button>
                         );
                     })}
+                    {nextLocked && (
+                        <div className="overflow-hidden rounded-2xl border border-dashed border-[var(--lt-border)] text-left" aria-label={`${nextLocked.label}: bloqueado`}>
+                            <span className="relative block h-16 opacity-40 grayscale" style={{ background: nextLocked.preview.bg }}>
+                                <span className="absolute -right-6 -top-6 h-20 w-20 rounded-full opacity-70 blur-2xl" style={{ background: nextLocked.preview.accent }} />
+                            </span>
+                            <span className="relative -mt-11 mb-3 flex justify-center"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white"><Lock className="h-4 w-4" /></span></span>
+                            <span className="block px-2.5 pb-2">
+                                <span className="block text-sm font-bold text-[var(--lt-text)]">{nextLocked.unlock?.icon} {nextLocked.label}</span>
+                                <span className="block text-[11px] leading-snug text-[var(--lt-text-muted)]">{user ? nextLocked.unlock?.hint : `Entra y ${nextLocked.unlock?.hint.charAt(0).toLowerCase()}${nextLocked.unlock?.hint.slice(1)}`}</span>
+                            </span>
+                        </div>
+                    )}
                 </div>
-                <p className="mt-3 text-xs text-[var(--lt-text-muted)]">Se aplica al momento{user ? ' y te sigue en otros dispositivos' : ''}.</p>
+                <p className="mt-3 text-xs text-[var(--lt-text-muted)]">{nextLocked ? 'Cada tema nuevo se gana con una medalla. ' : ''}Se aplica al momento{user ? ' y te sigue en otros dispositivos' : ''}.</p>
             </Modal>
 
             <Modal isOpen={sheet === 'nav'} onClose={close} title="📱 Barra de abajo">

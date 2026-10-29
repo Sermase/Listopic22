@@ -5,6 +5,7 @@ import { collection, doc, limit, onSnapshot, query, where } from 'firebase/fires
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig, useAppConfigLoading } from '../context/AppConfigContext';
 import { useTheme } from '../context/ThemeContext';
+import { fireSurprise } from '../lib/surprises';
 import type { ThemeId } from '../context/ThemeContext';
 import { db } from '../firebase';
 import { Capacitor } from '@capacitor/core';
@@ -90,7 +91,7 @@ export const Navbar: React.FC = () => {
     const { openAuthPrompt } = useAuthPrompt();
     const config = useAppConfig();
     const isConfigLoading = useAppConfigLoading();
-    const { theme, setTheme, themes } = useTheme();
+    const { theme, setTheme, themes, nextLocked } = useTheme();
     const location = useLocation();
 
     const themeLogoUrls: Record<ThemeId, string | undefined> = {
@@ -512,6 +513,15 @@ export const Navbar: React.FC = () => {
                                         {t.label}
                                     </button>
                                 ))}
+                                {nextLocked && (
+                                    <button
+                                        type="button"
+                                        onClick={() => fireSurprise({ kind: 'bubble', emoji: '🔒', text: `${nextLocked.label}: ${nextLocked.unlock?.hint ?? ''}` })}
+                                        className="flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-[var(--lt-border)] px-2.5 py-1.5 text-xs font-bold text-[var(--lt-text-muted)]"
+                                    >
+                                        🔒 {nextLocked.label}
+                                    </button>
+                                )}
                             </div>
                         </div>
 

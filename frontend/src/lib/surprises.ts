@@ -21,6 +21,7 @@ export type SurpriseId =
     | 'pizzaPoll'
     | 'secretBadges'
     | 'abuela'
+    | 'themeLadder'
     | 'ansievi';
 
 export interface SurpriseMeta {
@@ -42,6 +43,7 @@ export const SURPRISES: readonly SurpriseMeta[] = [
     { id: 'pizzaPoll', emoji: '🍍', name: 'Encuesta de la piña', how: 'Buscar «piña» o «hawaiana»: ¿pizza con o sin piña?' },
     { id: 'secretBadges', emoji: '🏅', name: 'Medallas secretas', how: 'Medallas escondidas que se ganan con las sorpresas.' },
     { id: 'abuela', emoji: '👵', name: 'Tema Abuela', how: '3 valoraciones en un domingo: medalla «Bien comido» y tema Abuela.' },
+    { id: 'themeLadder', emoji: '🎨', name: 'Escalera de temas', how: 'Cada tema se desbloquea con su medalla (Cálido → Fresco → Neón → Grafito → Atardecer → Laguna → Abuela). Apagada: todos libres salvo la Abuela.' },
     { id: 'ansievi', emoji: '💃', name: '«ansievi»', how: 'Buscar «ansievi» abre el Baile de los apegos.' },
 ];
 
