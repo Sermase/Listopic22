@@ -95,6 +95,9 @@ export const normalizeEarnedBadgeIds = (
   return Array.from(new Set(normalized));
 };
 
+/** Las secretas no cuentan cómo se ganan (ni su premio) hasta tenerlas. */
+export const isSecretBadge = (badge: Badge): boolean => badge.category === "HIDDEN";
+
 export const getBadgePublicDescription = (badge: Badge): string => {
   return (
     toNonEmptyString(badge.descriptionPublic) ||

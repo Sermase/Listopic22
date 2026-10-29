@@ -24,6 +24,7 @@ const PUBLIC_PROFILE_FIELDS = [
     "level",
     "xp",
     "badges",
+    "badgeDates",
     "createdAt",
     "updatedAt",
 ];

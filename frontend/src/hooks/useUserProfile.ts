@@ -30,6 +30,8 @@ export interface UserProfileEntity {
     reviewsCount?: number;
     reviewCount?: number;
     badges?: Array<string | { id?: string }>;
+    /** Cuándo se ganó cada medalla (lo escriben las Functions). */
+    badgeDates?: Record<string, { toDate?: () => Date; seconds?: number }>;
     defaultDistanceKm?: number;
     listCount?: number;
     listsCount?: number;

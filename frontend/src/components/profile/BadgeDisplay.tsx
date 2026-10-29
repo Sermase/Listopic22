@@ -6,8 +6,10 @@ import {
   getBadgeProgress,
   getBadgePublicDescription,
   getBadgeXpReward,
+  isSecretBadge,
   type GamificationMetrics,
 } from "../../utils/gamification";
+import { BadgeInfoModal, type BadgeDateValue } from "./BadgeInfoModal";
 
 interface BadgeDisplayProps {
   earnedBadgeIds?: string[];
@@ -15,6 +17,8 @@ interface BadgeDisplayProps {
   variant?: "compact" | "showcase" | "detailed";
   showLocked?: boolean;
   metrics?: GamificationMetrics;
+  /** users.badgeDates: cuándo se ganó cada una. */
+  earnedDates?: Record<string, BadgeDateValue>;
   className?: string;
 }
 
@@ -39,6 +43,7 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
   variant = "compact",
   showLocked = false,
   metrics,
+  earnedDates,
   className,
 }) => {
   const { badges, loading } = useBadges();
@@ -71,6 +76,16 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
     [orderedBadges, selectedShowcaseBadgeId],
   );
 
+  // Al tocar una medalla: su ficha (cómo se gana o se ganó, cuándo y el premio).
+  const infoModal = (
+    <BadgeInfoModal
+      badge={selectedShowcaseBadge}
+      earned={!!selectedShowcaseBadge && earnedSet.has(selectedShowcaseBadge.id)}
+      earnedAt={selectedShowcaseBadge ? earnedDates?.[selectedShowcaseBadge.id] : undefined}
+      onClose={() => setSelectedShowcaseBadgeId(null)}
+    />
+  );
+
   if (loading) {
     return null;
   }
@@ -89,7 +104,9 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
     return (
       <div className={cn("flex flex-wrap gap-2", className)}>
         {orderedBadges.map((badge) => (
-          <div
+          <button
+            type="button"
+            onClick={() => setSelectedShowcaseBadgeId(badge.id)}
             key={badge.id}
             className="group relative flex h-11 w-11 items-center justify-center rounded-2xl border border-amber-400/20 bg-gradient-to-br from-[#24180d] via-[#3a2612] to-[#6a390d] shadow-[0_10px_30px_rgba(245,158,11,0.12)]"
             title={`${badge.name}: ${getBadgePublicDescription(badge)}`}
@@ -103,8 +120,9 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
                   : "h-5 w-5 text-amber-100",
             )}
             <div className="pointer-events-none absolute -bottom-2 left-1/2 h-3 w-7 -translate-x-1/2 rounded-b-full bg-amber-950/70 blur-[1px]" />
-          </div>
+          </button>
         ))}
+        {infoModal}
       </div>
     );
   }
@@ -122,9 +140,7 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
               <button
                 key={badge.id}
                 type="button"
-                onClick={() => setSelectedShowcaseBadgeId((current) => (
-                  current === badge.id ? null : badge.id
-                ))}
+                onClick={() => setSelectedShowcaseBadgeId(badge.id)}
                 className="flex w-[104px] flex-col items-center text-center"
               >
                 <div
@@ -152,16 +168,7 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
           })}
         </div>
 
-        {selectedShowcaseBadge && (
-          <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-center">
-            <div className="text-[11px] font-black uppercase tracking-[0.18em] text-amber-200">
-              {selectedShowcaseBadge.name}
-            </div>
-            <div className="mt-2 text-sm leading-relaxed text-gray-300">
-              {getBadgePublicDescription(selectedShowcaseBadge)}
-            </div>
-          </div>
-        )}
+        {infoModal}
       </div>
     );
   }
@@ -174,11 +181,17 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
           ? getBadgeProgress(badge, metrics, earnedBadgeIds)
           : null;
 
+        const hidden = !isEarned && isSecretBadge(badge);
+
         return (
           <article
             key={badge.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => setSelectedShowcaseBadgeId(badge.id)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedShowcaseBadgeId(badge.id); } }}
             className={cn(
-              "rounded-2xl border p-4 transition-colors",
+              "cursor-pointer rounded-2xl border p-4 transition-colors",
               isEarned
                 ? "border-amber-400/30 bg-gradient-to-br from-[#1d140b] via-[#22160d] to-[#302010]"
                 : "border-white/10 bg-[var(--lt-card-strong)]/70",
@@ -193,7 +206,7 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
                     : "border-white/10 bg-black/20 text-gray-500",
                 )}
               >
-                {renderBadgeFace(
+                {hidden ? <span className="text-2xl">❔</span> : renderBadgeFace(
                   badge,
                   badge.imageUrl
                     ? "h-8 w-8 object-contain"
@@ -229,12 +242,12 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
                     )}
                   </span>
                   <span className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--lt-accent)]">
-                    +{getBadgeXpReward(badge)} XP
+                    {hidden ? "🎁 Sorpresa" : `+${getBadgeXpReward(badge)} XP`}
                   </span>
                 </div>
 
                 <p className="mt-2 text-sm leading-relaxed text-gray-300">
-                  {getBadgePublicDescription(badge)}
+                  {isEarned ? (badge.description?.trim() || getBadgePublicDescription(badge)) : getBadgePublicDescription(badge)}
                 </p>
               </div>
             </div>
@@ -261,6 +274,7 @@ export const BadgeDisplay: React.FC<BadgeDisplayProps> = ({
           </article>
         );
       })}
+      {infoModal}
     </div>
   );
 };

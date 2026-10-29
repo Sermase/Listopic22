@@ -35,6 +35,9 @@ const SECRET_BADGES = {
 
 const { THEME_BADGES, THEME_IDS, emptyThemeStats, addThemeStat, themeBadgesMet } = require('./lib/theme-badges');
 
+/** users.badgeDates.{id}: cuándo se ganó cada medalla (la ficha de la medalla lo enseña). */
+const badgeDateFields = (ids, value) => Object.fromEntries(ids.map((id) => [`badgeDates.${id}`, value()]));
+
 const badgeMeta = (id) => SECRET_BADGES[id] || THEME_BADGES[id];
 
 async function surpriseFlags() {
@@ -123,7 +126,7 @@ const claimSurpriseBadge = onCall(async (request) => {
       return { awarded: false, already: owned };
     }
     if (owned) return { awarded: false, already: true };
-    tx.update(userRef, { badges: FieldValue.arrayUnion(id), lastBadgeEarnedAt: FieldValue.serverTimestamp() });
+    tx.update(userRef, { badges: FieldValue.arrayUnion(id), lastBadgeEarnedAt: FieldValue.serverTimestamp(), [`badgeDates.${id}`]: FieldValue.serverTimestamp() });
     return { awarded: true, already: false };
   });
 
@@ -318,8 +321,8 @@ async function syncCheckableBadges() {
       const snap = await ref.get();
       if (!snap.exists) continue;
     }
-    if (add.length) writer.update(ref, { badges: FieldValue.arrayUnion(...add), lastBadgeEarnedAt: FieldValue.serverTimestamp() });
-    if (remove.length) writer.update(ref, { badges: FieldValue.arrayRemove(...remove) });
+    if (add.length) writer.update(ref, { badges: FieldValue.arrayUnion(...add), lastBadgeEarnedAt: FieldValue.serverTimestamp(), ...badgeDateFields(add, FieldValue.serverTimestamp) });
+    if (remove.length) writer.update(ref, { badges: FieldValue.arrayRemove(...remove), ...badgeDateFields(remove, FieldValue.delete) });
     given += add.length;
     taken += remove.length;
   }
@@ -373,7 +376,7 @@ const claimThemeBadges = onCall(async (request) => {
     if (!owned.has(id)) add.push(id);
   }));
   if (!add.length) return { awarded: [] };
-  await userRef.update({ badges: FieldValue.arrayUnion(...add), lastBadgeEarnedAt: FieldValue.serverTimestamp() });
+  await userRef.update({ badges: FieldValue.arrayUnion(...add), lastBadgeEarnedAt: FieldValue.serverTimestamp(), ...badgeDateFields(add, FieldValue.serverTimestamp) });
   logger.info('Medallas de temas', { uid, add });
   return { awarded: add.map((id) => ({ id, name: badgeMeta(id).name, icon: badgeMeta(id).icon, theme: THEME_BADGES[id].theme })) };
 });
