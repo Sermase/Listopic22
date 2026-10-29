@@ -433,11 +433,13 @@ const adminManageBadge = onCall(async (request) => {
             await userRef.set({
                 badges: FieldValue.arrayUnion(badgeId),
                 lastBadgeEarnedAt: FieldValue.serverTimestamp(),
+                badgeDates: { [badgeId]: FieldValue.serverTimestamp() },
             }, { merge: true });
             await checkBadges(userId);
         } else {
             await userRef.update({
                 badges: FieldValue.arrayRemove(badgeId),
+                [`badgeDates.${badgeId}`]: FieldValue.delete(),
             });
             await checkBadges(userId);
         }
