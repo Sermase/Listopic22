@@ -303,11 +303,7 @@ async function checkBadges(userId) {
         updates.reviewedPlacesCount = metrics.reviewedPlacesCount;
     }
 
-    if (resolvedState.lostBadges.length > 0) {
-        // No se puede quitar y añadir en el mismo campo a la vez: se escribe la lista entera.
-        updates.badges = resolvedState.finalBadgeIds;
-        if (resolvedState.newBadges.length > 0) updates.lastBadgeEarnedAt = FieldValue.serverTimestamp();
-    } else if (resolvedState.newBadges.length > 0) {
+    if (resolvedState.newBadges.length > 0) {
         updates.badges = FieldValue.arrayUnion(...resolvedState.newBadges);
         updates.lastBadgeEarnedAt = FieldValue.serverTimestamp();
     }
@@ -320,10 +316,19 @@ async function checkBadges(userId) {
         }
     }
 
-    const shouldPersist = Object.keys(updates).length > 0;
-    if (shouldPersist) {
-        await userRef.set(updates, { merge: true });
+    // Quitar y añadir van en dos escrituras (no caben en el mismo campo a la vez) y nunca
+    // se reescribe la lista entera: así no se pisa una medalla dada a la vez desde otra función.
+    const batch = db.batch();
+    let writes = 0;
+    if (resolvedState.lostBadges.length > 0) {
+        batch.update(userRef, { badges: FieldValue.arrayRemove(...resolvedState.lostBadges) });
+        writes += 1;
     }
+    if (Object.keys(updates).length > 0) {
+        batch.set(userRef, updates, { merge: true });
+        writes += 1;
+    }
+    if (writes > 0) await batch.commit();
 
     if (resolvedState.newBadges.length > 0 || resolvedState.level > previousLevel) {
         await notifyGamificationChanges(
