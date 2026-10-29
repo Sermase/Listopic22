@@ -3,6 +3,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { SURPRISES, fireSurprise, type SurpriseId } from '../../lib/surprises';
+import { recalcSecretBadges } from '../../services/SurpriseService';
 
 /** Lo que «Probar» enseña en esta pantalla (sin publicar nada). */
 const PREVIEW: Partial<Record<SurpriseId, () => void>> = {
@@ -21,6 +22,17 @@ const PREVIEW: Partial<Record<SurpriseId, () => void>> = {
 export const SurprisesPanel: React.FC = () => {
     const config = useAppConfig();
     const [saving, setSaving] = useState<SurpriseId | null>(null);
+    const [recalc, setRecalc] = useState<string | null>(null);
+
+    const runRecalc = async () => {
+        setRecalc('Recalculando…');
+        try {
+            const r = await recalcSecretBadges();
+            setRecalc(`Hecho: ${r.given} dadas y ${r.taken} quitadas (${r.users} personas).`);
+        } catch (error) {
+            setRecalc(`No se pudo: ${error instanceof Error ? error.message : String(error)}`);
+        }
+    };
 
     const toggle = async (id: SurpriseId) => {
         setSaving(id);
@@ -71,6 +83,17 @@ export const SurprisesPanel: React.FC = () => {
                         );
                     })}
                 </ul>
+                <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/5 pt-4">
+                    <button
+                        type="button"
+                        onClick={() => { void runRecalc(); }}
+                        disabled={recalc === 'Recalculando…'}
+                        className="shrink-0 text-xs font-bold px-3 py-1.5 rounded-full border border-white/10 text-gray-200 hover:bg-white/5 disabled:opacity-50"
+                    >
+                        🔄 Recalcular medallas ahora
+                    </button>
+                    <p className="text-xs text-gray-400 min-w-0 flex-1">{recalc ?? 'Da y quita las medallas de temas y las secretas que se pueden comprobar. Se hace solo cada madrugada.'}</p>
+                </div>
             </div>
         </div>
     );

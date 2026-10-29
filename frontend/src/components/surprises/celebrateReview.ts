@@ -1,5 +1,5 @@
 import { fireSurprise, isSurpriseOn, reviewSurprises, type ReviewSurpriseInput } from '../../lib/surprises';
-import { claimSecretBadge, type SecretBadgeId } from '../../services/SurpriseService';
+import { claimSecretBadge, claimThemeBadges, type SecretBadgeId } from '../../services/SurpriseService';
 
 const BADGE_FOR: Partial<Record<string, SecretBadgeId>> = {
     lateNight: 'AVE_NOCTURNA',
@@ -20,6 +20,8 @@ export function celebrateReview(
             const badge = BADGE_FOR[s.id];
             if (badge && badges) void claimSecretBadge(badge);
         });
+    // Escalera de temas: no depende del interruptor de sorpresas de cada uno.
+    if (isNew && config.surprises?.themeLadder !== false) void claimThemeBadges();
     // Tres valoraciones en un domingo: «Bien comido» y el tema Abuela. Las cuenta el servidor
     // en toda la cuenta (valen las de otros dispositivos), así que se pregunta en cada una.
     if (isNew && badges && isSurpriseOn(config, 'abuela') && (input.now ?? new Date()).getDay() === 0) {

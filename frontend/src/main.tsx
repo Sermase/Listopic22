@@ -76,9 +76,9 @@ createRoot(document.getElementById('root')!).render(
     <ErrorBoundary>
       <AuthProvider>
         <QueryClientProvider client={queryClient}>
-          <ThemeProvider>
-            <GamificationProvider>
-              <AppConfigProvider>
+          <AppConfigProvider>
+            <ThemeProvider>
+              <GamificationProvider>
                 <FilterProvider>
                   <PreferencesProvider>
                     <SeoManager />
@@ -86,9 +86,9 @@ createRoot(document.getElementById('root')!).render(
                     <App />
                   </PreferencesProvider>
                 </FilterProvider>
-              </AppConfigProvider>
-            </GamificationProvider>
-          </ThemeProvider>
+              </GamificationProvider>
+            </ThemeProvider>
+          </AppConfigProvider>
           <ReactQueryDevtools initialIsOpen={false} />
         </QueryClientProvider>
       </AuthProvider>

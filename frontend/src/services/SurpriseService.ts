@@ -41,6 +41,25 @@ export async function claimSecretBadge(id: SecretBadgeId): Promise<boolean> {
     }
 }
 
+/**
+ * Medallas de la escalera de temas que ya se cumplen (las cuenta el servidor con
+ * todas tus valoraciones). El aviso lo da ThemeContext al ver la medalla nueva.
+ */
+export async function claimThemeBadges(): Promise<void> {
+    if (!auth.currentUser || auth.currentUser.isAnonymous) return;
+    try {
+        await httpsCallable(functions, 'claimThemeBadges')();
+    } catch (error) {
+        console.warn('Sorpresas: medallas de temas', error);
+    }
+}
+
+/** Jefe: repasa ya las medallas comprobables y de temas (lo mismo que cada madrugada). */
+export async function recalcSecretBadges(): Promise<{ given: number; taken: number; users: number }> {
+    const { data } = await httpsCallable<void, { given: number; taken: number; users: number }>(functions, 'recalcSecretBadges', { timeout: 300_000 })();
+    return data;
+}
+
 export interface PollTally {
     con: number;
     sin: number;

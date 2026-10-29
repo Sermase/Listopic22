@@ -11,11 +11,14 @@
 //   comprobar con los datos (Bien comido, Ave nocturna, Paladar de hierro, Juez
 //   de la tortilla): las da a quien las merece y las quita a quien las perdió
 //   (p. ej. borró la valoración). Las de minijuegos no se pueden comprobar: se quedan.
+//   También repasa la escalera de temas (THEME_BADGES).
+// - claimThemeBadges: da al momento las medallas de temas que ya se cumplen.
+// - recalcSecretBadges: el mismo repaso de madrugada, lanzado por el Jefe desde Developer.
 const { onCall, HttpsError } = require('./https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const logger = require('firebase-functions/logger');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
-const { rateLimit } = require('./lib/auth');
+const { rateLimit, assertJefeAccess, writeAuditLog } = require('./lib/auth');
 const { userReviewDocs } = require('./lib/user-reviews');
 
 const db = getFirestore();
@@ -30,6 +33,10 @@ const SECRET_BADGES = {
   PALADAR_DE_HIERRO: { surprise: 'spicy', name: 'Paladar de hierro', icon: '🌶️', description: 'Poner el picante al máximo.' },
 };
 
+const { THEME_BADGES, THEME_IDS, emptyThemeStats, addThemeStat, themeBadgesMet } = require('./lib/theme-badges');
+
+const badgeMeta = (id) => SECRET_BADGES[id] || THEME_BADGES[id];
+
 async function surpriseFlags() {
   const snap = await db.doc('config/app').get();
   const flags = snap.exists ? snap.get('surprises') : null;
@@ -37,10 +44,29 @@ async function surpriseFlags() {
 }
 
 const flagOn = (flags, surprise) => flags[surprise] !== false && flags.secretBadges !== false;
+const ladderOn = (flags) => flags.themeLadder !== false;
+const badgeOn = (flags, id) => (THEME_BADGES[id] ? ladderOn(flags) : flagOn(flags, SECRET_BADGES[id].surprise));
 
 async function surpriseEnabled(surprise) {
   return flagOn(await surpriseFlags(), surprise);
 }
+
+const themeBadgeDefinition = (meta) => ({
+  name: meta.name,
+  icon: meta.icon,
+  description: meta.description,
+  descriptionPublic: meta.description,
+  logicNotes: 'Escalera de temas (functions/modules/surprises.js).',
+  category: 'SPECIAL',
+  type: 'custom',
+  threshold: 0,
+  xpReward: 15,
+  active: true,
+  rarity: 'rare',
+  createdAt: FieldValue.serverTimestamp(),
+});
+
+const definitionOf = (id) => (THEME_BADGES[id] ? themeBadgeDefinition(THEME_BADGES[id]) : badgeDefinition(SECRET_BADGES[id]));
 
 const badgeDefinition = (meta) => ({
   name: meta.name,
@@ -212,16 +238,20 @@ async function earnedFromData() {
     earned.get(uid).add(id);
   };
   const sundays = new Map();
+  const themeStats = new Map();
 
   reviewsSnap.forEach((docSnap) => {
     const parts = docSnap.ref.path.split('/');
     if (parts.length !== 4 || parts[0] !== 'lists') return;
     const r = docSnap.data() || {};
-    const uid = typeof r.userId === 'string' ? r.userId : '';
+    // Las antiguas pueden llevar solo authorId.
+    const uid = (typeof r.userId === 'string' && r.userId) || (typeof r.authorId === 'string' && r.authorId) || '';
     if (!uid) return;
     // Las de una Minilista se guardan en la lista madre, pero cuentan con la Minilista (como al valorar).
     const list = (typeof r.sublistId === 'string' && lists.get(r.sublistId)) || lists.get(parts[1]) || {};
     const created = r.createdAt && typeof r.createdAt.toDate === 'function' ? r.createdAt.toDate() : null;
+    if (!themeStats.has(uid)) themeStats.set(uid, emptyThemeStats());
+    addThemeStat(themeStats.get(uid), r);
 
     const scores = r.scores && typeof r.scores === 'object' ? r.scores : {};
     const spicy = criteriaOf(list.criteriaDefinition).some((c) => /pican/.test(fold(c.label || c.id))
@@ -243,15 +273,17 @@ async function earnedFromData() {
   votesSnap.forEach((d) => {
     if (SIDES.has(d.get('side'))) give(d.id, 'JUEZ_TORTILLA');
   });
+  themeStats.forEach((stats, uid) => themeBadgesMet(stats).forEach((id) => give(uid, id)));
   return earned;
 }
 
 const CHECKABLE = ['BIEN_COMIDO', 'AVE_NOCTURNA', 'PALADAR_DE_HIERRO', 'JUEZ_TORTILLA'];
 
-const reviewSecretBadges = onSchedule({ schedule: '40 4 * * *', timeZone: TIME_ZONE, timeoutSeconds: 300 }, async () => {
+/** Da las medallas comprobables a quien las merece y se las quita a quien ya no. */
+async function syncCheckableBadges() {
   const flags = await surpriseFlags();
-  const active = CHECKABLE.filter((id) => flagOn(flags, SECRET_BADGES[id].surprise));
-  if (!active.length) return;
+  const active = [...CHECKABLE, ...THEME_IDS].filter((id) => badgeOn(flags, id));
+  if (!active.length) return { given: 0, taken: 0, users: 0 };
 
   const earned = await earnedFromData();
   const holders = await db.collection('users').where('badges', 'array-contains-any', active).get();
@@ -264,7 +296,7 @@ const reviewSecretBadges = onSchedule({ schedule: '40 4 * * *', timeZone: TIME_Z
   await Promise.all(badgeSnaps.map(async (snap, i) => {
     const id = active[i];
     if (!snap.exists) {
-      await snap.ref.set(badgeDefinition(SECRET_BADGES[id]));
+      await snap.ref.set(definitionOf(id));
       usable.add(id);
     } else if (snap.get('active') !== false) {
       usable.add(id);
@@ -292,7 +324,58 @@ const reviewSecretBadges = onSchedule({ schedule: '40 4 * * *', timeZone: TIME_Z
     taken += remove.length;
   }
   await writer.close();
-  logger.info('Repaso de medallas secretas', { given, taken, users: uids.size });
+  const result = { given, taken, users: uids.size };
+  logger.info('Repaso de medallas secretas y de temas', result);
+  return result;
+}
+
+const reviewSecretBadges = onSchedule({ schedule: '40 4 * * *', timeZone: TIME_ZONE, timeoutSeconds: 300 }, async () => {
+  await syncCheckableBadges();
 });
 
-module.exports = { claimSurpriseBadge, tortillaPoll, reviewSecretBadges };
+const recalcSecretBadges = onCall({ timeoutSeconds: 300 }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Entra primero.');
+  await assertJefeAccess(uid);
+  const result = await syncCheckableBadges();
+  await writeAuditLog(uid, 'recalcSecretBadges', result);
+  return result;
+});
+
+/** Al publicar (y al abrir la app): da al momento las medallas de temas que ya se cumplen. */
+const claimThemeBadges = onCall(async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError('unauthenticated', 'Entra para ganar medallas.');
+  const limit = await rateLimit('themeBadges', uid, 30, 3600);
+  if (!limit.allowed) throw new HttpsError('resource-exhausted', 'Demasiados intentos.');
+  if (!ladderOn(await surpriseFlags())) return { awarded: [] };
+
+  const stats = emptyThemeStats();
+  // Las antiguas pueden llevar solo authorId: se miran las dos y cada una cuenta una vez.
+  const [byUser, byAuthor] = await Promise.all([userReviewDocs(db, 'userId', uid), userReviewDocs(db, 'authorId', uid)]);
+  const docs = [...new Map([...byUser, ...byAuthor].map((d) => [d.ref.path, d])).values()];
+  docs.forEach((d) => {
+    const parts = d.ref.path.split('/');
+    if (parts.length === 4 && parts[0] === 'lists') addThemeStat(stats, d.data() || {});
+  });
+  const met = themeBadgesMet(stats);
+  if (!met.length) return { awarded: [] };
+
+  const userRef = db.collection('users').doc(uid);
+  const [userSnap, ...badgeSnaps] = await Promise.all([userRef.get(), ...met.map((id) => db.collection('badges').doc(id).get())]);
+  if (!userSnap.exists) return { awarded: [] };
+  const owned = new Set(Array.isArray(userSnap.get('badges')) ? userSnap.get('badges') : []);
+  const add = [];
+  await Promise.all(badgeSnaps.map(async (snap, i) => {
+    const id = met[i];
+    if (!snap.exists) await snap.ref.set(definitionOf(id));
+    else if (snap.get('active') === false) return;
+    if (!owned.has(id)) add.push(id);
+  }));
+  if (!add.length) return { awarded: [] };
+  await userRef.update({ badges: FieldValue.arrayUnion(...add), lastBadgeEarnedAt: FieldValue.serverTimestamp() });
+  logger.info('Medallas de temas', { uid, add });
+  return { awarded: add.map((id) => ({ id, name: badgeMeta(id).name, icon: badgeMeta(id).icon, theme: THEME_BADGES[id].theme })) };
+});
+
+module.exports = { claimSurpriseBadge, tortillaPoll, reviewSecretBadges, recalcSecretBadges, claimThemeBadges };
