@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -128,6 +128,7 @@ interface FavoriteReviewSummary {
 }
 
 type DetailsModalTab = "lists" | "following" | "followers" | "stats" | "level";
+const DETAILS_TAB_ORDER: DetailsModalTab[] = ["stats", "followers", "level", "following", "lists"];
 
 const EMPTY_ADVANCED_STATS: AdvancedProfileStats = {
   totalReviews: 0,
@@ -251,6 +252,27 @@ export const ProfilePage: React.FC = () => {
     setEditingReviewId(review.id);
     setEditingListId(review.listId || null);
     setIsFlowOpen(true);
+  };
+
+  // Deslizar a izquierda o derecha en el detalle cambia de pestaña (mismo orden que arriba).
+  const tabSwipeRef = useRef<{ x: number; y: number } | null>(null);
+  const onDetailsTouchStart = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    // Lo que ya se desplaza de lado (carruseles) se queda su gesto.
+    tabSwipeRef.current = target.closest(".overflow-x-auto, [data-no-tab-swipe]") ? null : { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  };
+  const onDetailsTouchEnd = (e: React.TouchEvent) => {
+    const start = tabSwipeRef.current;
+    tabSwipeRef.current = null;
+    if (!start) return;
+    const dx = e.changedTouches[0].clientX - start.x;
+    const dy = e.changedTouches[0].clientY - start.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    setDetailsModalTab((current) => {
+      const i = DETAILS_TAB_ORDER.indexOf(current);
+      const next = DETAILS_TAB_ORDER[i + (dx < 0 ? 1 : -1)];
+      return next ?? current;
+    });
   };
 
   const openDetailsModal = (tab: DetailsModalTab) => {
@@ -2031,67 +2053,110 @@ export const ProfilePage: React.FC = () => {
 
         </div>
 
-        {/* Avatar Enlarged Modal with "Miembro desde" */}
+        {/* Ficha del perfil al tocar la foto: foto grande, datos y medallas */}
         {isAvatarModalOpen && profile && createPortal(
           <div
-            className="fixed inset-0 z-[2147483000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-page-fade"
+            className="fixed inset-0 z-[2147483000] lt-mobile-overlay overflow-y-auto bg-black/85 backdrop-blur-md animate-page-fade"
             onClick={() => setIsAvatarModalOpen(false)}
           >
-            <button
-              aria-label="Cerrar"
-              onClick={() => setIsAvatarModalOpen(false)}
-              className="fixed right-4 md:right-6 p-3 text-white/70 hover:text-white transition-colors bg-black/50 hover:bg-black/70 rounded-full z-[2147483001] border border-white/10"
-              style={{ top: 'calc(env(safe-area-inset-top) + 5rem)' }}
+            <div
+              className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center px-4"
+              style={{ paddingTop: 'calc(env(safe-area-inset-top) + 1.5rem)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)' }}
             >
-              <X className="w-6 h-6" />
-            </button>
-            <div className="relative flex w-full max-w-2xl flex-col items-center gap-6" onClick={(e) => e.stopPropagation()}>
-              <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-full bg-[var(--lt-bg)] p-2 shadow-[0_0_50px_rgba(99,102,241,0.2)]">
-                <div className="w-full h-full rounded-full bg-gray-700 overflow-hidden border-4 border-[var(--lt-bg)]">
-                  <ProgressiveImage
-                    src={profileAvatarSrc}
-                    alt={profile.username}
-                    containerClassName="w-full h-full"
-                    className="w-full h-full object-cover"
-                    fallback={<img src={profileFallbackAvatar} alt={profile.username} className="w-full h-full object-cover" />}
-                    onError={() => {
-                      if (usableProfilePhotoUrl) setFailedProfilePhotoUrl(usableProfilePhotoUrl);
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div className="w-full rounded-[2rem] border border-white/10 bg-[var(--lt-card-strong)]/70 p-5 md:p-6">
-                <div className="mb-4 flex items-center justify-between gap-3">
-                  <div className="text-[11px] font-black uppercase tracking-[0.28em] text-amber-200">
-                    Medallas
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAvatarModalOpen(false);
-                      openDetailsModal("level");
-                    }}
-                    className="rounded-full border border-amber-400/20 bg-amber-500/10 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-amber-100 hover:bg-amber-500/20 transition-colors"
-                  >
-                    Ver nivel
-                  </button>
-                </div>
-
-                <BadgeDisplay
-                  earnedBadgeIds={earnedBadgeIds}
-                  showEmpty
-                  variant="showcase"
+              <div
+                className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[var(--lt-card-strong)] shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Fondo de color del tema detrás de la foto */}
+                <div
+                  className="absolute inset-x-0 top-0 h-36 opacity-80"
+                  style={{ background: 'linear-gradient(135deg, var(--lt-accent), var(--lt-accent-2, var(--lt-accent)))' }}
                 />
-              </div>
+                <div className="absolute inset-x-0 top-20 h-16 bg-gradient-to-b from-transparent to-[var(--lt-card-strong)]" />
+                <button
+                  aria-label="Cerrar"
+                  onClick={() => setIsAvatarModalOpen(false)}
+                  className="absolute right-3 top-3 z-10 rounded-full border border-white/20 bg-black/30 p-2 text-white/90 backdrop-blur hover:bg-black/50"
+                >
+                  <X className="h-5 w-5" />
+                </button>
 
-              {profile.createdAt && (
-                <div className="flex items-center gap-2 text-sm text-gray-400 bg-white/5 px-4 py-2 rounded-full border border-white/10">
-                  <Calendar className="w-4 h-4" />
-                  Miembro desde{" "}
-                  {new Date((profile.createdAt as any).seconds * 1000).getFullYear()}
+                <div className="relative flex flex-col items-center px-5 pt-10 text-center">
+                  <div
+                    className="rounded-full p-1 shadow-[0_18px_50px_rgba(0,0,0,0.45)]"
+                    style={{ background: 'linear-gradient(135deg, var(--lt-accent), var(--lt-accent-2, var(--lt-accent)))' }}
+                  >
+                    <div className="h-44 w-44 overflow-hidden rounded-full border-4 border-[var(--lt-card-strong)] bg-gray-700 md:h-52 md:w-52">
+                      <ProgressiveImage
+                        src={profileAvatarSrc}
+                        alt={profile.username}
+                        containerClassName="w-full h-full"
+                        className="w-full h-full object-cover"
+                        fallback={<img src={profileFallbackAvatar} alt={profile.username} className="w-full h-full object-cover" />}
+                        onError={() => {
+                          if (usableProfilePhotoUrl) setFailedProfilePhotoUrl(usableProfilePhotoUrl);
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <h3 className="mt-4 text-2xl font-black text-[var(--lt-text)]">{profile.displayName || profile.username}</h3>
+                  {profile.displayName && profile.username && (
+                    <p className="text-sm text-[var(--lt-text-muted)]">@{profile.username}</p>
+                  )}
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-2 text-xs font-bold">
+                    <span className="rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-amber-200">Nivel {levelInfo.level}</span>
+                    {profile.createdAt && (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[var(--lt-text-muted)]">
+                        <Calendar className="h-3.5 w-3.5" />
+                        Desde {new Date((profile.createdAt as any).seconds * 1000).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              )}
+
+                <div className="relative mt-5 grid grid-cols-3 gap-2 px-5">
+                  {profileStatCards.filter((stat) => stat.id !== 'level' && stat.id !== 'following').map((stat) => (
+                    <button
+                      key={stat.id}
+                      type="button"
+                      onClick={() => {
+                        setIsAvatarModalOpen(false);
+                        openDetailsModal(stat.id);
+                      }}
+                      className="rounded-2xl border border-white/10 bg-white/5 py-3 transition-colors hover:bg-white/10"
+                    >
+                      <span className="block text-xl font-black text-[var(--lt-text)]">{stat.value}</span>
+                      <span className="block text-[11px] font-bold uppercase tracking-wide text-[var(--lt-text-muted)]">{stat.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative mt-5 border-t border-white/10 px-5 pb-5 pt-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <span className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-200">
+                      🏅 Medallas · {earnedBadgeIds.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAvatarModalOpen(false);
+                        openDetailsModal("level");
+                      }}
+                      className="text-xs font-bold text-[var(--lt-accent)] hover:underline"
+                    >
+                      Ver todas
+                    </button>
+                  </div>
+                  <BadgeDisplay
+                    earnedBadgeIds={earnedBadgeIds}
+                    earnedDates={profile?.badgeDates}
+                    showEmpty
+                    variant="compact"
+                    className="justify-center"
+                  />
+                  <p className="mt-3 text-center text-[11px] text-[var(--lt-text-muted)]">Toca una medalla para ver cómo se ganó.</p>
+                </div>
+              </div>
             </div>
           </div>,
           document.body
@@ -2319,7 +2384,11 @@ export const ProfilePage: React.FC = () => {
               </div>
 
               {/* Modal Content */}
-              <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-[var(--lt-bg)] flex flex-col">
+              <div
+                className="flex-1 overflow-y-auto p-4 md:p-6 bg-[var(--lt-bg)] flex flex-col"
+                onTouchStart={onDetailsTouchStart}
+                onTouchEnd={onDetailsTouchEnd}
+              >
                 {detailsModalTab === "stats" && (
                   <>
                     {appConfig.showTastePassport && isOwnProfile && (
@@ -2466,6 +2535,7 @@ export const ProfilePage: React.FC = () => {
 
                       <BadgeDisplay
                         earnedBadgeIds={earnedBadgeIds}
+                  earnedDates={profile?.badgeDates}
                         metrics={gamificationMetrics}
                         showLocked
                         variant="detailed"

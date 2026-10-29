@@ -21,6 +21,8 @@ interface ModalProps {
   size?: ModalSize;
   /** Deslizar hacia abajo para cerrar (por defecto sí). Los formularios solo se cierran con «atrás». */
   swipe?: boolean;
+  /** Encima de otras capas a pantalla completa (p. ej. el detalle del perfil). */
+  onTop?: boolean;
 }
 
 const sizeClasses: Record<ModalSize, string> = {
@@ -40,6 +42,7 @@ export const Modal: React.FC<ModalProps> = ({
   footer,
   size = 'md',
   swipe = true,
+  onTop = false,
 }) => {
   const titleId = React.useId();
   useBackToClose(isOpen, onClose);
@@ -61,7 +64,7 @@ export const Modal: React.FC<ModalProps> = ({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/70 backdrop-blur-sm p-0 sm:items-center sm:p-4"
+      className={`fixed inset-0 ${onTop ? "z-[2147483600]" : "z-[9999]"} flex items-end justify-center bg-black/70 backdrop-blur-sm p-0 sm:items-center sm:p-4`}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}

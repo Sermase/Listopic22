@@ -306,6 +306,8 @@ async function checkBadges(userId) {
     if (resolvedState.newBadges.length > 0) {
         updates.badges = FieldValue.arrayUnion(...resolvedState.newBadges);
         updates.lastBadgeEarnedAt = FieldValue.serverTimestamp();
+        // Cuándo se ganó cada una (la ficha de la medalla lo enseña); set con merge mezcla el mapa.
+        updates.badgeDates = Object.fromEntries(resolvedState.newBadges.map((id) => [id, FieldValue.serverTimestamp()]));
     }
 
     if (safeNumber(userData.xp) !== resolvedState.totalXP || previousLevel !== resolvedState.level) {
@@ -321,7 +323,10 @@ async function checkBadges(userId) {
     const batch = db.batch();
     let writes = 0;
     if (resolvedState.lostBadges.length > 0) {
-        batch.update(userRef, { badges: FieldValue.arrayRemove(...resolvedState.lostBadges) });
+        batch.update(userRef, {
+            badges: FieldValue.arrayRemove(...resolvedState.lostBadges),
+            ...Object.fromEntries(resolvedState.lostBadges.map((id) => [`badgeDates.${id}`, FieldValue.delete()])),
+        });
         writes += 1;
     }
     if (Object.keys(updates).length > 0) {
@@ -428,11 +433,13 @@ const adminManageBadge = onCall(async (request) => {
             await userRef.set({
                 badges: FieldValue.arrayUnion(badgeId),
                 lastBadgeEarnedAt: FieldValue.serverTimestamp(),
+                badgeDates: { [badgeId]: FieldValue.serverTimestamp() },
             }, { merge: true });
             await checkBadges(userId);
         } else {
             await userRef.update({
                 badges: FieldValue.arrayRemove(badgeId),
+                [`badgeDates.${badgeId}`]: FieldValue.delete(),
             });
             await checkBadges(userId);
         }
