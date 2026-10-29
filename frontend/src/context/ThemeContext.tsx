@@ -79,7 +79,7 @@ export const THEMES: ThemeMeta[] = [
         description: 'Noche de ciudad: ciruela profundo con brillos fucsia.',
         preview: { bg: '#12081a', card: '#1f1029', accent: '#ec4899', accent2: '#8b5cf6', text: '#fdf4ff' },
         statusBarStyle: 'dark',
-        unlock: { badge: 'TEMA_NEON', medal: 'Noche de ciudad', icon: '💜', hint: 'Haz 5 valoraciones después de las 21 h.' },
+        unlock: { badge: 'TEMA_NEON', medal: 'Noche de ciudad', icon: '💜', hint: 'Haz 10 valoraciones después de las 21 h.' },
     },
     {
         id: 'graphite',
@@ -88,7 +88,7 @@ export const THEMES: ThemeMeta[] = [
         description: 'Negro puro con verde lima eléctrico. Ideal para pantallas OLED.',
         preview: { bg: '#050506', card: '#141417', accent: '#65a30d', accent2: '#0891b2', text: '#f4f4f5' },
         statusBarStyle: 'dark',
-        unlock: { badge: 'TEMA_GRAFITO', medal: 'Ojo de lince', icon: '🖤', hint: 'Haz 10 valoraciones con foto.' },
+        unlock: { badge: 'TEMA_GRAFITO', medal: 'Ojo de lince', icon: '🖤', hint: 'Haz 25 valoraciones con foto.' },
     },
     {
         id: 'sunset',
@@ -97,7 +97,7 @@ export const THEMES: ThemeMeta[] = [
         description: 'Ni de noche ni de día: malva templado con coral y naranja.',
         preview: { bg: '#4a2b52', card: '#5e3767', accent: '#ff7a59', accent2: '#f43f5e', text: '#fff7f0' },
         statusBarStyle: 'dark',
-        unlock: { badge: 'TEMA_ATARDECER', medal: 'Hora dorada', icon: '🌇', hint: 'Haz 8 valoraciones entre las 18 y las 22 h, en 4 días distintos.' },
+        unlock: { badge: 'TEMA_ATARDECER', medal: 'Hora dorada', icon: '🌇', hint: 'Haz 20 valoraciones entre las 18 y las 22 h, en 8 días distintos.' },
     },
     {
         id: 'lagoon',
@@ -106,7 +106,7 @@ export const THEMES: ThemeMeta[] = [
         description: 'Turquesa de agua tropical con rosa y mango.',
         preview: { bg: '#1d5566', card: '#26697b', accent: '#f472b6', accent2: '#fb923c', text: '#f2fffd' },
         statusBarStyle: 'dark',
-        unlock: { badge: 'TEMA_LAGUNA', medal: 'Culo inquieto', icon: '🏝️', hint: 'Valora en 15 sitios distintos.' },
+        unlock: { badge: 'TEMA_LAGUNA', medal: 'Culo inquieto', icon: '🏝️', hint: 'Valora en 40 sitios distintos.' },
     },
     {
         id: 'abuela',

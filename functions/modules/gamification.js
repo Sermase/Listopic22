@@ -184,9 +184,24 @@ function calculateXp(metrics, earnedBadgeIds, badgeDefinitionsById) {
     return reviewsXP + photosXP + listsXP + badgesXP;
 }
 
+// Medallas que se ganan con un contador: se repasan siempre y se quitan si ya no se
+// cumplen (se borró la valoración o se subió el umbral en Developer).
+const COUNTED_TYPES = new Set(["review_count", "photo_count", "place_count", "lists_count", "followers_count", "following_count", "level_reached"]);
+// Copias de una versión antigua (Pionero, Crítico de Barrio, Una Más y Me Voy, Foto o Prueba).
+const RETIRED_BADGES = new Set(["CRITIC_BRONZE", "CRITIC_SILVER", "CRITIC_GOLD", "PHOTOGRAPHER"]);
+
+function keptBadges(currentBadges, badgeDefinitionsById, metrics) {
+    const typeOf = (id) => badgeDefinitionsById.get(id)?.type;
+    const counted = (id) => COUNTED_TYPES.has(typeOf(id));
+    const kept = currentBadges.filter((id) => !RETIRED_BADGES.has(id)
+        && (!counted(id) || typeOf(id) === "level_reached" || isBadgeEarned(badgeDefinitionsById.get(id), { metrics, level: 0 })));
+    const level = calculateLevel(calculateXp(metrics, kept.filter((id) => typeOf(id) !== "level_reached"), badgeDefinitionsById));
+    return kept.filter((id) => typeOf(id) !== "level_reached" || isBadgeEarned(badgeDefinitionsById.get(id), { metrics, level }));
+}
+
 function resolveGamificationState(currentBadges, badgeDefinitions, metrics) {
     const badgeDefinitionsById = new Map(badgeDefinitions.map((badge) => [badge.id, badge]));
-    const earnedBadgeIds = new Set(currentBadges);
+    const earnedBadgeIds = new Set(keptBadges(currentBadges, badgeDefinitionsById, metrics));
 
     let iterations = 0;
     let changed = true;
@@ -211,6 +226,7 @@ function resolveGamificationState(currentBadges, badgeDefinitions, metrics) {
     const totalXP = calculateXp(metrics, finalBadgeIds, badgeDefinitionsById);
     const level = calculateLevel(totalXP);
     const newBadges = finalBadgeIds.filter((badgeId) => !currentBadges.includes(badgeId));
+    const lostBadges = currentBadges.filter((badgeId) => !earnedBadgeIds.has(badgeId));
 
     return {
         totalXP,
@@ -218,6 +234,7 @@ function resolveGamificationState(currentBadges, badgeDefinitions, metrics) {
         badgeDefinitionsById,
         finalBadgeIds,
         newBadges,
+        lostBadges,
     };
 }
 
@@ -286,7 +303,11 @@ async function checkBadges(userId) {
         updates.reviewedPlacesCount = metrics.reviewedPlacesCount;
     }
 
-    if (resolvedState.newBadges.length > 0) {
+    if (resolvedState.lostBadges.length > 0) {
+        // No se puede quitar y añadir en el mismo campo a la vez: se escribe la lista entera.
+        updates.badges = resolvedState.finalBadgeIds;
+        if (resolvedState.newBadges.length > 0) updates.lastBadgeEarnedAt = FieldValue.serverTimestamp();
+    } else if (resolvedState.newBadges.length > 0) {
         updates.badges = FieldValue.arrayUnion(...resolvedState.newBadges);
         updates.lastBadgeEarnedAt = FieldValue.serverTimestamp();
     }
@@ -526,6 +547,7 @@ module.exports = {
     onListWritten,
     onUserFollowingWritten,
     checkBadges,
+    resolveGamificationState,
     adminRecalculateUserGamification,
     adminManageBadge,
     adminRecalculateAllGamification,
