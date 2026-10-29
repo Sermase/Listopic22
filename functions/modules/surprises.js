@@ -244,7 +244,8 @@ async function earnedFromData() {
     const parts = docSnap.ref.path.split('/');
     if (parts.length !== 4 || parts[0] !== 'lists') return;
     const r = docSnap.data() || {};
-    const uid = typeof r.userId === 'string' ? r.userId : '';
+    // Las antiguas pueden llevar solo authorId.
+    const uid = (typeof r.userId === 'string' && r.userId) || (typeof r.authorId === 'string' && r.authorId) || '';
     if (!uid) return;
     // Las de una Minilista se guardan en la lista madre, pero cuentan con la Minilista (como al valorar).
     const list = (typeof r.sublistId === 'string' && lists.get(r.sublistId)) || lists.get(parts[1]) || {};
@@ -350,7 +351,9 @@ const claimThemeBadges = onCall(async (request) => {
   if (!ladderOn(await surpriseFlags())) return { awarded: [] };
 
   const stats = emptyThemeStats();
-  const docs = await userReviewDocs(db, 'userId', uid);
+  // Las antiguas pueden llevar solo authorId: se miran las dos y cada una cuenta una vez.
+  const [byUser, byAuthor] = await Promise.all([userReviewDocs(db, 'userId', uid), userReviewDocs(db, 'authorId', uid)]);
+  const docs = [...new Map([...byUser, ...byAuthor].map((d) => [d.ref.path, d])).values()];
   docs.forEach((d) => {
     const parts = d.ref.path.split('/');
     if (parts.length === 4 && parts[0] === 'lists') addThemeStat(stats, d.data() || {});
