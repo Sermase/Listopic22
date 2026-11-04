@@ -14,6 +14,9 @@ export const ListopicConfig = {
     // Google Cloud). Antes estaba fija en index.html y se cargaba en todas las
     // páginas; ahora PlaceService la usa bajo demanda.
     GOOGLE_MAPS_BROWSER_KEY: import.meta.env.VITE_GOOGLE_MAPS_BROWSER_KEY || "AIzaSyBV26T665w65z1FNdDk8mwHSH1o0c2PeW8",
+    // Clave de sitio de reCAPTCHA v3 para Firebase App Check (pública). Vacía =
+    // App Check apagado. Se da de alta en Firebase → App Check → Apps → web.
+    APPCHECK_SITE_KEY: import.meta.env.VITE_APPCHECK_SITE_KEY || "",
     ALGOLIA: {
         APP_ID: import.meta.env.VITE_ALGOLIA_APP_ID || "",
         SEARCH_KEY: import.meta.env.VITE_ALGOLIA_SEARCH_KEY || ""

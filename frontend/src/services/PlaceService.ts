@@ -1,5 +1,6 @@
 import { serverTimestamp, type FieldValue } from 'firebase/firestore';
 import { ListopicConfig } from '../config';
+import { appCheckHeaders } from '../firebase';
 import { haversineMeters } from '../utils/geo';
 
 export interface PlaceResult {
@@ -83,6 +84,7 @@ interface PlaceSearchByTextRequest {
     textQuery: string;
     fields: string[];
     maxResultCount: number;
+    locationBias?: { center: { lat: number; lng: number }; radius: number };
 }
 
 interface PlaceSearchNearbyRequest {
@@ -92,7 +94,8 @@ interface PlaceSearchNearbyRequest {
         radius: number;
     };
     maxResultCount: number;
-    includedPrimaryTypes: string[];
+    includedTypes: string[];
+    rankPreference: 'DISTANCE' | 'POPULARITY';
 }
 
 interface PlaceConstructor {
@@ -186,7 +189,8 @@ export const PlaceService = {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${idToken}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(await appCheckHeaders())
                 },
                 signal: controller.signal
             });
@@ -225,13 +229,10 @@ export const PlaceService = {
                 maxResultCount: 10,
             };
 
+            // Con ubicación, Google prioriza los sitios de alrededor (no excluye
+            // los lejanos): «La Tagliatella» devuelve primero la de tu barrio.
             if (userLat && userLng) {
-                // Determine implicit bias via locationBias if needed, but 'locationBias' 
-                // in new API is often handled by 'locationBias' field with CircularBounds etc.
-                // For simplicity/compatibility, we can let Google handle relevance or add bias if critical.
-                // request.locationBias = { center: { lat: userLat, lng: userLng }, radius: 50000 };
-                // NOTE: structure might differ in V3, omitting specific bias helper for now to rely on query relevance + viewport if map context existed. 
-                // However, simple text search usually works well.
+                request.locationBias = { center: { lat: userLat, lng: userLng }, radius: 5000 };
             }
 
             const { places } = await Place.searchByText(request);
@@ -269,8 +270,13 @@ export const PlaceService = {
                     radius: 500 // 500m radius as requested by user
                 },
                 maxResultCount: 20,
-                // restaurant, cafe, bar, bakery, store, supermarket, park, lodging, museum, tourist_attraction
-                includedPrimaryTypes: ['restaurant', 'cafe', 'bar', 'bakery', 'store', 'supermarket', 'park', 'lodging', 'museum', 'tourist_attraction']
+                // Por defecto Google ordena por popularidad: el bar en el que estás
+                // podía quedarse fuera de los 20 más famosos del radio.
+                rankPreference: 'DISTANCE',
+                // includedTypes (no includedPrimaryTypes) para que entren los subtipos
+                // («spanish_restaurant», «tapas_bar»…). Sin «store»: llenaba la lista
+                // de farmacias y tiendas.
+                includedTypes: ['restaurant', 'cafe', 'bar', 'bakery', 'supermarket', 'park', 'lodging', 'museum', 'tourist_attraction']
             };
 
             const { places } = await Place.searchNearby(request);

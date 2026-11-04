@@ -17,6 +17,8 @@ const LOCATION_CACHE_KEY = 'listopic_location';
 // Sin timeout, una petición colgada dejaría la ubicación bloqueada para todos.
 const POSITION_TIMEOUT_MS = 20000;
 const POSITION_OPTIONS: PositionOptions = { timeout: POSITION_TIMEOUT_MS, maximumAge: 300000 };
+// Para buscar «qué hay aquí»: GPS y una posición de hace como mucho 30 s.
+const PRECISE_POSITION_OPTIONS: PositionOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 };
 // Algunos navegadores no llaman a ningún callback si se cierra el aviso de
 // permiso; pasado este margen se libera la petición para poder pedir otra.
 const STALE_REQUEST_MS = POSITION_TIMEOUT_MS + 10000;
@@ -85,7 +87,7 @@ function clearStaleTimer() {
     staleTimer = null;
 }
 
-function fetchPosition(): Promise<Location | null> {
+function fetchPosition(options: PositionOptions = POSITION_OPTIONS): Promise<Location | null> {
     if (inFlight) return inFlight;
     const geolocation = typeof navigator !== 'undefined' ? navigator.geolocation : undefined;
     if (!geolocation) {
@@ -143,7 +145,7 @@ function fetchPosition(): Promise<Location | null> {
         };
 
         try {
-            geolocation.getCurrentPosition(onSuccess, onError, POSITION_OPTIONS);
+            geolocation.getCurrentPosition(onSuccess, onError, options);
         } catch {
             if (release()) setSnapshot({ loading: false, error: 'No se pudo obtener la ubicación' });
             resolve(null);
@@ -263,6 +265,14 @@ export function requestLocation(): Promise<Location | null> {
     return fetchPosition();
 }
 
+/**
+ * Como requestLocation, pero pide una posición reciente y con GPS (para buscar
+ * los sitios cercanos). Si se une a una petición normal en curso, usa esa.
+ */
+export function requestPreciseLocation(): Promise<Location | null> {
+    return fetchPosition(PRECISE_POSITION_OPTIONS);
+}
+
 /** Solo para tests: deja el almacén como recién cargado. */
 export function __resetLocationStoreForTests() {
     generation += 1;
@@ -305,5 +315,5 @@ export const useLocation = () => {
         return distanceKm(location, targetLat, targetLng);
     }, [location]);
 
-    return { location, error, loading, calculateDistance, requestLocation };
+    return { location, error, loading, calculateDistance, requestLocation, requestPreciseLocation };
 };

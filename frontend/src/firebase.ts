@@ -3,6 +3,8 @@ import { connectAuthEmulator, getAuth, signOut } from "firebase/auth";
 import { connectFirestoreEmulator, clearIndexedDbPersistence, getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, terminate, type Firestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { connectFunctionsEmulator, getFunctions } from "firebase/functions";
+import { getToken, initializeAppCheck, ReCaptchaV3Provider, type AppCheck } from "firebase/app-check";
+import { ListopicConfig } from "./config";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDPEW5zXtvfnD0XtdmXSkMBZrsFdO-tmsg",
@@ -15,6 +17,31 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+
+// App Check: demuestra a Firebase y a nuestras Functions que la petición sale de
+// listopic.es y no de un script. Sin clave de sitio (o con emuladores) no se activa.
+let appCheck: AppCheck | null = null;
+if (ListopicConfig.APPCHECK_SITE_KEY && import.meta.env.VITE_USE_EMULATORS !== 'true' && typeof window !== 'undefined') {
+    try {
+        appCheck = initializeAppCheck(app, {
+            provider: new ReCaptchaV3Provider(ListopicConfig.APPCHECK_SITE_KEY),
+            isTokenAutoRefreshEnabled: true,
+        });
+    } catch {
+        appCheck = null;
+    }
+}
+
+/** Cabecera de App Check para llamadas HTTP propias (vacía si no está activo). */
+export async function appCheckHeaders(): Promise<Record<string, string>> {
+    if (!appCheck) return {};
+    try {
+        const { token } = await getToken(appCheck);
+        return { 'X-Firebase-AppCheck': token };
+    } catch {
+        return {};
+    }
+}
 export const auth = getAuth(app);
 // Caché en el dispositivo (IndexedDB, compartida entre pestañas): las escuchas
 // pintan al momento con lo guardado y al volver solo bajan lo que ha cambiado.

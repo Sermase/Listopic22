@@ -179,7 +179,10 @@ test('enlace de invitación al grupo (abierto y con aprobación) y «¿Cuándo q
   await shot(page, '12-cuando-tarjeta');
   await poll.getByRole('button', { name: /^Quedar el / }).click();
   await sheet(page).locator('button:has(p)').first().click();
-  await sheet(page).getByRole('button', { name: /^Invitar · .* 16 [a-z]+ · 14:00/ }).click();
+  // pickDate pasa al mes siguiente: el mes esperado depende de hoy (antes «nov» fijo).
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 16).toLocaleDateString('es-ES', { month: 'short' }).replace('.', '');
+  await sheet(page).getByRole('button', { name: new RegExp(`^Invitar · .*16 ${nextMonth}`) }).click();
   await expect(poll.getByRole('button', { name: '📅 Ver la quedada' })).toBeVisible();
   expect(errors).toEqual([]);
 });

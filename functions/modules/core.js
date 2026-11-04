@@ -77,6 +77,7 @@ const {
   requireAuthFromRequest: _requireAuthFromRequest,
   rateLimit,
   rateLimitKey,
+  checkAppCheck,
   writeAuditLog,
   normalizeUserTypes: _normalizeUserTypes,
 } = require("./lib/auth");
@@ -1238,6 +1239,7 @@ const provinceMap = {
 
 const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SECRET] }, async (req, res) => {
   cors(req, res, async () => {
+    if (!(await checkAppCheck(req, res, 'getPlaceDetailsFromGoogle'))) return;
     const decoded = await requireAuthFromRequest(req, res);
     if (!decoded) return;
     const rl = await rateLimit('getPlaceDetailsFromGoogle', rateLimitKey(req, decoded), 60, 60);
@@ -1262,6 +1264,14 @@ const getPlaceDetailsFromGoogle = onRequest({ secrets: [GOOGLE_PLACES_API_KEY_SE
       return res.status(200).json({ ...known, id: knownSnap.id, ...(location ? { location, coordinates: location } : {}), refreshed: false, skippedReason });
     }
     const refreshType = !knownSnap.exists ? 'alta' : force ? 'manual' : 'valoracion';
+
+    // Tope diario por persona de llamadas que sí llegan a Google (lo servido desde
+    // Firestore no cuenta). Una persona real no da de alta 100 sitios en un día;
+    // un bot con cuenta, sí. El jefe (force) no tiene tope.
+    if (!force) {
+      const daily = await rateLimit('placeDetailsGoogleDaily', `uid_${decoded.uid}`, 100, 24 * 60 * 60);
+      if (!daily.allowed) return res.status(429).json({ message: 'Has llegado al límite de sitios nuevos por hoy. Prueba mañana.' });
+    }
 
     const apiKey = await getGooglePlacesApiKey();
     if (!apiKey) {
