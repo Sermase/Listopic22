@@ -1,5 +1,6 @@
 import { serverTimestamp, type FieldValue } from 'firebase/firestore';
 import { ListopicConfig } from '../config';
+import { appCheckHeaders } from '../firebase';
 import { haversineMeters } from '../utils/geo';
 
 export interface PlaceResult {
@@ -186,7 +187,8 @@ export const PlaceService = {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${idToken}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...(await appCheckHeaders())
                 },
                 signal: controller.signal
             });
