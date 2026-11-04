@@ -51,7 +51,7 @@ interface Running {
 const Bubble: React.FC<{ emoji: string; text: string }> = ({ emoji, text }) => (
     <div
         role="status"
-        className="fixed left-1/2 z-[12000] flex w-max max-w-[min(92vw,26rem)] items-center gap-2 rounded-2xl border border-[var(--lt-accent-border)] bg-[var(--lt-card-strong)] px-4 py-3 text-sm font-semibold text-[var(--lt-text)] shadow-2xl"
+        className="pointer-events-none fixed left-1/2 z-[12000] flex w-max max-w-[min(92vw,26rem)] items-center gap-2 rounded-2xl border border-[var(--lt-accent-border)] bg-[var(--lt-card-strong)] px-4 py-3 text-sm font-semibold text-[var(--lt-text)] shadow-2xl"
         style={{ top: 'calc(env(safe-area-inset-top) + 4.5rem)', animation: 'lt-egg-pop 6.5s ease-out forwards' }}
     >
         <span className="text-2xl" aria-hidden="true">{emoji}</span>
