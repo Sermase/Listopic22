@@ -179,7 +179,7 @@ test('enlace de invitación al grupo (abierto y con aprobación) y «¿Cuándo q
   await shot(page, '12-cuando-tarjeta');
   await poll.getByRole('button', { name: /^Quedar el / }).click();
   await sheet(page).locator('button:has(p)').first().click();
-  await sheet(page).getByRole('button', { name: /^Invitar · .*16 nov/ }).click();
+  await sheet(page).getByRole('button', { name: /^Invitar · .* 16 [a-z]+ · 14:00/ }).click();
   await expect(poll.getByRole('button', { name: '📅 Ver la quedada' })).toBeVisible();
   expect(errors).toEqual([]);
 });
