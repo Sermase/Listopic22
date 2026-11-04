@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
 import { useEffect } from 'react';
-import { __resetLocationStoreForTests, useLocation } from './useLocation';
+import { __resetLocationStoreForTests, requestPreciseLocation, useLocation } from './useLocation';
 
 type Pending = { success: PositionCallback; error?: PositionErrorCallback | null };
 
@@ -93,6 +93,13 @@ describe('useLocation (ubicación compartida)', () => {
         expect(carousel.result.current.error).toBeNull();
         expect(carousel.result.current.calculateDistance(40.4, -3.7)).toBe(0);
         expect(JSON.parse(sessionStorage.getItem('listopic_location') || 'null')).toEqual({ latitude: 40.4, longitude: -3.7 });
+    });
+
+    it('la búsqueda de cercanos pide GPS y una posición reciente', async () => {
+        const promise = requestPreciseLocation();
+        expect(getCurrentPosition.mock.calls[0][2]).toEqual({ enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+        succeedAll(40.42, -3.70);
+        await expect(promise).resolves.toEqual({ latitude: 40.42, longitude: -3.70 });
     });
 
     it('varios componentes montados a la vez hacen una sola petición', () => {

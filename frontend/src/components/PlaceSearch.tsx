@@ -12,7 +12,7 @@ interface PlaceSearchProps {
 }
 
 export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder = "Ej: La Pizzería Genial", prefillValue, onManualToggle }) => {
-    const { location, loading: locLoading, requestLocation } = useLocation();
+    const { location, loading: locLoading, requestPreciseLocation } = useLocation();
     const [query, setQuery] = useState(prefillValue || '');
     const [results, setResults] = useState<PlaceResult[]>([]);
     const [loading, setLoading] = useState(false);
@@ -43,10 +43,9 @@ export const PlaceSearch: React.FC<PlaceSearchProps> = ({ onSelect, placeholder 
 
                 setStatusMessage("Obteniendo ubicación...");
 
-                // Ubicación compartida de la app: si aún no la hay se pide (o se
-                // espera la petición en curso) y la reciben también el resto de
-                // pantallas.
-                const current = location ?? await requestLocation();
+                // Posición fresca y con GPS (la guardada puede tener minutos o
+                // venir de la wifi); si falla, se usa la que ya tenía la app.
+                const current = (await requestPreciseLocation()) ?? location;
                 if (!current) {
                     setStatusMessage("No se pudo obtener la ubicación.");
                     return;
