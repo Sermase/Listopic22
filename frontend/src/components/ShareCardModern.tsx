@@ -12,8 +12,15 @@ import { useBackToClose } from '../hooks/useSheetDismiss';
 
 export type ModernCardVariant = 'story' | 'portrait' | 'square' | 'landscape';
 
+/** Premios de medallas en la tarjeta: marco de la foto («Archivo Visual») y firma («Crítico de Barrio»). */
+export interface CardDecor {
+    frame?: 'polaroid' | 'mantel';
+    signature?: { text?: string; badge?: string };
+}
+export type CardEntity = ShareEntityPayload & { decor?: CardDecor };
+
 interface ShareCardModernProps {
-    entity: ShareEntityPayload;
+    entity: CardEntity;
     variant: ModernCardVariant;
     triggerRef: React.MutableRefObject<(variant?: ModernCardVariant) => void>;
     palette: CardPaletteId;
@@ -601,6 +608,99 @@ const typeChipLabel = (entity: ShareEntityPayload) => {
 /** Listas con zona: «Las mejores» y, debajo del título, la zona. */
 const listChipLabel = (entity: ShareEntityPayload, fallback: string) => (entity.scopeLabel ? 'Las mejores' : fallback);
 
+const usesHeroPhoto = (entity: ShareEntityPayload) => entity.type !== 'profile' && !(isList(entity) && entity.rankItems?.length);
+
+/** Mantel de cuadros: rayas rojas que se cruzan (donde se cruzan, más oscuro). */
+const drawGingham = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    const cell = Math.round(width / 12);
+    ctx.fillStyle = '#f6efe2';
+    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = 'rgba(190, 30, 45, 0.5)';
+    for (let x = 0; x < width; x += cell * 2) ctx.fillRect(x, 0, cell, height);
+    for (let y = 0; y < height; y += cell * 2) ctx.fillRect(0, y, width, cell);
+};
+
+/** La foto en su marco, entre la marca (arriba) y el texto (abajo). */
+const drawFramedPhoto = (
+    ctx: CanvasRenderingContext2D,
+    hero: HTMLImageElement,
+    frame: NonNullable<CardDecor['frame']>,
+    caption: string,
+    width: number,
+    top: number,
+    bottom: number,
+) => {
+    const available = Math.max(220, bottom - top);
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = 44;
+    ctx.shadowOffsetY = 18;
+    if (frame === 'mantel') {
+        // Un plato visto desde arriba: borde blanco y la foto en el centro.
+        const radius = Math.min(width * 0.4, available / 2);
+        const cx = width / 2;
+        const cy = top + available / 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#fdfdfb';
+        ctx.fill();
+        ctx.shadowColor = 'transparent';
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.86, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(15,23,42,0.08)';
+        ctx.lineWidth = radius * 0.03;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius * 0.8, 0, Math.PI * 2);
+        ctx.clip();
+        drawCover(ctx, hero, cx - radius * 0.8, cy - radius * 0.8, radius * 1.6, radius * 1.6);
+        ctx.restore();
+        return;
+    }
+    // Polaroid: foto cuadrada, borde blanco y abajo más ancho con el nombre a mano.
+    const pad = Math.round(width * 0.035);
+    const bottomPad = pad * 3.4;
+    const photoSide = Math.min(width * 0.66, available - pad - bottomPad - 20);
+    const frameW = photoSide + pad * 2;
+    const frameH = photoSide + pad + bottomPad;
+    ctx.translate(width / 2, top + available / 2);
+    ctx.rotate((-3 * Math.PI) / 180);
+    ctx.fillStyle = '#fbfaf5';
+    roundRect(ctx, -frameW / 2, -frameH / 2, frameW, frameH, 6);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(-frameW / 2 + pad, -frameH / 2 + pad, photoSide, photoSide);
+    ctx.clip();
+    drawCover(ctx, hero, -frameW / 2 + pad, -frameH / 2 + pad, photoSide, photoSide);
+    ctx.restore();
+    if (caption) {
+        const size = Math.round(bottomPad * 0.36);
+        setFont(ctx, 700, size, true);
+        ctx.fillStyle = '#334155';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(fitText(ctx, caption, photoSide), 0, frameH / 2 - bottomPad / 2);
+    }
+    ctx.restore();
+};
+
+/** Firma: «frase» · medalla favorita, en una línea. */
+const signatureLine = (decor?: CardDecor) => {
+    const sig = decor?.signature;
+    if (!sig) return '';
+    return [sig.text ? `«${sig.text}»` : '', sig.badge || ''].filter(Boolean).join('  ·  ');
+};
+
+const drawSignature = (ctx: CanvasRenderingContext2D, text: string, x: number, bottom: number, width: number, size: number) => {
+    setFont(ctx, 600, size, true);
+    ctx.fillStyle = SOFT;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(fitText(ctx, `✍️ ${text}`, width), x, bottom);
+};
+
 const paintBackground = (
     ctx: CanvasRenderingContext2D,
     hero: HTMLImageElement | null,
@@ -608,10 +708,11 @@ const paintBackground = (
     width: number,
     height: number,
     photoRatio: number,
+    frame?: CardDecor['frame'],
 ) => {
     ctx.fillStyle = pal.bg;
     ctx.fillRect(0, 0, width, height);
-    const usePhoto = hero && entity.type !== 'profile' && !(isList(entity) && entity.rankItems?.length);
+    const usePhoto = hero && usesHeroPhoto(entity);
     if (!usePhoto) {
         drawGlow(ctx, width * 0.85, height * 0.12, Math.max(width, height) * 0.7, pal.glow, width, height);
         drawGlow(ctx, width * 0.05, height * 0.9, Math.max(width, height) * 0.45, pal.glow2, width, height);
@@ -622,7 +723,16 @@ const paintBackground = (
     ctx.beginPath();
     ctx.rect(0, 0, width, photoHeight);
     ctx.clip();
-    drawCover(ctx, hero, 0, 0, width, photoHeight);
+    if (frame === 'mantel') {
+        drawGingham(ctx, width, photoHeight);
+    } else {
+        drawCover(ctx, hero, 0, 0, width, photoHeight);
+        // Con Polaroid, la foto de fondo se apaga y la buena va en el marco.
+        if (frame) {
+            ctx.fillStyle = bgA(0.62);
+            ctx.fillRect(0, 0, width, photoHeight);
+        }
+    }
     ctx.restore();
     const top = ctx.createLinearGradient(0, 0, 0, height * 0.22);
     top.addColorStop(0, bgA(0.6));
@@ -866,6 +976,7 @@ const drawVerticalContent = (
         cursorY -= fontSize * 1.85;
         drawChip(ctx, typeChipLabel(entity), margin, cursorY, fontSize);
     }
+    return cursorY;
 };
 
 const drawSidePhoto = (ctx: CanvasRenderingContext2D, image: HTMLImageElement | null, width: number, height: number, ratio: number) => {
@@ -1020,7 +1131,7 @@ const drawLandscape = (
     drawBottomBar(ctx, width, height, 10);
 };
 
-async function drawCard(entity: ShareEntityPayload, variant: ModernCardVariant, palette: CardPaletteId = 'dark'): Promise<HTMLCanvasElement> {
+async function drawCard(entity: CardEntity, variant: ModernCardVariant, palette: CardPaletteId = 'dark'): Promise<HTMLCanvasElement> {
     const { width, height } = DIMENSIONS[variant];
     const canvas = document.createElement('canvas');
     canvas.width = width;
@@ -1048,7 +1159,8 @@ async function drawCard(entity: ShareEntityPayload, variant: ModernCardVariant, 
 
     const isStory = variant === 'story';
     const margin = 64;
-    paintBackground(ctx, hero, entity, width, height, isStory ? 0.62 : variant === 'portrait' ? 0.6 : 0.64);
+    const frame = hero && usesHeroPhoto(entity) ? entity.decor?.frame : undefined;
+    paintBackground(ctx, hero, entity, width, height, isStory ? 0.62 : variant === 'portrait' ? 0.6 : 0.64, frame);
     drawBrand(ctx, logo, margin, margin, isStory ? 70 : 56);
     if (entity.type === 'review' && entity.subtitle && entity.city) {
         const tagSize = isStory ? 30 : 24;
@@ -1059,25 +1171,35 @@ async function drawCard(entity: ShareEntityPayload, variant: ModernCardVariant, 
     const barHeight = 12;
     const footerBottom = height - barHeight - (isStory ? 70 : 48);
     const footerHeight = showFooter ? drawFooter(ctx, entity, margin, footerBottom, width - margin * 2, !isStory) : 0;
-    const contentBottom = showFooter ? footerBottom - footerHeight - (isStory ? 48 : 32) : height - barHeight - 52;
+    let contentBottom = showFooter ? footerBottom - footerHeight - (isStory ? 48 : 32) : height - barHeight - 52;
+    const signature = signatureLine(entity.decor);
+    if (signature) {
+        const size = isStory ? 32 : 26;
+        drawSignature(ctx, signature, margin, contentBottom, width - margin * 2, size);
+        contentBottom -= size + (isStory ? 36 : 24);
+    }
 
     if (entity.type === 'profile') {
         drawVerticalProfile(ctx, entity, hero, variant, width);
     } else if (rankItems.length) {
         drawVerticalList(ctx, entity, rankImages, variant, width, contentBottom);
     } else {
-        drawVerticalContent(ctx, entity, avatar, variant, width, contentBottom);
+        const contentTop = drawVerticalContent(ctx, entity, avatar, variant, width, contentBottom);
+        if (frame && hero) {
+            const brandBottom = margin + (isStory ? 70 : 56);
+            drawFramedPhoto(ctx, hero, frame, entity.title, width, brandBottom + (isStory ? 40 : 24), contentTop - (isStory ? 36 : 20));
+        }
     }
     drawBottomBar(ctx, width, height, barHeight);
 
     return canvas;
 }
 
-const renderCard = async (entity: ShareEntityPayload, variant: ModernCardVariant, palette: CardPaletteId): Promise<string> =>
+const renderCard = async (entity: CardEntity, variant: ModernCardVariant, palette: CardPaletteId): Promise<string> =>
     (await drawCard(entity, variant, palette)).toDataURL('image/png', 1.0);
 
 /** Miniatura real de la tarjeta (la misma que se compartirá, en pequeño). */
-const renderThumb = async (entity: ShareEntityPayload, variant: ModernCardVariant, palette: CardPaletteId, maxSide = 420): Promise<string> => {
+const renderThumb = async (entity: CardEntity, variant: ModernCardVariant, palette: CardPaletteId, maxSide = 420): Promise<string> => {
     const full = await drawCard(entity, variant, palette);
     const scale = Math.min(1, maxSide / Math.max(full.width, full.height));
     const small = document.createElement('canvas');
@@ -1088,7 +1210,7 @@ const renderThumb = async (entity: ShareEntityPayload, variant: ModernCardVarian
 };
 
 interface ShareCardThumbProps {
-    entity: ShareEntityPayload;
+    entity: CardEntity;
     variant: ModernCardVariant;
     label: string;
     hint: string;
@@ -1099,7 +1221,7 @@ interface ShareCardThumbProps {
 /** Botón con la vista previa real de un formato de tarjeta. */
 export const ShareCardThumb: React.FC<ShareCardThumbProps> = ({ entity, variant, label, hint, palette, onPick }) => {
     const [thumb, setThumb] = useState<{ key: string; src: string | null } | null>(null);
-    const key = `${variant}|${palette}|${entity.imageUrl || ''}|${entity.title}|${entity.scopeLabel || ''}`;
+    const key = `${variant}|${palette}|${entity.imageUrl || ''}|${entity.title}|${entity.scopeLabel || ''}|${JSON.stringify(entity.decor || {})}`;
 
     useEffect(() => {
         let cancelled = false;

@@ -4,6 +4,7 @@ import { db } from '../../firebase';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { SURPRISES, fireSurprise, type SurpriseId } from '../../lib/surprises';
 import { recalcSecretBadges } from '../../services/SurpriseService';
+import { AbilitiesSection } from './AbilitiesSection';
 
 /** Lo que «Probar» enseña en esta pantalla (sin publicar nada). */
 const PREVIEW: Partial<Record<SurpriseId, () => void>> = {
@@ -94,6 +95,7 @@ export const SurprisesPanel: React.FC = () => {
                     </button>
                     <p className="text-xs text-gray-400 min-w-0 flex-1">{recalc ?? 'Da y quita las medallas de temas y las secretas que se pueden comprobar. Se hace solo cada madrugada.'}</p>
                 </div>
+                <AbilitiesSection />
             </div>
         </div>
     );

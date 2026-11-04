@@ -330,7 +330,7 @@ export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ ite
                     <Marker
                         ref={(marker) => { if (marker) markerRefs.current.set(item.id, marker); else markerRefs.current.delete(item.id); }}
                         position={[item.lat, item.lng]}
-                        icon={createMapPinIcon({ score: item.rating, botScore: item.botRating, emoji: item.emoji, color: item.color, sponsored: isSponsored })}
+                        icon={createMapPinIcon({ score: item.rating, botScore: item.botRating, emoji: item.emoji, color: item.color, sponsored: isSponsored, mark: item.pinMark })}
                         eventHandlers={{
                             popupopen: () => {
                                 haptic('selection');

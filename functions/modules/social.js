@@ -25,6 +25,9 @@ const PUBLIC_PROFILE_FIELDS = [
     "xp",
     "badges",
     "badgeDates",
+    // Premios de medallas que ven los demás (aro, chincheta, reseña fijada) y el color del aro.
+    "abilityPrefs",
+    "themePreference",
     "createdAt",
     "updatedAt",
 ];

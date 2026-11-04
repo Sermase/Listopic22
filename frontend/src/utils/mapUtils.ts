@@ -61,6 +61,8 @@ export interface MapPinOptions {
     color?: string | null;
     sponsored?: boolean;
     highlighted?: boolean;
+    /** Emoji pequeño en la esquina (premio «Chincheta propia»). */
+    mark?: string | null;
 }
 
 /** Lo que asoma el pico por debajo de la chapa (ver .lt-pin::after en index.css). */
@@ -96,11 +98,11 @@ const shownScore = (value: number | null | undefined) => typeof value === 'numbe
     : '';
 
 export const createMapPinIcon = (options: MapPinOptions = {}): L.DivIcon => {
-    const { score, botScore, emoji, color, sponsored = false, highlighted = false } = options;
-    return cachedIcon(`pin|${shownScore(score)}|${shownScore(botScore)}|${emoji ?? ''}|${color ?? ''}|${sponsored ? 1 : 0}|${highlighted ? 1 : 0}`, () => buildPinIcon(options));
+    const { score, botScore, emoji, color, sponsored = false, highlighted = false, mark } = options;
+    return cachedIcon(`pin|${shownScore(score)}|${shownScore(botScore)}|${emoji ?? ''}|${color ?? ''}|${sponsored ? 1 : 0}|${highlighted ? 1 : 0}|${mark ?? ''}`, () => buildPinIcon(options));
 };
 
-const buildPinIcon = ({ score, botScore, emoji, color, sponsored = false, highlighted = false }: MapPinOptions): L.DivIcon => {
+const buildPinIcon = ({ score, botScore, emoji, color, sponsored = false, highlighted = false, mark }: MapPinOptions): L.DivIcon => {
     const s = typeof score === 'number' && Number.isFinite(score) && score > 0 ? score : null;
     const classes = ['lt-pin'];
     let style = '';
@@ -140,6 +142,7 @@ const buildPinIcon = ({ score, botScore, emoji, color, sponsored = false, highli
         width += 14;
     }
     if (highlighted) classes.push('lt-pin--hl');
+    if (mark && !emoji) label += `<span class="lt-pin__mark" aria-hidden="true">${escapeHtml(mark)}</span>`;
     const total = height + PIN_TIP;
 
     return L.divIcon({

@@ -2,6 +2,8 @@ import React from "react";
 import { Award, Gift, Lock, Sparkles } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { THEMES } from "../../context/ThemeContext";
+import { useAppConfig } from "../../context/AppConfigContext";
+import { abilityForBadge } from "../../lib/abilities";
 import type { Badge } from "../../hooks/useBadges";
 import { cn } from "../../lib/utils";
 import { getBadgePublicDescription, getBadgeXpReward, isSecretBadge } from "../../utils/gamification";
@@ -28,9 +30,12 @@ interface BadgeInfoModalProps {
 }
 
 export const BadgeInfoModal: React.FC<BadgeInfoModalProps> = ({ badge, earned, earnedAt, onClose }) => {
+  const config = useAppConfig();
   if (!badge) return null;
   const secret = isSecretBadge(badge) && !earned;
   const theme = THEMES.find((t) => t.unlock?.badge === badge.id);
+  const found = abilityForBadge(badge.id);
+  const ability = found && config.abilities?.[found.id] !== false ? found : undefined;
   const date = toDate(earnedAt);
   const how = earned
     ? (badge.description?.trim() || getBadgePublicDescription(badge))
@@ -78,9 +83,15 @@ export const BadgeInfoModal: React.FC<BadgeInfoModalProps> = ({ badge, earned, e
           <dt className="text-[11px] font-bold uppercase tracking-wide text-[var(--lt-text-muted)]">Premio</dt>
           <dd className="mt-1 flex items-center gap-2 text-[var(--lt-text)]">
             <Gift className="h-4 w-4 shrink-0 text-[var(--lt-accent)]" />
-            {secret ? "Sorpresa" : `+${getBadgeXpReward(badge)} XP${theme ? ` y el tema ${theme.label}` : ""}`}
+            {secret ? "Sorpresa" : `+${getBadgeXpReward(badge)} XP${theme ? ` y el tema ${theme.label}` : ""}${ability ? ` y ${ability.prize}` : ""}`}
           </dd>
         </div>
+        {earned && ability && (
+          <div className="rounded-xl border border-[var(--lt-accent)]/30 bg-[var(--lt-accent)]/10 px-3 py-2">
+            <dt className="text-[11px] font-bold uppercase tracking-wide text-[var(--lt-accent)]">{ability.emoji} {ability.name}</dt>
+            <dd className="mt-1 text-xs leading-relaxed text-[var(--lt-text)]">{ability.where}</dd>
+          </div>
+        )}
       </dl>
     </Modal>
   );

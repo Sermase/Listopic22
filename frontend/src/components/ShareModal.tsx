@@ -4,7 +4,9 @@ import { X, MessageSquare, Copy, Send, Search, Check, Share2 } from 'lucide-reac
 import { doc, getDoc } from 'firebase/firestore';
 
 import type { PlaceDetails } from '../hooks/usePlaceDetails';
-import { CardPalettePicker, ShareCardModern, ShareCardThumb, type ModernCardVariant } from './ShareCardModern';
+import { CardPalettePicker, ShareCardModern, ShareCardThumb, type CardDecor, type CardEntity, type ModernCardVariant } from './ShareCardModern';
+import { useMyAbilities } from '../hooks/useAbilities';
+import { presetBadge } from '../config/badgePresets';
 import { defaultCardPalette, type CardPaletteId } from '../lib/shareCardPalettes';
 import { useTheme } from '../context/ThemeContext';
 import type { ReviewEntity } from '../hooks/useListDetails';
@@ -24,6 +26,12 @@ import { useNavigate } from 'react-router-dom';
 import { InviteSheet } from './chat/InviteSheet';
 import type { PlaceRef } from '../lib/chatExtras';
 import { haptic } from '../utils/haptics';
+
+const FRAME_OPTIONS: Array<{ id: NonNullable<CardDecor['frame']> | 'none'; label: string }> = [
+    { id: 'none', label: 'Sin marco' },
+    { id: 'polaroid', label: '📸 Polaroid' },
+    { id: 'mantel', label: '🧺 Mantel' },
+];
 
 interface ShareModalProps {
     isOpen: boolean;
@@ -236,6 +244,25 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         imageUrl: selectedImageUrl || resolvedShareEntity.imageUrl,
         authorPhoto: hydratedAuthorPhoto || resolvedShareEntity.authorPhoto,
     }), [resolvedShareEntity, selectedImageUrl, hydratedAuthorPhoto]);
+
+    // Premios de medallas: marco de la foto y firma (solo en la tarjeta, no en lo que se manda al chat).
+    const abilities = useMyAbilities();
+    const canFrame = abilities.has('photoFrames') && Boolean(cardEntity.imageUrl || cardEntity.imageUrls?.length)
+        && cardEntity.type !== 'profile' && !((cardEntity.type === 'list' || cardEntity.type === 'sublist') && cardEntity.rankItems?.length);
+    const signatureBadge = abilities.prefs.signatureBadge ? presetBadge(abilities.prefs.signatureBadge) : undefined;
+    const signature = abilities.has('cardSignature') && (abilities.prefs.signature || signatureBadge)
+        ? { text: abilities.prefs.signature, badge: signatureBadge ? `${signatureBadge.icon} ${signatureBadge.name}` : undefined }
+        : undefined;
+    const [cardFrame, setCardFrame] = React.useState<NonNullable<CardDecor['frame']> | 'none'>('none');
+    const [useSignature, setUseSignature] = React.useState(true);
+    const decoratedCardEntity = React.useMemo<CardEntity>(() => {
+        const decor: CardDecor = {};
+        if (canFrame && cardFrame !== 'none') decor.frame = cardFrame;
+        if (signature && useSignature) decor.signature = signature;
+        return Object.keys(decor).length ? { ...cardEntity, decor } : cardEntity;
+        // La firma se resume en texto: el objeto se rehace en cada render.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [cardEntity, canFrame, cardFrame, useSignature, signature?.text, signature?.badge]);
 
     const privateChatByUserId = React.useMemo<Record<string, string>>(() => {
         if (!user) return {};
@@ -559,7 +586,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const modalContent = (
         <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={handleRequestClose}>
             <ShareCardModern
-                entity={cardEntity}
+                entity={decoratedCardEntity}
                 variant={selectedCardVariant || 'story'}
                 triggerRef={shareCardTriggerRef}
                 palette={cardPalette}
@@ -692,11 +719,41 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
                             <CardPalettePicker value={cardPalette} onChange={setCardPalette} />
 
+                            {(canFrame || signature) && (
+                                <div className="flex flex-wrap items-center justify-center gap-1.5">
+                                    {canFrame && FRAME_OPTIONS.map((option) => (
+                                        <button
+                                            key={option.id}
+                                            type="button"
+                                            aria-pressed={cardFrame === option.id}
+                                            onClick={() => setCardFrame(option.id)}
+                                            className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors ${cardFrame === option.id
+                                                ? 'border-[var(--lt-accent)] bg-[var(--lt-accent)]/20 text-white'
+                                                : 'border-white/10 text-gray-400 hover:text-white'}`}
+                                        >
+                                            {option.label}
+                                        </button>
+                                    ))}
+                                    {signature && (
+                                        <button
+                                            type="button"
+                                            aria-pressed={useSignature}
+                                            onClick={() => setUseSignature((on) => !on)}
+                                            className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors ${useSignature
+                                                ? 'border-[var(--lt-accent)] bg-[var(--lt-accent)]/20 text-white'
+                                                : 'border-white/10 text-gray-400 hover:text-white'}`}
+                                        >
+                                            ✍️ Firma
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+
                             <div className="grid grid-cols-2 gap-2">
                                 {cardVariantOptions.map((option) => (
                                     <ShareCardThumb
                                         key={option.id}
-                                        entity={cardEntity}
+                                        entity={decoratedCardEntity}
                                         variant={option.id}
                                         label={option.label}
                                         hint={option.description}

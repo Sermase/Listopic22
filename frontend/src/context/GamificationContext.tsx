@@ -6,6 +6,7 @@ import { getLevelInfo, normalizeEarnedBadgeIds, type LevelInfo } from '../utils/
 import { LevelUpModal } from '../components/LevelUpModal';
 import { AchievementToast } from '../components/AchievementToast';
 import { BADGE_PRESET_PACKS } from '../config/badgePresets';
+import { sanitizeAbilityPrefs, type AbilityPrefs } from '../lib/abilities';
 
 const PRESET_BADGES = new Map(
     BADGE_PRESET_PACKS.flatMap(pack => pack.badges).map(badge => [badge.id, badge] as const),
@@ -53,6 +54,10 @@ interface GamificationContextValue {
     levelInfo: LevelInfo;
     /** Set of earned badge IDs */
     earnedBadgeIds: string[];
+    /** Fotos subidas (users.photosCount): cuántos filtros de foto hay. */
+    photosCount: number;
+    /** Lo elegido de los premios de medallas (users.abilityPrefs). */
+    abilityPrefs: AbilityPrefs;
     /** Force-show the level up modal (e.g. for testing) */
     triggerLevelUp: (xpGained: number, previousLevel: number, trigger?: string) => void;
     /** Force-show a badge toast */
@@ -67,12 +72,17 @@ export const useGamification = (): GamificationContextValue => {
     return ctx;
 };
 
+/** Igual, pero sin provider devuelve null (componentes que también se usan en pruebas sueltas). */
+export const useOptionalGamification = (): GamificationContextValue | null => useContext(GamificationContext);
+
 export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user } = useAuth();
 
     // Tracked state
     const [levelInfo, setLevelInfo] = useState<LevelInfo>(getLevelInfo(0));
     const [earnedBadgeIds, setEarnedBadgeIds] = useState<string[]>([]);
+    const [photosCount, setPhotosCount] = useState(0);
+    const [abilityPrefs, setAbilityPrefs] = useState<AbilityPrefs>({});
 
     // Modal state
     const [showLevelUpModal, setShowLevelUpModal] = useState(false);
@@ -95,6 +105,8 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (!user?.uid) {
             setLevelInfo(getLevelInfo(0));
             setEarnedBadgeIds([]);
+            setPhotosCount(0);
+            setAbilityPrefs({});
             isInitialLoadRef.current = true;
             return;
         }
@@ -110,6 +122,11 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
             setLevelInfo(newLevelInfo);
             setEarnedBadgeIds(newBadges);
+            setPhotosCount(Number(data.photosCount) || 0);
+            setAbilityPrefs((prev) => {
+                const next = sanitizeAbilityPrefs(data.abilityPrefs);
+                return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
+            });
 
             // Skip cache snapshots and pending-write confirmations silently
             if (snap.metadata.fromCache || snap.metadata.hasPendingWrites) return;
@@ -190,9 +207,11 @@ export const GamificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const value = useMemo<GamificationContextValue>(() => ({
         levelInfo,
         earnedBadgeIds,
+        photosCount,
+        abilityPrefs,
         triggerLevelUp,
         triggerBadgeUnlocked,
-    }), [levelInfo, earnedBadgeIds, triggerLevelUp, triggerBadgeUnlocked]);
+    }), [levelInfo, earnedBadgeIds, photosCount, abilityPrefs, triggerLevelUp, triggerBadgeUnlocked]);
 
     return (
         <GamificationContext.Provider value={value}>

@@ -42,6 +42,10 @@ export interface UserProfileEntity {
     followingUsersCount?: number;
     followingPlacesCount?: number;
     mapLayerPreference?: string;
+    /** Tema elegido (también en publicProfiles: da el color del aro). */
+    themePreference?: string;
+    /** Lo elegido de los premios de medallas (lib/abilities). */
+    abilityPrefs?: Record<string, unknown>;
     notificationPreferences?: Record<string, boolean>;
 }
 

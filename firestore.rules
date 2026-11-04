@@ -59,8 +59,26 @@ service cloud.firestore {
         'photoUrl', 'photoURL', 'photoStoragePath', 'defaultDistanceKm',
         'mapLayerPreference', 'themePreference', 'notificationPreferences',
         'isOnline', 'lastActiveAt', 'createdAt', 'updatedAt', 'usernameLockedAt',
-        'notifiedLevel', 'notifiedBadges', 'legalAcceptance', 'uxPreferences'
+        'notifiedLevel', 'notifiedBadges', 'legalAcceptance', 'uxPreferences',
+        'abilityPrefs'
       ];
+    }
+
+    // Lo elegido de los premios de medallas (lib/abilities): firma, chincheta, reseña fijada y aro.
+    // Tener la medalla lo comprueba quien lo pinta; aquí solo la forma y el tamaño.
+    function abilityPrefsIsValid(value) {
+      return value is map &&
+             value.keys().hasOnly(['signature', 'signatureBadge', 'pinEmoji', 'pinnedReview', 'ring']) &&
+             (!('signature' in value) || (value.signature is string && value.signature.size() <= 60)) &&
+             (!('signatureBadge' in value) || (value.signatureBadge is string && value.signatureBadge.size() <= 64)) &&
+             (!('pinEmoji' in value) || (value.pinEmoji is string && value.pinEmoji.size() <= 16)) &&
+             (!('pinnedReview' in value) || (value.pinnedReview is string && value.pinnedReview.size() <= 200)) &&
+             (!('ring' in value) || value.ring in ['gold', 'theme', 'off']);
+    }
+
+    function userUpdateAbilityPrefsOk() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['abilityPrefs']) ||
+             abilityPrefsIsValid(request.resource.data.abilityPrefs);
     }
 
     // Preferencias de uso (Mis preferencias y ayudas): interruptores y la lista de alérgenos.
@@ -527,6 +545,7 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(userSelfUpdateKeys())
           && userUpdateLegalAcceptanceOk()
           && userUpdateUxPreferencesOk()
+          && userUpdateAbilityPrefsOk()
         ) || (isJefe(request.auth.uid) && userUpdateChangesOnlyAllowedFields())
       );
       // Un usuario puede borrarse a sí mismo O un jefe puede borrarlo.
