@@ -8,6 +8,9 @@ import { arrayMove, SortableContext, horizontalListSortingStrategy, useSortable 
 import { CSS } from '@dnd-kit/utilities';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useBackToClose } from '../hooks/useSheetDismiss';
+import { useMyAbilities } from '../hooks/useAbilities';
+import { MAX_FILTERS, PHOTOS_PER_FILTER } from '../lib/abilities';
+import { PHOTO_FILTERS, applyFilterToCanvas, filterCss, photoFilterById, type PhotoFilter } from '../lib/photoFilters';
 
 interface SortablePhotoProps {
     p: PhotoEntry;
@@ -83,7 +86,7 @@ function centeredCrop(width: number, height: number, aspect: number): Area {
     return { x: (width - cropWidth) / 2, y: (height - cropHeight) / 2, width: cropWidth, height: cropHeight };
 }
 
-async function applyCrop(imageSrc: string, pixelCrop: Area, maxSize = 1600): Promise<{ dataUrl: string; blob: Blob }> {
+async function applyCrop(imageSrc: string, pixelCrop: Area, maxSize = 1600, filter?: PhotoFilter): Promise<{ dataUrl: string; blob: Blob }> {
     const image = await loadImage(imageSrc);
     const scale = Math.min(1, maxSize / Math.max(pixelCrop.width, pixelCrop.height));
     const outW = Math.round(pixelCrop.width * scale);
@@ -92,6 +95,7 @@ async function applyCrop(imageSrc: string, pixelCrop: Area, maxSize = 1600): Pro
     canvas.width = outW;
     canvas.height = outH;
     canvas.getContext('2d')!.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, outW, outH);
+    applyFilterToCanvas(canvas, filter);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
     const blob = await new Promise<Blob>(res => canvas.toBlob(b => res(b!), 'image/jpeg', 0.82));
     return { dataUrl, blob };
@@ -127,6 +131,9 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
     const [aspectKey, setAspectKey] = useState<AspectKey>(lockedAspect ?? '1:1');
     const [cropStates, setCropStates] = useState<Record<string, CropState>>({});
     const [processing, setProcessing] = useState(false);
+    // Filtro elegido por foto (premio de «Ojo de Halcón»).
+    const [filters, setFilters] = useState<Record<string, string>>({});
+    const { filtersUnlocked, photosCount, isJefe } = useMyAbilities();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const aspect = ASPECT_OPTIONS.find(o => o.key === aspectKey)?.value ?? 1;
@@ -134,6 +141,11 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
     const activeState: CropState = active
         ? (cropStates[active.id] ?? { crop: { x: 0, y: 0 }, zoom: 1, croppedAreaPixels: null })
         : { crop: { x: 0, y: 0 }, zoom: 1, croppedAreaPixels: null };
+    const activeFilter = active ? photoFilterById(filters[active.id]) : undefined;
+    const unlockedFilters = PHOTO_FILTERS.slice(0, filtersUnlocked);
+    const nextFilterAt = filtersUnlocked > 0 && filtersUnlocked < MAX_FILTERS && !isJefe
+        ? (Math.floor(photosCount / PHOTOS_PER_FILTER) + 1) * PHOTOS_PER_FILTER
+        : null;
 
     const updateCropState = useCallback((id: string, patch: Partial<CropState>) => {
         setCropStates(prev => ({ ...prev, [id]: { ...(prev[id] ?? { crop: { x: 0, y: 0 }, zoom: 1, croppedAreaPixels: null }), ...patch } }));
@@ -186,7 +198,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
                 const img = await loadImage(p.src);
                 const crop: Area = cropStates[p.id]?.croppedAreaPixels
                     ?? (lockedAspect ? centeredCrop(img.naturalWidth, img.naturalHeight, aspect) : { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight });
-                results.push({ ...(await applyCrop(p.src, crop)), isMain: i === 0 });
+                results.push({ ...(await applyCrop(p.src, crop, 1600, photoFilterById(filters[p.id]))), isMain: i === 0 });
             }
             onConfirm(results);
         } finally { setProcessing(false); }
@@ -194,7 +206,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
 
     return createPortal(
         <div className="fixed top-0 left-0 w-full h-[100dvh] z-[10010] lt-mobile-overlay bg-black/80 backdrop-blur-md flex items-center justify-center sm:p-6 animate-slide-up-modal sm:animate-fade-in origin-bottom sm:origin-center">
-            <div className="w-full h-full max-w-2xl bg-[var(--lt-bg)] sm:rounded-2xl shadow-2xl overflow-hidden" style={{ display: 'grid', gridTemplateRows: 'auto 1fr auto', boxShadow: '0 0 0 1px rgba(255,255,255,0.06)' }}>
+            <div className="w-full h-full max-w-2xl bg-[var(--lt-bg)] sm:rounded-2xl shadow-2xl overflow-hidden" style={{ display: 'grid', gridTemplateRows: 'auto 1fr auto', gridTemplateColumns: 'minmax(0, 1fr)', boxShadow: '0 0 0 1px rgba(255,255,255,0.06)' }}>
                 {/* Fila 1: Header */}
                 <div style={{ background: 'linear-gradient(135deg, var(--lt-card-strong) 0%, var(--lt-bg) 100%)', position: 'relative', overflow: 'hidden' }}
                     className="flex shrink-0 items-center justify-between p-5 touch-pan-x"
@@ -234,6 +246,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
                             style={{
                                 containerStyle: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'var(--lt-bg)' },
                                 cropAreaStyle: { border: '2px solid rgba(99,102,241,0.9)', boxShadow: '0 0 0 9999px rgba(11,16,33,0.78)' },
+                                mediaStyle: activeFilter ? { filter: filterCss(activeFilter) } : undefined,
                             }}
                         />
                     ) : (
@@ -248,7 +261,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
                     {/* Formato */}
                     {!lockedAspect && <div className="flex items-center gap-3 px-4 pt-3 pb-2">
                         <span className="text-gray-500 uppercase tracking-widest w-14 shrink-0" style={{ fontSize: 10 }}>Formato</span>
-                        <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                        <div className="flex min-w-0 gap-1.5 overflow-x-auto pb-0.5">
                             {ASPECT_OPTIONS.map(opt => (
                                 <button key={opt.key} onClick={() => setAspectKey(opt.key)}
                                     className="shrink-0 px-3 py-1 rounded-lg text-xs font-bold border transition-all"
@@ -260,6 +273,35 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
                                     {opt.label}
                                 </button>
                             ))}
+                        </div>
+                    </div>}
+
+                    {/* Filtros: premio de la medalla «Ojo de Halcón» */}
+                    {active && unlockedFilters.length > 0 && <div className="flex items-center gap-3 px-4 pb-2">
+                        <span className="text-gray-500 uppercase tracking-widest w-14 shrink-0" style={{ fontSize: 10 }}>Filtro</span>
+                        <div className="flex min-w-0 gap-2 overflow-x-auto pb-0.5 touch-pan-x" role="radiogroup" aria-label="Filtro de la foto">
+                            {[undefined, ...unlockedFilters].map((f) => {
+                                const selected = (activeFilter?.id ?? null) === (f?.id ?? null);
+                                return (
+                                    <button key={f?.id ?? 'none'} type="button" role="radio" aria-checked={selected}
+                                        onClick={() => setFilters(prev => ({ ...prev, [active.id]: f?.id ?? '' }))}
+                                        className="shrink-0 flex flex-col items-center gap-1 w-14">
+                                        <span className="w-11 h-11 rounded-full overflow-hidden border-2 transition-all"
+                                            style={{ borderColor: selected ? 'var(--lt-accent)' : 'rgba(255,255,255,0.1)' }}>
+                                            <img src={active.src} alt="" className="w-full h-full object-cover" style={{ filter: filterCss(f) }} />
+                                        </span>
+                                        <span className="text-[10px] font-bold leading-none truncate max-w-full" style={{ color: selected ? '#fff' : '#9ca3af' }}>
+                                            {f ? f.name : 'Original'}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                            {nextFilterAt && (
+                                <span className="shrink-0 flex flex-col items-center gap-1 w-14 opacity-60" title={`Otro filtro a las ${nextFilterAt} fotos`}>
+                                    <span className="w-11 h-11 rounded-full border-2 border-dashed border-white/15 flex items-center justify-center text-base">🔒</span>
+                                    <span className="text-[10px] font-bold leading-none text-gray-500">{nextFilterAt} fotos</span>
+                                </span>
+                            )}
                         </div>
                     </div>}
 

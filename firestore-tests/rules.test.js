@@ -337,6 +337,16 @@ describe('V4 · Un usuario no puede ascenderse a sí mismo', () => {
     await assertFails(setDoc(ref, { uxPreferences: { allergens: Array.from({ length: 15 }, (_, i) => `a${i}`) } }, { merge: true }));
   });
 
+  it('✅/❌ premios de medallas: firma, chincheta, reseña fijada y aro con forma conocida', async () => {
+    const ref = doc(as('alice'), 'users/alice');
+    await assertSucceeds(updateDoc(ref, { abilityPrefs: { signature: 'Si no cruje, no es croqueta', signatureBadge: 'PIONERO', pinEmoji: '🍕', pinnedReview: 'l1/r1', ring: 'gold' } }));
+    await assertSucceeds(updateDoc(ref, { abilityPrefs: {} }));
+    await assertFails(updateDoc(ref, { abilityPrefs: { ring: 'diamante' } }));
+    await assertFails(updateDoc(ref, { abilityPrefs: { signature: 'x'.repeat(61) } }));
+    await assertFails(updateDoc(ref, { abilityPrefs: { badges: ['GRAN_MAESTRE'] } }));
+    await assertFails(updateDoc(doc(as('bob'), 'users/alice'), { abilityPrefs: { ring: 'off' } }));
+  });
+
   it('✅/❌ dieta por defecto de una lista: solo vegetarian o none', async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
       await setDoc(doc(ctx.firestore(), 'lists/dietList'), { name: 'Tortillas', visibility: 'public', isPublic: true, userId: 'alice' });

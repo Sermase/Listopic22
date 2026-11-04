@@ -13,37 +13,7 @@ const { GDPR_AUDIT_RETAIN_DAYS } = require('../lib/gdpr');
 
 const db = getFirestore();
 const BATCH_LIMIT = 450;
-const PUBLIC_PROFILE_FIELDS = [
-  'username',
-  'usernameLower',
-  'displayName',
-  'name',
-  'surnames',
-  'bio',
-  'location',
-  'residence',
-  'photoUrl',
-  'photoStoragePath',
-  'userType',
-  'reviewsCount',
-  'followersCount',
-  'followingCount',
-  'followingListsCount',
-  'followingPlacesCount',
-  'level',
-  'xp',
-  'badges',
-  'createdAt',
-  'updatedAt',
-];
-
-function buildPublicProfile(uid, data = {}) {
-  const publicProfile = { uid };
-  for (const field of PUBLIC_PROFILE_FIELDS) {
-    if (data[field] !== undefined) publicProfile[field] = data[field];
-  }
-  return publicProfile;
-}
+const { buildPublicProfile } = require('../lib/public-profile');
 
 function normalizeAuthorPatch(fields = {}) {
   const patch = {};

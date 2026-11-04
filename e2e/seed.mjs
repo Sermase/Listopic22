@@ -140,6 +140,14 @@ async function seed() {
     participants: ['ana', 'luis', 'eva'], type: 'group', groupName: 'Comilona',
     unreadCount: { ana: 0, luis: 0, eva: 0 }, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
   });
+  // Chat de premios.spec.ts: la jefa (con todos los premios) reacciona con los de comida.
+  await db.doc('chats/premios').set({
+    participants: ['jefe', 'duena'], type: 'group', groupName: 'Premios',
+    unreadCount: { jefe: 0, duena: 0 }, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
+  });
+  await db.doc('chats/premios/messages/croquetas').set({
+    text: '¿Croquetas el viernes?', senderId: 'duena', type: 'text', readBy: ['duena'], createdAt: Timestamp.now(),
+  });
   // Chat de pachote.spec.ts: un grupo solo para sus cuentas.
   await db.doc('chats/riano').set({
     participants: ['ana', 'luis', 'eva'], type: 'group', groupName: 'Viaje a Riaño',

@@ -29,6 +29,8 @@ export interface AppConfig {
     labApps: Partial<Record<string, boolean>>;
     /** Sorpresas apagadas una a una (lib/surprises): `false` = apagada para todos. */
     surprises: Partial<Record<string, boolean>>;
+    /** Premios de medallas apagados uno a uno (lib/abilities): `false` = apagado para todos. */
+    abilities: Partial<Record<string, boolean>>;
     showWeeklyDuel: boolean;
     showTastePassport: boolean;
     /** Página de Lista: título = sitio y segunda línea = elemento (false: al revés). */
@@ -54,6 +56,7 @@ const defaultConfig: AppConfig = {
     showLab: false,
     labApps: {},
     surprises: {},
+    abilities: {},
     showWeeklyDuel: false,
     showTastePassport: false,
     listTitlePlaceFirst: true,
@@ -97,6 +100,7 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                         : defaultConfig.showLab,
                     labApps: data.labApps && typeof data.labApps === 'object' ? data.labApps : {},
                     surprises: data.surprises && typeof data.surprises === 'object' ? data.surprises : {},
+                    abilities: data.abilities && typeof data.abilities === 'object' ? data.abilities : {},
                     showWeeklyDuel: typeof data.showWeeklyDuel === 'boolean'
                         ? data.showWeeklyDuel
                         : defaultConfig.showWeeklyDuel,

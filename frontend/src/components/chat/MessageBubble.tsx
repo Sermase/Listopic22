@@ -4,6 +4,8 @@ import { SmilePlus } from 'lucide-react';
 import { DOUBLE_TAP_REACTION, QUICK_REACTIONS, summarizeReactions, type ReactionMap } from '../../lib/chatExtras';
 import { useBackToClose } from '../../hooks/useSheetDismiss';
 import { haptic } from '../../utils/haptics';
+import { useMyAbilities } from '../../hooks/useAbilities';
+import { EXTRA_REACTIONS } from '../../lib/abilities';
 
 const LONG_PRESS_MS = 450;
 const DOUBLE_TAP_MS = 300;
@@ -29,11 +31,13 @@ export const MessageBubble: React.FC<{
     const menuOpen = menuPos !== null;
     useBackToClose(menuOpen, () => setMenuPos(null));
     const bubbleRef = useRef<HTMLDivElement>(null);
+    // Premio de «Radar Gastronómico»: una segunda fila de reacciones de comida.
+    const extraReactions = useMyAbilities().has('extraReactions');
     // El menú flota sobre todo (portal); cerca del borde de arriba va debajo del mensaje.
     const setMenuOpen = (open: boolean) => {
         const rect = bubbleRef.current?.getBoundingClientRect();
         if (!open || !rect) { setMenuPos(null); return; }
-        const top = rect.top < 160 ? rect.bottom + 8 : rect.top - 56;
+        const top = rect.top < 160 ? rect.bottom + 8 : rect.top - (extraReactions ? 100 : 56);
         setMenuPos(isOwn
             ? { top, right: Math.max(8, window.innerWidth - rect.right) }
             : { top, left: Math.max(8, rect.left) });
@@ -154,7 +158,8 @@ export const MessageBubble: React.FC<{
             {menuOpen && createPortal(
                 <>
                     <div className="fixed inset-0 z-[9998]" onClick={() => setMenuOpen(false)} />
-                    <div style={menuPos ?? undefined} className="fixed z-[9999] flex items-center gap-1 rounded-full bg-[var(--lt-card-strong)] border border-white/10 shadow-2xl px-2 py-1.5">
+                    <div style={menuPos ?? undefined} className={`fixed z-[9999] bg-[var(--lt-card-strong)] border border-white/10 shadow-2xl px-2 py-1.5 ${extraReactions ? 'rounded-2xl' : 'rounded-full'}`}>
+                    <div className="flex items-center gap-1">
                         {QUICK_REACTIONS.map((emoji) => (
                             <button
                                 key={emoji}
@@ -167,6 +172,21 @@ export const MessageBubble: React.FC<{
                         ))}
                         <span className="w-px h-6 bg-white/10 mx-1" />
                         <button type="button" onClick={() => { setMenuOpen(false); onReply(); }} className="text-xs font-semibold text-gray-200 px-1.5 whitespace-nowrap">↩️ Responder</button>
+                    </div>
+                    {extraReactions && (
+                        <div className="flex items-center gap-1 border-t border-white/10 mt-1.5 pt-1.5" aria-label="Reacciones de comida">
+                            {EXTRA_REACTIONS.map((emoji) => (
+                                <button
+                                    key={emoji}
+                                    type="button"
+                                    onClick={() => react(emoji)}
+                                    className={`text-2xl leading-none px-0.5 transition-transform hover:scale-125 active:scale-110 ${mine === emoji ? 'scale-125' : ''}`}
+                                >
+                                    {emoji}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     </div>
                 </>,
                 document.body,

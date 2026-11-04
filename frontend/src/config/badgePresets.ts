@@ -226,6 +226,7 @@ const ladderBadges: BadgePreset[] = [
   { id: "UNA_MAS_Y_ME_VOY", name: "Una Más y Me Voy", description: "Cincuenta reseñas. «Una más y me voy», dijiste.", descriptionPublic: "Publica 50 reseñas.", logicNotes: "Escalón 3 (difícil). review_count >= 50", category: "EXPERT", type: "review_count", threshold: 50, icon: "🍽️", xpReward: 50, active: true, rarity: "rare" },
   { id: "LEYENDA_DEL_TENEDOR", name: "Leyenda del Tenedor", description: "Ciento cincuenta reseñas. Los camareros ya te tutean.", descriptionPublic: "Publica 150 reseñas.", logicNotes: "Escalón 4 (leyenda). review_count >= 150", category: "SPECIAL", type: "review_count", threshold: 150, icon: "👑", xpReward: 100, active: true, rarity: "epic" },
   { id: "PRIMER_CLIC", name: "Primer Clic", description: "Tu primera foto de comida. Que empiece la galería.", descriptionPublic: "Sube tu primera foto.", logicNotes: "Escalón 1 (medallita). photo_count >= 1", category: "CORE", type: "photo_count", threshold: 1, icon: "📷", xpReward: 10, active: true, rarity: "common" },
+  { id: "OJO_DE_HALCON", name: "Ojo de Halcón", description: "Siete fotos: ya miras el plato antes de comértelo. Te da tu primer filtro de foto, y otro cada 7 fotos más (hasta 6).", descriptionPublic: "Sube 7 fotos.", logicNotes: "Premio: filtros de foto (lib/abilities). photo_count >= 7", category: "GENERAL", type: "photo_count", threshold: 7, icon: "🦅", xpReward: 15, active: true, rarity: "common" },
   { id: "FOTO_O_PRUEBA", name: "Foto o Prueba", description: "Diez fotos: si no hay foto, no pasó.", descriptionPublic: "Sube 10 fotos.", logicNotes: "Escalón 2 (normal). photo_count >= 10", category: "GENERAL", type: "photo_count", threshold: 10, icon: "📸", xpReward: 25, active: true, rarity: "common" },
   { id: "FOTO_O_FAKE", name: "Foto o Fake", description: "Cuarenta fotos. Tu galería da hambre.", descriptionPublic: "Sube 40 fotos.", logicNotes: "Escalón 3 (difícil). photo_count >= 40", category: "EXPERT", type: "photo_count", threshold: 40, icon: "🖼️", xpReward: 50, active: true, rarity: "rare" },
   { id: "ARCHIVO_VISUAL", name: "Archivo Visual", description: "Ciento veinte fotos. Esto ya es un archivo histórico.", descriptionPublic: "Sube 120 fotos.", logicNotes: "Escalón 4 (leyenda). photo_count >= 120", category: "SPECIAL", type: "photo_count", threshold: 120, icon: "🎞️", xpReward: 100, active: true, rarity: "epic" },
@@ -284,3 +285,10 @@ export const BADGE_PRESET_PACKS: BadgePresetPack[] = [
     badges: [...coreBadges, ...funnyBadges],
   },
 ];
+
+// Cada medalla como está ahora: si sale en varios packs, manda el primero (la Escalera).
+const PRESET_BY_ID = new Map<string, BadgePreset>();
+BADGE_PRESET_PACKS.forEach((pack) => pack.badges.forEach((badge) => {
+  if (!PRESET_BY_ID.has(badge.id)) PRESET_BY_ID.set(badge.id, badge);
+}));
+export const presetBadge = (id: string): BadgePreset | undefined => PRESET_BY_ID.get(id);

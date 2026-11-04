@@ -19,8 +19,11 @@ import { NavTabsEditor, NavTabsSummary } from '../components/settings/NavTabsEdi
 import { setUserWantsSurprises, userWantsSurprises } from '../lib/surprises';
 import { requestShakePermission, shakeNeedsPermission } from '../components/surprises/useShake';
 import { haptic, isHapticsOn, setHapticsOn } from '../utils/haptics';
+import { PrizesEditor } from '../components/settings/PrizesEditor';
+import { useMyAbilities } from '../hooks/useAbilities';
+import { ABILITIES } from '../lib/abilities';
 
-type SheetId = 'profile' | 'notifications' | 'data' | 'distance' | 'map' | 'theme' | 'nav' | FilterGroupId | 'delete';
+type SheetId = 'profile' | 'notifications' | 'data' | 'distance' | 'map' | 'theme' | 'nav' | 'prizes' | FilterGroupId | 'delete';
 
 const NO_LIMIT = 999999;
 
@@ -117,6 +120,8 @@ export const SettingsPage: React.FC = () => {
     const [surprises, setSurprises] = useState(userWantsSurprises);
     const [shakeAsk, setShakeAsk] = useState(shakeNeedsPermission);
     const [vibration, setVibration] = useState(isHapticsOn);
+    const abilities = useMyAbilities();
+    const prizeCount = ABILITIES.filter((a) => abilities.has(a.id)).length;
     const toggleVibration = (on: boolean) => {
         setHapticsOn(on);
         setVibration(on);
@@ -191,6 +196,7 @@ export const SettingsPage: React.FC = () => {
                         <Row emoji="👤" label="Perfil" value="Foto, nombre y bio" onClick={() => setSheet('profile')} />
                         <Row emoji="🔔" label="Avisos" value={notifOn === NOTIFICATIONS.length ? 'Todos' : notifOn === 0 ? 'Ninguno' : `${notifOn} de ${NOTIFICATIONS.length}`} onClick={() => setSheet('notifications')} />
                         <Row emoji="📦" label="Tus datos" value="Pedir una copia" onClick={() => setSheet('data')} />
+                        {prizeCount > 0 && <Row emoji="🏅" label="Mis premios" value={`${prizeCount} ${prizeCount === 1 ? 'premio' : 'premios'} de medallas`} onClick={() => setSheet('prizes')} />}
                     </Section>
                 )}
 
@@ -294,6 +300,10 @@ export const SettingsPage: React.FC = () => {
                     )}
                 </div>
                 <p className="mt-3 text-xs text-[var(--lt-text-muted)]">{nextLocked ? 'Cada tema nuevo se gana con una medalla. ' : ''}Se aplica al momento{user ? ' y te sigue en otros dispositivos' : ''}.</p>
+            </Modal>
+
+            <Modal isOpen={sheet === 'prizes'} onClose={close} title="🏅 Mis premios">
+                <PrizesEditor />
             </Modal>
 
             <Modal isOpen={sheet === 'nav'} onClose={close} title="📱 Barra de abajo">

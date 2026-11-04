@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreHorizontal, Bookmark, Share2, Edit, Trash2, Flag } from 'lucide-react';
+import { MoreHorizontal, Bookmark, Share2, Edit, Trash2, Flag, Pin } from 'lucide-react';
 
 interface ReviewCardMenuProps {
     isOwner: boolean;
@@ -8,6 +8,9 @@ interface ReviewCardMenuProps {
     onEdit: (e: React.MouseEvent) => void;
     onDelete: (e: React.MouseEvent) => void;
     onReport: (e: React.MouseEvent) => void;
+    /** Fijar en el perfil (premio de «Leyenda del Tenedor»); sin él no sale. */
+    onPin?: () => void;
+    pinned?: boolean;
 }
 
 export const ReviewCardMenu: React.FC<ReviewCardMenuProps> = ({
@@ -17,6 +20,8 @@ export const ReviewCardMenu: React.FC<ReviewCardMenuProps> = ({
     onEdit,
     onDelete,
     onReport,
+    onPin,
+    pinned = false,
 }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -72,6 +77,14 @@ export const ReviewCardMenu: React.FC<ReviewCardMenuProps> = ({
                     <div className="h-px bg-white/10 my-1" />
                     {isOwner ? (
                         <>
+                            {onPin && (
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); onPin(); }}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"
+                                >
+                                    <Pin className="w-4 h-4" /> {pinned ? 'Quitar de mi perfil' : 'Fijar en mi perfil'}
+                                </button>
+                            )}
                             <button
                                 onClick={wrap(onEdit)}
                                 className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 hover:text-white flex items-center gap-2 transition-colors"

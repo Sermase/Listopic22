@@ -28,6 +28,7 @@ import { closedStatusKind } from '../utils/placeStatus';
 import { MarqueeText } from './ui/MarqueeText';
 import { ExpandableText } from './ui/ExpandableText';
 import { haptic } from '../utils/haptics';
+import { useMyAbilities } from '../hooks/useAbilities';
 
 interface ReviewCardProps {
     review: ReviewEntity;
@@ -73,6 +74,16 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
 
     // Derived States
     const isOwner = user?.uid && (user.uid === review.userId || user.uid === review.authorId);
+    // Premio de «Leyenda del Tenedor»: fijar una reseña propia arriba del perfil.
+    const abilities = useMyAbilities();
+    const pinKey = review.listId && review.id ? `${review.listId}/${review.id}` : '';
+    const canPin = Boolean(isOwner && pinKey && abilities.has('pinnedReview'));
+    const isPinned = canPin && abilities.prefs.pinnedReview === pinKey;
+    const handlePin = () => {
+        void abilities.savePrefs({ pinnedReview: isPinned ? undefined : pinKey })
+            .then(() => showToast({ variant: 'success', message: isPinned ? 'Ya no está fijada en tu perfil.' : '📌 Fijada arriba de tu perfil.' }))
+            .catch(() => showToast({ variant: 'error', message: 'No se pudo fijar la reseña.' }));
+    };
 
     const reviewCategoryId = typeof review.categoryId === 'string' && review.categoryId.trim()
         ? review.categoryId.trim()
@@ -351,6 +362,8 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                             onEdit={handleEdit}
                             onDelete={handleDelete}
                             onReport={handleReportClick}
+                            onPin={canPin ? handlePin : undefined}
+                            pinned={isPinned}
                         />
                     </div>
                 </div>

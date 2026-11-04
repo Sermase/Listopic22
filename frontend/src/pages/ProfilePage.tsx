@@ -86,6 +86,9 @@ import { useAuthPrompt } from "../context/AuthPromptContext";
 import { useToast } from "../context/ToastContext";
 import { compareByRank } from "../lib/scoring";
 import { haptic } from '../utils/haptics';
+import { useAbilityGate } from "../hooks/useAbilities";
+import { ringFor, sanitizeAbilityPrefs, type AbilityId } from "../lib/abilities";
+import { THEMES } from "../context/ThemeContext";
 
 interface ListRatingStats {
   listId: string;
@@ -1270,6 +1273,48 @@ export const ProfilePage: React.FC = () => {
     [profile?.badges],
   );
 
+  // Premios de medallas del dueño del perfil (aro, chincheta, reseña fijada): los ve todo el mundo.
+  const abilityGate = useAbilityGate();
+  const ownerIsJefe = (Array.isArray(profile?.userType) ? profile.userType : [profile?.userType]).includes("jefe");
+  const ownerPrefs = useMemo(() => sanitizeAbilityPrefs(profile?.abilityPrefs), [profile?.abilityPrefs]);
+  const ownerHas = (id: AbilityId) => abilityGate(id, earnedBadgeIds, ownerIsJefe);
+  const avatarRing = ringFor(ownerPrefs, ownerHas("goldRing"), ownerHas("colorRing"));
+  const ringTheme = THEMES.find((t) => t.id === profile?.themePreference) ?? THEMES[0];
+  const pinMark = ownerHas("customPin") ? ownerPrefs.pinEmoji : undefined;
+  const pinnedKey = ownerHas("pinnedReview") ? ownerPrefs.pinnedReview : undefined;
+  const [pinnedReview, setPinnedReview] = useState<{ key: string; summary: FavoriteReviewSummary | null } | null>(null);
+  useEffect(() => {
+    if (!pinnedKey) return;
+    const [listId, reviewId] = pinnedKey.split("/");
+    if (!listId || !reviewId) return;
+    let cancelled = false;
+    getDoc(doc(db, "lists", listId, "reviews", reviewId))
+      .then((snap) => {
+        if (cancelled) return;
+        const data = snap.exists() ? snap.data() : null;
+        const ownerId = data ? data.userId || data.authorId : null;
+        setPinnedReview({
+          key: pinnedKey,
+          summary: data && ownerId === targetUserId
+            ? {
+              id: snap.id,
+              placeId: typeof data.placeId === "string" ? data.placeId : "",
+              listId,
+              listName: typeof data.listName === "string" ? data.listName : "Lista",
+              itemName: typeof data.itemName === "string" ? data.itemName : "Elemento",
+              placeName: typeof data.placeName === "string" ? data.placeName : "",
+              photoUrl: typeof data.photoUrl === "string" ? data.photoUrl : (Array.isArray(data.photoUrls) && typeof data.photoUrls[0] === "string" ? data.photoUrls[0] : ""),
+              score: Number(data.overallRating) || 0,
+            }
+            : null,
+        });
+      })
+      .catch(() => { if (!cancelled) setPinnedReview({ key: pinnedKey, summary: null }); });
+    return () => { cancelled = true; };
+  }, [pinnedKey, targetUserId]);
+  const pinnedSummary = pinnedKey && pinnedReview?.key === pinnedKey ? pinnedReview.summary : null;
+  const shownFavorite = pinnedSummary ?? (appConfig.showProfileFavoriteBadge ? favoriteReview : null);
+
   const gamificationMetrics = useMemo(
     () =>
       buildGamificationMetrics(profile, {
@@ -1373,8 +1418,9 @@ export const ProfilePage: React.FC = () => {
   const profileMapItems = useMemo(() => sortedProfileReviews.map(r => ({
     ...r,
     lat: r.placeLat || r.lat || r.location?.latitude || r.coordinates?.latitude,
-    lng: r.placeLng || r.lng || r.location?.longitude || r.coordinates?.longitude
-  })), [sortedProfileReviews]);
+    lng: r.placeLng || r.lng || r.location?.longitude || r.coordinates?.longitude,
+    pinMark,
+  })), [sortedProfileReviews, pinMark]);
 
   // Todas las Listas del perfil (lectura completa) más las del mosaico, por si
   // hay alguna recién creada que aún no está en las estadísticas.
@@ -1411,19 +1457,19 @@ export const ProfilePage: React.FC = () => {
   }, [advancedStats.statsByList, statsListSort]);
 
   const favoriteGroupLink = useMemo(() => {
-    if (!favoriteReview) return "#";
-    if (favoriteReview.placeId) {
+    if (!shownFavorite) return "#";
+    if (shownFavorite.placeId) {
       const encodedItemName = encodeURIComponent(
-        favoriteReview.itemName || "item",
+        shownFavorite.itemName || "item",
       );
-      const listQuery = favoriteReview.listId
-        ? `?listId=${encodeURIComponent(favoriteReview.listId)}`
+      const listQuery = shownFavorite.listId
+        ? `?listId=${encodeURIComponent(shownFavorite.listId)}`
         : "";
-      return `/group/${favoriteReview.placeId}/${encodedItemName}${listQuery}`;
+      return `/group/${shownFavorite.placeId}/${encodedItemName}${listQuery}`;
     }
-    if (favoriteReview.listId) return `/list/${favoriteReview.listId}`;
+    if (shownFavorite.listId) return `/list/${shownFavorite.listId}`;
     return "#";
-  }, [favoriteReview]);
+  }, [shownFavorite]);
 
   // Match de sabor: solo hay porcentaje si ambos habéis valorado los mismos
   // lugares (computeTasteMatch devuelve null sin coincidencias reales).
@@ -1661,6 +1707,16 @@ export const ProfilePage: React.FC = () => {
           {/* Avatar (Left) */}
           <div className="group relative shrink-0 cursor-pointer" onClick={() => setIsAvatarModalOpen(true)}>
             {(() => {
+              if (avatarRing) {
+                return (
+                  <div
+                    aria-hidden="true"
+                    data-testid="profile-ring"
+                    className={`lt-ring${avatarRing === "gold" ? " lt-ring--gold" : ""}`}
+                    style={avatarRing === "theme" ? ({ "--ring-a": ringTheme.preview.accent, "--ring-b": ringTheme.preview.accent2 } as React.CSSProperties) : undefined}
+                  />
+                );
+              }
               const types: string[] = Array.isArray(profile.userType) ? profile.userType : (profile.userType ? [profile.userType] : []);
               const isJefe = types.includes('jefe');
               const isCritico = types.includes('critico');
@@ -1844,7 +1900,7 @@ export const ProfilePage: React.FC = () => {
                   )}
                 </div>
 
-                {appConfig.showProfileFavoriteBadge && favoriteReview && (
+                {shownFavorite && (
                   <Link
                     to={favoriteGroupLink}
                     className="group w-[220px] flex items-center gap-2 p-2 rounded-2xl border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-rose-500/10 to-indigo-500/10 hover:border-amber-300/60 hover:from-amber-400/20 hover:to-indigo-400/20 transition-all"
@@ -1852,10 +1908,10 @@ export const ProfilePage: React.FC = () => {
                   >
                     <div className="relative w-11 h-11 shrink-0">
                       <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-300/60 shadow-lg bg-gray-800">
-                        {favoriteReview.photoUrl ? (
+                        {shownFavorite.photoUrl ? (
                           <ProgressiveImage
-                            src={favoriteReview.photoUrl}
-                            alt={favoriteReview.itemName}
+                            src={shownFavorite.photoUrl}
+                            alt={shownFavorite.itemName}
                             containerClassName="w-full h-full"
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           />
@@ -1866,26 +1922,26 @@ export const ProfilePage: React.FC = () => {
                         )}
                       </div>
                       <div
-                        className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[var(--lt-bg)] shadow-lg`}
+                        className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(shownFavorite.score)} text-white text-[9px] font-black flex items-center justify-center border border-[var(--lt-bg)] shadow-lg`}
                       >
-                        {favoriteReview.score.toFixed(1)}
+                        {shownFavorite.score.toFixed(1)}
                       </div>
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="text-[9px] uppercase tracking-widest text-amber-300 font-bold flex items-center gap-1">
-                        <Sparkles className="w-2.5 h-2.5" /> Favorito
+                        {pinnedSummary ? <>📌 Fijada</> : <><Sparkles className="w-2.5 h-2.5" /> Favorito</>}
                       </div>
                       <div className="text-xs font-extrabold text-[var(--lt-text)] truncate">
-                        {favoriteReview.itemName}
+                        {shownFavorite.itemName}
                       </div>
-                      {favoriteReview.placeName && (
+                      {shownFavorite.placeName && (
                         <div className="text-[11px] text-[var(--lt-accent)] truncate">
-                          {favoriteReview.placeName}
+                          {shownFavorite.placeName}
                         </div>
                       )}
                       <div className="text-[10px] text-gray-300 truncate">
-                        {favoriteReview.listName}
+                        {shownFavorite.listName}
                       </div>
                     </div>
                   </Link>
@@ -1895,7 +1951,7 @@ export const ProfilePage: React.FC = () => {
           </div>
         </div>
 
-        {appConfig.showProfileFavoriteBadge && favoriteReview && (
+        {shownFavorite && (
           <div className="md:hidden mb-3 flex justify-end">
             <Link
               to={favoriteGroupLink}
@@ -1904,10 +1960,10 @@ export const ProfilePage: React.FC = () => {
             >
               <div className="relative w-11 h-11 shrink-0">
                 <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-amber-300/60 shadow-lg bg-gray-800">
-                  {favoriteReview.photoUrl ? (
+                  {shownFavorite.photoUrl ? (
                     <ProgressiveImage
-                      src={favoriteReview.photoUrl}
-                      alt={favoriteReview.itemName}
+                      src={shownFavorite.photoUrl}
+                      alt={shownFavorite.itemName}
                       containerClassName="w-full h-full"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                     />
@@ -1918,26 +1974,26 @@ export const ProfilePage: React.FC = () => {
                   )}
                 </div>
                 <div
-                  className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(favoriteReview.score)} text-white text-[9px] font-black flex items-center justify-center border border-[var(--lt-bg)] shadow-lg`}
+                  className={`absolute -top-2 -right-2 z-20 w-6 h-6 rounded-full bg-gradient-to-r ${getScoreBubbleClass(shownFavorite.score)} text-white text-[9px] font-black flex items-center justify-center border border-[var(--lt-bg)] shadow-lg`}
                 >
-                  {favoriteReview.score.toFixed(1)}
+                  {shownFavorite.score.toFixed(1)}
                 </div>
               </div>
 
               <div className="min-w-0 flex-1">
                 <div className="text-[9px] uppercase tracking-widest text-amber-300 font-bold flex items-center gap-1">
-                  <Sparkles className="w-2.5 h-2.5" /> Favorito
+                  {pinnedSummary ? <>📌 Fijada</> : <><Sparkles className="w-2.5 h-2.5" /> Favorito</>}
                 </div>
                 <div className="text-xs font-extrabold text-[var(--lt-text)] truncate">
-                  {favoriteReview.itemName}
+                  {shownFavorite.itemName}
                 </div>
-                {favoriteReview.placeName && (
+                {shownFavorite.placeName && (
                   <div className="text-[11px] text-[var(--lt-accent)] truncate">
-                    {favoriteReview.placeName}
+                    {shownFavorite.placeName}
                   </div>
                 )}
                 <div className="text-[10px] text-gray-300 truncate">
-                  {favoriteReview.listName}
+                  {shownFavorite.listName}
                 </div>
               </div>
             </Link>
