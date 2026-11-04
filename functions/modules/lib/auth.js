@@ -3,6 +3,7 @@
 // Helpers compartidos de autenticación y autorización para Cloud Functions.
 
 const { getAuth } = require("firebase-admin/auth");
+const { getAppCheck } = require("firebase-admin/app-check");
 const { HttpsError } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
@@ -104,6 +105,30 @@ async function rateLimit(bucket, key, limit, windowSeconds) {
 /**
  * Obtiene una clave razonable para rate-limiting: UID si hay auth, si no IP.
  */
+/**
+ * Comprueba la cabecera X-Firebase-AppCheck de una petición HTTP propia.
+ * Mientras APPCHECK_ENFORCE no sea "true" solo se apunta en el log (modo
+ * vigilancia) y la petición sigue; así se ve cuánto tráfico llega sin token
+ * antes de cerrar la puerta. Devuelve false si ya respondió con 401.
+ */
+async function checkAppCheck(req, res, where) {
+  const enforce = process.env.APPCHECK_ENFORCE === 'true';
+  const token = req.get('X-Firebase-AppCheck') || '';
+  let verdict = 'missing';
+  if (token) {
+    try {
+      await getAppCheck().verifyToken(token);
+      return true;
+    } catch {
+      verdict = 'invalid';
+    }
+  }
+  logger.warn('appCheck: petición sin token válido', { where, verdict, enforce });
+  if (!enforce) return true;
+  res.status(401).json({ message: 'No autorizado.' });
+  return false;
+}
+
 function rateLimitKey(req, decodedAuth) {
   if (decodedAuth?.uid) return `uid_${decodedAuth.uid}`;
   const forwarded = req.get('x-forwarded-for') || '';
@@ -135,6 +160,7 @@ module.exports = {
   normalizeUserTypes,
   assertJefeAccess,
   requireAuthFromRequest,
+  checkAppCheck,
   rateLimit,
   rateLimitKey,
   writeAuditLog,
