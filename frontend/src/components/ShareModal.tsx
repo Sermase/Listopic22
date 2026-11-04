@@ -249,7 +249,9 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const abilities = useMyAbilities();
     const canFrame = abilities.has('photoFrames') && Boolean(cardEntity.imageUrl || cardEntity.imageUrls?.length)
         && cardEntity.type !== 'profile' && !((cardEntity.type === 'list' || cardEntity.type === 'sublist') && cardEntity.rankItems?.length);
-    const signatureBadge = abilities.prefs.signatureBadge ? presetBadge(abilities.prefs.signatureBadge) : undefined;
+    // Solo una medalla que tenga de verdad (las reglas no pueden comprobarlo).
+    const signatureBadgeId = abilities.prefs.signatureBadge;
+    const signatureBadge = signatureBadgeId && abilities.earnedBadgeIds.includes(signatureBadgeId) ? presetBadge(signatureBadgeId) : undefined;
     const signature = abilities.has('cardSignature') && (abilities.prefs.signature || signatureBadge)
         ? { text: abilities.prefs.signature, badge: signatureBadge ? `${signatureBadge.icon} ${signatureBadge.name}` : undefined }
         : undefined;

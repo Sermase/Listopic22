@@ -4,41 +4,7 @@ const logger = require("firebase-functions/logger");
 const { sendNotification } = require("./notifications");
 const db = getFirestore();
 
-const PUBLIC_PROFILE_FIELDS = [
-    "username",
-    "usernameLower",
-    "displayName",
-    "name",
-    "surnames",
-    "bio",
-    "location",
-    "residence",
-    "photoUrl",
-    "photoStoragePath",
-    "userType",
-    "reviewsCount",
-    "followersCount",
-    "followingCount",
-    "followingListsCount",
-    "followingPlacesCount",
-    "level",
-    "xp",
-    "badges",
-    "badgeDates",
-    // Premios de medallas que ven los demás (aro, chincheta, reseña fijada) y el color del aro.
-    "abilityPrefs",
-    "themePreference",
-    "createdAt",
-    "updatedAt",
-];
-
-function buildPublicProfile(uid, data = {}) {
-    const publicProfile = { uid };
-    for (const field of PUBLIC_PROFILE_FIELDS) {
-        if (data[field] !== undefined) publicProfile[field] = data[field];
-    }
-    return publicProfile;
-}
+const { buildPublicProfile } = require("./lib/public-profile");
 
 /**
  * Trigger: mantiene un espejo publico de perfiles para poder migrar lecturas

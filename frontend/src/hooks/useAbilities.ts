@@ -77,6 +77,6 @@ export function useMyAbilities() {
         await updateDoc(doc(db, 'users', user.uid), { abilityPrefs: sanitizeAbilityPrefs(next) });
     }, [abilityPrefs, user]);
 
-    return useMemo(() => ({ has, filtersUnlocked, photosCount, prefs: abilityPrefs, savePrefs, isJefe }),
-        [has, filtersUnlocked, photosCount, abilityPrefs, savePrefs, isJefe]);
+    return useMemo(() => ({ has, filtersUnlocked, photosCount, prefs: abilityPrefs, savePrefs, isJefe, earnedBadgeIds }),
+        [has, filtersUnlocked, photosCount, abilityPrefs, savePrefs, isJefe, earnedBadgeIds]);
 }
