@@ -46,7 +46,7 @@ const defaultConfig: AppConfig = {
     logoType: 'default',
     faviconType: 'default',
     appName: 'Listopic',
-    appDescription: 'Comparte y descubre listas de tus lugares favoritos.',
+    appDescription: 'Las mejores bravas, tortillas, hamburguesas y más, ordenadas por notas reales de la comunidad. Descubre qué pedir y dónde, cerca de ti.',
     keywords: 'listas, lugares, recomendaciones, social, mapas',
     showRandomChoiceButton: true,
     showProfileFavoriteBadge: true,

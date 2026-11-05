@@ -1,0 +1,17 @@
+# Listopic: se puede rastrear todo lo público; lo de cuenta y herramientas, no.
+User-agent: *
+Allow: /
+Disallow: /login
+Disallow: /developer
+Disallow: /chats
+Disallow: /archive
+Disallow: /businesses
+Disallow: /preferencias
+Disallow: /create
+Disallow: /g/
+Disallow: /lab
+Disallow: /list/*/edit
+Disallow: /profile$
+Disallow: /s/img
+
+Sitemap: https://listopic.es/sitemap.xml
