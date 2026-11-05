@@ -15,7 +15,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { getFirestore } = require("firebase-admin/firestore");
 const { resolveMeta } = require("./ssr-meta");
-const { loadRankings } = require("./lib/seo-rankings");
+const { loadRankings, slugify } = require("./lib/seo-rankings");
 
 const db = getFirestore();
 const PUBLIC_ORIGIN = (process.env.PUBLIC_ORIGIN || "https://listopic.es").replace(/\/$/, "");
@@ -277,10 +277,12 @@ function renderRanking(ranking, all) {
   const hero = ranking.top[0] && ranking.top[0].imageUrl
     ? `  <img class="hero" src="${escapeHtml(ranking.top[0].imageUrl)}" alt="${escapeHtml(`${listName} de ${ranking.top[0].placeName}`)}" onerror="this.remove()">`
     : "";
+  // El nombre del plato solo si dice algo más que el de la lista (un sitio puede tener varios).
+  const showItem = (item) => item.itemName && slugify(item.itemName) !== ranking.listSlug;
   const items = ranking.top.map((item, index) => `    <li><a href="${escapeHtml(itemHref(item))}">
       <span class="pos">${index + 1}</span>
       ${item.imageUrl ? `<img class="ph" src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.itemName || item.placeName)}" loading="lazy" width="58" height="58" onerror="this.style.visibility='hidden'">` : '<span class="ph"></span>'}
-      <span class="info"><span class="name">${escapeHtml(item.placeName)}</span><span class="sub">${plural(item.count, "valoración", "valoraciones")}</span></span>
+      <span class="info"><span class="name">${escapeHtml(item.placeName)}</span><span class="sub">${showItem(item) ? `${escapeHtml(item.itemName)} · ` : ""}${plural(item.count, "valoración", "valoraciones")}</span></span>
       <span class="score">${fmtScore(item.score)}</span>
     </a></li>`).join("\n");
   const sameList = all.filter((r) => r.listSlug === ranking.listSlug && r.path !== ranking.path);
