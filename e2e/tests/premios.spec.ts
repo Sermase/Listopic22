@@ -76,6 +76,11 @@ test('filtros al subir una foto y reacciones de comida en el chat', async ({ pag
   await filters.getByRole('radio', { name: /Neón/ }).click();
   await expect(filters.getByRole('radio', { name: /Neón/ })).toHaveAttribute('aria-checked', 'true');
   await shot(page, '4-filtros');
+  // Recortar: formatos y zoom.
+  await page.getByRole('button', { name: 'Recortar' }).click();
+  await page.getByRole('radio', { name: '4:3' }).click();
+  await expect(page.getByRole('slider', { name: 'Zoom' })).toBeVisible();
+  await shot(page, '4-recortar');
 
   await page.goto('/chats/premios');
   const message = page.locator('p.whitespace-pre-wrap', { hasText: '¿Croquetas el viernes?' });
@@ -86,5 +91,42 @@ test('filtros al subir una foto y reacciones de comida en el chat', async ({ pag
   await shot(page, '5-reacciones');
   await food.getByRole('button', { name: '🥘' }).click();
   await expect(page.getByRole('button', { name: '🥘' }).last()).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('crear tarjeta: firma a mano, tema y formato', async ({ page, errors }) => {
+  await login(page, 'jefe');
+  await page.goto('/preferencias');
+  await page.getByRole('button', { name: /Mis premios/ }).click();
+  const prizes = page.getByRole('dialog', { name: /Mis premios/ });
+  await prizes.getByRole('radio', { name: 'Mi frase' }).click();
+  await prizes.getByRole('button', { name: 'Probado y aprobado' }).click();
+  await expect(prizes.getByLabel('Tu frase')).toHaveValue('Probado y aprobado');
+  await prizes.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.getByText('Firma guardada')).toBeVisible();
+  await expect(prizes.getByText('“Probado y aprobado”')).toBeVisible();
+  await shot(page, '7-firma');
+  await page.keyboard.press('Escape');
+
+  await page.goto('/place/p_vll1');
+  await page.getByRole('button', { name: 'Compartir', exact: true }).click();
+  await expect(page.getByRole('button', { name: /Crear tarjeta/ })).toBeVisible();
+  await page.waitForTimeout(600);
+  await shot(page, '8-compartir');
+  await page.getByRole('button', { name: /Crear tarjeta/ }).click();
+  const studio = page.getByRole('dialog', { name: 'Crear tarjeta' });
+  await expect(studio.getByLabel('Vista previa de la tarjeta')).toBeVisible();
+  await studio.getByRole('radio', { name: 'Neón' }).click();
+  await expect(studio.getByRole('radio', { name: 'Neón' })).toHaveAttribute('aria-checked', 'true');
+  await studio.getByRole('button', { name: 'Formato' }).click();
+  await studio.getByRole('radio', { name: 'Post' }).click();
+  await expect(studio.getByRole('radio', { name: 'Post' })).toHaveAttribute('aria-checked', 'true');
+  await studio.getByRole('button', { name: 'Firma' }).click();
+  await expect(studio.getByRole('switch')).toContainText('Probado y aprobado');
+  await shot(page, '8-estudio');
+  // «Atrás» vuelve al menú de compartir.
+  await page.goBack();
+  await expect(studio).toBeHidden();
+  await expect(page.getByRole('button', { name: /Crear tarjeta/ })).toBeVisible();
   expect(errors).toEqual([]);
 });

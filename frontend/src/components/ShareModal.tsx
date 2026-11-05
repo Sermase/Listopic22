@@ -1,12 +1,14 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X, MessageSquare, Copy, Send, Search, Check, Share2 } from 'lucide-react';
+import { X, MessageSquare, Link2, Send, Search, Check, ChevronRight, MessagesSquare } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 
 import type { PlaceDetails } from '../hooks/usePlaceDetails';
-import { CardPalettePicker, ShareCardModern, ShareCardThumb, type CardDecor, type CardEntity, type ModernCardVariant } from './ShareCardModern';
+import { renderThumb, type CardEntity } from './ShareCardModern';
+import { ShareCardStudio } from './share/ShareCardStudio';
 import { useMyAbilities } from '../hooks/useAbilities';
 import { presetBadge } from '../config/badgePresets';
+import { signatureFor } from '../lib/abilities';
 import { defaultCardPalette, type CardPaletteId } from '../lib/shareCardPalettes';
 import { useTheme } from '../context/ThemeContext';
 import type { ReviewEntity } from '../hooks/useListDetails';
@@ -27,11 +29,24 @@ import { InviteSheet } from './chat/InviteSheet';
 import type { PlaceRef } from '../lib/chatExtras';
 import { haptic } from '../utils/haptics';
 
-const FRAME_OPTIONS: Array<{ id: NonNullable<CardDecor['frame']> | 'none'; label: string }> = [
-    { id: 'none', label: 'Sin marco' },
-    { id: 'polaroid', label: '📸 Polaroid' },
-    { id: 'mantel', label: '🧺 Mantel' },
-];
+/** La tarjeta en pequeño (Story), para invitar a crearla. */
+const CardMiniPreview: React.FC<{ entity: CardEntity; palette: CardPaletteId }> = ({ entity, palette }) => {
+    const [src, setSrc] = React.useState<string | null>(null);
+    const key = `${palette}|${entity.imageUrl || ''}|${entity.title}`;
+    React.useEffect(() => {
+        let cancelled = false;
+        renderThumb(entity, 'story', palette, 240)
+            .then((url) => { if (!cancelled) setSrc(url); })
+            .catch(() => { /* sin miniatura */ });
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [key]);
+    return (
+        <span className="relative block h-[100px] w-[56px] shrink-0 -rotate-3 overflow-hidden rounded-xl bg-white/10 shadow-xl shadow-black/40 ring-1 ring-white/20 transition-transform group-hover:rotate-0 group-active:scale-95">
+            {src ? <img src={src} alt="" className="h-full w-full object-cover" /> : <span className="block h-full w-full animate-pulse bg-white/5" />}
+        </span>
+    );
+};
 
 interface ShareModalProps {
     isOpen: boolean;
@@ -74,7 +89,6 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const [isInviteOpen, setIsInviteOpen] = React.useState(false);
     const { openAuthPrompt } = useAuthPrompt();
     useBodyScrollLock(isOpen);
-    const shareCardTriggerRef = React.useRef<(variant?: ModernCardVariant) => void>(() => { });
     const { theme } = useTheme();
     const [cardPalette, setCardPalette] = React.useState<CardPaletteId>(() => defaultCardPalette(theme));
     const fallbackUrl = buildPublicUrl(url || (typeof window !== 'undefined' ? window.location.href : '/'));
@@ -92,39 +106,9 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const [isSendingToChat, setIsSendingToChat] = React.useState(false);
     const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
     const [statusTone, setStatusTone] = React.useState<'neutral' | 'success' | 'error'>('neutral');
-    const [isCardStylePickerOpen, setIsCardStylePickerOpen] = React.useState(false);
-    const [selectedCardVariant, setSelectedCardVariant] = React.useState<ModernCardVariant | null>(null);
-    const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | undefined>(undefined);
+    const [isStudioOpen, setIsStudioOpen] = React.useState(false);
     const [hydratedAuthorPhoto, setHydratedAuthorPhoto] = React.useState<string | undefined>(undefined);
     const closeTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-    const stylePickerRef = React.useRef<HTMLDivElement | null>(null);
-    React.useEffect(() => {
-        if (isCardStylePickerOpen) stylePickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, [isCardStylePickerOpen]);
-    // Formatos dibujados en canvas con layout determinista
-    // (sin html2canvas ni datos desencuadrados).
-    const cardVariantOptions: Array<{ id: ModernCardVariant; label: string; description: string }> = [
-        {
-            id: 'story',
-            label: 'Story',
-            description: '9:16 · Stories',
-        },
-        {
-            id: 'square',
-            label: 'Post',
-            description: '1:1 · Feed y WhatsApp',
-        },
-        {
-            id: 'portrait',
-            label: 'Retrato',
-            description: '4:5 · Publicación de Instagram',
-        },
-        {
-            id: 'landscape',
-            label: 'Banner',
-            description: '1,91:1 · X, Facebook y enlaces',
-        },
-    ];
 
     const inferLocalRoute = (rawUrl: string): string | undefined => {
         return getLocalRouteFromUrl(rawUrl);
@@ -212,11 +196,6 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     )), [resolvedShareEntity.imageUrl, resolvedShareEntity.imageUrls]);
 
     React.useEffect(() => {
-        if (!isOpen) return;
-        setSelectedImageUrl(availableImageUrls[0]);
-    }, [isOpen, resolvedShareEntity.id, resolvedShareEntity.type, availableImageUrls]);
-
-    React.useEffect(() => {
         if (!isOpen || resolvedShareEntity.authorPhoto || !resolvedShareEntity.authorId) {
             setHydratedAuthorPhoto(resolvedShareEntity.authorPhoto);
             return;
@@ -241,30 +220,17 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
     const cardEntity = React.useMemo<ShareEntityPayload>(() => ({
         ...resolvedShareEntity,
-        imageUrl: selectedImageUrl || resolvedShareEntity.imageUrl,
+        imageUrl: availableImageUrls[0] || resolvedShareEntity.imageUrl,
         authorPhoto: hydratedAuthorPhoto || resolvedShareEntity.authorPhoto,
-    }), [resolvedShareEntity, selectedImageUrl, hydratedAuthorPhoto]);
+    }), [resolvedShareEntity, availableImageUrls, hydratedAuthorPhoto]);
 
     // Premios de medallas: marco de la foto y firma (solo en la tarjeta, no en lo que se manda al chat).
     const abilities = useMyAbilities();
-    const canFrame = abilities.has('photoFrames') && Boolean(cardEntity.imageUrl || cardEntity.imageUrls?.length)
+    const canFrame = abilities.has('photoFrames') && availableImageUrls.length > 0
         && cardEntity.type !== 'profile' && !((cardEntity.type === 'list' || cardEntity.type === 'sublist') && cardEntity.rankItems?.length);
-    // Solo una medalla que tenga de verdad (las reglas no pueden comprobarlo).
-    const signatureBadgeId = abilities.prefs.signatureBadge;
-    const signatureBadge = signatureBadgeId && abilities.earnedBadgeIds.includes(signatureBadgeId) ? presetBadge(signatureBadgeId) : undefined;
-    const signature = abilities.has('cardSignature') && (abilities.prefs.signature || signatureBadge)
-        ? { text: abilities.prefs.signature, badge: signatureBadge ? `${signatureBadge.icon} ${signatureBadge.name}` : undefined }
+    const signature = abilities.has('cardSignature')
+        ? signatureFor(abilities.prefs, abilities.earnedBadgeIds, presetBadge)
         : undefined;
-    const [cardFrame, setCardFrame] = React.useState<NonNullable<CardDecor['frame']> | 'none'>('none');
-    const [useSignature, setUseSignature] = React.useState(true);
-    const decoratedCardEntity = React.useMemo<CardEntity>(() => {
-        const decor: CardDecor = {};
-        if (canFrame && cardFrame !== 'none') decor.frame = cardFrame;
-        if (signature && useSignature) decor.signature = signature;
-        return Object.keys(decor).length ? { ...cardEntity, decor } : cardEntity;
-        // La firma se resume en texto: el objeto se rehace en cada render.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [cardEntity, canFrame, cardFrame, useSignature, signature?.text, signature?.badge]);
 
     const privateChatByUserId = React.useMemo<Record<string, string>>(() => {
         if (!user) return {};
@@ -315,9 +281,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         setStatusMessage(null);
         setStatusTone('neutral');
         setIsSearchingRecipients(false);
-        setIsCardStylePickerOpen(false);
-        setSelectedCardVariant(null);
-        setSelectedImageUrl(undefined);
+        setIsStudioOpen(false);
         setHydratedAuthorPhoto(undefined);
     }, []);
 
@@ -468,10 +432,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
         if (platform === 'image') {
             setIsChatPanelOpen(false);
-            setIsCardStylePickerOpen(true);
-            setSelectedCardVariant(null);
-            setStatusTone('neutral');
-            setStatusMessage('Toca un formato para verlo en grande y compartirlo');
+            setStatusMessage(null);
+            setIsStudioOpen(true);
             return;
         }
 
@@ -480,8 +442,6 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 openAuthPrompt('compartir contenido en un chat');
                 return;
             }
-            setIsCardStylePickerOpen(false);
-            setSelectedCardVariant(null);
             setIsChatPanelOpen((prev) => !prev);
             setStatusTone('neutral');
             setStatusMessage(null);
@@ -494,14 +454,6 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 ? prev.filter((id) => id !== chatId)
                 : [...prev, chatId]
         );
-    };
-
-    const handleGenerateCard = (variant: ModernCardVariant) => {
-        setSelectedCardVariant(variant);
-        setStatusTone('neutral');
-        setStatusMessage(null);
-        shareCardTriggerRef.current(variant);
-        trackSuccessfulShare('image');
     };
 
     const toggleUser = (hit: UserSearchHit) => {
@@ -585,36 +537,28 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
     const totalSelections = selectedChatIds.length + selectedUserIds.length;
 
+    const quickAction = 'flex flex-col items-center gap-1.5 rounded-2xl py-2 text-[var(--lt-text)] transition-colors hover:bg-white/5 active:scale-95';
+    const quickIcon = 'grid h-12 w-12 place-items-center rounded-full';
+
     const modalContent = (
         <div className="fixed inset-0 z-[10000] lt-mobile-overlay flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onClick={handleRequestClose}>
-            <ShareCardModern
-                entity={decoratedCardEntity}
-                variant={selectedCardVariant || 'story'}
-                triggerRef={shareCardTriggerRef}
-                palette={cardPalette}
-                onPaletteChange={setCardPalette}
-                onRequestClose={handleRequestClose}
-            />
-
-            <div className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-xl border border-white/10 shadow-2xl p-6 lt-mobile-modal-panel sm:max-h-[90vh] overflow-y-auto" onClick={event => event.stopPropagation()}>
-                <div className="flex justify-between items-center mb-2">
-                    <div>
-                        <h3 className="text-xl font-bold text-white">{title}</h3>
-                        <p className="text-xs text-gray-400 mt-1">
-                            {resolvedShareEntity.title}
-                        </p>
+            <div className="bg-[var(--lt-card-strong)] rounded-2xl w-full max-w-md border border-white/10 shadow-2xl p-5 lt-mobile-modal-panel sm:max-h-[90vh] overflow-y-auto" onClick={event => event.stopPropagation()}>
+                <div className="flex justify-between items-start gap-3">
+                    <div className="min-w-0">
+                        <h3 className="text-lg font-black text-white">{title}</h3>
+                        <p className="truncate text-xs text-gray-400 mt-0.5">{resolvedShareEntity.title}</p>
                     </div>
-                    <button onClick={handleRequestClose} className="text-gray-400 hover:text-white">
-                        <X className="w-5 h-5" />
+                    <button onClick={handleRequestClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/5 text-gray-400 hover:text-white" aria-label="Cerrar">
+                        <X className="w-4 h-4" />
                     </button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 mt-5">
+                <div className="mt-4 space-y-3">
                     {inviteTarget && (
                         <button
                             type="button"
                             onClick={() => (user ? setIsInviteOpen(true) : openAuthPrompt('invitar a comer'))}
-                            className="col-span-2 flex items-center gap-3 p-4 rounded-xl bg-gradient-to-r from-[var(--lt-accent)] to-[var(--lt-accent)]/70 text-white shadow-lg shadow-[var(--lt-accent-shadow)] active:scale-[0.99] transition-transform text-left"
+                            className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gradient-to-r from-[var(--lt-accent)] to-[var(--lt-accent)]/70 text-white shadow-lg shadow-[var(--lt-accent-shadow)] active:scale-[0.99] transition-transform text-left"
                         >
                             <span className="text-3xl">🍽️</span>
                             <span className="flex flex-col">
@@ -623,150 +567,37 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                             </span>
                         </button>
                     )}
-                    <button
-                        onClick={() => void handleShare('whatsapp')}
-                        className="flex flex-col items-center justify-center p-4 rounded-xl bg-[#25D366]/10 hover:bg-[#25D366]/20 text-[#25D366] border border-[#25D366]/20 transition-all"
-                    >
-                        <MessageSquare className="w-7 h-7 mb-2" />
-                        <span className="font-bold text-sm">WhatsApp</span>
-                    </button>
-                    <button
-                        onClick={() => void handleShare('clipboard')}
-                        className="flex flex-col items-center justify-center p-4 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-all"
-                    >
-                        <Copy className="w-7 h-7 mb-2" />
-                        <span className="font-bold text-sm">Copiar link</span>
-                    </button>
 
                     <button
+                        type="button"
                         onClick={() => void handleShare('image')}
-                        className="col-span-2 flex flex-row items-center justify-center p-4 rounded-xl bg-[var(--lt-accent-soft)] hover:bg-[var(--lt-accent)]/20 text-[var(--lt-accent)] border border-[var(--lt-accent-border)] transition-all gap-3"
+                        className="group relative w-full overflow-hidden flex items-center gap-4 rounded-2xl border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-4 py-3 text-left transition-colors hover:bg-[var(--lt-accent)]/20"
                     >
-                        <div className="bg-[var(--lt-accent-soft)] p-2 rounded-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg>
-                        </div>
-                        <div className="flex flex-col items-start">
-                            <span className="font-bold text-sm">Tarjeta imagen</span>
-                            <span className="text-xs opacity-70">Mira cómo queda, compártela o guárdala</span>
-                        </div>
+                        <CardMiniPreview entity={cardEntity} palette={cardPalette} />
+                        <span className="min-w-0 flex-1">
+                            <span className="block text-base font-black text-[var(--lt-text)]">Crear tarjeta</span>
+                            <span className="mt-0.5 block text-xs leading-snug text-[var(--lt-text-muted)]">
+                                Para Instagram, WhatsApp o donde quieras. Elige formato, tema{canFrame ? ', marco' : ''}{signature ? ' y firma' : ''}.
+                            </span>
+                        </span>
+                        <ChevronRight className="h-5 w-5 shrink-0 text-[var(--lt-accent)]" />
                     </button>
 
-                    <button
-                        onClick={() => void handleShare('chat')}
-                        className={`col-span-2 flex items-center justify-center gap-2 p-3.5 rounded-xl border transition-all ${isChatPanelOpen
-                            ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
-                            : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
-                            }`}
-                    >
-                        <Share2 className="w-5 h-5" />
-                        <span className="font-bold text-sm">Compartir en chat de Listopic</span>
-                    </button>
-                </div>
-
-                {isCardStylePickerOpen && (
-                    <div ref={stylePickerRef} className="mt-5 border border-white/10 rounded-xl bg-[var(--lt-bg-deep)] overflow-hidden">
-                        <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-                            <div className="text-sm font-bold text-white">Estilo de tarjeta</div>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIsCardStylePickerOpen(false);
-                                    setSelectedCardVariant(null);
-                                    setStatusTone('neutral');
-                                    setStatusMessage(null);
-                                }}
-                                className="text-xs text-gray-400 hover:text-white"
-                            >
-                                Cerrar
-                            </button>
-                        </div>
-
-                        <div className="p-4 space-y-3">
-                            {availableImageUrls.length > 1 && (
-                                <div>
-                                    <div className="mb-2 flex items-center justify-between gap-3">
-                                        <div className="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                                            Elige la foto
-                                        </div>
-                                        <div className="text-[11px] text-gray-500">
-                                            {availableImageUrls.length} disponibles
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2 overflow-x-auto pb-2">
-                                        {availableImageUrls.map((imageUrl, index) => {
-                                            const isSelected = selectedImageUrl === imageUrl;
-                                            return (
-                                                <button
-                                                    key={`${imageUrl}-${index}`}
-                                                    type="button"
-                                                    onClick={() => setSelectedImageUrl(imageUrl)}
-                                                    className={`relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${isSelected
-                                                        ? 'border-[var(--lt-accent)] shadow-lg shadow-[var(--lt-accent-shadow)]'
-                                                        : 'border-white/10 opacity-70 hover:opacity-100'
-                                                        }`}
-                                                    aria-label={`Usar foto ${index + 1}`}
-                                                >
-                                                    <img src={imageUrl} alt="" className="h-full w-full object-cover" />
-                                                    {isSelected && (
-                                                        <span className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-[var(--lt-accent)] text-white shadow">
-                                                            <Check className="h-3 w-3" />
-                                                        </span>
-                                                    )}
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            <CardPalettePicker value={cardPalette} onChange={setCardPalette} />
-
-                            {(canFrame || signature) && (
-                                <div className="flex flex-wrap items-center justify-center gap-1.5">
-                                    {canFrame && FRAME_OPTIONS.map((option) => (
-                                        <button
-                                            key={option.id}
-                                            type="button"
-                                            aria-pressed={cardFrame === option.id}
-                                            onClick={() => setCardFrame(option.id)}
-                                            className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors ${cardFrame === option.id
-                                                ? 'border-[var(--lt-accent)] bg-[var(--lt-accent)]/20 text-white'
-                                                : 'border-white/10 text-gray-400 hover:text-white'}`}
-                                        >
-                                            {option.label}
-                                        </button>
-                                    ))}
-                                    {signature && (
-                                        <button
-                                            type="button"
-                                            aria-pressed={useSignature}
-                                            onClick={() => setUseSignature((on) => !on)}
-                                            className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors ${useSignature
-                                                ? 'border-[var(--lt-accent)] bg-[var(--lt-accent)]/20 text-white'
-                                                : 'border-white/10 text-gray-400 hover:text-white'}`}
-                                        >
-                                            ✍️ Firma
-                                        </button>
-                                    )}
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-2 gap-2">
-                                {cardVariantOptions.map((option) => (
-                                    <ShareCardThumb
-                                        key={option.id}
-                                        entity={decoratedCardEntity}
-                                        variant={option.id}
-                                        label={option.label}
-                                        hint={option.description}
-                                        palette={cardPalette}
-                                        onPick={() => handleGenerateCard(option.id)}
-                                    />
-                                ))}
-                            </div>
-                        </div>
+                    <div className="grid grid-cols-3 gap-1">
+                        <button type="button" onClick={() => void handleShare('whatsapp')} className={quickAction}>
+                            <span className={`${quickIcon} bg-[#25D366]/15 text-[#25D366]`}><MessageSquare className="h-5 w-5" /></span>
+                            <span className="text-xs font-bold">WhatsApp</span>
+                        </button>
+                        <button type="button" onClick={() => void handleShare('clipboard')} className={quickAction}>
+                            <span className={`${quickIcon} bg-white/10`}><Link2 className="h-5 w-5" /></span>
+                            <span className="text-xs font-bold">Copiar enlace</span>
+                        </button>
+                        <button type="button" onClick={() => void handleShare('chat')} aria-pressed={isChatPanelOpen} className={quickAction}>
+                            <span className={`${quickIcon} ${isChatPanelOpen ? 'bg-[var(--lt-accent)] text-white' : 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]'}`}><MessagesSquare className="h-5 w-5" /></span>
+                            <span className="text-xs font-bold">Chat Listopic</span>
+                        </button>
                     </div>
-                )}
+                </div>
 
                 {isChatPanelOpen && (
                     <div className="mt-5 border border-white/10 rounded-xl bg-[var(--lt-bg-deep)] overflow-hidden">
@@ -922,6 +753,21 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             </div>
         </div>
     );
+
+    if (isStudioOpen) {
+        return (
+            <ShareCardStudio
+                entity={cardEntity}
+                images={availableImageUrls}
+                palette={cardPalette}
+                onPaletteChange={setCardPalette}
+                canFrame={canFrame}
+                signature={signature}
+                onClose={() => setIsStudioOpen(false)}
+                onDone={() => trackSuccessfulShare('image')}
+            />
+        );
+    }
 
     if (isInviteOpen && inviteTarget && user) {
         return (

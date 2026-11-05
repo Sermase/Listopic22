@@ -29,10 +29,10 @@ export interface AbilityMeta {
 
 export const ABILITIES: AbilityMeta[] = [
     { id: 'colorRing', badge: 'CALENTANDO', emoji: '🎨', name: 'Aro de color', prize: 'un aro con el color de tu tema en tu foto de perfil', where: 'Se ve en tu perfil. Cámbialo en Preferencias → Mis premios.' },
-    { id: 'photoFilters', badge: 'OJO_DE_HALCON', emoji: '🦅', name: 'Filtros de foto', prize: 'filtros para tus fotos: uno ahora y otro cada 7 fotos más (hasta 6)', where: 'Al subir una foto, debajo del formato.' },
-    { id: 'cardSignature', badge: 'CRITICO_DE_BARRIO', emoji: '✍️', name: 'Firma en tarjetas', prize: 'tu firma (una frase y tu medalla favorita) en las tarjetas que compartes', where: 'Compartir → Tarjeta. Escríbela en Preferencias → Mis premios.' },
+    { id: 'photoFilters', badge: 'OJO_DE_HALCON', emoji: '🦅', name: 'Filtros de foto', prize: 'filtros para tus fotos: uno ahora y otro cada 7 fotos más (hasta 6)', where: 'Al subir una foto, en «Filtros».' },
+    { id: 'cardSignature', badge: 'CRITICO_DE_BARRIO', emoji: '✍️', name: 'Firma en tarjetas', prize: 'tu firma escrita a mano en las tarjetas que compartes: una frase tuya o la de una de tus medallas', where: 'Compartir → Crear tarjeta. Elígela en Preferencias → Mis premios.' },
     { id: 'extraReactions', badge: 'RADAR_GASTRONOMICO', emoji: '🥘', name: 'Reacciones de comida', prize: 'seis reacciones extra en el chat (🥘🧆🍷🍕🌮🍰)', where: 'Al reaccionar a un mensaje del chat.' },
-    { id: 'photoFrames', badge: 'ARCHIVO_VISUAL', emoji: '🖼️', name: 'Marcos de foto', prize: 'marcos Polaroid y de mantel de cuadros para tus tarjetas', where: 'Compartir → Tarjeta → Marco.' },
+    { id: 'photoFrames', badge: 'ARCHIVO_VISUAL', emoji: '🖼️', name: 'Marcos de foto', prize: 'marcos para tus tarjetas: Polaroid y plato en mantel de cuadros', where: 'Compartir → Crear tarjeta → Marco.' },
     { id: 'customPin', badge: 'TROTAMUNDOS', emoji: '📍', name: 'Chincheta propia', prize: 'tu emoji en las chinchetas del mapa de tu perfil', where: 'Mapa de tu perfil. Elige el emoji en Preferencias → Mis premios.' },
     { id: 'pinnedReview', badge: 'LEYENDA_DEL_TENEDOR', emoji: '📌', name: 'Reseña fijada', prize: 'fijar tu reseña favorita arriba de tu perfil', where: 'Menú ⋯ de una reseña tuya → «Fijar en mi perfil».' },
     { id: 'goldRing', badge: 'GRAN_MAESTRE', emoji: '🏆', name: 'Aro dorado', prize: 'un aro dorado animado en tu foto de perfil', where: 'Se ve en tu perfil, para todos.' },
@@ -44,9 +44,9 @@ export const abilityForBadge = (badgeId: string): AbilityMeta | undefined => ABI
 
 /** Lo que cada cual elige de sus premios (users.abilityPrefs, también en publicProfiles). */
 export interface AbilityPrefs {
-    /** Frase de la firma (60 letras como mucho). */
+    /** Frase propia de la firma (SIGNATURE_MAX letras como mucho). */
     signature?: string;
-    /** Medalla favorita de la firma. */
+    /** Firma con la frase de esta medalla (si está, manda sobre la frase propia). */
     signatureBadge?: string;
     /** Emoji de las chinchetas del mapa del perfil. */
     pinEmoji?: string;
@@ -56,7 +56,16 @@ export interface AbilityPrefs {
     ring?: 'gold' | 'theme' | 'off';
 }
 
-export const SIGNATURE_MAX = 60;
+export const SIGNATURE_MAX = 40;
+/** Ideas para la firma (también sirven de ejemplo). */
+export const SIGNATURE_SUGGESTIONS = [
+    'Si no cruje, no es croqueta',
+    'Probado y aprobado',
+    'Aquí se viene a comer',
+    'Con pan, que no falte',
+    'La tortilla, poco hecha',
+    'Primero el plato, luego la foto',
+] as const;
 export const PIN_EMOJIS = ['🍕', '🍔', '🌮', '🍣', '🥘', '🍤', '🥐', '🍰', '🍷', '🍺', '☕', '🌶️', '🦅', '🐙', '👑', '⭐'] as const;
 export const EXTRA_REACTIONS = ['🥘', '🧆', '🍷', '🍕', '🌮', '🍰'] as const;
 
@@ -103,4 +112,24 @@ export function ringFor(prefs: AbilityPrefs | undefined, hasGold: boolean, hasCo
     if (hasGold) return 'gold';
     if (hasColor) return 'theme';
     return null;
+}
+
+/** Lo que pinta la firma en la tarjeta: la frase de la medalla elegida o la propia. */
+export interface SignatureContent {
+    text: string;
+    /** Con frase de medalla: «📝 Crítico de Barrio». */
+    badge?: string;
+}
+
+export function signatureFor(
+    prefs: AbilityPrefs | undefined,
+    earnedBadgeIds: readonly string[],
+    badgeInfo: (id: string) => { name: string; icon: string; description: string } | undefined,
+): SignatureContent | undefined {
+    const badgeId = prefs?.signatureBadge;
+    // Solo una medalla que tenga de verdad (las reglas no pueden comprobarlo).
+    const badge = badgeId && earnedBadgeIds.includes(badgeId) ? badgeInfo(badgeId) : undefined;
+    if (badge?.description) return { text: badge.description, badge: `${badge.icon} ${badge.name}` };
+    const own = prefs?.signature?.trim();
+    return own ? { text: own.slice(0, SIGNATURE_MAX) } : undefined;
 }

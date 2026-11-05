@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { abilityAllowed, ringFor, sanitizeAbilityPrefs, unlockedFilterCount } from './abilities';
+import { abilityAllowed, ringFor, sanitizeAbilityPrefs, signatureFor, unlockedFilterCount } from './abilities';
 import { PHOTO_FILTERS, applyFilterToPixels, filterMatrix, photoFilterById } from './photoFilters';
 
 const gate = { abilitiesConfig: {}, inactiveBadges: new Set<string>() };
@@ -34,7 +34,16 @@ describe('abilities', () => {
 
     it('limpia las preferencias', () => {
         expect(sanitizeAbilityPrefs({ signature: `  ${'x'.repeat(80)}`, ring: 'diamante', pinnedReview: 'sin-barra', pinEmoji: '🍕', other: 1 }))
-            .toEqual({ signature: 'x'.repeat(60), pinEmoji: '🍕' });
+            .toEqual({ signature: 'x'.repeat(40), pinEmoji: '🍕' });
+    });
+
+    it('la firma: la frase de la medalla elegida (si la tiene) o la propia', () => {
+        const info = (id: string) => (id === 'CRITICO_DE_BARRIO' ? { name: 'Crítico de Barrio', icon: '📝', description: 'Diez reseñas: ya se nota criterio.' } : undefined);
+        const prefs = { signature: 'Si no cruje, no es croqueta', signatureBadge: 'CRITICO_DE_BARRIO' };
+        expect(signatureFor(prefs, ['CRITICO_DE_BARRIO'], info)).toEqual({ text: 'Diez reseñas: ya se nota criterio.', badge: '📝 Crítico de Barrio' });
+        // Sin esa medalla de verdad, la frase propia.
+        expect(signatureFor(prefs, [], info)).toEqual({ text: 'Si no cruje, no es croqueta' });
+        expect(signatureFor({}, ['CRITICO_DE_BARRIO'], info)).toBeUndefined();
     });
 });
 
