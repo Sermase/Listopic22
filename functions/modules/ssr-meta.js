@@ -342,7 +342,10 @@ async function buildSitemap() {
     return [];
   });
   urls.set("/mejores", today);
-  rankings.forEach((ranking) => urls.set(ranking.path, today));
+  rankings.forEach((ranking) => {
+    urls.set(`/mejores/${ranking.listSlug}`, today);
+    urls.set(ranking.path, today);
+  });
   [...listsA, ...listsB].forEach((doc) => {
     const list = doc.data() || {};
     if (list.visibility === "private") return;

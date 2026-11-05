@@ -12,6 +12,8 @@
 
 const { getFirestore } = require('firebase-admin/firestore');
 const { buildGroupedItemsForList } = require('../grouped-aggregator');
+const { normalizeCriteria, computingCriteria } = require('./scoring');
+const { fetchAuthorRoles, authorOf } = require('./author-roles');
 
 const MIN_PLACES = 3;
 const TOP = 10;
@@ -53,7 +55,22 @@ async function loadRankings() {
 
     const rankings = [];
     for (const [listSlug, { id, data }] of bySlug) {
-        const { groupedReviews } = await buildGroupedItemsForList(id, { publicOnly: true });
+        const { groupedReviews, reviews } = await buildGroupedItemsForList(id, { publicOnly: true });
+        const humanGroups = groupedReviews.filter((group) => !group.botOnly);
+        const { bots } = await fetchAuthorRoles((reviews || []).map(authorOf));
+        // Solo frases de personas: las de bots no se citan como «reales».
+        const reviewById = new Map((reviews || []).filter((review) => !bots.has(authorOf(review))).map((review) => [review.id, review]));
+        // Criterios que cuentan (los informativos, fuera), con su media en toda la lista.
+        const counting = computingCriteria(data.criteriaDefinition, { weights: data.scoringWeights });
+        const criteria = (counting.length ? counting : normalizeCriteria(data.criteriaDefinition)).map((criterion) => {
+            let total = 0;
+            let weight = 0;
+            humanGroups.forEach((group) => {
+                const value = group.avgScores && group.avgScores[criterion.id];
+                if (typeof value === 'number') { total += value * group.itemCount; weight += group.itemCount; }
+            });
+            return { id: criterion.id, label: String(criterion.label || criterion.id), listAvg: weight ? total / weight : null };
+        });
         const byCity = new Map();
         groupedReviews
             .filter((group) => !group.botOnly && group.placeCity && group.placeId && !/permanent/i.test(group.placeClosedStatus || ''))
@@ -68,6 +85,18 @@ async function loadRankings() {
             const places = new Set(items.map((item) => item.placeId));
             if (places.size < MIN_PLACES) return;
             const reviewCount = items.reduce((sum, item) => sum + (Number(item.itemCount) || 0), 0);
+            const best = items[0];
+            const quote = (best.reviewIds || [])
+                .map((reviewId) => reviewById.get(reviewId))
+                .map((review) => (review && typeof review.comment === 'string' ? review.comment.trim().replace(/\s+/g, ' ') : ''))
+                .filter((text) => text.length >= 12)
+                .sort((a, b) => b.length - a.length)[0] || '';
+            const winnerCriteria = criteria
+                .map((criterion) => ({ label: criterion.label, value: best.avgScores ? best.avgScores[criterion.id] : null, listAvg: criterion.listAvg }))
+                .filter((criterion) => typeof criterion.value === 'number');
+            const standout = winnerCriteria
+                .filter((criterion) => typeof criterion.listAvg === 'number')
+                .sort((a, b) => (b.value - b.listAvg) - (a.value - a.listAvg))[0] || null;
             rankings.push({
                 path: `/mejores/${listSlug}/${citySlug}`,
                 listId: id,
@@ -77,6 +106,15 @@ async function loadRankings() {
                 citySlug,
                 placeCount: places.size,
                 reviewCount,
+                criteriaLabels: criteria.map((criterion) => criterion.label),
+                provisional: items.slice(0, TOP).filter((item) => (Number(item.itemCount) || 0) < 3).length > items.slice(0, TOP).length / 2,
+                winner: {
+                    quote: quote.length > 220 ? `${quote.slice(0, 217)}…` : quote,
+                    criteria: winnerCriteria,
+                    standout,
+                    listRank: best.listRank || null,
+                    listTotal: humanGroups.length,
+                },
                 // Ya vienen en el orden de la Lista.
                 top: items.slice(0, TOP).map((item) => ({
                     placeId: item.placeId,
