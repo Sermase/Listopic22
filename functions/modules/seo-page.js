@@ -8,11 +8,14 @@
 //
 // Rutas (reescritas en firebase.json): /place/{id}, /list/{id},
 // /group/{placeId}/{plato}. Si algo falla, se sirve index.html tal cual.
+// Y las páginas de ranking /mejores y /mejores/{lista}/{ciudad}: HTML propio,
+// sin la app, para que Google las lea sin ejecutar nada (lib/seo-rankings.js).
 
 const { onRequest } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { getFirestore } = require("firebase-admin/firestore");
 const { resolveMeta } = require("./ssr-meta");
+const { loadRankings } = require("./lib/seo-rankings");
 
 const db = getFirestore();
 const PUBLIC_ORIGIN = (process.env.PUBLIC_ORIGIN || "https://listopic.es").replace(/\/$/, "");
@@ -146,8 +149,167 @@ function injectHead(shell, head) {
   return html;
 }
 
-const seoPage = onRequest({ invoker: "public", memory: "256MiB", timeoutSeconds: 15 }, async (req, res) => {
+
+// ---------- Páginas de ranking (/mejores) ----------
+
+const fmtScore = (value) => (typeof value === "number" && Number.isFinite(value) ? value.toFixed(1).replace(".", ",") : "–");
+const todayEs = () => new Date().toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Madrid" });
+const itemHref = (item) => (item.itemName
+  ? `/group/${encodeURIComponent(item.placeId)}/${encodeURIComponent(item.itemName)}`
+  : `/place/${encodeURIComponent(item.placeId)}`);
+
+const PAGE_CSS = `
+  :root { color-scheme: dark; --bg:#0b1021; --card:#141a33; --line:#252c4d; --text:#eef0ff; --muted:#9aa3c7; --accent:#f59e0b; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:24px 16px 48px; }
+  a { color:inherit; }
+  header.top { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+  .brand { font-weight:800; text-decoration:none; font-size:20px; }
+  .cta { background:var(--accent); color:#1a1200; text-decoration:none; padding:8px 14px; border-radius:999px; font-weight:700; font-size:14px; }
+  h1 { font-size:28px; line-height:1.2; margin:0 0 8px; }
+  .lead { color:var(--muted); margin:0 0 24px; }
+  ol.rank { list-style:none; padding:0; margin:0; display:grid; gap:10px; }
+  ol.rank li a { display:flex; gap:12px; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px; text-decoration:none; }
+  .pos { font-weight:800; width:28px; text-align:center; color:var(--muted); flex:none; }
+  .ph { width:64px; height:64px; border-radius:10px; object-fit:cover; background:var(--line); flex:none; }
+  .info { flex:1; min-width:0; }
+  .name { font-weight:700; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sub { color:var(--muted); font-size:14px; }
+  .score { font-weight:800; font-size:20px; color:var(--accent); flex:none; }
+  h2 { font-size:18px; margin:32px 0 10px; }
+  ul.links { padding-left:18px; color:var(--muted); }
+  ul.links a { color:var(--text); }
+  footer { margin-top:40px; color:var(--muted); font-size:13px; }
+`;
+
+function pageShell({ title, description, path, ld, body }) {
+  const url = `${PUBLIC_ORIGIN}${path}`;
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title)}</title>
+  <meta name="description" content="${escapeHtml(description)}">
+  <link rel="canonical" href="${escapeHtml(url)}">
+  <link rel="icon" type="image/svg+xml" href="/default_favicon.svg">
+  <meta name="theme-color" content="#0b1021">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Listopic">
+  <meta property="og:title" content="${escapeHtml(title)}">
+  <meta property="og:description" content="${escapeHtml(description)}">
+  <meta property="og:url" content="${escapeHtml(url)}">
+  <meta property="og:image" content="${PUBLIC_ORIGIN}/s/og/app">
+  ${ld ? `<script type="application/ld+json">${jsonLd(ld)}</script>` : ""}
+  <style>${PAGE_CSS}</style>
+</head>
+<body>
+<main>
+  <header class="top"><a class="brand" href="/">Listopic</a><a class="cta" href="/">Abrir la app</a></header>
+${body}
+  <footer>Notas de 0 a 10 que pone la gente en Listopic; las de prueba (bots) no cuentan. Actualizado el ${escapeHtml(todayEs())}.</footer>
+</main>
+</body>
+</html>`;
+}
+
+function renderRanking(ranking, all) {
+  const { listName, city } = ranking;
+  const title = `${listName} en ${city}: los mejores sitios según notas reales · Listopic`;
+  const description = `Ranking de ${listName.toLowerCase()} en ${city}: ${ranking.placeCount} sitios ordenados por ${ranking.reviewCount} valoraciones de personas. ${ranking.top[0] ? `Ahora mismo gana ${ranking.top[0].placeName} con un ${fmtScore(ranking.top[0].score)}.` : ""}`.trim();
+  const items = ranking.top.map((item, index) => `    <li><a href="${escapeHtml(itemHref(item))}">
+      <span class="pos">${index + 1}</span>
+      ${item.imageUrl ? `<img class="ph" src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.itemName || item.placeName)}" loading="lazy" width="64" height="64" onerror="this.style.visibility='hidden'">` : '<span class="ph"></span>'}
+      <span class="info"><span class="name">${escapeHtml(item.placeName)}</span><span class="sub">${escapeHtml(item.itemName || "")}${item.itemName ? " · " : ""}${item.count} ${item.count === 1 ? "valoración" : "valoraciones"}</span></span>
+      <span class="score">${fmtScore(item.score)}</span>
+    </a></li>`).join("\n");
+  const sameList = all.filter((r) => r.listSlug === ranking.listSlug && r.path !== ranking.path);
+  const sameCity = all.filter((r) => r.citySlug === ranking.citySlug && r.path !== ranking.path);
+  const linkList = (rows, label) => rows.map((r) => `<li><a href="${escapeHtml(r.path)}">${escapeHtml(label(r))}</a></li>`).join("");
+  const body = `  <h1>${escapeHtml(listName)} en ${escapeHtml(city)}: el ranking</h1>
+  <p class="lead">Los ${ranking.top.length} mejores de ${ranking.placeCount} sitios valorados, según ${ranking.reviewCount} notas de personas reales. Toca uno para ver sus notas por criterio y las fotos.</p>
+  <ol class="rank">
+${items}
+  </ol>
+  <p class="lead" style="margin-top:16px"><a href="/list/${encodeURIComponent(ranking.listId)}">Ver la lista completa de ${escapeHtml(listName)} en Listopic</a></p>
+  ${sameCity.length ? `<h2>Más rankings en ${escapeHtml(city)}</h2><ul class="links">${linkList(sameCity, (r) => r.listName)}</ul>` : ""}
+  ${sameList.length ? `<h2>${escapeHtml(listName)} en otras ciudades</h2><ul class="links">${linkList(sameList, (r) => r.city)}</ul>` : ""}
+  <p><a href="/mejores">Todos los rankings</a></p>`;
+  const ld = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: `${listName} en ${city}`,
+    itemListOrder: "https://schema.org/ItemListOrderDescending",
+    numberOfItems: ranking.top.length,
+    itemListElement: ranking.top.map((item, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: item.itemName ? `${item.itemName} en ${item.placeName}` : item.placeName,
+      url: `${PUBLIC_ORIGIN}${itemHref(item)}`,
+    })),
+  };
+  return pageShell({ title, description, path: ranking.path, ld, body });
+}
+
+function renderIndex(all) {
+  const byCity = new Map();
+  all.forEach((r) => {
+    const rows = byCity.get(r.city) || [];
+    rows.push(r);
+    byCity.set(r.city, rows);
+  });
+  const sections = [...byCity].sort((a, b) => a[0].localeCompare(b[0], "es")).map(([city, rows]) => `  <h2>${escapeHtml(city)}</h2>
+  <ul class="links">${rows.map((r) => `<li><a href="${escapeHtml(r.path)}">${escapeHtml(r.listName)}</a> <span class="sub">· ${r.placeCount} sitios</span></li>`).join("")}</ul>`).join("\n");
+  const body = `  <h1>Los rankings de Listopic</h1>
+  <p class="lead">Cada plato, ciudad a ciudad, ordenado por las notas de la gente que lo ha probado.</p>
+${sections || '  <p class="lead">Todavía no hay rankings con sitios suficientes.</p>'}`;
+  return pageShell({
+    title: "Rankings de platos por ciudad · Listopic",
+    description: "Dónde comer las mejores bravas, tortillas, hamburguesas y más en cada ciudad, según notas reales de la comunidad Listopic.",
+    path: "/mejores",
+    ld: null,
+    body,
+  });
+}
+
+async function serveRanking(segments, res) {
+  const all = await loadRankings();
+  let html = null;
+  if (segments.length === 1) html = renderIndex(all);
+  else {
+    const path = `/mejores/${segments.slice(1, 3).map(safeDecode).join("/")}`.toLowerCase();
+    const ranking = all.find((r) => r.path === path);
+    if (ranking) html = renderRanking(ranking, all);
+  }
+  res.set("Content-Type", "text/html; charset=utf-8");
+  if (!html) {
+    res.set("Cache-Control", "public, max-age=300, s-maxage=600");
+    res.status(404).send(pageShell({
+      title: "Ranking no encontrado · Listopic",
+      description: "Este ranking todavía no tiene sitios suficientes.",
+      path: "/mejores",
+      ld: null,
+      body: '  <h1>Este ranking aún no existe</h1>\n  <p class="lead">Todavía no hay sitios suficientes valorados. <a href="/mejores">Ver todos los rankings</a>.</p>',
+    }).replace("<head>", '<head>\n  <meta name="robots" content="noindex">'));
+    return;
+  }
+  res.set("Cache-Control", "public, max-age=600, s-maxage=3600");
+  res.status(200).send(html);
+}
+
+const seoPage = onRequest({ invoker: "public", memory: "256MiB", timeoutSeconds: 30 }, async (req, res) => {
   const segments = req.path.split("/").filter(Boolean);
+  if (segments[0] === "mejores") {
+    try {
+      await serveRanking(segments, res);
+    } catch (error) {
+      logger.error("seoPage: fallo en ranking", { path: req.path, error: error.message });
+      res.set("Cache-Control", "no-cache");
+      res.status(500).send("");
+    }
+    return;
+  }
   let shell;
   try {
     shell = await fetchShell();
