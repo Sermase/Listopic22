@@ -1216,7 +1216,7 @@ export const ListPage: React.FC = () => {
                                 onClick={() => openRankingsPage(`/mejores/${rankingSlug(list.name)}`)}
                                 className="px-2 py-0.5 rounded-md bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-accent)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm hover:brightness-110"
                             >
-                                🏆 Ranking por ciudad
+                                🏆 Lo mejor por ciudad
                             </button>
                         )}
                         {/* Public/private only shown on sublists (user-owned) or to jefe */}
