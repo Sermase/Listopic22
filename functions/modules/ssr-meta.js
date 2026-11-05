@@ -24,6 +24,7 @@ const logger = require("firebase-functions/logger");
 const { getFirestore } = require("firebase-admin/firestore");
 const crypto = require("crypto");
 const { renderShareImage, fetchImageBytes } = require("./share-image");
+const { loadRankings } = require("./lib/seo-rankings");
 
 const db = getFirestore();
 
@@ -334,6 +335,14 @@ async function buildSitemap() {
   ]);
   const urls = new Map();
   SITEMAP_STATIC.forEach((path) => urls.set(path, null));
+  // Rankings plato × ciudad (lib/seo-rankings.js): son las páginas que más buscan.
+  const today = new Date().toISOString().slice(0, 10);
+  const rankings = await loadRankings().catch((error) => {
+    logger.warn("ssrMeta: fallo leyendo rankings para el sitemap", { error: error.message });
+    return [];
+  });
+  urls.set("/mejores", today);
+  rankings.forEach((ranking) => urls.set(ranking.path, today));
   [...listsA, ...listsB].forEach((doc) => {
     const list = doc.data() || {};
     if (list.visibility === "private") return;
