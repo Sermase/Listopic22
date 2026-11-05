@@ -360,6 +360,9 @@ export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
                                             })}
                                         </div>
                                     )}
+                                    {variant !== 'landscape' && frame !== 'none' && entity.type === 'review' && (
+                                        <p className="mt-2 text-[11px] leading-snug text-[var(--lt-text-muted)]">Con marco la foto gana sitio: si hace falta, la tarjeta deja fuera la frase de la reseña y los indicadores redondos.</p>
+                                    )}
                                 </section>
                             )}
 

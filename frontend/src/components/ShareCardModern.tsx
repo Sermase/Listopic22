@@ -751,9 +751,9 @@ const drawPostmark = (ctx: CanvasRenderingContext2D, cx: number, cy: number, rad
 /** Sello de correos: papel con el borde troquelado, la foto, «LISTOPIC» y la nota como valor. */
 const drawStamp = (ctx: CanvasRenderingContext2D, hero: HTMLImageElement, entity: ShareEntityPayload, width: number, top: number, bottom: number) => {
     const available = Math.max(240, bottom - top);
-    // Foto 4:5; borde del 7 % y abajo una franja para el texto.
-    const photoW = Math.max(160, Math.min(width * 0.6, (available - 40) / 1.53));
-    const photoH = photoW * 1.25;
+    // Foto casi cuadrada; borde del 7 % y abajo una franja para el texto.
+    const photoW = Math.max(160, Math.min(width * 0.62, (available - 40) / 1.38));
+    const photoH = photoW * 1.1;
     const margin = Math.round(photoW * 0.07);
     const band = Math.round(photoW * 0.2);
     const stampW = Math.round(photoW + margin * 2);
@@ -1153,6 +1153,8 @@ const drawVerticalContent = (
     variant: Exclude<ModernCardVariant, 'landscape'>,
     width: number,
     bottom: number,
+    /** Con marco, para que la foto tenga sitio: sin indicadores redondos y/o sin la frase. */
+    omit: { gauges?: boolean; quote?: boolean } = {},
 ) => {
     const margin = 64;
     const contentWidth = width - margin * 2;
@@ -1163,14 +1165,14 @@ const drawVerticalContent = (
 
     const extras = (entity.nonPonderableStats || []).filter((item) => Number.isFinite(item.score))
         .slice(0, isSquare ? 0 : 4);
-    if (extras.length && isStory) {
+    if (extras.length && isStory && !omit.gauges) {
         const panelHeight = 150;
         cursorY -= panelHeight;
         drawNonPonderable(ctx, extras, margin, cursorY, contentWidth, panelHeight);
         cursorY -= 30;
     }
 
-    if (isReview && entity.description && !isSquare) {
+    if (isReview && entity.description && !isSquare && !omit.quote) {
         const fontSize = isStory ? 38 : 30;
         setFont(ctx, 500, fontSize, true);
         const lines = wrapText(ctx, `«${entity.description}»`, contentWidth, 2);
@@ -1253,11 +1255,16 @@ const drawSidePhoto = (ctx: CanvasRenderingContext2D, image: HTMLImageElement | 
     ctx.fillRect(0, 0, width, height);
     const photoWidth = Math.round(width * ratio);
     if (image) drawCover(ctx, image, width - photoWidth, 0, photoWidth, height);
+    // Opaco hasta el borde de la foto y luego se va abriendo poco a poco: no se ve dónde empieza.
+    const start = 1 - ratio;
+    const span = 1 - start;
     const fade = ctx.createLinearGradient(0, 0, width, 0);
     fade.addColorStop(0, bgA(1));
-    fade.addColorStop(0.42, bgA(0.92));
-    fade.addColorStop(0.7, bgA(0.25));
-    fade.addColorStop(1, bgA(0.05));
+    fade.addColorStop(start, bgA(1));
+    fade.addColorStop(start + span * 0.18, bgA(0.86));
+    fade.addColorStop(start + span * 0.4, bgA(0.5));
+    fade.addColorStop(start + span * 0.68, bgA(0.16));
+    fade.addColorStop(1, bgA(0.04));
     ctx.fillStyle = fade;
     ctx.fillRect(0, 0, width, height);
 };
@@ -1461,11 +1468,23 @@ export async function drawCard(entity: CardEntity, variant: ModernCardVariant, p
     } else if (rankItems.length) {
         drawVerticalList(ctx, entity, rankImages, variant, width, contentBottom);
     } else {
-        const contentTop = drawVerticalContent(ctx, entity, avatar, variant, width, contentBottom);
+        const brandBottom = margin + (isStory ? 70 : 56);
+        const frameTop = brandBottom + (isStory ? 20 : 12);
+        let omit: { gauges?: boolean; quote?: boolean } = {};
         if (frame && hero) {
-            const brandBottom = margin + (isStory ? 70 : 56);
-            drawFramedPhoto(ctx, hero, frame, entity, width, brandBottom + (isStory ? 20 : 12), contentTop - (isStory ? 14 : 8));
+            // La foto con marco manda: si no tiene sitio, fuera primero los indicadores redondos y
+            // luego la frase de la reseña (siguen en la reseña). Las notas y lo demás no se tocan.
+            const wanted = isStory ? 640 : variant === 'portrait' ? 470 : 360;
+            const scratch = document.createElement('canvas').getContext('2d');
+            const levels: Array<typeof omit> = [{}, { gauges: true }, { gauges: true, quote: true }];
+            omit = levels[levels.length - 1];
+            for (const level of levels) {
+                const top = scratch ? drawVerticalContent(scratch, entity, avatar, variant, width, contentBottom, level) : 0;
+                if (top - (isStory ? 14 : 8) - frameTop >= wanted) { omit = level; break; }
+            }
         }
+        const contentTop = drawVerticalContent(ctx, entity, avatar, variant, width, contentBottom, omit);
+        if (frame && hero) drawFramedPhoto(ctx, hero, frame, entity, width, frameTop, contentTop - (isStory ? 14 : 8));
     }
     drawBottomBar(ctx, width, height, barHeight);
 
