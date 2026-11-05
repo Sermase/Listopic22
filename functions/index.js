@@ -30,6 +30,7 @@ module.exports = {
     ...require('./modules/sponsored'),
     ...require('./modules/analytics'),
     ...require('./modules/ssr-meta'),
+    ...require('./modules/seo-page'),
     ...require('./modules/canonical-items'),
     ...require('./modules/reviews-consolidation'),
     ...require('./modules/apt-for'),

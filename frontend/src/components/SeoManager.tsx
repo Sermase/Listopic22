@@ -18,7 +18,10 @@ export const SeoManager: React.FC = () => {
         document.title = (!config.appName || config.appName === 'Listopic') ? DEFAULT_TITLE : config.appName;
 
         // Update Meta Description
-        updateMeta('description', config.appDescription || '');
+        // Si la página llegó con descripción propia desde el servidor (seoPage), se respeta.
+        if (!document.querySelector('meta[name="description"][data-ssr]')) {
+            updateMeta('description', config.appDescription || '');
+        }
         updateMeta('keywords', config.keywords || '');
 
         // --- OPEN GRAPH (SOCIAL) ---
