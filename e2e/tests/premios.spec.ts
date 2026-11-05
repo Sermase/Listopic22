@@ -171,7 +171,7 @@ test('tarjetas con fotos: la reseña con las suyas, sello y lista con top 5 y fo
   await shot(page, '9-lista-fondo');
   await page.goBack();
   await expect(studio).toBeHidden();
-  await page.keyboard.press('Escape');
+  // Sin cerrar el menú de compartir: su «atrás» llegaría a la vez que la siguiente visita.
 
   // Plato (sitio + nombre): sus fotos y el marco de sello.
   await page.goto(`/group/p_tarjeta/${encodeURIComponent('Tortilla de foto')}`);
