@@ -440,4 +440,4 @@ const ssrMeta = onRequest({ invoker: "public", memory: "512MiB", timeoutSeconds:
 </html>`);
 });
 
-module.exports = { ssrMeta, fetchListTop };
+module.exports = { ssrMeta, fetchListTop, resolveMeta };

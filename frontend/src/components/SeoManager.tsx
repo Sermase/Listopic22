@@ -14,11 +14,13 @@ export const SeoManager: React.FC = () => {
 
     useEffect(() => {
         // --- BASIC METADATA ---
-        // Con el nombre de siempre, el título largo de index.html (lo que lee Google).
-        document.title = (!config.appName || config.appName === 'Listopic') ? DEFAULT_TITLE : config.appName;
-
-        // Update Meta Description
-        updateMeta('description', config.appDescription || '');
+        // Si la página llegó con cabecera propia desde el servidor (seoPage), se respetan título y descripción.
+        const hasSsrHead = Boolean(document.querySelector('meta[name="description"][data-ssr]'));
+        if (!hasSsrHead) {
+            // Con el nombre de siempre, el título largo de index.html (lo que lee Google).
+            document.title = (!config.appName || config.appName === 'Listopic') ? DEFAULT_TITLE : config.appName;
+            updateMeta('description', config.appDescription || '');
+        }
         updateMeta('keywords', config.keywords || '');
 
         // --- OPEN GRAPH (SOCIAL) ---
