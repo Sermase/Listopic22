@@ -15,6 +15,7 @@
 //   /s/profile/{userId}
 //   /s/review/{listId}/{reviewId}
 // /s/img?u={foto} (proxy con CORS para las tarjetas de la app)
+//   /sitemap.xml (mapa del sitio para Google)
 // y la imagen de la vista previa de cada una en /s/og/{misma ruta}: un JPEG
 // 1200×630 con foto, nota y marca (modules/share-image.js).
 
@@ -307,8 +308,55 @@ async function resolveMeta(segments) {
 // la foto, WhatsApp y la caché de Hosting piden una imagen nueva.
 const cardVersion = (card) => crypto.createHash("sha1").update(JSON.stringify(card)).digest("hex").slice(0, 10);
 
+// Mapa del sitio para Google (/sitemap.xml, reescrito aquí en firebase.json):
+// páginas fijas + listas públicas + sitios con reseñas de personas. Lo privado
+// (Minilistas, perfiles, chats) no sale nunca.
+const SITEMAP_STATIC = ["/", "/search", "/planes", "/about", "/ayuda", "/privacy", "/terms", "/cookies", "/aviso-legal"];
+const SITEMAP_LIMIT = 5000;
+
+const isoDay = (value) => {
+  const date = value && typeof value.toDate === "function" ? value.toDate() : (value instanceof Date ? value : null);
+  return date && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : null;
+};
+
+const escapeXml = (value) => escapeHtml(value).replace(/'/g, "&apos;");
+
+async function buildSitemap() {
+  const docsOf = (query) => query.limit(SITEMAP_LIMIT).get().then((snap) => snap.docs).catch((error) => {
+    logger.warn("ssrMeta: fallo leyendo para el sitemap", { error: error.message });
+    return [];
+  });
+  const [listsA, listsB, placesA, placesB] = await Promise.all([
+    docsOf(db.collection("lists").where("visibility", "==", "public")),
+    docsOf(db.collection("lists").where("isPublic", "==", true)),
+    docsOf(db.collection("places").where("publicHumanReviewsCount", ">", 0)),
+    docsOf(db.collection("places").where("reviewsCount", ">", 0)),
+  ]);
+  const urls = new Map();
+  SITEMAP_STATIC.forEach((path) => urls.set(path, null));
+  [...listsA, ...listsB].forEach((doc) => {
+    const list = doc.data() || {};
+    if (list.visibility === "private") return;
+    urls.set(`/list/${encodeURIComponent(doc.id)}`, isoDay(list.updatedAt || list.lastReviewAt || list.createdAt));
+  });
+  [...placesA, ...placesB].forEach((doc) => {
+    const place = doc.data() || {};
+    urls.set(`/place/${encodeURIComponent(doc.id)}`, isoDay(place.updatedAt || place.lastReviewAt || place.createdAt));
+  });
+  const body = [...urls].map(([path, lastmod]) => `  <url><loc>${escapeXml(PUBLIC_ORIGIN + path)}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}</url>`).join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
+}
+
 const ssrMeta = onRequest({ invoker: "public", memory: "512MiB", timeoutSeconds: 30 }, async (req, res) => {
   const segments = req.path.split("/").filter(Boolean); // ['s', 'place', id, ...]
+
+  if (req.path === "/sitemap.xml") {
+    const xml = await buildSitemap();
+    res.set("Content-Type", "application/xml; charset=utf-8");
+    res.set("Cache-Control", "public, max-age=3600, s-maxage=21600");
+    res.status(200).send(xml);
+    return;
+  }
 
   // Proxy de fotos para las tarjetas que dibuja la app en el navegador: las de
   // Firebase Storage no traen CORS y el canvas no podría leerlas.

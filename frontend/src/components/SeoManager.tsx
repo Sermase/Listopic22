@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { type AppConfig, useAppConfig } from '../context/AppConfigContext';
 
+const DEFAULT_TITLE = 'Listopic · Rankings de platos valorados por gente real';
 const DEFAULT_FAVICON_URL = '/default_favicon.svg';
 const DEFAULT_APPLE_TOUCH_ICON_URL = '/apple-touch-icon.png';
 const DEFAULT_MANIFEST_ICONS = [
@@ -13,7 +14,8 @@ export const SeoManager: React.FC = () => {
 
     useEffect(() => {
         // --- BASIC METADATA ---
-        document.title = config.appName || 'Listopic';
+        // Con el nombre de siempre, el título largo de index.html (lo que lee Google).
+        document.title = (!config.appName || config.appName === 'Listopic') ? DEFAULT_TITLE : config.appName;
 
         // Update Meta Description
         updateMeta('description', config.appDescription || '');
