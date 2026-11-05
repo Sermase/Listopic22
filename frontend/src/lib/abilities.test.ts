@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { abilityAllowed, ringFor, sanitizeAbilityPrefs, signatureFor, unlockedFilterCount } from './abilities';
-import { PHOTO_FILTERS, applyFilterToPixels, filterMatrix, photoFilterById } from './photoFilters';
+import { abilityAllowed, ringFor, sanitizeAbilityPrefs, signatureBadgeOptions, signatureFor, unlockedFilterCount } from './abilities';
+import { PHOTO_FILTERS, applyFilterToPixels, filterMatrix, photoFilterById, withStrength } from './photoFilters';
 
 const gate = { abilitiesConfig: {}, inactiveBadges: new Set<string>() };
 
@@ -37,13 +37,16 @@ describe('abilities', () => {
             .toEqual({ signature: 'x'.repeat(40), pinEmoji: '🍕' });
     });
 
-    it('la firma: la frase de la medalla elegida (si la tiene) o la propia', () => {
-        const info = (id: string) => (id === 'CRITICO_DE_BARRIO' ? { name: 'Crítico de Barrio', icon: '📝', description: 'Diez reseñas: ya se nota criterio.' } : undefined);
+    it('la firma: frase propia y medalla (solo si la tiene de verdad), sin frases de medalla', () => {
+        const info = (id: string) => (id === 'CRITICO_DE_BARRIO' ? { name: 'Crítico de Barrio', icon: '📝' } : undefined);
         const prefs = { signature: 'Si no cruje, no es croqueta', signatureBadge: 'CRITICO_DE_BARRIO' };
-        expect(signatureFor(prefs, ['CRITICO_DE_BARRIO'], info)).toEqual({ text: 'Diez reseñas: ya se nota criterio.', badge: '📝 Crítico de Barrio' });
-        // Sin esa medalla de verdad, la frase propia.
+        expect(signatureFor(prefs, ['CRITICO_DE_BARRIO'], info)).toEqual({ text: 'Si no cruje, no es croqueta', badge: '📝 Crítico de Barrio' });
+        // Sin esa medalla de verdad, solo la frase.
         expect(signatureFor(prefs, [], info)).toEqual({ text: 'Si no cruje, no es croqueta' });
+        // Solo la medalla.
+        expect(signatureFor({ signatureBadge: 'CRITICO_DE_BARRIO' }, ['CRITICO_DE_BARRIO'], info)).toEqual({ badge: '📝 Crítico de Barrio' });
         expect(signatureFor({}, ['CRITICO_DE_BARRIO'], info)).toBeUndefined();
+        expect(signatureBadgeOptions(['CRITICO_DE_BARRIO', 'NO_EXISTE'], info)).toEqual([{ id: 'CRITICO_DE_BARRIO', label: '📝 Crítico de Barrio' }]);
     });
 });
 
@@ -65,5 +68,15 @@ describe('photoFilters', () => {
         const m = filterMatrix({ id: 't', name: 't', emoji: '', steps: [['brightness', 0.5], ['contrast', 2]] });
         // gris 0.5 → brillo 0.25 → contraste (0.25 - 0.5) * 2 + 0.5 = 0
         expect(m[0][0] * 0.5 + m[0][1] * 0.5 + m[0][2] * 0.5 + m[0][3]).toBeCloseTo(0, 5);
+    });
+
+    it('la intensidad acerca cada paso a «nada»: 0 = sin filtro, 100 = entero, 50 = a medias', () => {
+        const neon = photoFilterById('neon')!;
+        expect(withStrength(neon, 100)).toBe(neon);
+        expect(withStrength(neon, 0)).toBeUndefined();
+        const half = withStrength(neon, 50)!.steps;
+        expect(half.map(([kind]) => kind)).toEqual(['hue', 'saturate', 'contrast']);
+        [-7, 1.4, 1.09].forEach((value, i) => expect(half[i][1]).toBeCloseTo(value, 6));
+        expect(withStrength(photoFilterById('byn'), 50)!.steps[0]).toEqual(['grayscale', 0.5]);
     });
 });

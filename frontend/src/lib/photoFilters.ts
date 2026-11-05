@@ -26,6 +26,24 @@ export const PHOTO_FILTERS: PhotoFilter[] = [
 
 export const photoFilterById = (id: string | null | undefined) => PHOTO_FILTERS.find((f) => f.id === id);
 
+/**
+ * El filtro con menos fuerza (0 = la foto tal cual, 100 = el filtro entero): cada paso se acerca
+ * a «no hacer nada». Así la vista previa (CSS) y la foto final (matrices) siguen siendo iguales.
+ */
+export function withStrength(filter: PhotoFilter | undefined, strength = 100): PhotoFilter | undefined {
+    if (!filter) return undefined;
+    const t = Math.max(0, Math.min(100, Number.isFinite(strength) ? strength : 100)) / 100;
+    if (t >= 1) return filter;
+    if (t <= 0) return undefined;
+    const steps = filter.steps.map((step): Step => {
+        const [kind, value] = step;
+        if (kind === 'hue') return ['hue', value * t];
+        if (kind === 'sepia' || kind === 'grayscale') return [kind, value * t];
+        return [kind, 1 + (value - 1) * t];
+    });
+    return { ...filter, steps };
+}
+
 export const filterCss = (filter: PhotoFilter | undefined): string | undefined =>
     filter?.steps.map(([kind, value]) => (kind === 'hue' ? `hue-rotate(${value}deg)` : `${kind}(${value})`)).join(' ');
 

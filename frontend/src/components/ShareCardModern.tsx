@@ -17,14 +17,16 @@ export type ModernCardVariant = 'story' | 'portrait' | 'square' | 'landscape';
 
 /** Premios de medallas en la tarjeta: marco de la foto («Archivo Visual») y firma («Crítico de Barrio»). */
 export interface CardSignature {
-    /** La frase (la elegida o la de la medalla). */
-    text: string;
-    /** Con la frase de una medalla: la medalla («📝 Crítico de Barrio»). */
+    /** La frase, escrita a mano. */
+    text?: string;
+    /** La medalla, debajo («📝 Crítico de Barrio»). */
     badge?: string;
 }
 export interface CardDecor {
-    frame?: 'polaroid' | 'mantel';
+    frame?: 'polaroid' | 'stamp';
     signature?: CardSignature;
+    /** Listas: la foto elegida, de fondo detrás del ranking. */
+    backdrop?: boolean;
 }
 export type CardEntity = ShareEntityPayload & { decor?: CardDecor };
 
@@ -659,159 +661,6 @@ const drawBlurredCover = (ctx: CanvasRenderingContext2D, image: HTMLImageElement
     ctx.restore();
 };
 
-/** Mantel de cuadros: rayas rojas que se cruzan, trama de tela y luz cálida en el centro. */
-const drawGingham = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    const cell = Math.round(width / 11);
-    ctx.fillStyle = '#f7f0e3';
-    ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = 'rgba(196, 36, 48, 0.42)';
-    for (let x = 0; x < width; x += cell * 2) ctx.fillRect(x, 0, cell, height);
-    for (let y = 0; y < height; y += cell * 2) ctx.fillRect(0, y, width, cell);
-    ctx.fillStyle = 'rgba(90, 20, 20, 0.05)';
-    for (let x = 0; x < width; x += 6) ctx.fillRect(x, 0, 2, height);
-    for (let y = 0; y < height; y += 6) ctx.fillRect(0, y, width, 2);
-    const light = ctx.createRadialGradient(width / 2, height * 0.45, width * 0.15, width / 2, height * 0.45, Math.max(width, height) * 0.8);
-    light.addColorStop(0, 'rgba(255, 244, 225, 0.2)');
-    light.addColorStop(1, 'rgba(50, 12, 12, 0.4)');
-    ctx.fillStyle = light;
-    ctx.fillRect(0, 0, width, height);
-};
-
-const metal = (ctx: CanvasRenderingContext2D, x0: number, x1: number) => {
-    const g = ctx.createLinearGradient(x0, 0, x1, 0);
-    g.addColorStop(0, '#9aa1ab');
-    g.addColorStop(0.35, '#f4f6f9');
-    g.addColorStop(0.6, '#d3d8df');
-    g.addColorStop(1, '#8b929c');
-    return g;
-};
-
-const castShadow = (ctx: CanvasRenderingContext2D, size: number) => {
-    ctx.shadowColor = 'rgba(45, 10, 10, 0.4)';
-    ctx.shadowBlur = size * 0.5;
-    ctx.shadowOffsetX = size * 0.12;
-    ctx.shadowOffsetY = size * 0.2;
-};
-
-/** Tenedor visto desde arriba, con las púas hacia arriba. */
-const drawFork = (ctx: CanvasRenderingContext2D, x: number, top: number, length: number) => {
-    const w = length * 0.082;
-    const tineH = length * 0.19;
-    const headH = length * 0.11;
-    const neckW = w * 0.24;
-    const neckY = top + tineH + headH;
-    const handleW = w * 0.58;
-    ctx.save();
-    castShadow(ctx, w);
-    ctx.fillStyle = metal(ctx, x - w / 2, x + w / 2);
-    const gap = w * 0.12;
-    const tineW = (w - gap * 3) / 4;
-    for (let i = 0; i < 4; i++) {
-        roundRect(ctx, x - w / 2 + i * (tineW + gap), top, tineW, tineH + 6, tineW / 2);
-        ctx.fill();
-    }
-    ctx.beginPath();
-    ctx.moveTo(x - w / 2, top + tineH);
-    ctx.lineTo(x + w / 2, top + tineH);
-    ctx.quadraticCurveTo(x + w / 2, neckY - headH * 0.2, x + neckW / 2, neckY);
-    ctx.lineTo(x - neckW / 2, neckY);
-    ctx.quadraticCurveTo(x - w / 2, neckY - headH * 0.2, x - w / 2, top + tineH);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(x - neckW / 2, neckY - 2);
-    ctx.lineTo(x + neckW / 2, neckY - 2);
-    ctx.quadraticCurveTo(x + handleW / 2, neckY + length * 0.2, x + handleW / 2, top + length - handleW / 2);
-    ctx.arc(x, top + length - handleW / 2, handleW / 2, 0, Math.PI);
-    ctx.quadraticCurveTo(x - handleW / 2, neckY + length * 0.2, x - neckW / 2, neckY - 2);
-    ctx.fill();
-    ctx.restore();
-};
-
-/** Cuchillo visto desde arriba: hoja con el filo a la izquierda y mango redondeado. */
-const drawKnife = (ctx: CanvasRenderingContext2D, x: number, top: number, length: number) => {
-    const bladeW = length * 0.062;
-    const bladeH = length * 0.5;
-    const handleW = length * 0.07;
-    ctx.save();
-    castShadow(ctx, bladeW);
-    ctx.fillStyle = metal(ctx, x - bladeW / 2, x + bladeW / 2);
-    ctx.beginPath();
-    ctx.moveTo(x + bladeW / 2, top + bladeH);
-    ctx.lineTo(x + bladeW / 2, top + bladeW * 0.4);
-    ctx.quadraticCurveTo(x + bladeW / 2, top, x, top);
-    ctx.quadraticCurveTo(x - bladeW / 2, top + bladeH * 0.25, x - bladeW / 2, top + bladeH);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = metal(ctx, x - handleW / 2, x + handleW / 2);
-    roundRect(ctx, x - handleW / 2, top + bladeH - 4, handleW, length - bladeH + 4, handleW / 2);
-    ctx.fill();
-    ctx.restore();
-    // Junta entre hoja y mango.
-    ctx.fillStyle = 'rgba(80, 86, 96, 0.35)';
-    ctx.fillRect(x - handleW / 2, top + bladeH - 4, handleW, 3);
-};
-
-/** Un plato de verdad: ala con luz, la foto en el hueco con sombra hacia dentro. */
-const drawPlate = (ctx: CanvasRenderingContext2D, hero: HTMLImageElement, cx: number, cy: number, radius: number) => {
-    ctx.save();
-    ctx.shadowColor = 'rgba(45, 10, 10, 0.45)';
-    ctx.shadowBlur = radius * 0.16;
-    ctx.shadowOffsetY = radius * 0.05;
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = '#f3f0ea';
-    ctx.fill();
-    ctx.restore();
-
-    const rim = ctx.createLinearGradient(cx - radius, cy - radius, cx + radius, cy + radius);
-    rim.addColorStop(0, '#ffffff');
-    rim.addColorStop(0.5, '#f2efe9');
-    rim.addColorStop(1, '#d9d3c8');
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.fillStyle = rim;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(60, 40, 30, 0.12)';
-    ctx.lineWidth = Math.max(2, radius * 0.01);
-    ctx.stroke();
-
-    // Donde el ala baja al hueco: una sombra suave.
-    const well = radius * 0.76;
-    const slope = ctx.createRadialGradient(cx, cy, well * 0.96, cx, cy, well * 1.12);
-    slope.addColorStop(0, 'rgba(70, 50, 40, 0.18)');
-    slope.addColorStop(1, 'rgba(70, 50, 40, 0)');
-    ctx.beginPath();
-    ctx.arc(cx, cy, well * 1.12, 0, Math.PI * 2);
-    ctx.fillStyle = slope;
-    ctx.fill();
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, well, 0, Math.PI * 2);
-    ctx.clip();
-    drawCover(ctx, hero, cx - well, cy - well, well * 2, well * 2);
-    const inner = ctx.createRadialGradient(cx, cy - well * 0.06, well * 0.78, cx, cy, well);
-    inner.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    inner.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
-    ctx.fillStyle = inner;
-    ctx.fillRect(cx - well, cy - well, well * 2, well * 2);
-    ctx.restore();
-
-    ctx.beginPath();
-    ctx.arc(cx, cy, well, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-    ctx.lineWidth = Math.max(2, radius * 0.012);
-    ctx.stroke();
-    // Reflejo del ala, arriba a la izquierda.
-    ctx.beginPath();
-    ctx.arc(cx, cy, radius * 0.88, Math.PI * 1.08, Math.PI * 1.42);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.lineWidth = radius * 0.035;
-    ctx.lineCap = 'round';
-    ctx.stroke();
-    ctx.lineCap = 'butt';
-};
-
 /** Cinta adhesiva semitransparente con los cantos rasgados. */
 const drawTape = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
     const teeth = 6;
@@ -826,6 +675,167 @@ const drawTape = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
     ctx.fill();
     ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
     ctx.fill();
+};
+
+const MONTHS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+
+/** Texto en curva, alrededor de un círculo: arriba se lee hacia la derecha y abajo también. */
+const drawArcText = (ctx: CanvasRenderingContext2D, text: string, cx: number, cy: number, r: number, top: boolean) => {
+    const chars = [...text];
+    const spacing = ctx.measureText(' ').width * 0.35;
+    const widths = chars.map((c) => ctx.measureText(c).width);
+    const total = widths.reduce((sum, w) => sum + w, 0) + spacing * Math.max(0, chars.length - 1);
+    let angle = top ? -Math.PI / 2 - total / (2 * r) : Math.PI / 2 + total / (2 * r);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    chars.forEach((c, i) => {
+        const half = widths[i] / (2 * r);
+        const a = top ? angle + half : angle - half;
+        ctx.save();
+        ctx.translate(cx + r * Math.cos(a), cy + r * Math.sin(a));
+        ctx.rotate(top ? a + Math.PI / 2 : a - Math.PI / 2);
+        ctx.fillText(c, 0, 0);
+        ctx.restore();
+        angle = top ? angle + (widths[i] + spacing) / r : angle - (widths[i] + spacing) / r;
+    });
+};
+
+/** Matasellos: dos círculos, la ciudad en curva, la fecha en medio y ondas de tinta. */
+const drawPostmark = (ctx: CanvasRenderingContext2D, cx: number, cy: number, radius: number, city: string | undefined) => {
+    const ink = `rgba(${pal.accentRgb},0.88)`;
+    const now = new Date();
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((-12 * Math.PI) / 180);
+    ctx.strokeStyle = ink;
+    ctx.fillStyle = ink;
+    ctx.lineWidth = Math.max(3, radius * 0.045);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = Math.max(2, radius * 0.03);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.66, 0, Math.PI * 2);
+    ctx.stroke();
+    const ringFont = Math.round(radius * 0.2);
+    setFont(ctx, 800, ringFont);
+    const ringR = radius * 0.83;
+    let place = (city || 'Listopic').toUpperCase();
+    while (place.length > 4 && ctx.measureText(place).width > Math.PI * ringR * 0.8) place = place.slice(0, -1);
+    drawArcText(ctx, place, 0, 0, ringR, true);
+    drawArcText(ctx, city ? 'LISTOPIC' : '★ ★ ★', 0, 0, ringR, false);
+    setFont(ctx, 800, Math.round(radius * 0.21));
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${now.getDate()} ${MONTHS[now.getMonth()]}`, 0, -radius * 0.12);
+    setFont(ctx, 700, Math.round(radius * 0.17));
+    ctx.fillText(String(now.getFullYear()), 0, radius * 0.16);
+    // Ondas hacia la derecha, como las de correos.
+    ctx.lineWidth = Math.max(3, radius * 0.04);
+    ctx.lineCap = 'round';
+    for (let line = 0; line < 4; line++) {
+        const y = -radius * 0.42 + line * radius * 0.28;
+        ctx.beginPath();
+        for (let i = 0; i <= 40; i++) {
+            const x = radius * 1.12 + (i / 40) * radius * 1.5;
+            const wave = Math.sin((i / 40) * Math.PI * 3) * radius * 0.06;
+            if (i === 0) ctx.moveTo(x, y + wave);
+            else ctx.lineTo(x, y + wave);
+        }
+        ctx.stroke();
+    }
+    ctx.restore();
+    ctx.lineCap = 'butt';
+};
+
+/** Sello de correos: papel con el borde troquelado, la foto, «LISTOPIC» y la nota como valor. */
+const drawStamp = (ctx: CanvasRenderingContext2D, hero: HTMLImageElement, entity: ShareEntityPayload, width: number, top: number, bottom: number) => {
+    const available = Math.max(240, bottom - top);
+    // Foto 4:5; borde del 7 % y abajo una franja para el texto.
+    const photoW = Math.max(160, Math.min(width * 0.6, (available - 40) / 1.53));
+    const photoH = photoW * 1.25;
+    const margin = Math.round(photoW * 0.07);
+    const band = Math.round(photoW * 0.2);
+    const stampW = Math.round(photoW + margin * 2);
+    const stampH = Math.round(photoH + margin + band);
+    const hole = Math.max(5, photoW * 0.024);
+
+    const paper = document.createElement('canvas');
+    paper.width = stampW;
+    paper.height = stampH;
+    const p = paper.getContext('2d');
+    if (!p) return;
+    const sheet = p.createLinearGradient(0, 0, stampW, stampH);
+    sheet.addColorStop(0, '#fffdf6');
+    sheet.addColorStop(1, '#f1ead9');
+    p.fillStyle = sheet;
+    p.fillRect(0, 0, stampW, stampH);
+    // El troquelado: medios círculos fuera en los cuatro lados.
+    p.globalCompositeOperation = 'destination-out';
+    const punch = (length: number, place: (at: number) => [number, number]) => {
+        const count = Math.max(4, Math.round(length / (hole * 2.9)));
+        const step = length / count;
+        for (let i = 0; i <= count; i++) {
+            const [x, y] = place(i * step);
+            p.beginPath();
+            p.arc(x, y, hole, 0, Math.PI * 2);
+            p.fill();
+        }
+    };
+    punch(stampW, (at) => [at, 0]);
+    punch(stampW, (at) => [at, stampH]);
+    punch(stampH, (at) => [0, at]);
+    punch(stampH, (at) => [stampW, at]);
+    p.globalCompositeOperation = 'source-over';
+
+    p.save();
+    p.beginPath();
+    p.rect(margin, margin, photoW, photoH);
+    p.clip();
+    drawCover(p, hero, margin, margin, photoW, photoH);
+    const gloss = p.createLinearGradient(margin, margin, margin + photoW, margin + photoH);
+    gloss.addColorStop(0, 'rgba(255,255,255,0.14)');
+    gloss.addColorStop(0.4, 'rgba(255,255,255,0)');
+    p.fillStyle = gloss;
+    p.fillRect(margin, margin, photoW, photoH);
+    p.restore();
+    p.strokeStyle = 'rgba(40, 30, 20, 0.18)';
+    p.lineWidth = 2;
+    p.strokeRect(margin, margin, photoW, photoH);
+
+    const bandY = margin + photoH + band / 2 + 2;
+    p.textBaseline = 'middle';
+    p.textAlign = 'left';
+    p.fillStyle = '#2a2d3a';
+    p.font = `800 ${Math.round(band * 0.34)}px ${FONT}`;
+    if ('letterSpacing' in p) (p as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${Math.round(band * 0.06)}px`;
+    p.fillText('LISTOPIC', margin, bandY);
+    if ('letterSpacing' in p) (p as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = '0px';
+    p.textAlign = 'right';
+    if (hasScore(entity.score)) {
+        p.font = `900 ${Math.round(band * 0.56)}px ${FONT}`;
+        p.fillStyle = pal.accent;
+        p.fillText(entity.score.toFixed(1), margin + photoW, bandY);
+    } else {
+        p.font = `700 ${Math.round(band * 0.3)}px ${FONT}`;
+        p.fillText(String(new Date().getFullYear()), margin + photoW, bandY);
+    }
+
+    const cx = width / 2;
+    const cy = top + available / 2 + 8;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((2.2 * Math.PI) / 180);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 54;
+    ctx.shadowOffsetY = 26;
+    ctx.drawImage(paper, -stampW / 2, -stampH / 2);
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.25)';
+    ctx.shadowBlur = 5;
+    ctx.shadowOffsetY = 2;
+    ctx.drawImage(paper, -stampW / 2, -stampH / 2);
+    ctx.restore();
+    drawPostmark(ctx, cx + stampW / 2 - stampW * 0.06, cy - stampH / 2 + stampH * 0.1, stampW * 0.2, entity.city);
 };
 
 /** Polaroid: papel con brillo, foto cuadrada, cinta arriba y el nombre escrito a mano. */
@@ -903,29 +913,29 @@ const drawFramedPhoto = (
     ctx: CanvasRenderingContext2D,
     hero: HTMLImageElement,
     frame: NonNullable<CardDecor['frame']>,
-    caption: string,
+    entity: ShareEntityPayload,
     width: number,
     top: number,
     bottom: number,
 ) => {
-    if (frame === 'polaroid') {
-        drawPolaroid(ctx, hero, caption, width, top, bottom);
-        return;
-    }
-    // Mantel: el plato en el centro, tenedor a la izquierda y cuchillo a la derecha.
-    const available = Math.max(220, bottom - top);
-    const radius = Math.min(width * 0.35, available / 2 - 10);
-    const cx = width / 2;
-    const cy = top + available / 2;
-    const length = Math.min(radius * 2.05, available - 10);
-    const side = radius + Math.max(48, width * 0.07);
-    drawFork(ctx, cx - side, cy - length / 2, length);
-    drawKnife(ctx, cx + side, cy - length / 2, length);
-    drawPlate(ctx, hero, cx, cy, radius);
+    if (frame === 'stamp') drawStamp(ctx, hero, entity, width, top, bottom);
+    else drawPolaroid(ctx, hero, entity.title, width, top, bottom);
 };
 
-/** Firma: una frase escrita a mano; si es la de una medalla, la medalla debajo. Devuelve el alto. */
+/** Firma: una frase escrita a mano y, debajo, la medalla (o solo una de las dos). Devuelve el alto. */
 const drawSignature = (ctx: CanvasRenderingContext2D, signature: CardSignature, x: number, bottom: number, width: number, size: number) => {
+    let y = bottom;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    if (signature.badge) {
+        const badgeSize = Math.round(size * (signature.text ? 0.52 : 0.62));
+        setFont(ctx, 700, badgeSize);
+        ctx.fillStyle = signature.text ? MUTED : SOFT;
+        ctx.fillText(fitText(ctx, signature.badge, width), x, y);
+        if (!signature.text) return Math.round(badgeSize * 0.9);
+        y -= badgeSize + 12;
+    }
+    if (!signature.text) return 0;
     const quoted = `“${signature.text}”`;
     let fontSize = size;
     setHand(ctx, 600, fontSize);
@@ -935,23 +945,26 @@ const drawSignature = (ctx: CanvasRenderingContext2D, signature: CardSignature, 
     }
     const lines = wrapText(ctx, quoted, width, 2);
     const lineHeight = fontSize * 1.05;
-    let y = bottom;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-    if (signature.badge) {
-        const badgeSize = Math.round(size * 0.52);
-        setFont(ctx, 700, badgeSize);
-        ctx.fillStyle = MUTED;
-        ctx.fillText(fitText(ctx, signature.badge, width), x, y);
-        y -= badgeSize + 12;
-    }
-    setHand(ctx, 600, fontSize);
     ctx.fillStyle = pal.accentSoft;
     for (let i = lines.length - 1; i >= 0; i--) {
         ctx.fillText(lines[i], x, y);
         y -= lineHeight;
     }
     return bottom - y - lineHeight + fontSize * 0.9;
+};
+
+/** Lista con foto de fondo: la foto entera y oscurecida, más abajo, donde va el ranking. */
+const paintListBackdrop = (ctx: CanvasRenderingContext2D, hero: HTMLImageElement, width: number, height: number, horizontal = false) => {
+    ctx.fillStyle = pal.bg;
+    ctx.fillRect(0, 0, width, height);
+    drawCover(ctx, hero, 0, 0, width, height);
+    const shade = horizontal ? ctx.createLinearGradient(0, 0, width, 0) : ctx.createLinearGradient(0, 0, 0, height);
+    shade.addColorStop(0, bgA(horizontal ? 0.92 : 0.5));
+    shade.addColorStop(horizontal ? 0.55 : 0.32, bgA(horizontal ? 0.8 : 0.72));
+    shade.addColorStop(1, bgA(horizontal ? 0.55 : 0.9));
+    ctx.fillStyle = shade;
+    ctx.fillRect(0, 0, width, height);
+    drawGlow(ctx, width * 0.85, height * 0.1, Math.max(width, height) * 0.6, `rgba(${pal.accentRgb},0.18)`, width, height);
 };
 
 const paintBackground = (
@@ -976,10 +989,8 @@ const paintBackground = (
     ctx.beginPath();
     ctx.rect(0, 0, width, photoHeight);
     ctx.clip();
-    if (frame === 'mantel') {
-        drawGingham(ctx, width, photoHeight);
-    } else if (frame) {
-        // Con Polaroid, de fondo la misma foto desenfocada y con el color del tema.
+    if (frame) {
+        // Con marco, de fondo la misma foto desenfocada y con el color del tema.
         drawBlurredCover(ctx, hero, 0, 0, width, photoHeight);
         ctx.fillStyle = bgA(0.45);
         ctx.fillRect(0, 0, width, photoHeight);
@@ -1092,7 +1103,7 @@ const drawVerticalProfile = (
     if (stats.length) drawProfileStats(ctx, stats, margin, cursorY, width - margin * 2, isStory ? 150 : 104);
 };
 
-/** Lista con top 3: de arriba abajo, título y filas del ranking. */
+/** Lista con su top (hasta 5): de arriba abajo, título y filas del ranking. */
 const drawVerticalList = (
     ctx: CanvasRenderingContext2D,
     entity: ShareEntityPayload,
@@ -1123,11 +1134,15 @@ const drawVerticalList = (
         y += (isStory ? 36 : 30) + 14;
     }
     y += isStory ? 60 : 36;
-    const items = (entity.rankItems || []).slice(0, 3);
-    const gap = isStory ? 24 : 16;
+    const items = (entity.rankItems || []).slice(0, 5);
+    const gap = isStory ? 22 : 14;
     const available = bottomLimit - y;
-    const rowHeight = Math.min(isStory ? 240 : 150, Math.floor((available - gap * (items.length - 1)) / Math.max(1, items.length)));
-    if (rowHeight >= 80) drawRankRows(ctx, items, images, margin, y, contentWidth, rowHeight, gap);
+    // Hasta 5 filas; si no caben (Post con firma, títulos largos), las que quepan.
+    const rowFor = (n: number) => Math.min(isStory ? 240 : 150, Math.floor((available - gap * (n - 1)) / Math.max(1, n)));
+    let count = items.length;
+    while (count > 1 && rowFor(count) < (isStory ? 130 : 88)) count -= 1;
+    const rowHeight = rowFor(count);
+    if (rowHeight >= 80) drawRankRows(ctx, items.slice(0, count), images, margin, y, contentWidth, rowHeight, gap);
 };
 
 /** Sitio, plato o reseña: se apila de abajo arriba, encima del pie. */
@@ -1250,7 +1265,7 @@ const drawSidePhoto = (ctx: CanvasRenderingContext2D, image: HTMLImageElement | 
 /** Banner 1200×630: misma composición que la vista previa de WhatsApp. */
 const drawLandscape = (
     ctx: CanvasRenderingContext2D,
-    entity: ShareEntityPayload,
+    entity: CardEntity,
     hero: HTMLImageElement | null,
     avatar: HTMLImageElement | null,
     logo: HTMLImageElement | null,
@@ -1283,7 +1298,9 @@ const drawLandscape = (
         return;
     }
 
-    if (listWithTop) {
+    if (listWithTop && hero && entity.decor?.backdrop) {
+        paintListBackdrop(ctx, hero, width, height, true);
+    } else if (listWithTop) {
         ctx.fillStyle = pal.bg;
         ctx.fillRect(0, 0, width, height);
         drawGlow(ctx, 980, 120, 700, pal.glow, width, height);
@@ -1399,9 +1416,13 @@ export async function drawCard(entity: CardEntity, variant: ModernCardVariant, p
 
     if (entity.decor?.signature?.text || entity.decor?.frame === 'polaroid') await loadHandFont();
 
-    const rankItems = isList(entity) ? (entity.rankItems || []).slice(0, 3) : [];
+    const rankItems = isList(entity) ? (entity.rankItems || []).slice(0, 5) : [];
+    // Las listas con ranking solo llevan foto si se elige de fondo (y entonces, esa).
+    const heroSources = rankItems.length
+        ? (entity.decor?.backdrop ? [entity.imageUrl] : [])
+        : [entity.imageUrl, ...(entity.imageUrls || [])];
     const [hero, avatar, logo, ...rankImages] = await Promise.all([
-        loadFirstImage([entity.imageUrl, ...(entity.imageUrls || [])]),
+        loadFirstImage(heroSources),
         loadImage(entity.authorPhoto),
         loadImage(BRAND_LOGO_URL),
         ...rankItems.map((item) => loadImage(item.imageUrl)),
@@ -1416,7 +1437,8 @@ export async function drawCard(entity: CardEntity, variant: ModernCardVariant, p
     const isStory = variant === 'story';
     const margin = 64;
     const frame = hero && usesHeroPhoto(entity) ? entity.decor?.frame : undefined;
-    paintBackground(ctx, hero, entity, width, height, isStory ? 0.62 : variant === 'portrait' ? 0.6 : 0.64, frame);
+    if (rankItems.length && hero) paintListBackdrop(ctx, hero, width, height);
+    else paintBackground(ctx, hero, entity, width, height, isStory ? 0.62 : variant === 'portrait' ? 0.6 : 0.64, frame);
     drawBrand(ctx, logo, margin, margin, isStory ? 70 : 56);
     if (entity.type === 'review' && entity.subtitle && entity.city) {
         const tagSize = isStory ? 30 : 24;
@@ -1429,7 +1451,7 @@ export async function drawCard(entity: CardEntity, variant: ModernCardVariant, p
     const footerHeight = showFooter ? drawFooter(ctx, entity, margin, footerBottom, width - margin * 2, !isStory) : 0;
     let contentBottom = showFooter ? footerBottom - footerHeight - (isStory ? 48 : 32) : height - barHeight - 52;
     const signature = entity.decor?.signature;
-    if (signature?.text) {
+    if (signature?.text || signature?.badge) {
         const height = drawSignature(ctx, signature, margin, contentBottom, width - margin * 2, isStory ? 58 : 46);
         contentBottom -= height + (isStory ? 40 : 26);
     }
@@ -1442,7 +1464,7 @@ export async function drawCard(entity: CardEntity, variant: ModernCardVariant, p
         const contentTop = drawVerticalContent(ctx, entity, avatar, variant, width, contentBottom);
         if (frame && hero) {
             const brandBottom = margin + (isStory ? 70 : 56);
-            drawFramedPhoto(ctx, hero, frame, entity.title, width, brandBottom + (isStory ? 20 : 12), contentTop - (isStory ? 14 : 8));
+            drawFramedPhoto(ctx, hero, frame, entity, width, brandBottom + (isStory ? 20 : 12), contentTop - (isStory ? 14 : 8));
         }
     }
     drawBottomBar(ctx, width, height, barHeight);

@@ -53,7 +53,8 @@ const readMapLayer = (): MapLayerId | null => {
     }
 };
 
-const distanceLabel = (km: number | null) => (km === null || km >= NO_LIMIT ? 'Sin límite' : `${km} km`);
+const kmLabel = (km: number) => (km < 1 ? `${Math.round(km * 1000)} m` : `${km} km`);
+const distanceLabel = (km: number | null) => (km === null || km >= NO_LIMIT ? 'Sin límite' : kmLabel(km));
 
 const Section: React.FC<{ title: string; note?: React.ReactNode; children: React.ReactNode }> = ({ title, note, children }) => (
     <section>
@@ -247,7 +248,7 @@ export const SettingsPage: React.FC = () => {
             <Modal isOpen={sheet === 'distance'} onClose={close} title="📍 Distancia por defecto">
                 <p className="mb-3 text-xs text-[var(--lt-text-muted)]">Hasta dónde buscar cuando abres Listopic. Si cerca hay poco, se amplía sola.</p>
                 <Choices
-                    options={[...RANGE_STEPS_KM.map((km) => ({ id: km, label: `${km} km` })), { id: NO_LIMIT, label: 'Sin límite' }]}
+                    options={[...RANGE_STEPS_KM.map((km) => ({ id: km, label: kmLabel(km) })), { id: NO_LIMIT, label: 'Sin límite' }]}
                     value={distance >= NO_LIMIT ? NO_LIMIT : distance}
                     onPick={pickDistance}
                 />
