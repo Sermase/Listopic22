@@ -4,6 +4,9 @@ const logger = require("firebase-functions/logger");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { sendNotification } = require("./notifications");
 const { userReviewDocs } = require("./lib/user-reviews");
+const { writeAuditLog } = require("./lib/auth");
+const { tallyUserStats, counterUpdates, changedCounters, SHADOW_COUNTERS } = require("./lib/user-stats");
+const { syncCheckableBadges } = require("./surprises");
 
 const db = getFirestore();
 const DEFAULT_BADGE_XP_REWARD = 50;
@@ -121,13 +124,13 @@ async function countReviewedPlaces(userId) {
     return uniquePlaceIds.size;
 }
 
-async function buildGamificationMetrics(userId, userData, badgeDefinitions) {
+async function buildGamificationMetrics(userId, userData, badgeDefinitions, knownPlacesCount) {
     const needsPlaceCount = badgeDefinitions.some((badge) => badge.type === "place_count");
     const storedReviewedPlacesCount = safeNumber(userData?.reviewedPlacesCount);
 
-    const reviewedPlacesCount = needsPlaceCount || storedReviewedPlacesCount <= 0
-        ? await countReviewedPlaces(userId)
-        : storedReviewedPlacesCount;
+    let reviewedPlacesCount = storedReviewedPlacesCount;
+    if (typeof knownPlacesCount === "number") reviewedPlacesCount = knownPlacesCount;
+    else if (needsPlaceCount || storedReviewedPlacesCount <= 0) reviewedPlacesCount = await countReviewedPlaces(userId);
 
     return {
         reviewsCount: safeNumber(userData?.reviewsCount),
@@ -177,8 +180,10 @@ function calculateXp(metrics, earnedBadgeIds, badgeDefinitionsById) {
     const reviewsXP = metrics.reviewsCount * 10;
     const photosXP = metrics.photosCount * 5;
     const listsXP = metrics.listsCount * 20;
+    // Una medalla apagada (o sin ficha) se queda guardada pero oculta: no suma XP.
     const badgesXP = earnedBadgeIds.reduce((total, badgeId) => {
-        return total + getBadgeXpReward(badgeDefinitionsById.get(badgeId));
+        const badge = badgeDefinitionsById.get(badgeId);
+        return total + (badge ? getBadgeXpReward(badge) : 0);
     }, 0);
 
     return reviewsXP + photosXP + listsXP + badgesXP;
@@ -190,18 +195,21 @@ const COUNTED_TYPES = new Set(["review_count", "photo_count", "place_count", "li
 // Copias de una versión antigua (Pionero, Crítico de Barrio, Una Más y Me Voy, Foto o Prueba).
 const RETIRED_BADGES = new Set(["CRITIC_BRONZE", "CRITIC_SILVER", "CRITIC_GOLD", "PHOTOGRAPHER"]);
 
-function keptBadges(currentBadges, badgeDefinitionsById, metrics) {
+// knownBadgeIds: todas las fichas de `badges` (también las apagadas). Una medalla cuya ficha
+// ya no existe no se puede ver ni ganar: se quita.
+function keptBadges(currentBadges, badgeDefinitionsById, metrics, knownBadgeIds) {
     const typeOf = (id) => badgeDefinitionsById.get(id)?.type;
     const counted = (id) => COUNTED_TYPES.has(typeOf(id));
-    const kept = currentBadges.filter((id) => !RETIRED_BADGES.has(id)
+    const exists = (id) => !knownBadgeIds || knownBadgeIds.size === 0 || knownBadgeIds.has(id);
+    const kept = currentBadges.filter((id) => !RETIRED_BADGES.has(id) && exists(id)
         && (!counted(id) || typeOf(id) === "level_reached" || isBadgeEarned(badgeDefinitionsById.get(id), { metrics, level: 0 })));
     const level = calculateLevel(calculateXp(metrics, kept.filter((id) => typeOf(id) !== "level_reached"), badgeDefinitionsById));
     return kept.filter((id) => typeOf(id) !== "level_reached" || isBadgeEarned(badgeDefinitionsById.get(id), { metrics, level }));
 }
 
-function resolveGamificationState(currentBadges, badgeDefinitions, metrics) {
+function resolveGamificationState(currentBadges, badgeDefinitions, metrics, knownBadgeIds) {
     const badgeDefinitionsById = new Map(badgeDefinitions.map((badge) => [badge.id, badge]));
-    const earnedBadgeIds = new Set(keptBadges(currentBadges, badgeDefinitionsById, metrics));
+    const earnedBadgeIds = new Set(keptBadges(currentBadges, badgeDefinitionsById, metrics, knownBadgeIds));
 
     let iterations = 0;
     let changed = true;
@@ -281,7 +289,53 @@ async function notifyGamificationChanges(userId, previousLevel, nextLevel, newBa
     }
 }
 
-async function checkBadges(userId) {
+/** Fichas de medallas: las activas (las que se ganan) y los ids de todas (también apagadas). */
+async function loadBadgeDefinitions() {
+    const snapshot = await db.collection("badges").get();
+    const all = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    return { active: all.filter((badge) => badge.active === true), knownIds: new Set(all.map((badge) => badge.id)) };
+}
+
+/**
+ * Qué quitar y qué poner en users.badges. arrayRemove solo quita valores idénticos: las
+ * entradas antiguas en forma de objeto ({ id, ... }) o con espacios no se iban con
+ * arrayRemove("ID") y la medalla se quedaba para siempre. Se quitan tal cual están
+ * guardadas y, si la medalla sigue, se vuelve a poner como texto limpio.
+ */
+function badgeWritePlan(rawBadges, lostBadges, newBadges) {
+    const raw = Array.isArray(rawBadges) ? rawBadges : [];
+    const lost = new Set(lostBadges);
+    const cleanCount = new Map();
+    raw.forEach((entry) => {
+        if (typeof entry === "string" && entry && entry === entry.trim()) cleanCount.set(entry, (cleanCount.get(entry) || 0) + 1);
+    });
+    const remove = [];
+    const removedText = new Set();
+    const readd = new Set();
+    const removeEntry = (entry) => {
+        if (typeof entry === "string") {
+            if (removedText.has(entry)) return;
+            removedText.add(entry);
+        }
+        remove.push(entry);
+    };
+    raw.forEach((entry) => {
+        const [id] = normalizeBadgeIds([entry]);
+        if (!id || lost.has(id)) {
+            removeEntry(entry);
+            return;
+        }
+        const clean = typeof entry === "string" && entry === id;
+        if (!clean || cleanCount.get(id) > 1) {
+            removeEntry(entry);
+            readd.add(id);
+        }
+    });
+    const add = Array.from(new Set([...newBadges, ...readd]));
+    return { remove, add };
+}
+
+async function checkBadges(userId, options = {}) {
     if (!userId) return null;
 
     const userRef = db.collection("users").doc(userId);
@@ -291,10 +345,11 @@ async function checkBadges(userId) {
     const userData = userSnapshot.data() || {};
     const currentBadges = normalizeBadgeIds(userData.badges);
 
-    const badgesSnapshot = await db.collection("badges").where("active", "==", true).get();
-    const badgeDefinitions = badgesSnapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
-    const metrics = await buildGamificationMetrics(userId, userData, badgeDefinitions);
-    const resolvedState = resolveGamificationState(currentBadges, badgeDefinitions, metrics);
+    const definitions = options.definitions || await loadBadgeDefinitions();
+    const badgeDefinitions = definitions.active;
+    const metrics = await buildGamificationMetrics(userId, userData, badgeDefinitions, options.reviewedPlacesCount);
+    const resolvedState = resolveGamificationState(currentBadges, badgeDefinitions, metrics, definitions.knownIds);
+    const plan = badgeWritePlan(userData.badges, resolvedState.lostBadges, resolvedState.newBadges);
 
     const previousLevel = safeNumber(userData.level) || calculateLevel(safeNumber(userData.xp));
     const updates = {};
@@ -303,8 +358,10 @@ async function checkBadges(userId) {
         updates.reviewedPlacesCount = metrics.reviewedPlacesCount;
     }
 
+    if (plan.add.length > 0) {
+        updates.badges = FieldValue.arrayUnion(...plan.add);
+    }
     if (resolvedState.newBadges.length > 0) {
-        updates.badges = FieldValue.arrayUnion(...resolvedState.newBadges);
         updates.lastBadgeEarnedAt = FieldValue.serverTimestamp();
         // Cuándo se ganó cada una (la ficha de la medalla lo enseña); set con merge mezcla el mapa.
         updates.badgeDates = Object.fromEntries(resolvedState.newBadges.map((id) => [id, FieldValue.serverTimestamp()]));
@@ -322,9 +379,9 @@ async function checkBadges(userId) {
     // se reescribe la lista entera: así no se pisa una medalla dada a la vez desde otra función.
     const batch = db.batch();
     let writes = 0;
-    if (resolvedState.lostBadges.length > 0) {
+    if (plan.remove.length > 0) {
         batch.update(userRef, {
-            badges: FieldValue.arrayRemove(...resolvedState.lostBadges),
+            badges: FieldValue.arrayRemove(...plan.remove),
             ...Object.fromEntries(resolvedState.lostBadges.map((id) => [`badgeDates.${id}`, FieldValue.delete()])),
         });
         writes += 1;
@@ -356,7 +413,9 @@ async function checkBadges(userId) {
     return {
         xp: resolvedState.totalXP,
         level: resolvedState.level,
+        previousLevel,
         newBadges: resolvedState.newBadges,
+        lostBadges: resolvedState.lostBadges,
         reviewedPlacesCount: metrics.reviewedPlacesCount,
     };
 }
@@ -451,31 +510,108 @@ const adminManageBadge = onCall(async (request) => {
     }
 });
 
+const RECOUNT_PAGE = 500;
+
+/** Todas las valoraciones (solo los campos que cuentan), por páginas. */
+async function scanReviewsForStats() {
+    const entries = [];
+    let lastDoc = null;
+    for (;;) {
+        let query = db.collectionGroup("reviews").select("userId", "authorId", "placeId", "photos", "images", "photoUrl").limit(RECOUNT_PAGE);
+        if (lastDoc) query = query.startAfter(lastDoc);
+        const snap = await query.get();
+        if (snap.empty) break;
+        snap.docs.forEach((docSnap) => entries.push({ path: docSnap.ref.path, data: docSnap.data() }));
+        lastDoc = snap.docs[snap.docs.length - 1];
+        if (snap.size < RECOUNT_PAGE) break;
+    }
+    return entries;
+}
+
+async function countDocs(collectionRef) {
+    const snap = await collectionRef.count().get();
+    return safeNumber(snap.data().count);
+}
+
+const personName = (data, uid) => normalizeString(data?.username) || normalizeString(data?.displayName) || uid;
+
+/**
+ * «Recalcular TODO» (Developer): cuenta de nuevo, desde las valoraciones, listas y
+ * seguidores de verdad, lo que miran las medallas; repasa las secretas y de temas que se
+ * pueden comprobar; y deja a cada persona solo con las que cumple hoy. Antes se fiaba de
+ * los contadores guardados y, si estaban inflados, nadie perdía nada.
+ */
 const adminRecalculateAllGamification = onCall({ timeoutSeconds: 540, memory: "1GiB" }, async (request) => {
     if (!request.auth) throw new HttpsError("unauthenticated", "Must be logged in");
     await assertJefeAccess(request.auth.uid);
 
     const logs = [];
-    logs.push(`Starting Global Gamification Recalculation at ${new Date().toISOString()}`);
+    logs.push(`Recalculando medallas (${new Date().toISOString()})`);
 
     try {
-        const usersSnap = await db.collection("users").get();
-        logs.push(`Found ${usersSnap.size} users.`);
+        // 1) Secretas y de temas comprobables (lo mismo que el repaso de madrugada).
+        const secret = await syncCheckableBadges();
+        logs.push(`Secretas y de temas: ${secret.given} dadas, ${secret.taken} quitadas.`);
 
+        // 2) Contadores desde cero.
+        const [reviews, listsSnap, usersSnap, definitions] = await Promise.all([
+            scanReviewsForStats(),
+            db.collection("lists").select("userId", "isPublic").get(),
+            db.collection("users").get(),
+            loadBadgeDefinitions(),
+        ]);
+        const stats = tallyUserStats(reviews, listsSnap.docs.map((docSnap) => ({ data: docSnap.data() })));
+        logs.push(`${usersSnap.size} personas, ${reviews.length} valoraciones y ${listsSnap.size} listas.`);
+
+        // 3) Cada persona: contadores corregidos y medallas que cumple.
         let processed = 0;
-
+        let fixedCounters = 0;
+        let removed = 0;
+        let added = 0;
         for (const docSnap of usersSnap.docs) {
+            const uid = docSnap.id;
+            const data = docSnap.data() || {};
             try {
-                await checkBadges(docSnap.id);
+                const [followersCount, followingCount] = await Promise.all([
+                    countDocs(docSnap.ref.collection("followers")),
+                    countDocs(docSnap.ref.collection("following")),
+                ]);
+                const updates = counterUpdates(stats.get(uid), followersCount, followingCount);
+                const changes = changedCounters(data, updates);
+                if (changes.length > 0) {
+                    await docSnap.ref.set({
+                        ...updates,
+                        ...Object.fromEntries(SHADOW_COUNTERS.map((key) => [key, FieldValue.delete()])),
+                        lastStatsRecalc: FieldValue.serverTimestamp(),
+                    }, { merge: true });
+                    fixedCounters += 1;
+                }
+
+                const result = await checkBadges(uid, { definitions, reviewedPlacesCount: updates.reviewedPlacesCount });
                 processed += 1;
-                if (processed % 20 === 0) logs.push(`Processed ${processed}/${usersSnap.size} users...`);
+                if (!result) continue;
+                removed += result.lostBadges.length;
+                added += result.newBadges.length;
+                if (result.lostBadges.length > 0 || result.newBadges.length > 0) {
+                    const parts = [];
+                    if (result.lostBadges.length > 0) parts.push(`quitadas ${result.lostBadges.length} (${result.lostBadges.join(", ")})`);
+                    if (result.newBadges.length > 0) parts.push(`nuevas ${result.newBadges.length} (${result.newBadges.join(", ")})`);
+                    if (result.level !== result.previousLevel) parts.push(`nivel ${result.previousLevel} → ${result.level}`);
+                    const counts = changes
+                        .filter((change) => ["reviewsCount", "photosCount", "publicListsCount", "privateListsCount", "followersCount", "followingCount", "listCount"].includes(change.key))
+                        .map((change) => `${change.key} ${change.before ?? "—"} → ${change.after ?? "—"}`);
+                    if (counts.length > 0) parts.push(`recuento: ${counts.join(", ")}`);
+                    logs.push(`${personName(data, uid)}: ${parts.join("; ")}`);
+                }
             } catch (err) {
-                logs.push(`ERROR processing user ${docSnap.id}: ${err.message}`);
+                logs.push(`ERROR con ${personName(data, uid)}: ${err.message}`);
             }
         }
 
-        logs.push(`Completed. Successfully processed ${processed} users.`);
-        return { success: true, logs };
+        const summary = { processed, fixedCounters, removed, added, secretGiven: secret.given, secretTaken: secret.taken };
+        await writeAuditLog(request.auth.uid, "adminRecalculateAllGamification", summary);
+        logs.push(`Hecho: ${processed} personas, ${fixedCounters} con contadores corregidos, ${removed} medallas quitadas y ${added} dadas.`);
+        return { success: true, logs, ...summary };
     } catch (error) {
         logger.error("adminRecalculateAllGamification error", error);
         throw new HttpsError("internal", error.message);
@@ -560,6 +696,7 @@ module.exports = {
     onUserFollowingWritten,
     checkBadges,
     resolveGamificationState,
+    badgeWritePlan,
     adminRecalculateUserGamification,
     adminManageBadge,
     adminRecalculateAllGamification,
