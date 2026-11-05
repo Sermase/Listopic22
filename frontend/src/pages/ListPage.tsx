@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
+import { openRankingsPage, rankingSlug } from '../lib/seoLinks';
 import { createPortal } from 'react-dom';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useParams, Link, useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
@@ -1212,6 +1213,16 @@ export const ListPage: React.FC = () => {
                             <span className="px-2 py-0.5 rounded-md bg-[var(--lt-card-strong-alpha)] border border-[var(--lt-border)] text-[var(--lt-text-muted)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" title="En toda la Lista">
                                 {groupedItems.length} {listItemNoun(listCategoryId, groupedItems.length, groupingMode)}
                             </span>
+                        )}
+                        {/* Rankings por ciudad (/mejores): solo listas públicas principales. */}
+                        {!list.parentListId && (list.isPublic === true || list.visibility === 'public') && (
+                            <button
+                                type="button"
+                                onClick={() => openRankingsPage(`/mejores/${rankingSlug(list.name)}`)}
+                                className="px-2 py-0.5 rounded-md bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-accent)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm hover:brightness-110"
+                            >
+                                🏆 Lo mejor por ciudad
+                            </button>
                         )}
                         {/* Public/private only shown on sublists (user-owned) or to jefe */}
                         {(list.parentListId || isJefe) && (

@@ -15,7 +15,7 @@ const { onRequest } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const { getFirestore } = require("firebase-admin/firestore");
 const { resolveMeta } = require("./ssr-meta");
-const { loadRankings } = require("./lib/seo-rankings");
+const { loadRankings, slugify } = require("./lib/seo-rankings");
 
 const db = getFirestore();
 const PUBLIC_ORIGIN = (process.env.PUBLIC_ORIGIN || "https://listopic.es").replace(/\/$/, "");
@@ -161,26 +161,45 @@ const itemHref = (item) => (item.itemName
 const PAGE_CSS = `
   :root { color-scheme: dark; --bg:#0b1021; --card:#141a33; --line:#252c4d; --text:#eef0ff; --muted:#9aa3c7; --accent:#f59e0b; }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-  main { max-width:720px; margin:0 auto; padding:24px 16px 48px; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:16px 16px 48px; }
   a { color:inherit; }
-  header.top { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+  header.top { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
   .brand { font-weight:800; text-decoration:none; font-size:20px; }
-  .cta { background:var(--accent); color:#1a1200; text-decoration:none; padding:8px 14px; border-radius:999px; font-weight:700; font-size:14px; }
-  h1 { font-size:28px; line-height:1.2; margin:0 0 8px; }
-  .lead { color:var(--muted); margin:0 0 24px; }
-  ol.rank { list-style:none; padding:0; margin:0; display:grid; gap:10px; }
-  ol.rank li a { display:flex; gap:12px; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px; text-decoration:none; }
-  .pos { font-weight:800; width:28px; text-align:center; color:var(--muted); flex:none; }
-  .ph { width:64px; height:64px; border-radius:10px; object-fit:cover; background:var(--line); flex:none; }
-  .info { flex:1; min-width:0; }
+  .cta { background:var(--accent); color:#1a1200; text-decoration:none; padding:7px 13px; border-radius:999px; font-weight:700; font-size:14px; }
+  .crumb { color:var(--muted); font-size:13px; margin-bottom:6px; }
+  .crumb a { color:var(--muted); text-decoration:none; }
+  h1 { font-size:27px; line-height:1.2; margin:0 0 6px; }
+  .meta { color:var(--muted); font-size:13px; margin:0 0 14px; }
+  .lead, .note { color:var(--muted); }
+  .note { font-size:14px; }
+  .hero { width:100%; height:220px; object-fit:cover; border-radius:16px; display:block; background:var(--line); }
+  .intro { margin:16px 0; }
+  .intro b { color:var(--accent); }
+  .win { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin:18px 0; }
+  .win .lab { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); font-weight:800; }
+  .win h2 { margin:4px 0 8px; font-size:20px; }
+  .win h2 a { text-decoration:none; }
+  blockquote { margin:10px 0; padding:8px 12px; border-left:3px solid var(--accent); color:#dfe3ff; font-style:italic; }
+  .bar { display:flex; align-items:center; gap:8px; font-size:14px; margin:6px 0; }
+  .bl { width:96px; color:var(--muted); flex:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .track { flex:1; height:8px; background:var(--line); border-radius:9px; position:relative; }
+  .fill { display:block; height:100%; background:var(--accent); border-radius:9px; }
+  .avg { position:absolute; top:-3px; width:2px; height:14px; background:rgba(255,255,255,.6); }
+  ol.rank { list-style:none; padding:0; margin:0; display:grid; grid-template-columns:minmax(0,1fr); gap:9px; }
+  ol.rank li { min-width:0; }
+  ol.rank li a { display:flex; gap:11px; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:9px; text-decoration:none; min-width:0; }
+  .pos { font-weight:800; width:22px; text-align:center; color:var(--muted); flex:none; }
+  .ph { width:58px; height:58px; border-radius:10px; object-fit:cover; background:var(--line); flex:none; display:block; }
+  .info { flex:1; min-width:0; overflow:hidden; }
   .name { font-weight:700; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .sub { color:var(--muted); font-size:14px; }
-  .score { font-weight:800; font-size:20px; color:var(--accent); flex:none; }
-  h2 { font-size:18px; margin:32px 0 10px; }
-  ul.links { padding-left:18px; color:var(--muted); }
-  ul.links a { color:var(--text); }
-  footer { margin-top:40px; color:var(--muted); font-size:13px; }
+  .sub { color:var(--muted); font-size:14px; display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .score { font-weight:800; font-size:19px; color:var(--accent); flex:none; }
+  h2 { font-size:18px; margin:26px 0 10px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { border:1px solid var(--line); border-radius:999px; padding:6px 12px; font-size:14px; text-decoration:none; }
+  .big { display:block; text-align:center; background:var(--accent); color:#1a1200; font-weight:800; border-radius:14px; padding:13px; margin-top:24px; text-decoration:none; }
+  footer { margin-top:32px; color:var(--muted); font-size:13px; }
 `;
 
 function pageShell({ title, description, path, ld, body }) {
@@ -201,7 +220,7 @@ function pageShell({ title, description, path, ld, body }) {
   <meta property="og:description" content="${escapeHtml(description)}">
   <meta property="og:url" content="${escapeHtml(url)}">
   <meta property="og:image" content="${PUBLIC_ORIGIN}/s/og/app">
-  ${ld ? `<script type="application/ld+json">${jsonLd(ld)}</script>` : ""}
+  ${(Array.isArray(ld) ? ld : [ld]).filter(Boolean).map((data) => `<script type="application/ld+json">${jsonLd(data)}</script>`).join("\n  ")}
   <style>${PAGE_CSS}</style>
 </head>
 <body>
@@ -214,28 +233,77 @@ ${body}
 </html>`;
 }
 
+const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`;
+const lowerFirst = (text) => (text ? text.charAt(0).toLowerCase() + text.slice(1) : text);
+
+function introParagraph(ranking) {
+  const [first, second, third] = ranking.top;
+  if (!first) return "";
+  const { standout, listRank, listTotal } = ranking.winner || {};
+  const parts = [`Hemos ordenado ${plural(ranking.placeCount, "sitio", "sitios")} de ${escapeHtml(ranking.city)} con ${escapeHtml(lowerFirst(ranking.listName))} según las notas de quienes los han probado.`];
+  let lead = `Ahora mismo manda <b>${escapeHtml(first.placeName)}</b> con un <b>${fmtScore(first.score)}</b>`;
+  if (standout) {
+    const diff = standout.value - standout.listAvg;
+    lead += `, sobre todo por ${escapeHtml(lowerFirst(standout.label))}: un ${fmtScore(standout.value)}`;
+    if (diff >= 0.3) lead += `, ${fmtScore(diff)} ${diff >= 0.95 && diff < 1.05 ? "punto" : "puntos"} por encima de la media de la lista`;
+  }
+  parts.push(`${lead}.`);
+  const behind = [second, third].filter(Boolean).map((item) => `<b>${escapeHtml(item.placeName)}</b> (${fmtScore(item.score)})`);
+  if (behind.length) parts.push(`Detrás, ${behind.join(" y ")}.`);
+  if (listRank && listTotal > ranking.placeCount) parts.push(`En la lista completa es el <b>${listRank}.º de ${listTotal}</b>.`);
+  return parts.join(" ");
+}
+
+function winnerCard(ranking) {
+  const first = ranking.top[0];
+  const winner = ranking.winner || {};
+  if (!first) return "";
+  const bars = (winner.criteria || []).slice(0, 6).map((criterion) => `<div class="bar"><span class="bl">${escapeHtml(criterion.label)}</span><span class="track"><span class="fill" style="width:${Math.max(0, Math.min(100, criterion.value * 10))}%"></span>${typeof criterion.listAvg === "number" ? `<span class="avg" style="left:${Math.max(0, Math.min(100, criterion.listAvg * 10))}%"></span>` : ""}</span><b>${fmtScore(criterion.value)}</b></div>`).join("");
+  return `  <section class="win">
+    <div class="lab">🏆 El que gana</div>
+    <h2><a href="${escapeHtml(itemHref(first))}">${escapeHtml(first.placeName)}</a></h2>
+    ${winner.quote ? `<blockquote>«${escapeHtml(winner.quote)}»</blockquote>` : ""}
+    ${bars}
+    ${bars ? '<div class="note">La rayita blanca es la media de la lista.</div>' : ""}
+  </section>`;
+}
+
+const chips = (rows, label) => `<div class="chips">${rows.map((r) => `<a class="chip" href="${escapeHtml(r.path)}">${escapeHtml(label(r))}</a>`).join("")}</div>`;
+
 function renderRanking(ranking, all) {
   const { listName, city } = ranking;
-  const title = `${listName} en ${city}: los mejores sitios según notas reales · Listopic`;
-  const description = `Ranking de ${listName.toLowerCase()} en ${city}: ${ranking.placeCount} sitios ordenados por ${ranking.reviewCount} valoraciones de personas. ${ranking.top[0] ? `Ahora mismo gana ${ranking.top[0].placeName} con un ${fmtScore(ranking.top[0].score)}.` : ""}`.trim();
+  const title = `${listName} en ${city}: ranking de los mejores sitios · Listopic`;
+  const description = `Ranking de ${lowerFirst(listName)} en ${city}: ${plural(ranking.placeCount, "sitio", "sitios")} ordenados por ${plural(ranking.reviewCount, "valoración", "valoraciones")} de personas reales. ${ranking.top[0] ? `Ahora mismo gana ${ranking.top[0].placeName} con un ${fmtScore(ranking.top[0].score)}.` : ""}`.trim();
+  const hero = ranking.top[0] && ranking.top[0].imageUrl
+    ? `  <img class="hero" src="${escapeHtml(ranking.top[0].imageUrl)}" alt="${escapeHtml(`${listName} de ${ranking.top[0].placeName}`)}" onerror="this.remove()">`
+    : "";
+  // El nombre del plato solo si dice algo más que el de la lista (un sitio puede tener varios).
+  const showItem = (item) => item.itemName && slugify(item.itemName) !== ranking.listSlug;
   const items = ranking.top.map((item, index) => `    <li><a href="${escapeHtml(itemHref(item))}">
       <span class="pos">${index + 1}</span>
-      ${item.imageUrl ? `<img class="ph" src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.itemName || item.placeName)}" loading="lazy" width="64" height="64" onerror="this.style.visibility='hidden'">` : '<span class="ph"></span>'}
-      <span class="info"><span class="name">${escapeHtml(item.placeName)}</span><span class="sub">${escapeHtml(item.itemName || "")}${item.itemName ? " · " : ""}${item.count} ${item.count === 1 ? "valoración" : "valoraciones"}</span></span>
+      ${item.imageUrl ? `<img class="ph" src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.itemName || item.placeName)}" loading="lazy" width="58" height="58" onerror="this.style.visibility='hidden'">` : '<span class="ph"></span>'}
+      <span class="info"><span class="name">${escapeHtml(item.placeName)}</span><span class="sub">${showItem(item) ? `${escapeHtml(item.itemName)} · ` : ""}${plural(item.count, "valoración", "valoraciones")}</span></span>
       <span class="score">${fmtScore(item.score)}</span>
     </a></li>`).join("\n");
   const sameList = all.filter((r) => r.listSlug === ranking.listSlug && r.path !== ranking.path);
   const sameCity = all.filter((r) => r.citySlug === ranking.citySlug && r.path !== ranking.path);
-  const linkList = (rows, label) => rows.map((r) => `<li><a href="${escapeHtml(r.path)}">${escapeHtml(label(r))}</a></li>`).join("");
-  const body = `  <h1>${escapeHtml(listName)} en ${escapeHtml(city)}: el ranking</h1>
-  <p class="lead">Los ${ranking.top.length} mejores de ${ranking.placeCount} sitios valorados, según ${ranking.reviewCount} notas de personas reales. Toca uno para ver sus notas por criterio y las fotos.</p>
+  const labels = ranking.criteriaLabels || [];
+  const body = `  <nav class="crumb"><a href="/mejores">Rankings</a> › <a href="/mejores/${escapeHtml(ranking.listSlug)}">${escapeHtml(listName)}</a> › ${escapeHtml(city)}</nav>
+  <h1>${escapeHtml(listName)} en ${escapeHtml(city)}: el ranking</h1>
+  <p class="meta">Actualizado el ${escapeHtml(todayEs())} · ${plural(ranking.placeCount, "sitio", "sitios")} · notas de gente real</p>
+${hero}
+  <p class="intro">${introParagraph(ranking)}</p>
+${winnerCard(ranking)}
+  <h2>El ranking completo</h2>
   <ol class="rank">
 ${items}
   </ol>
-  <p class="lead" style="margin-top:16px"><a href="/list/${encodeURIComponent(ranking.listId)}">Ver la lista completa de ${escapeHtml(listName)} en Listopic</a></p>
-  ${sameCity.length ? `<h2>Más rankings en ${escapeHtml(city)}</h2><ul class="links">${linkList(sameCity, (r) => r.listName)}</ul>` : ""}
-  ${sameList.length ? `<h2>${escapeHtml(listName)} en otras ciudades</h2><ul class="links">${linkList(sameList, (r) => r.city)}</ul>` : ""}
-  <p><a href="/mejores">Todos los rankings</a></p>`;
+  ${ranking.provisional ? '<p class="note">⚠️ Provisional: la mayoría tiene menos de 3 valoraciones, así que el orden puede cambiar con las próximas.</p>' : ""}
+  <h2>¿Cómo puntuamos?</h2>
+  <p class="note">Cada persona pone nota de 0 a 10${labels.length ? ` a ${escapeHtml(labels.map(lowerFirst).join(", ").replace(/, ([^,]*)$/, " y $1"))}` : ""}. La nota final sale de esos criterios y, con más valoraciones, el puesto pesa más. Las cuentas de prueba no cuentan.</p>
+  ${sameCity.length ? `<h2>Más rankings en ${escapeHtml(city)}</h2>${chips(sameCity, (r) => r.listName)}` : ""}
+  ${sameList.length ? `<h2>${escapeHtml(listName)} en otras ciudades</h2>${chips(sameList, (r) => r.city)}` : ""}
+  <a class="big" href="/list/${encodeURIComponent(ranking.listId)}">¿Conoces un sitio mejor? Valóralo en Listopic</a>`;
   const ld = {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -249,7 +317,40 @@ ${items}
       url: `${PUBLIC_ORIGIN}${itemHref(item)}`,
     })),
   };
-  return pageShell({ title, description, path: ranking.path, ld, body });
+  const breadcrumbs = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Rankings", item: `${PUBLIC_ORIGIN}/mejores` },
+      { "@type": "ListItem", position: 2, name: listName, item: `${PUBLIC_ORIGIN}/mejores/${ranking.listSlug}` },
+      { "@type": "ListItem", position: 3, name: city, item: `${PUBLIC_ORIGIN}${ranking.path}` },
+    ],
+  };
+  return pageShell({ title, description, path: ranking.path, ld: [ld, breadcrumbs], body });
+}
+
+function renderListLanding(rows) {
+  const { listName, listSlug, listId } = rows[0];
+  const items = rows.map((r) => `    <li><a href="${escapeHtml(r.path)}">
+      ${r.top[0] && r.top[0].imageUrl ? `<img class="ph" src="${escapeHtml(r.top[0].imageUrl)}" alt="" loading="lazy" width="58" height="58" onerror="this.style.visibility='hidden'">` : '<span class="ph"></span>'}
+      <span class="info"><span class="name">${escapeHtml(r.city)}</span><span class="sub">${plural(r.placeCount, "sitio", "sitios")}${r.top[0] ? ` · gana ${escapeHtml(r.top[0].placeName)}` : ""}</span></span>
+      <span class="score">${r.top[0] ? fmtScore(r.top[0].score) : ""}</span>
+    </a></li>`).join("\n");
+  const body = `  <nav class="crumb"><a href="/mejores">Rankings</a> › ${escapeHtml(listName)}</nav>
+  <h1>${escapeHtml(listName)}: rankings por ciudad</h1>
+  <p class="meta">Actualizado el ${escapeHtml(todayEs())}</p>
+  <p class="intro">Dónde comer ${escapeHtml(lowerFirst(listName))} en cada ciudad, según las notas de la gente que ya ha ido.</p>
+  <ol class="rank">
+${items}
+  </ol>
+  <a class="big" href="/list/${encodeURIComponent(listId)}">Ver la lista completa en Listopic</a>`;
+  return pageShell({
+    title: `${listName}: rankings por ciudad · Listopic`,
+    description: `Rankings de ${lowerFirst(listName)} en ${rows.map((r) => r.city).join(", ")}, con notas reales de la comunidad Listopic.`,
+    path: `/mejores/${listSlug}`,
+    ld: null,
+    body,
+  });
 }
 
 function renderIndex(all) {
@@ -260,7 +361,7 @@ function renderIndex(all) {
     byCity.set(r.city, rows);
   });
   const sections = [...byCity].sort((a, b) => a[0].localeCompare(b[0], "es")).map(([city, rows]) => `  <h2>${escapeHtml(city)}</h2>
-  <ul class="links">${rows.map((r) => `<li><a href="${escapeHtml(r.path)}">${escapeHtml(r.listName)}</a> <span class="sub">· ${r.placeCount} sitios</span></li>`).join("")}</ul>`).join("\n");
+  ${chips(rows, (r) => `${r.listName} · ${r.placeCount}`)}`).join("\n");
   const body = `  <h1>Los rankings de Listopic</h1>
   <p class="lead">Cada plato, ciudad a ciudad, ordenado por las notas de la gente que lo ha probado.</p>
 ${sections || '  <p class="lead">Todavía no hay rankings con sitios suficientes.</p>'}`;
@@ -277,7 +378,11 @@ async function serveRanking(segments, res) {
   const all = await loadRankings();
   let html = null;
   if (segments.length === 1) html = renderIndex(all);
-  else {
+  else if (segments.length === 2) {
+    const listSlug = safeDecode(segments[1]).toLowerCase();
+    const rows = all.filter((r) => r.listSlug === listSlug);
+    if (rows.length) html = renderListLanding(rows);
+  } else {
     const path = `/mejores/${segments.slice(1, 3).map(safeDecode).join("/")}`.toLowerCase();
     const ranking = all.find((r) => r.path === path);
     if (ranking) html = renderRanking(ranking, all);

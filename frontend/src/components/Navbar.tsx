@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Bookmark, Bell, Building2, ChevronRight, Dice5, Eye, Info, LifeBuoy, Menu, MessageSquare, PiggyBank, Plus, Search, Settings, SlidersHorizontal, Sparkles, User, X } from 'lucide-react';
+import { Bookmark, Bell, Building2, ChevronRight, Dice5, Eye, Info, LifeBuoy, Menu, MessageSquare, PiggyBank, Plus, Search, Settings, SlidersHorizontal, Sparkles, Trophy, User, X } from 'lucide-react';
+import { openRankingsPage } from '../lib/seoLinks';
 import { collection, doc, limit, onSnapshot, query, where } from 'firebase/firestore';
 import { useAuth } from '../context/AuthContext';
 import { useAppConfig, useAppConfigLoading } from '../context/AppConfigContext';
@@ -480,6 +481,7 @@ export const Navbar: React.FC = () => {
                                     }}
                                 />
                             )}
+                            <MenuTile icon={Trophy} label="Rankings" hint="Lo mejor de cada ciudad" onClick={() => { setIsMenuOpen(false); openRankingsPage(); }} />
                             <MenuTile to="/planes" icon={Sparkles} label="Planes" hint="Para negocios" onClick={() => setIsMenuOpen(false)} />
                             <MenuTile to="/preferencias" icon={SlidersHorizontal} label="Preferencias" onClick={() => setIsMenuOpen(false)} />
                             <MenuTile to="/ayuda" icon={LifeBuoy} label="Ayuda" onClick={() => setIsMenuOpen(false)} />
