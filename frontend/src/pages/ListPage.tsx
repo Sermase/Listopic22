@@ -1153,10 +1153,15 @@ export const ListPage: React.FC = () => {
             ? `${distanceLabel(range).toLowerCase()}${userGeo?.city ? `, en ${userGeo.city}` : ''}`
             : undefined;
     const listShareItems = listShareScope ? filteredItemsAll : groupedItems;
-    // El top 3 de la tarjeta va siempre por nota, aunque la lista se vea en otro orden.
-    const listShareTop = [...listShareItems]
-        .sort((a, b) => compareElementsByRank({ id: a.id, average: a.avgRating, count: a.reviewCount }, { id: b.id, average: b.avgRating, count: b.reviewCount }))
-        .slice(0, 3)
+    // El top 5 de la tarjeta va siempre por nota, aunque la lista se vea en otro orden.
+    const listShareRanked = [...listShareItems]
+        .sort((a, b) => compareElementsByRank({ id: a.id, average: a.avgRating, count: a.reviewCount }, { id: b.id, average: b.avgRating, count: b.reviewCount }));
+    // Para el fondo de la tarjeta: fotos de lo que hay en esa zona, de mejor a peor.
+    const listShareScopePhotos = Array.from(new Set(listShareRanked
+        .flatMap((item) => [item.reviewPhotoUrl, item.photoUrl, item.placeMainImage])
+        .filter((value): value is string => Boolean(value)))).slice(0, 12);
+    const listShareTop = listShareRanked
+        .slice(0, 5)
         .map((item) => ({
             title: item.name,
             subtitle: groupingMode === 'dish' ? [item.placeName, item.placeCity].filter(Boolean).join(' · ') : item.placeCity,
@@ -1730,7 +1735,7 @@ export const ListPage: React.FC = () => {
                     route: `/list/${list.id}`,
                     url: listShareUrl,
                     imageUrl: listShareImage,
-                    imageUrls: listShareImages,
+                    imageUrls: listShareScopePhotos.length ? listShareScopePhotos : listShareImages,
                     score: list.averageRating || list.avgScore,
                     reviewCount: list.reviewCount,
                     authorId: list.userId,

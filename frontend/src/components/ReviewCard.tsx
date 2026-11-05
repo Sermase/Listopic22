@@ -10,6 +10,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { type ReviewEntity } from '../hooks/useListDetails';
 import { useAuth } from '../context/AuthContext';
 import { LazyShareModal as ShareModal } from './lazy';
+import { reviewCardImages } from '../lib/shareImages';
 import { SaveToArchiveModal } from './SaveToArchiveModal';
 import { ReviewService } from '../services/ReviewService';
 import { ReportModal } from './ReportModal';
@@ -578,9 +579,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review, onDelete, onEdit
                     route: review.placeId && review.itemName ? reviewRoute : undefined,
                     shareRoute: review.listId && review.id ? `/review/${review.listId}/${review.id}` : undefined,
                     url: reviewShareUrl,
-                    imageUrl: review.photoUrl || review.placeMainImage,
-                    imageUrls: [...(review.photoUrls || []), review.photoUrl, review.placeMainImage]
-                        .filter((value): value is string => Boolean(value)),
+                    ...reviewCardImages(review),
                     badgeLabel: review.listName,
                     score: review.overallRating,
                     authorId: review.userId || review.authorId,

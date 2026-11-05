@@ -10,7 +10,7 @@ import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useBackToClose } from '../hooks/useSheetDismiss';
 import { useAbilityGate, useMyAbilities } from '../hooks/useAbilities';
 import { MAX_FILTERS, PHOTOS_PER_FILTER, abilityMeta } from '../lib/abilities';
-import { PHOTO_FILTERS, applyFilterToCanvas, filterCss, photoFilterById, type PhotoFilter } from '../lib/photoFilters';
+import { PHOTO_FILTERS, applyFilterToCanvas, filterCss, photoFilterById, withStrength, type PhotoFilter } from '../lib/photoFilters';
 
 interface SortablePhotoProps {
     p: PhotoEntry;
@@ -133,6 +133,8 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
     const [processing, setProcessing] = useState(false);
     // Filtro elegido por foto (premio de «Ojo de Halcón»).
     const [filters, setFilters] = useState<Record<string, string>>({});
+    // Fuerza del filtro por foto, de 0 a 100 (como en Instagram).
+    const [strengths, setStrengths] = useState<Record<string, number>>({});
     const { filtersUnlocked, photosCount, isJefe, has } = useMyAbilities();
     const gate = useAbilityGate();
     // Sin la medalla, si el premio está encendido, se enseña cómo conseguirlo.
@@ -147,6 +149,8 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
         ? (cropStates[active.id] ?? { crop: { x: 0, y: 0 }, zoom: 1, croppedAreaPixels: null })
         : { crop: { x: 0, y: 0 }, zoom: 1, croppedAreaPixels: null };
     const activeFilter = active ? photoFilterById(filters[active.id]) : undefined;
+    const activeStrength = active ? (strengths[active.id] ?? 100) : 100;
+    const shownFilter = withStrength(activeFilter, activeStrength);
     const unlockedFilters = PHOTO_FILTERS.slice(0, filtersUnlocked);
     const nextFilterAt = filtersUnlocked > 0 && filtersUnlocked < MAX_FILTERS && !isJefe
         ? (Math.floor(photosCount / PHOTOS_PER_FILTER) + 1) * PHOTOS_PER_FILTER
@@ -203,7 +207,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
                 const img = await loadImage(p.src);
                 const crop: Area = cropStates[p.id]?.croppedAreaPixels
                     ?? (lockedAspect ? centeredCrop(img.naturalWidth, img.naturalHeight, aspect) : { x: 0, y: 0, width: img.naturalWidth, height: img.naturalHeight });
-                results.push({ ...(await applyCrop(p.src, crop, 1600, photoFilterById(filters[p.id]))), isMain: i === 0 });
+                results.push({ ...(await applyCrop(p.src, crop, 1600, withStrength(photoFilterById(filters[p.id]), strengths[p.id] ?? 100))), isMain: i === 0 });
             }
             onConfirm(results);
         } finally { setProcessing(false); }
@@ -255,7 +259,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
                             style={{
                                 containerStyle: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: '#000' },
                                 cropAreaStyle: { border: '1.5px solid rgba(255,255,255,0.85)', boxShadow: '0 0 0 9999px rgba(0,0,0,0.62)', borderRadius: 4 },
-                                mediaStyle: activeFilter ? { filter: filterCss(activeFilter) } : undefined,
+                                mediaStyle: shownFilter ? { filter: filterCss(shownFilter) } : undefined,
                             }}
                         />
                     ) : (
@@ -290,18 +294,32 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
 
                     <div className="min-h-[124px] px-4 py-3">
                         {activeTool === 'filters' && active && filtersUnlocked > 0 && (
+                            <>
+                            {/* Fuerza del filtro elegido; con «Original» se guarda el hueco para que la foto no salte. */}
+                            <label className={`mb-3 flex items-center gap-3 ${activeFilter ? '' : 'invisible'}`}>
+                                <span className={`${label} shrink-0 text-[var(--lt-text-muted)]`}>Intensidad</span>
+                                <input type="range" min={0} max={100} step={1} value={activeStrength} aria-label="Intensidad del filtro"
+                                    disabled={!activeFilter}
+                                    onChange={e => setStrengths(prev => ({ ...prev, [active.id]: Number(e.target.value) }))}
+                                    className="h-1 w-full cursor-pointer accent-[var(--lt-accent)]" />
+                                <span className="w-10 shrink-0 text-right text-xs font-black tabular-nums text-[var(--lt-text)]">{activeStrength}%</span>
+                            </label>
                             <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 touch-pan-x" role="radiogroup" aria-label="Filtro de la foto">
                                 {[undefined, ...unlockedFilters].map((f) => {
                                     const selected = (activeFilter?.id ?? null) === (f?.id ?? null);
                                     return (
                                         <button key={f?.id ?? 'none'} type="button" role="radio" aria-checked={selected} aria-label={f ? f.name : 'Original'}
-                                            onClick={() => setFilters(prev => ({ ...prev, [active.id]: f?.id ?? '' }))}
+                                            onClick={() => {
+                                                if (selected) return;
+                                                setFilters(prev => ({ ...prev, [active.id]: f?.id ?? '' }));
+                                                setStrengths(prev => ({ ...prev, [active.id]: 100 }));
+                                            }}
                                             className="shrink-0 flex flex-col items-center gap-2 w-[76px]">
                                             <span className={`${label} truncate max-w-full ${selected ? 'text-[var(--lt-text)]' : 'text-[var(--lt-text-muted)]'}`}>
                                                 {f ? f.name : 'Original'}
                                             </span>
                                             <span className={`block h-[76px] w-[76px] overflow-hidden rounded-2xl transition-all ${selected ? 'ring-2 ring-[var(--lt-accent)] ring-offset-2 ring-offset-[var(--lt-bg-deep)]' : ''}`}>
-                                                <img src={active.src} alt="" className="h-full w-full object-cover" style={{ filter: filterCss(f) }} />
+                                                <img src={active.src} alt="" className="h-full w-full object-cover" style={{ filter: filterCss(selected ? shownFilter : f) }} />
                                             </span>
                                         </button>
                                     );
@@ -315,6 +333,7 @@ export const PhotoEditorModal: React.FC<PhotoEditorModalProps> = ({
                                     </span>
                                 )}
                             </div>
+                            </>
                         )}
 
                         {activeTool === 'filters' && filtersTeaser && (

@@ -10,10 +10,10 @@ import {
     shareCardImage,
     type CardDecor,
     type CardEntity,
-    type CardSignature,
     type ModernCardVariant,
 } from '../ShareCardModern';
 import { CARD_PALETTE_IDS, CARD_PALETTES, type CardPaletteId } from '../../lib/shareCardPalettes';
+import { SIGNATURE_MAX, SIGNATURE_SUGGESTIONS } from '../../lib/abilities';
 import { useBackToClose } from '../../hooks/useSheetDismiss';
 import { haptic } from '../../utils/haptics';
 
@@ -30,7 +30,7 @@ const FORMATS: Array<{ id: ModernCardVariant; label: string; hint: string }> = [
 const FRAMES: Array<{ id: Frame; label: string }> = [
     { id: 'none', label: 'Sin marco' },
     { id: 'polaroid', label: 'Polaroid' },
-    { id: 'mantel', label: 'Mantel' },
+    { id: 'stamp', label: 'Sello' },
 ];
 
 interface ShareCardStudioProps {
@@ -41,8 +41,11 @@ interface ShareCardStudioProps {
     onPaletteChange: (palette: CardPaletteId) => void;
     /** Premio «Archivo Visual»: marcos. */
     canFrame: boolean;
-    /** Premio «Crítico de Barrio»: la firma (si la tiene elegida). */
-    signature?: CardSignature;
+    /**
+     * Premio «Crítico de Barrio»: firmar. Llega la firma de siempre (Preferencias → Mis premios)
+     * y aquí se puede cambiar solo para esta tarjeta.
+     */
+    signing?: { text?: string; badgeId?: string; badges: Array<{ id: string; label: string }> };
     onClose: () => void;
     /** Para la analítica: se compartió o se guardó. */
     onDone?: () => void;
@@ -101,20 +104,28 @@ const FrameIcon: React.FC<{ frame: Frame; photo?: string }> = ({ frame, photo })
             </span>
         );
     }
-    if (frame === 'mantel') {
+    if (frame === 'stamp') {
+        // Borde troquelado: puntos del color del fondo por los cuatro lados.
+        const holes = 'radial-gradient(circle, var(--lt-bg-deep) 2px, transparent 2.5px)';
         return (
-            <span
-                className="grid h-full w-full place-items-center"
-                style={{ background: 'repeating-linear-gradient(0deg, rgba(196,36,48,.45) 0 8px, transparent 8px 16px), repeating-linear-gradient(90deg, rgba(196,36,48,.45) 0 8px, #f7f0e3 8px 16px)' }}
-            >
-                <span className="block h-11 w-11 rounded-full bg-[#f6f3ee] p-[5px] shadow-lg">
-                    <span className="block h-full w-full overflow-hidden rounded-full">{img}</span>
+            <span className="grid h-full w-full place-items-center bg-[var(--lt-bg-deep)]">
+                <span className="relative block rotate-2 bg-[#fbf8f1] p-[4px] pb-[9px] shadow-lg">
+                    <span className="block h-9 w-[30px] overflow-hidden">{img}</span>
+                    <span className="absolute -top-[3px] left-0 right-0 h-[6px]" style={{ background: holes, backgroundSize: '6px 6px' }} />
+                    <span className="absolute -bottom-[3px] left-0 right-0 h-[6px]" style={{ background: holes, backgroundSize: '6px 6px' }} />
+                    <span className="absolute -left-[3px] bottom-0 top-0 w-[6px]" style={{ background: holes, backgroundSize: '6px 6px' }} />
+                    <span className="absolute -right-[3px] bottom-0 top-0 w-[6px]" style={{ background: holes, backgroundSize: '6px 6px' }} />
+                    <span className="absolute -right-3 -top-2 h-5 w-5 rounded-full border-2 border-[var(--lt-accent)] opacity-90" />
                 </span>
             </span>
         );
     }
     return <span className="block h-full w-full overflow-hidden">{img}</span>;
 };
+
+const chipClass = (on: boolean) => `shrink-0 whitespace-nowrap rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${on
+    ? 'border-[var(--lt-accent)] bg-[var(--lt-accent-soft)] text-[var(--lt-text)]'
+    : 'border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`;
 
 /** Crear la tarjeta: se ve en grande y se cambia el formato, el tema, la foto, el marco y la firma. */
 export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
@@ -123,15 +134,21 @@ export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
     palette,
     onPaletteChange,
     canFrame,
-    signature,
+    signing,
     onClose,
     onDone,
 }) => {
     useBackToClose(true, onClose);
+    // Listas con ranking: no llevan foto, salvo que se elija una de fondo.
+    const isRankedList = (entity.type === 'list' || entity.type === 'sublist') && Boolean(entity.rankItems?.length);
     const [variant, setVariant] = useState<ModernCardVariant>('story');
-    const [image, setImage] = useState<string | undefined>(images[0]);
+    const [image, setImage] = useState<string | undefined>(isRankedList ? undefined : images[0]);
     const [frame, setFrame] = useState<Frame>('none');
-    const [useSignature, setUseSignature] = useState(true);
+    // Firma: la de siempre, que aquí se puede cambiar solo para esta tarjeta.
+    const defaultBadge = signing?.badges.some((b) => b.id === signing.badgeId) ? signing.badgeId : undefined;
+    const [phrase, setPhrase] = useState(signing?.text || '');
+    const [badgeId, setBadgeId] = useState<string | undefined>(defaultBadge);
+    const [useSignature, setUseSignature] = useState(Boolean(signing?.text || defaultBadge));
     const [tab, setTab] = useState<Tab>('theme');
     const [rendering, setRendering] = useState(true);
     const [busy, setBusy] = useState<'share' | 'save' | null>(null);
@@ -139,17 +156,23 @@ export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
     // Los marcos van sobre la foto grande: no en el Banner ni sin foto.
-    const frameAllowed = canFrame && variant !== 'landscape' && Boolean(image);
+    const frameAllowed = canFrame && !isRankedList && variant !== 'landscape' && Boolean(image);
     const decor: CardDecor = {};
     if (frameAllowed && frame !== 'none') decor.frame = frame;
-    if (signature && useSignature && variant !== 'landscape') decor.signature = signature;
+    if (isRankedList && image) decor.backdrop = true;
+    const badgeLabel = signing?.badges.find((b) => b.id === badgeId)?.label;
+    const signText = phrase.trim().slice(0, SIGNATURE_MAX);
+    if (signing && useSignature && variant !== 'landscape' && (signText || badgeLabel)) {
+        decor.signature = { ...(signText ? { text: signText } : {}), ...(badgeLabel ? { badge: badgeLabel } : {}) };
+    }
     const card: CardEntity = { ...entity, imageUrl: image || entity.imageUrl, decor: Object.keys(decor).length ? decor : undefined };
     const key = JSON.stringify([variant, palette, image, decor]);
 
     useEffect(() => {
         let cancelled = false;
         setRendering(true);
-        drawCard(card, variant, palette)
+        // Un respiro antes de dibujar: al escribir la frase no se redibuja en cada letra.
+        const timer = window.setTimeout(() => drawCard(card, variant, palette)
             .then((full) => {
                 const target = canvasRef.current;
                 if (cancelled || !target) return;
@@ -163,8 +186,8 @@ export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
                 ctx.drawImage(full, 0, 0, target.width, target.height);
             })
             .catch(() => setFeedback('No se pudo dibujar la tarjeta.'))
-            .finally(() => { if (!cancelled) setRendering(false); });
-        return () => { cancelled = true; };
+            .finally(() => { if (!cancelled) setRendering(false); }), 90);
+        return () => { cancelled = true; window.clearTimeout(timer); };
         // La clave resume lo que cambia el dibujo.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [key]);
@@ -191,12 +214,14 @@ export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
         }
     };
 
+    // En listas, «Sin foto» también cuenta: con una sola foto ya hay para elegir.
+    const showPhotos = images.length > (isRankedList ? 0 : 1);
     const tabs: Array<{ id: Tab; label: string }> = [
         { id: 'theme', label: 'Tema' },
         { id: 'format', label: 'Formato' },
-        ...(images.length > 1 ? [{ id: 'photo' as const, label: 'Foto' }] : []),
-        ...(canFrame && images.length ? [{ id: 'frame' as const, label: 'Marco' }] : []),
-        ...(signature ? [{ id: 'signature' as const, label: 'Firma' }] : []),
+        ...(showPhotos ? [{ id: 'photo' as const, label: isRankedList ? 'Fondo' : 'Foto' }] : []),
+        ...(canFrame && !isRankedList && images.length ? [{ id: 'frame' as const, label: 'Marco' }] : []),
+        ...(signing ? [{ id: 'signature' as const, label: 'Firma' }] : []),
     ];
     // En el móvil se ve una sección (la de la pestaña); en grande, todas.
     const section = (id: Tab) => `${tab === id ? 'block' : 'hidden'} md:block`;
@@ -270,10 +295,24 @@ export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
                                 </div>
                             </section>
 
-                            {images.length > 1 && (
+                            {showPhotos && (
                                 <section className={section('photo')}>
-                                    <p className={heading}>Foto</p>
-                                    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-wrap md:px-0" role="radiogroup" aria-label="Foto de la tarjeta">
+                                    <p className={heading}>{isRankedList ? 'Fondo' : 'Foto'}</p>
+                                    {isRankedList && <p className="mb-2 text-[11px] text-[var(--lt-text-muted)]">Una foto de lo que sale en la lista, detrás del ranking.</p>}
+                                    <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-wrap md:px-0" role="radiogroup" aria-label={isRankedList ? 'Fondo de la tarjeta' : 'Foto de la tarjeta'}>
+                                        {isRankedList && (
+                                            <button
+                                                type="button"
+                                                role="radio"
+                                                aria-checked={!image}
+                                                aria-label="Sin foto"
+                                                onClick={() => setImage(undefined)}
+                                                className={`grid h-[72px] w-[72px] shrink-0 place-items-center rounded-2xl border border-[var(--lt-border)] text-[11px] font-bold text-[var(--lt-text-muted)] transition-all ${!image ? 'ring-2 ring-[var(--lt-accent)] ring-offset-2 ring-offset-[var(--lt-bg-deep)]' : ''}`}
+                                                style={{ background: `radial-gradient(circle at 80% 10%, ${CARD_PALETTES[palette].glow}, transparent 60%), ${CARD_PALETTES[palette].bg}` }}
+                                            >
+                                                Sin foto
+                                            </button>
+                                        )}
                                         {images.map((url, index) => {
                                             const active = image === url;
                                             return (
@@ -286,7 +325,7 @@ export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
                                                     onClick={() => setImage(url)}
                                                     className={`relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-2xl transition-all ${active ? 'ring-2 ring-[var(--lt-accent)] ring-offset-2 ring-offset-[var(--lt-bg-deep)]' : 'opacity-70'}`}
                                                 >
-                                                    <img src={url} alt="" className="h-full w-full object-cover" />
+                                                    <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
                                                 </button>
                                             );
                                         })}
@@ -294,7 +333,7 @@ export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
                                 </section>
                             )}
 
-                            {canFrame && images.length > 0 && (
+                            {canFrame && !isRankedList && images.length > 0 && (
                                 <section className={section('frame')}>
                                     <p className={heading}>Marco</p>
                                     {variant === 'landscape' ? (
@@ -324,27 +363,63 @@ export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
                                 </section>
                             )}
 
-                            {signature && (
+                            {signing && (
                                 <section className={section('signature')}>
                                     <p className={heading}>Firma</p>
                                     <button
                                         type="button"
                                         role="switch"
                                         aria-checked={useSignature}
+                                        aria-label="Firmar esta tarjeta"
                                         onClick={() => setUseSignature((on) => !on)}
-                                        className="flex w-full items-center gap-3 rounded-2xl border border-[var(--lt-border)] bg-white/[0.03] px-3 py-2.5 text-left"
+                                        className="flex w-full items-center gap-3 text-left"
                                     >
-                                        <span className="min-w-0 flex-1">
-                                            <span className="block truncate text-xl leading-tight text-[var(--lt-accent)]" style={{ fontFamily: "'Caveat Variable', cursive" }}>“{signature.text}”</span>
-                                            {signature.badge && <span className="block truncate text-[11px] font-semibold text-[var(--lt-text-muted)]">{signature.badge}</span>}
+                                        <span className="min-w-0 flex-1 text-sm font-bold text-[var(--lt-text)]">
+                                            Firmar esta tarjeta
+                                            {variant === 'landscape' && <span className="block text-[11px] font-semibold text-[var(--lt-text-muted)]">El Banner no lleva firma.</span>}
                                         </span>
                                         <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${useSignature ? 'bg-[var(--lt-accent)]' : 'bg-white/15'}`}>
                                             <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${useSignature ? 'left-[22px]' : 'left-0.5'}`} />
                                         </span>
                                     </button>
-                                    <p className="mt-1.5 text-[11px] text-[var(--lt-text-muted)]">
-                                        {variant === 'landscape' ? 'El Banner no lleva firma. ' : ''}Cámbiala en Preferencias → Mis premios.
-                                    </p>
+                                    <div className={`mt-2 space-y-2 transition-opacity ${useSignature ? '' : 'opacity-50'}`}>
+                                        <div className="relative">
+                                            <input
+                                                value={phrase}
+                                                maxLength={SIGNATURE_MAX}
+                                                onChange={(e) => { setPhrase(e.target.value); setUseSignature(true); }}
+                                                placeholder="Escribe tu frase…"
+                                                aria-label="Frase de la firma"
+                                                className="w-full rounded-xl border border-[var(--lt-border)] bg-[var(--lt-bg)] py-1.5 pl-3 pr-12 text-xl leading-tight text-[var(--lt-accent)] outline-none placeholder:text-[var(--lt-text-muted)] focus:border-[var(--lt-accent)]"
+                                                style={{ fontFamily: "'Caveat Variable', cursive" }}
+                                            />
+                                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] tabular-nums text-[var(--lt-text-muted)]">{phrase.length}/{SIGNATURE_MAX}</span>
+                                        </div>
+                                        <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0">
+                                            {signing.text && phrase !== signing.text && (
+                                                <button type="button" onClick={() => { setPhrase(signing.text || ''); setUseSignature(true); }} className={chipClass(false)}>
+                                                    ↩ La de siempre
+                                                </button>
+                                            )}
+                                            {SIGNATURE_SUGGESTIONS.filter((idea) => idea !== signing.text).map((idea) => (
+                                                <button key={idea} type="button" onClick={() => { setPhrase(idea); setUseSignature(true); }} className={chipClass(phrase === idea)}>
+                                                    {idea}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        {signing.badges.length > 0 && (
+                                            <div className="-mx-4 flex gap-1.5 overflow-x-auto px-4 md:mx-0 md:flex-wrap md:px-0" role="radiogroup" aria-label="Medalla de la firma">
+                                                <button type="button" role="radio" aria-checked={!badgeId} onClick={() => setBadgeId(undefined)} className={chipClass(!badgeId)}>
+                                                    Sin medalla
+                                                </button>
+                                                {signing.badges.map((b) => (
+                                                    <button key={b.id} type="button" role="radio" aria-checked={badgeId === b.id} onClick={() => { setBadgeId(b.id); setUseSignature(true); }} className={chipClass(badgeId === b.id)}>
+                                                        {b.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </section>
                             )}
                         </div>

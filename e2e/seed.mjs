@@ -135,6 +135,21 @@ async function seed() {
     });
   }
 
+  // Tarjetas de premios.spec.ts: una lista con fotos (fondo de la tarjeta y foto de la reseña) en
+  // su propio sitio. Las fotos las sirve el test (page.route), así que no hace falta subirlas.
+  await db.doc('places/p_tarjeta').set({ name: 'Bar Tarjeta', city: 'Teruel', province: 'Teruel', region: 'Aragón', country: 'España', location: new GeoPoint(40.3456, -1.1065), address: 'Bar Tarjeta, Teruel' });
+  await db.doc('lists/tarjetas').set({ ...base, name: 'Tarjetas E2E', isPublic: true, visibility: 'public', criteriaDefinition: list.criteriaDefinition, scoringWeights: list.scoringWeights });
+  for (const [id, itemName, overallRating, photoUrls] of [
+    ['rt1', 'Tortilla de foto', 9, ['/images/e2e-plato-1.jpg', '/images/e2e-plato-2.jpg']],
+    ['rt2', 'Burger de foto', 7.5, ['/images/e2e-plato-3.jpg']],
+  ]) {
+    await db.doc(`lists/tarjetas/reviews/${id}`).set({
+      userId: 'ana', authorName: 'ana', placeId: 'p_tarjeta', itemName, visibility: 'public', overallRating, listId: 'tarjetas',
+      establishmentName: 'Bar Tarjeta', authorUserType: ['basico'], photoUrl: photoUrls[0], photoUrls,
+      createdAt: Timestamp.fromMillis(1_790_000_000_000),
+    });
+  }
+
   // Chat de chat.spec.ts: un grupo con una quedada que ya pasó (para el duelo de notas).
   await db.doc('chats/comilona').set({
     participants: ['ana', 'luis', 'eva'], type: 'group', groupName: 'Comilona',

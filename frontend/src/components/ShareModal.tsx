@@ -8,7 +8,8 @@ import { renderThumb, type CardEntity } from './ShareCardModern';
 import { ShareCardStudio } from './share/ShareCardStudio';
 import { useMyAbilities } from '../hooks/useAbilities';
 import { presetBadge } from '../config/badgePresets';
-import { signatureFor } from '../lib/abilities';
+import { signatureBadgeOptions } from '../lib/abilities';
+import { reviewCardImages } from '../lib/shareImages';
 import { defaultCardPalette, type CardPaletteId } from '../lib/shareCardPalettes';
 import { useTheme } from '../context/ThemeContext';
 import type { ReviewEntity } from '../hooks/useListDetails';
@@ -140,9 +141,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                 route,
                 shareRoute: review.listId && review.id ? `/review/${review.listId}/${review.id}` : undefined,
                 url: fallbackUrl,
-                imageUrl: review.photoUrl || review.placeMainImage,
-                imageUrls: [...(review.photoUrls || []), review.photoUrl, review.placeMainImage]
-                    .filter((value): value is string => Boolean(value)),
+                ...reviewCardImages(review),
                 badgeLabel: review.listName,
                 score: review.overallRating,
                 authorId: review.userId || review.authorId,
@@ -228,9 +227,20 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     const abilities = useMyAbilities();
     const canFrame = abilities.has('photoFrames') && availableImageUrls.length > 0
         && cardEntity.type !== 'profile' && !((cardEntity.type === 'list' || cardEntity.type === 'sublist') && cardEntity.rankItems?.length);
-    const signature = abilities.has('cardSignature')
-        ? signatureFor(abilities.prefs, abilities.earnedBadgeIds, presetBadge)
-        : undefined;
+    // Firma: la de siempre como punto de partida; en el estudio se cambia solo para esa tarjeta.
+    const signing = React.useMemo(() => {
+        if (!abilities.has('cardSignature')) return undefined;
+        return {
+            text: abilities.prefs.signature,
+            badgeId: abilities.prefs.signatureBadge,
+            badges: signatureBadgeOptions(abilities.earnedBadgeIds, presetBadge),
+        };
+    }, [abilities]);
+    // Listas con ranking: para el fondo, las fotos de lo que sale en el ranking (las da la Lista).
+    const isRankedList = (cardEntity.type === 'list' || cardEntity.type === 'sublist') && Boolean(cardEntity.rankItems?.length);
+    const studioImages = React.useMemo(() => (isRankedList
+        ? Array.from(new Set((resolvedShareEntity.imageUrls || []).filter(Boolean)))
+        : availableImageUrls), [isRankedList, resolvedShareEntity.imageUrls, availableImageUrls]);
 
     const privateChatByUserId = React.useMemo<Record<string, string>>(() => {
         if (!user) return {};
@@ -577,7 +587,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                         <span className="min-w-0 flex-1">
                             <span className="block text-base font-black text-[var(--lt-text)]">Crear tarjeta</span>
                             <span className="mt-0.5 block text-xs leading-snug text-[var(--lt-text-muted)]">
-                                Para Instagram, WhatsApp o donde quieras. Elige formato, tema{canFrame ? ', marco' : ''}{signature ? ' y firma' : ''}.
+                                Para Instagram, WhatsApp o donde quieras. Elige formato, tema{canFrame ? ', marco' : ''}{signing ? ' y firma' : ''}.
                             </span>
                         </span>
                         <ChevronRight className="h-5 w-5 shrink-0 text-[var(--lt-accent)]" />
@@ -758,11 +768,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         return (
             <ShareCardStudio
                 entity={cardEntity}
-                images={availableImageUrls}
+                images={studioImages}
                 palette={cardPalette}
                 onPaletteChange={setCardPalette}
                 canFrame={canFrame}
-                signature={signature}
+                signing={signing}
                 onClose={() => setIsStudioOpen(false)}
                 onDone={() => trackSuccessfulShare('image')}
             />

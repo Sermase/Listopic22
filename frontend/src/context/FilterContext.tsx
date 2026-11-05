@@ -5,7 +5,7 @@ import { db } from '../firebase';
 
 // «Cerca» de verdad: 1 km. Si hay poco, la Home amplía el radio sin tocar la elección.
 export const DEFAULT_RANGE_KM = 1;
-export const RANGE_STEPS_KM: number[] = [1, 2, 5, 10, 50, 100, 500];
+export const RANGE_STEPS_KM: number[] = [0.5, 1, 2, 5, 10, 50, 100, 500];
 const SESSION_RANGE_KEY = 'sessionRange';
 const SESSION_RANGE_UID_KEY = 'sessionRangeUid';
 
