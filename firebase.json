@@ -22,6 +22,41 @@
         }
       },
       {
+        "source": "/place/*",
+        "function": {
+          "functionId": "seoPage",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "/list/*",
+        "function": {
+          "functionId": "seoPage",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "/group/**",
+        "function": {
+          "functionId": "seoPage",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "/mejores",
+        "function": {
+          "functionId": "seoPage",
+          "region": "europe-west1"
+        }
+      },
+      {
+        "source": "/mejores/**",
+        "function": {
+          "functionId": "seoPage",
+          "region": "europe-west1"
+        }
+      },
+      {
         "source": "/s/**",
         "function": {
           "functionId": "ssrMeta",
