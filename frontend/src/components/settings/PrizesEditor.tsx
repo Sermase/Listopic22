@@ -3,8 +3,11 @@ import { Check } from 'lucide-react';
 import { useMyAbilities } from '../../hooks/useAbilities';
 import { useGamification } from '../../context/GamificationContext';
 import { presetBadge } from '../../config/badgePresets';
-import { ABILITIES, PIN_EMOJIS, SIGNATURE_MAX, ringFor, type AbilityPrefs } from '../../lib/abilities';
+import { ABILITIES, PIN_EMOJIS, SIGNATURE_MAX, SIGNATURE_SUGGESTIONS, ringFor, signatureFor, type AbilityPrefs } from '../../lib/abilities';
 import { useToast } from '../../context/ToastContext';
+import '@fontsource-variable/caveat';
+
+const HAND_FONT = { fontFamily: "'Caveat Variable', cursive" } as const;
 
 
 const Label: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -21,6 +24,7 @@ export const PrizesEditor: React.FC = () => {
     const { earnedBadgeIds } = useGamification();
     const { showToast } = useToast();
     const [phrase, setPhrase] = useState(prefs.signature || '');
+    const [signatureMode, setSignatureMode] = useState<'phrase' | 'badge'>(prefs.signatureBadge ? 'badge' : 'phrase');
     const owned = ABILITIES.filter((a) => has(a.id));
 
     const save = (patch: Partial<AbilityPrefs>, message = 'Guardado') => {
@@ -41,36 +45,97 @@ export const PrizesEditor: React.FC = () => {
             {has('cardSignature') && (
                 <div>
                     <Label>✍️ Tu firma en las tarjetas</Label>
-                    <div className="flex gap-2">
-                        <input
-                            value={phrase}
-                            maxLength={SIGNATURE_MAX}
-                            onChange={(e) => setPhrase(e.target.value)}
-                            placeholder="Si no cruje, no es croqueta"
-                            className="min-w-0 flex-1 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-bg)] px-3 py-2 text-sm text-[var(--lt-text)] outline-none focus:border-[var(--lt-accent)]"
-                        />
-                        <button
-                            type="button"
-                            disabled={phrase.trim() === (prefs.signature || '')}
-                            onClick={() => save({ signature: phrase.trim() || undefined }, 'Firma guardada')}
-                            className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold lt-on-accent disabled:opacity-40"
-                            style={{ backgroundImage: 'var(--lt-accent-grad)' }}
-                        >
-                            Guardar
-                        </button>
+                    {(() => {
+                        const current = signatureFor(prefs, earnedBadgeIds, presetBadge);
+                        return (
+                            <p className="mb-2 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-bg)] px-3 py-2 text-center">
+                                {current ? (
+                                    <>
+                                        <span className="block text-2xl leading-tight text-[var(--lt-accent)]" style={HAND_FONT}>“{current.text}”</span>
+                                        {current.badge && <span className="block text-[11px] font-semibold text-[var(--lt-text-muted)]">{current.badge}</span>}
+                                    </>
+                                ) : (
+                                    <span className="text-xs text-[var(--lt-text-muted)]">Aún sin firma: elige una frase o la de una medalla.</span>
+                                )}
+                            </p>
+                        );
+                    })()}
+                    <div className="mb-2 grid grid-cols-2 gap-1 rounded-full border border-[var(--lt-border)] p-1" role="radiogroup" aria-label="Qué frase firma">
+                        {([['phrase', 'Mi frase'], ['badge', 'Frase de medalla']] as const).map(([mode, label]) => (
+                            <button
+                                key={mode}
+                                type="button"
+                                role="radio"
+                                aria-checked={signatureMode === mode}
+                                onClick={() => {
+                                    setSignatureMode(mode);
+                                    if (mode === 'phrase' && prefs.signatureBadge) save({ signatureBadge: undefined }, 'Firma con tu frase');
+                                }}
+                                className={`rounded-full py-1.5 text-xs font-bold transition-colors ${signatureMode === mode ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-text)]' : 'text-[var(--lt-text-muted)]'}`}
+                            >
+                                {label}
+                            </button>
+                        ))}
                     </div>
-                    {badgesForSignature.length > 0 && (
-                        <div className="mt-2">
-                            <p className="mb-1 text-xs text-[var(--lt-text-muted)]">Tu medalla favorita, al lado:</p>
+                    {signatureMode === 'phrase' ? (
+                        <>
+                            <div className="flex gap-2">
+                                <div className="relative min-w-0 flex-1">
+                                    <input
+                                        value={phrase}
+                                        maxLength={SIGNATURE_MAX}
+                                        onChange={(e) => setPhrase(e.target.value)}
+                                        placeholder="Si no cruje, no es croqueta"
+                                        aria-label="Tu frase"
+                                        className="w-full rounded-xl border border-[var(--lt-border)] bg-[var(--lt-bg)] py-2 pl-3 pr-12 text-sm text-[var(--lt-text)] outline-none focus:border-[var(--lt-accent)]"
+                                    />
+                                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] tabular-nums text-[var(--lt-text-muted)]">{phrase.length}/{SIGNATURE_MAX}</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    disabled={phrase.trim() === (prefs.signature || '') && !prefs.signatureBadge}
+                                    onClick={() => save({ signature: phrase.trim() || undefined, signatureBadge: undefined }, 'Firma guardada')}
+                                    className="shrink-0 rounded-xl px-3 py-2 text-xs font-bold lt-on-accent disabled:opacity-40"
+                                    style={{ backgroundImage: 'var(--lt-accent-grad)' }}
+                                >
+                                    Guardar
+                                </button>
+                            </div>
+                            <p className="mb-1 mt-2 text-xs text-[var(--lt-text-muted)]">O coge una idea:</p>
                             <div className="flex flex-wrap gap-1.5">
-                                <button type="button" className={chip(!prefs.signatureBadge)} onClick={() => save({ signatureBadge: undefined })}>Ninguna</button>
-                                {badgesForSignature.map((b) => (
-                                    <button key={b.id} type="button" className={chip(prefs.signatureBadge === b.id)} onClick={() => save({ signatureBadge: b.id })}>
-                                        {b.icon} {b.name}
+                                {SIGNATURE_SUGGESTIONS.map((idea) => (
+                                    <button key={idea} type="button" className={chip(phrase === idea)} onClick={() => setPhrase(idea)}>
+                                        {idea}
                                     </button>
                                 ))}
                             </div>
-                        </div>
+                        </>
+                    ) : badgesForSignature.length ? (
+                        <ul className="divide-y divide-[var(--lt-border)] overflow-hidden rounded-2xl border border-[var(--lt-border)]" role="radiogroup" aria-label="Medalla de la firma">
+                            {badgesForSignature.map((b) => {
+                                const on = prefs.signatureBadge === b.id;
+                                return (
+                                    <li key={b.id}>
+                                        <button
+                                            type="button"
+                                            role="radio"
+                                            aria-checked={on}
+                                            onClick={() => save({ signatureBadge: b.id }, 'Firma guardada')}
+                                            className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${on ? 'bg-[var(--lt-accent-soft)]' : 'hover:bg-white/5'}`}
+                                        >
+                                            <span className="w-6 shrink-0 text-center text-lg" aria-hidden="true">{b.icon}</span>
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block text-xs font-bold text-[var(--lt-text)]">{b.name}</span>
+                                                <span className="block truncate text-lg leading-tight text-[var(--lt-text-muted)]" style={HAND_FONT}>“{b.description}”</span>
+                                            </span>
+                                            {on && <Check className="h-4 w-4 shrink-0 text-[var(--lt-accent)]" />}
+                                        </button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    ) : (
+                        <p className="text-xs text-[var(--lt-text-muted)]">Aún no tienes medallas con frase.</p>
                     )}
                 </div>
             )}

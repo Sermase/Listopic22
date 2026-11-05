@@ -1,32 +1,32 @@
-import React, { useEffect, useRef, useState } from 'react';
+/**
+ * Tarjetas para compartir dibujadas en canvas (sin html2canvas): formatos Story, Post, Retrato y
+ * Banner, colores de los temas y premios de medallas (marcos y firma). El estudio está en
+ * share/ShareCardStudio.tsx.
+ */
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Check, Download, Share2, X } from 'lucide-react';
 import { getShareEntityLabel, type ShareCriteriaStat, type ShareEntityPayload, type ShareProfileStat, type ShareRankItem } from '../types/share';
 import { buildShareText } from '../utils/shareTexts';
 import { buildShareRouteUrl, PUBLIC_ORIGIN } from '../utils/publicUrl';
-import { CARD_PALETTE_IDS, CARD_PALETTES, type CardPalette, type CardPaletteId } from '../lib/shareCardPalettes';
+import { CARD_PALETTES, type CardPalette, type CardPaletteId } from '../lib/shareCardPalettes';
 import { SCORE_BADGE, SCORE_BAND_LABEL, SCORE_TEXT_ON_DARK, scoreBand } from '../lib/scoreScale';
-import { useBackToClose } from '../hooks/useSheetDismiss';
+import caveatUrl from '@fontsource-variable/caveat/files/caveat-latin-wght-normal.woff2?url';
 
 export type ModernCardVariant = 'story' | 'portrait' | 'square' | 'landscape';
 
 /** Premios de medallas en la tarjeta: marco de la foto («Archivo Visual») y firma («Crítico de Barrio»). */
+export interface CardSignature {
+    /** La frase (la elegida o la de la medalla). */
+    text: string;
+    /** Con la frase de una medalla: la medalla («📝 Crítico de Barrio»). */
+    badge?: string;
+}
 export interface CardDecor {
     frame?: 'polaroid' | 'mantel';
-    signature?: { text?: string; badge?: string };
+    signature?: CardSignature;
 }
 export type CardEntity = ShareEntityPayload & { decor?: CardDecor };
-
-interface ShareCardModernProps {
-    entity: CardEntity;
-    variant: ModernCardVariant;
-    triggerRef: React.MutableRefObject<(variant?: ModernCardVariant) => void>;
-    palette: CardPaletteId;
-    onPaletteChange: (palette: CardPaletteId) => void;
-    onRequestClose?: () => void;
-}
 
 const DIMENSIONS: Record<ModernCardVariant, { width: number; height: number }> = {
     story: { width: 1080, height: 1920 },
@@ -116,7 +116,7 @@ const roundRect = (ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
     ctx.closePath();
 };
 
-const drawCover = (ctx: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, w: number, h: number) => {
+const drawCover = (ctx: CanvasRenderingContext2D, image: HTMLImageElement | HTMLCanvasElement, x: number, y: number, w: number, h: number) => {
     const scale = Math.max(w / image.width, h / image.height);
     const drawW = image.width * scale;
     const drawH = image.height * scale;
@@ -610,14 +610,292 @@ const listChipLabel = (entity: ShareEntityPayload, fallback: string) => (entity.
 
 const usesHeroPhoto = (entity: ShareEntityPayload) => entity.type !== 'profile' && !(isList(entity) && entity.rankItems?.length);
 
-/** Mantel de cuadros: rayas rojas que se cruzan (donde se cruzan, más oscuro). */
+// --- Premios en la tarjeta: marcos («Archivo Visual») y firma («Crítico de Barrio») ---
+
+/** Letra a mano (Caveat) para el pie de la Polaroid y la firma: se carga solo si hace falta. */
+const HAND = "'Caveat Card', 'Caveat', 'Segoe Script', 'Bradley Hand', cursive";
+let handFontReady: Promise<void> | null = null;
+const loadHandFont = (): Promise<void> => {
+    if (!handFontReady) {
+        handFontReady = (async () => {
+            if (typeof FontFace === 'undefined' || typeof document === 'undefined' || !document.fonts) return;
+            try {
+                const face = new FontFace('Caveat Card', `url(${caveatUrl}) format('woff2')`, { weight: '400 700' });
+                await face.load();
+                document.fonts.add(face);
+            } catch {
+                // Sin la letra: la cursiva del sistema.
+            }
+        })();
+    }
+    return handFontReady;
+};
+const setHand = (ctx: CanvasRenderingContext2D, weight: number, size: number) => {
+    ctx.font = `${weight} ${size}px ${HAND}`;
+};
+
+/** La foto desenfocada, de fondo: se encoge y se vuelve a estirar (ctx.filter no va en Safari). */
+const drawBlurredCover = (ctx: CanvasRenderingContext2D, image: HTMLImageElement, x: number, y: number, w: number, h: number) => {
+    const small = document.createElement('canvas');
+    const scale = 24 / Math.max(image.width, image.height);
+    small.width = Math.max(2, Math.round(image.width * scale));
+    small.height = Math.max(2, Math.round(image.height * scale));
+    const mid = document.createElement('canvas');
+    mid.width = small.width * 6;
+    mid.height = small.height * 6;
+    const sctx = small.getContext('2d');
+    const mctx = mid.getContext('2d');
+    if (!sctx || !mctx) return;
+    sctx.drawImage(image, 0, 0, small.width, small.height);
+    mctx.imageSmoothingQuality = 'high';
+    mctx.drawImage(small, 0, 0, mid.width, mid.height);
+    ctx.save();
+    ctx.imageSmoothingQuality = 'high';
+    // Un poco más grande: los bordes del desenfoque quedan fuera.
+    const cover = Math.max(w / mid.width, h / mid.height) * 1.12;
+    const drawW = mid.width * cover;
+    const drawH = mid.height * cover;
+    ctx.drawImage(mid, x + (w - drawW) / 2, y + (h - drawH) / 2, drawW, drawH);
+    ctx.restore();
+};
+
+/** Mantel de cuadros: rayas rojas que se cruzan, trama de tela y luz cálida en el centro. */
 const drawGingham = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
-    const cell = Math.round(width / 12);
-    ctx.fillStyle = '#f6efe2';
+    const cell = Math.round(width / 11);
+    ctx.fillStyle = '#f7f0e3';
     ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = 'rgba(190, 30, 45, 0.5)';
+    ctx.fillStyle = 'rgba(196, 36, 48, 0.42)';
     for (let x = 0; x < width; x += cell * 2) ctx.fillRect(x, 0, cell, height);
     for (let y = 0; y < height; y += cell * 2) ctx.fillRect(0, y, width, cell);
+    ctx.fillStyle = 'rgba(90, 20, 20, 0.05)';
+    for (let x = 0; x < width; x += 6) ctx.fillRect(x, 0, 2, height);
+    for (let y = 0; y < height; y += 6) ctx.fillRect(0, y, width, 2);
+    const light = ctx.createRadialGradient(width / 2, height * 0.45, width * 0.15, width / 2, height * 0.45, Math.max(width, height) * 0.8);
+    light.addColorStop(0, 'rgba(255, 244, 225, 0.2)');
+    light.addColorStop(1, 'rgba(50, 12, 12, 0.4)');
+    ctx.fillStyle = light;
+    ctx.fillRect(0, 0, width, height);
+};
+
+const metal = (ctx: CanvasRenderingContext2D, x0: number, x1: number) => {
+    const g = ctx.createLinearGradient(x0, 0, x1, 0);
+    g.addColorStop(0, '#9aa1ab');
+    g.addColorStop(0.35, '#f4f6f9');
+    g.addColorStop(0.6, '#d3d8df');
+    g.addColorStop(1, '#8b929c');
+    return g;
+};
+
+const castShadow = (ctx: CanvasRenderingContext2D, size: number) => {
+    ctx.shadowColor = 'rgba(45, 10, 10, 0.4)';
+    ctx.shadowBlur = size * 0.5;
+    ctx.shadowOffsetX = size * 0.12;
+    ctx.shadowOffsetY = size * 0.2;
+};
+
+/** Tenedor visto desde arriba, con las púas hacia arriba. */
+const drawFork = (ctx: CanvasRenderingContext2D, x: number, top: number, length: number) => {
+    const w = length * 0.082;
+    const tineH = length * 0.19;
+    const headH = length * 0.11;
+    const neckW = w * 0.24;
+    const neckY = top + tineH + headH;
+    const handleW = w * 0.58;
+    ctx.save();
+    castShadow(ctx, w);
+    ctx.fillStyle = metal(ctx, x - w / 2, x + w / 2);
+    const gap = w * 0.12;
+    const tineW = (w - gap * 3) / 4;
+    for (let i = 0; i < 4; i++) {
+        roundRect(ctx, x - w / 2 + i * (tineW + gap), top, tineW, tineH + 6, tineW / 2);
+        ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.moveTo(x - w / 2, top + tineH);
+    ctx.lineTo(x + w / 2, top + tineH);
+    ctx.quadraticCurveTo(x + w / 2, neckY - headH * 0.2, x + neckW / 2, neckY);
+    ctx.lineTo(x - neckW / 2, neckY);
+    ctx.quadraticCurveTo(x - w / 2, neckY - headH * 0.2, x - w / 2, top + tineH);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - neckW / 2, neckY - 2);
+    ctx.lineTo(x + neckW / 2, neckY - 2);
+    ctx.quadraticCurveTo(x + handleW / 2, neckY + length * 0.2, x + handleW / 2, top + length - handleW / 2);
+    ctx.arc(x, top + length - handleW / 2, handleW / 2, 0, Math.PI);
+    ctx.quadraticCurveTo(x - handleW / 2, neckY + length * 0.2, x - neckW / 2, neckY - 2);
+    ctx.fill();
+    ctx.restore();
+};
+
+/** Cuchillo visto desde arriba: hoja con el filo a la izquierda y mango redondeado. */
+const drawKnife = (ctx: CanvasRenderingContext2D, x: number, top: number, length: number) => {
+    const bladeW = length * 0.062;
+    const bladeH = length * 0.5;
+    const handleW = length * 0.07;
+    ctx.save();
+    castShadow(ctx, bladeW);
+    ctx.fillStyle = metal(ctx, x - bladeW / 2, x + bladeW / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + bladeW / 2, top + bladeH);
+    ctx.lineTo(x + bladeW / 2, top + bladeW * 0.4);
+    ctx.quadraticCurveTo(x + bladeW / 2, top, x, top);
+    ctx.quadraticCurveTo(x - bladeW / 2, top + bladeH * 0.25, x - bladeW / 2, top + bladeH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = metal(ctx, x - handleW / 2, x + handleW / 2);
+    roundRect(ctx, x - handleW / 2, top + bladeH - 4, handleW, length - bladeH + 4, handleW / 2);
+    ctx.fill();
+    ctx.restore();
+    // Junta entre hoja y mango.
+    ctx.fillStyle = 'rgba(80, 86, 96, 0.35)';
+    ctx.fillRect(x - handleW / 2, top + bladeH - 4, handleW, 3);
+};
+
+/** Un plato de verdad: ala con luz, la foto en el hueco con sombra hacia dentro. */
+const drawPlate = (ctx: CanvasRenderingContext2D, hero: HTMLImageElement, cx: number, cy: number, radius: number) => {
+    ctx.save();
+    ctx.shadowColor = 'rgba(45, 10, 10, 0.45)';
+    ctx.shadowBlur = radius * 0.16;
+    ctx.shadowOffsetY = radius * 0.05;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = '#f3f0ea';
+    ctx.fill();
+    ctx.restore();
+
+    const rim = ctx.createLinearGradient(cx - radius, cy - radius, cx + radius, cy + radius);
+    rim.addColorStop(0, '#ffffff');
+    rim.addColorStop(0.5, '#f2efe9');
+    rim.addColorStop(1, '#d9d3c8');
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = rim;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(60, 40, 30, 0.12)';
+    ctx.lineWidth = Math.max(2, radius * 0.01);
+    ctx.stroke();
+
+    // Donde el ala baja al hueco: una sombra suave.
+    const well = radius * 0.76;
+    const slope = ctx.createRadialGradient(cx, cy, well * 0.96, cx, cy, well * 1.12);
+    slope.addColorStop(0, 'rgba(70, 50, 40, 0.18)');
+    slope.addColorStop(1, 'rgba(70, 50, 40, 0)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, well * 1.12, 0, Math.PI * 2);
+    ctx.fillStyle = slope;
+    ctx.fill();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, well, 0, Math.PI * 2);
+    ctx.clip();
+    drawCover(ctx, hero, cx - well, cy - well, well * 2, well * 2);
+    const inner = ctx.createRadialGradient(cx, cy - well * 0.06, well * 0.78, cx, cy, well);
+    inner.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    inner.addColorStop(1, 'rgba(0, 0, 0, 0.3)');
+    ctx.fillStyle = inner;
+    ctx.fillRect(cx - well, cy - well, well * 2, well * 2);
+    ctx.restore();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, well, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = Math.max(2, radius * 0.012);
+    ctx.stroke();
+    // Reflejo del ala, arriba a la izquierda.
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 0.88, Math.PI * 1.08, Math.PI * 1.42);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = radius * 0.035;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+};
+
+/** Cinta adhesiva semitransparente con los cantos rasgados. */
+const drawTape = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
+    const teeth = 6;
+    ctx.beginPath();
+    ctx.moveTo(-w / 2, -h / 2);
+    ctx.lineTo(w / 2, -h / 2);
+    for (let i = 1; i <= teeth; i++) ctx.lineTo(w / 2 + (i % 2 ? -h * 0.06 : 0), -h / 2 + (h * i) / teeth);
+    ctx.lineTo(-w / 2, h / 2);
+    for (let i = teeth - 1; i >= 0; i--) ctx.lineTo(-w / 2 + (i % 2 ? h * 0.06 : 0), -h / 2 + (h * i) / teeth);
+    ctx.closePath();
+    ctx.fillStyle = `rgba(${pal.accentRgb}, 0.5)`;
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+    ctx.fill();
+};
+
+/** Polaroid: papel con brillo, foto cuadrada, cinta arriba y el nombre escrito a mano. */
+const drawPolaroid = (ctx: CanvasRenderingContext2D, hero: HTMLImageElement, caption: string, width: number, top: number, bottom: number) => {
+    const available = Math.max(240, bottom - top);
+    // Papel: 6 % de borde y abajo cuatro veces más, donde va el nombre.
+    const photoSide = Math.max(160, Math.min(width * 0.7, (available - 16) / 1.3));
+    const pad = Math.round(photoSide * 0.06);
+    const bottomPad = Math.round(photoSide * 0.24);
+    const frameW = photoSide + pad * 2;
+    const frameH = photoSide + pad + bottomPad;
+    const left = -frameW / 2;
+    const upper = -frameH / 2;
+    ctx.save();
+    ctx.translate(width / 2, top + available / 2 + 6);
+    ctx.rotate((-2.5 * Math.PI) / 180);
+    const paper = ctx.createLinearGradient(0, upper, 0, -upper);
+    paper.addColorStop(0, '#fffdf8');
+    paper.addColorStop(1, '#efeae0');
+    ctx.fillStyle = paper;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 64;
+    ctx.shadowOffsetY = 30;
+    roundRect(ctx, left, upper, frameW, frameH, 6);
+    ctx.fill();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 2;
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(left + pad, upper + pad, photoSide, photoSide);
+    ctx.clip();
+    drawCover(ctx, hero, left + pad, upper + pad, photoSide, photoSide);
+    const gloss = ctx.createLinearGradient(left, upper, left + photoSide, upper + photoSide);
+    gloss.addColorStop(0, 'rgba(255, 255, 255, 0.2)');
+    gloss.addColorStop(0.45, 'rgba(255, 255, 255, 0)');
+    ctx.fillStyle = gloss;
+    ctx.fillRect(left + pad, upper + pad, photoSide, photoSide);
+    const depth = ctx.createLinearGradient(0, upper + pad, 0, upper + pad + photoSide * 0.05);
+    depth.addColorStop(0, 'rgba(0, 0, 0, 0.22)');
+    depth.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = depth;
+    ctx.fillRect(left + pad, upper + pad, photoSide, photoSide * 0.05);
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(left + pad, upper + pad, photoSide, photoSide);
+
+    if (caption) {
+        let size = Math.round(bottomPad * 0.58);
+        setHand(ctx, 700, size);
+        while (size > bottomPad * 0.32 && ctx.measureText(caption).width > photoSide) {
+            size -= 2;
+            setHand(ctx, 700, size);
+        }
+        ctx.fillStyle = '#2a2d3a';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(fitText(ctx, caption, photoSide), 0, upper + pad + photoSide + bottomPad / 2 + 2);
+    }
+
+    ctx.save();
+    ctx.translate(0, upper + 4);
+    ctx.rotate((5 * Math.PI) / 180);
+    drawTape(ctx, frameW * 0.34, pad * 1.7);
+    ctx.restore();
+    ctx.restore();
 };
 
 /** La foto en su marco, entre la marca (arriba) y el texto (abajo). */
@@ -630,75 +908,50 @@ const drawFramedPhoto = (
     top: number,
     bottom: number,
 ) => {
-    const available = Math.max(220, bottom - top);
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.45)';
-    ctx.shadowBlur = 44;
-    ctx.shadowOffsetY = 18;
-    if (frame === 'mantel') {
-        // Un plato visto desde arriba: borde blanco y la foto en el centro.
-        const radius = Math.min(width * 0.4, available / 2);
-        const cx = width / 2;
-        const cy = top + available / 2;
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        ctx.fillStyle = '#fdfdfb';
-        ctx.fill();
-        ctx.shadowColor = 'transparent';
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius * 0.86, 0, Math.PI * 2);
-        ctx.strokeStyle = 'rgba(15,23,42,0.08)';
-        ctx.lineWidth = radius * 0.03;
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius * 0.8, 0, Math.PI * 2);
-        ctx.clip();
-        drawCover(ctx, hero, cx - radius * 0.8, cy - radius * 0.8, radius * 1.6, radius * 1.6);
-        ctx.restore();
+    if (frame === 'polaroid') {
+        drawPolaroid(ctx, hero, caption, width, top, bottom);
         return;
     }
-    // Polaroid: foto cuadrada, borde blanco y abajo más ancho con el nombre a mano.
-    const pad = Math.round(width * 0.035);
-    const bottomPad = pad * 3.4;
-    const photoSide = Math.min(width * 0.66, available - pad - bottomPad - 20);
-    const frameW = photoSide + pad * 2;
-    const frameH = photoSide + pad + bottomPad;
-    ctx.translate(width / 2, top + available / 2);
-    ctx.rotate((-3 * Math.PI) / 180);
-    ctx.fillStyle = '#fbfaf5';
-    roundRect(ctx, -frameW / 2, -frameH / 2, frameW, frameH, 6);
-    ctx.fill();
-    ctx.shadowColor = 'transparent';
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(-frameW / 2 + pad, -frameH / 2 + pad, photoSide, photoSide);
-    ctx.clip();
-    drawCover(ctx, hero, -frameW / 2 + pad, -frameH / 2 + pad, photoSide, photoSide);
-    ctx.restore();
-    if (caption) {
-        const size = Math.round(bottomPad * 0.36);
-        setFont(ctx, 700, size, true);
-        ctx.fillStyle = '#334155';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(fitText(ctx, caption, photoSide), 0, frameH / 2 - bottomPad / 2);
+    // Mantel: el plato en el centro, tenedor a la izquierda y cuchillo a la derecha.
+    const available = Math.max(220, bottom - top);
+    const radius = Math.min(width * 0.35, available / 2 - 10);
+    const cx = width / 2;
+    const cy = top + available / 2;
+    const length = Math.min(radius * 2.05, available - 10);
+    const side = radius + Math.max(48, width * 0.07);
+    drawFork(ctx, cx - side, cy - length / 2, length);
+    drawKnife(ctx, cx + side, cy - length / 2, length);
+    drawPlate(ctx, hero, cx, cy, radius);
+};
+
+/** Firma: una frase escrita a mano; si es la de una medalla, la medalla debajo. Devuelve el alto. */
+const drawSignature = (ctx: CanvasRenderingContext2D, signature: CardSignature, x: number, bottom: number, width: number, size: number) => {
+    const quoted = `“${signature.text}”`;
+    let fontSize = size;
+    setHand(ctx, 600, fontSize);
+    while (fontSize > size * 0.72 && ctx.measureText(quoted).width > width) {
+        fontSize -= 2;
+        setHand(ctx, 600, fontSize);
     }
-    ctx.restore();
-};
-
-/** Firma: «frase» · medalla favorita, en una línea. */
-const signatureLine = (decor?: CardDecor) => {
-    const sig = decor?.signature;
-    if (!sig) return '';
-    return [sig.text ? `«${sig.text}»` : '', sig.badge || ''].filter(Boolean).join('  ·  ');
-};
-
-const drawSignature = (ctx: CanvasRenderingContext2D, text: string, x: number, bottom: number, width: number, size: number) => {
-    setFont(ctx, 600, size, true);
-    ctx.fillStyle = SOFT;
+    const lines = wrapText(ctx, quoted, width, 2);
+    const lineHeight = fontSize * 1.05;
+    let y = bottom;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillText(fitText(ctx, `✍️ ${text}`, width), x, bottom);
+    if (signature.badge) {
+        const badgeSize = Math.round(size * 0.52);
+        setFont(ctx, 700, badgeSize);
+        ctx.fillStyle = MUTED;
+        ctx.fillText(fitText(ctx, signature.badge, width), x, y);
+        y -= badgeSize + 12;
+    }
+    setHand(ctx, 600, fontSize);
+    ctx.fillStyle = pal.accentSoft;
+    for (let i = lines.length - 1; i >= 0; i--) {
+        ctx.fillText(lines[i], x, y);
+        y -= lineHeight;
+    }
+    return bottom - y - lineHeight + fontSize * 0.9;
 };
 
 const paintBackground = (
@@ -725,13 +978,14 @@ const paintBackground = (
     ctx.clip();
     if (frame === 'mantel') {
         drawGingham(ctx, width, photoHeight);
+    } else if (frame) {
+        // Con Polaroid, de fondo la misma foto desenfocada y con el color del tema.
+        drawBlurredCover(ctx, hero, 0, 0, width, photoHeight);
+        ctx.fillStyle = bgA(0.45);
+        ctx.fillRect(0, 0, width, photoHeight);
+        drawGlow(ctx, width * 0.85, photoHeight * 0.15, width * 0.8, `rgba(${pal.accentRgb},0.28)`, width, photoHeight);
     } else {
         drawCover(ctx, hero, 0, 0, width, photoHeight);
-        // Con Polaroid, la foto de fondo se apaga y la buena va en el marco.
-        if (frame) {
-            ctx.fillStyle = bgA(0.62);
-            ctx.fillRect(0, 0, width, photoHeight);
-        }
     }
     ctx.restore();
     const top = ctx.createLinearGradient(0, 0, 0, height * 0.22);
@@ -1131,7 +1385,7 @@ const drawLandscape = (
     drawBottomBar(ctx, width, height, 10);
 };
 
-async function drawCard(entity: CardEntity, variant: ModernCardVariant, palette: CardPaletteId = 'dark'): Promise<HTMLCanvasElement> {
+export async function drawCard(entity: CardEntity, variant: ModernCardVariant, palette: CardPaletteId = 'dark'): Promise<HTMLCanvasElement> {
     const { width, height } = DIMENSIONS[variant];
     const canvas = document.createElement('canvas');
     canvas.width = width;
@@ -1142,6 +1396,8 @@ async function drawCard(entity: CardEntity, variant: ModernCardVariant, palette:
     if (document.fonts?.ready) {
         try { await document.fonts.ready; } catch { /* La fuente del sistema mantiene el layout. */ }
     }
+
+    if (entity.decor?.signature?.text || entity.decor?.frame === 'polaroid') await loadHandFont();
 
     const rankItems = isList(entity) ? (entity.rankItems || []).slice(0, 3) : [];
     const [hero, avatar, logo, ...rankImages] = await Promise.all([
@@ -1172,11 +1428,10 @@ async function drawCard(entity: CardEntity, variant: ModernCardVariant, palette:
     const footerBottom = height - barHeight - (isStory ? 70 : 48);
     const footerHeight = showFooter ? drawFooter(ctx, entity, margin, footerBottom, width - margin * 2, !isStory) : 0;
     let contentBottom = showFooter ? footerBottom - footerHeight - (isStory ? 48 : 32) : height - barHeight - 52;
-    const signature = signatureLine(entity.decor);
-    if (signature) {
-        const size = isStory ? 32 : 26;
-        drawSignature(ctx, signature, margin, contentBottom, width - margin * 2, size);
-        contentBottom -= size + (isStory ? 36 : 24);
+    const signature = entity.decor?.signature;
+    if (signature?.text) {
+        const height = drawSignature(ctx, signature, margin, contentBottom, width - margin * 2, isStory ? 58 : 46);
+        contentBottom -= height + (isStory ? 40 : 26);
     }
 
     if (entity.type === 'profile') {
@@ -1187,7 +1442,7 @@ async function drawCard(entity: CardEntity, variant: ModernCardVariant, palette:
         const contentTop = drawVerticalContent(ctx, entity, avatar, variant, width, contentBottom);
         if (frame && hero) {
             const brandBottom = margin + (isStory ? 70 : 56);
-            drawFramedPhoto(ctx, hero, frame, entity.title, width, brandBottom + (isStory ? 40 : 24), contentTop - (isStory ? 36 : 20));
+            drawFramedPhoto(ctx, hero, frame, entity.title, width, brandBottom + (isStory ? 20 : 12), contentTop - (isStory ? 14 : 8));
         }
     }
     drawBottomBar(ctx, width, height, barHeight);
@@ -1195,11 +1450,11 @@ async function drawCard(entity: CardEntity, variant: ModernCardVariant, palette:
     return canvas;
 }
 
-const renderCard = async (entity: CardEntity, variant: ModernCardVariant, palette: CardPaletteId): Promise<string> =>
+export const renderCard = async (entity: CardEntity, variant: ModernCardVariant, palette: CardPaletteId): Promise<string> =>
     (await drawCard(entity, variant, palette)).toDataURL('image/png', 1.0);
 
 /** Miniatura real de la tarjeta (la misma que se compartirá, en pequeño). */
-const renderThumb = async (entity: CardEntity, variant: ModernCardVariant, palette: CardPaletteId, maxSide = 420): Promise<string> => {
+export const renderThumb = async (entity: CardEntity, variant: ModernCardVariant, palette: CardPaletteId, maxSide = 420): Promise<string> => {
     const full = await drawCard(entity, variant, palette);
     const scale = Math.min(1, maxSide / Math.max(full.width, full.height));
     const small = document.createElement('canvas');
@@ -1209,234 +1464,53 @@ const renderThumb = async (entity: CardEntity, variant: ModernCardVariant, palet
     return small.toDataURL('image/jpeg', 0.82);
 };
 
-interface ShareCardThumbProps {
-    entity: CardEntity;
-    variant: ModernCardVariant;
-    label: string;
-    hint: string;
-    palette: CardPaletteId;
-    onPick: () => void;
-}
+export const cardDimensions = (variant: ModernCardVariant) => DIMENSIONS[variant];
 
-/** Botón con la vista previa real de un formato de tarjeta. */
-export const ShareCardThumb: React.FC<ShareCardThumbProps> = ({ entity, variant, label, hint, palette, onPick }) => {
-    const [thumb, setThumb] = useState<{ key: string; src: string | null } | null>(null);
-    const key = `${variant}|${palette}|${entity.imageUrl || ''}|${entity.title}|${entity.scopeLabel || ''}|${JSON.stringify(entity.decor || {})}`;
+const cardFileName = (entity: CardEntity) =>
+    `listopic-${entity.type}-${(entity.id || 'card').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || 'share'}.png`;
 
-    useEffect(() => {
-        let cancelled = false;
-        renderThumb(entity, variant, palette)
-            .then((src) => { if (!cancelled) setThumb({ key, src }); })
-            .catch(() => { if (!cancelled) setThumb({ key, src: null }); });
-        return () => { cancelled = true; };
-        // La clave resume lo que cambia el dibujo; el objeto entity se rehace en cada render.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [key]);
-
-    const { width, height } = DIMENSIONS[variant];
-    const ready = thumb?.key === key;
-    return (
-        <button
-            type="button"
-            onClick={onPick}
-            className="group flex flex-col items-center gap-1.5 rounded-xl p-1.5 text-center transition-colors hover:bg-white/5"
-        >
-            <span className="flex h-36 w-full items-center justify-center">
-                {ready && thumb?.src ? (
-                    <img src={thumb.src} alt={`Vista previa ${label}`} className="max-h-36 max-w-full rounded-lg border border-white/15 shadow-lg transition-transform group-hover:scale-[1.03]" />
-                ) : (
-                    <span
-                        className={`block max-h-36 max-w-full rounded-lg border border-white/10 bg-white/5 ${ready ? '' : 'animate-pulse'}`}
-                        style={{ aspectRatio: `${width} / ${height}`, height: width >= height ? undefined : '9rem', width: width >= height ? '100%' : undefined }}
-                    />
-                )}
-            </span>
-            <span className="text-xs font-bold text-white">{label}</span>
-            <span className="text-[10px] leading-tight text-gray-400">{hint}</span>
-        </button>
-    );
+/** Guarda la tarjeta (descarga del PNG). */
+export const downloadCardImage = (entity: CardEntity, image: string) => {
+    const anchor = document.createElement('a');
+    anchor.href = image;
+    anchor.download = cardFileName(entity);
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
 };
 
-/** Fila de colores (los temas oscuros de la app) para la tarjeta. */
-export const CardPalettePicker: React.FC<{ value: CardPaletteId; onChange: (palette: CardPaletteId) => void }> = ({ value, onChange }) => (
-    <div className="flex items-center justify-center gap-2.5" role="radiogroup" aria-label="Colores de la tarjeta">
-        {CARD_PALETTE_IDS.map((id) => {
-            const p = CARD_PALETTES[id];
-            const active = id === value;
-            return (
-                <button
-                    key={id}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    aria-label={p.label}
-                    title={p.label}
-                    onClick={() => onChange(id)}
-                    className={`h-8 w-8 rounded-full border-2 transition-transform ${active ? 'scale-110 border-white' : 'border-white/20 hover:scale-105'}`}
-                    style={{ background: `linear-gradient(135deg, ${p.bg} 0 38%, ${p.accent} 38% 70%, ${p.accent2} 70%)` }}
-                />
-            );
-        })}
-    </div>
-);
-
-export const ShareCardModern: React.FC<ShareCardModernProps> = ({ entity, variant, triggerRef, palette, onPaletteChange, onRequestClose }) => {
-    const [previewImage, setPreviewImage] = useState<string | null>(null);
-    const [shownVariant, setShownVariant] = useState<ModernCardVariant>(variant);
-    const [isOpen, setIsOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [feedback, setFeedback] = useState<string | null>(null);
-    const busyRef = useRef(false);
-
-    triggerRef.current = async (picked?: ModernCardVariant) => {
-        if (busyRef.current) return;
-        busyRef.current = true;
-        setLoading(true);
-        setFeedback(null);
-        try {
-            const image = await renderCard(entity, picked || variant, palette);
-            setShownVariant(picked || variant);
-            setPreviewImage(image);
-            setIsOpen(true);
-        } catch (error) {
-            console.error('ShareCardModern: render failed', error);
-            setFeedback('No se pudo generar la tarjeta.');
-        } finally {
-            busyRef.current = false;
-            setLoading(false);
-        }
-    };
-
-    // Al cambiar de color con la tarjeta abierta, se redibuja sin cerrarla.
-    useEffect(() => {
-        if (!isOpen) return;
-        let cancelled = false;
-        renderCard(entity, shownVariant, palette)
-            .then((image) => { if (!cancelled) setPreviewImage(image); })
-            .catch(() => { /* se queda la anterior */ });
-        return () => { cancelled = true; };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [palette]);
-
-    const fileName = `listopic-${entity.type}-${(entity.id || 'card').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || 'share'}.png`;
-
-    const download = () => {
-        if (!previewImage) return;
-        const anchor = document.createElement('a');
-        anchor.href = previewImage;
-        anchor.download = fileName;
-        document.body.appendChild(anchor);
-        anchor.click();
-        anchor.remove();
-    };
-
-    const share = async () => {
-        if (!previewImage) return;
-        const shareUrl = buildShareRouteUrl(entity.shareRoute || entity.route) || entity.url || '';
-        const text = `${buildShareText(entity)} ${shareUrl}`.trim();
-        // El enlace va al portapapeles antes de abrir el menú de compartir: Instagram y
-        // compañía no dejan meterlo en la imagen, así que se pega en la publicación.
-        let linkCopied = false;
-        if (shareUrl && navigator.clipboard?.writeText) {
-            navigator.clipboard.writeText(shareUrl).then(() => { linkCopied = true; setFeedback('🔗 Enlace copiado: pégalo en tu publicación.'); }).catch(() => { /* sin permiso */ });
-        }
-        const sharedFeedback = () => (linkCopied ? 'Tarjeta compartida. 🔗 El enlace está copiado: pégalo en tu publicación.' : 'Tarjeta compartida');
-        try {
-            if (Capacitor.isNativePlatform()) {
-                const saved = await Filesystem.writeFile({
-                    path: fileName,
-                    data: previewImage.split(',')[1],
-                    directory: Directory.Cache,
-                });
-                await Share.share({ title: entity.title, text, url: saved.uri, dialogTitle: 'Compartir Listopic' });
-                setFeedback(sharedFeedback());
-                return;
-            }
-            const blob = await (await fetch(previewImage)).blob();
-            const file = new File([blob], fileName, { type: 'image/png' });
-            if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
-                await navigator.share({ files: [file], title: entity.title, text });
-                setFeedback(sharedFeedback());
-                return;
-            }
-            if (navigator.clipboard?.writeText) {
-                await navigator.clipboard.writeText(text);
-                setFeedback('Tu dispositivo no comparte imágenes: copiamos el texto con el enlace.');
-                return;
-            }
-            setFeedback('No se pudo compartir la tarjeta.');
-        } catch {
-            setFeedback('No se pudo compartir la tarjeta.');
-        }
-    };
-
-    const close = () => {
-        setIsOpen(false);
-        setPreviewImage(null);
-        setFeedback(null);
-        onRequestClose?.();
-    };
-    useBackToClose(isOpen && !!previewImage, close);
-
-    if (loading) {
-        return (
-            <div className="fixed inset-0 z-[300] grid place-items-center bg-black/70 backdrop-blur-sm">
-                <div className="rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] px-6 py-5 text-sm font-bold text-white">
-                    Generando tarjeta...
-                </div>
-            </div>
-        );
+/**
+ * Comparte la tarjeta con el menú del sistema. El enlace va antes al portapapeles: Instagram y
+ * compañía no dejan meterlo en la imagen, así que se pega en la publicación. Devuelve el aviso.
+ */
+export const shareCardImage = async (entity: CardEntity, image: string): Promise<string> => {
+    const fileName = cardFileName(entity);
+    const shareUrl = buildShareRouteUrl(entity.shareRoute || entity.route) || entity.url || '';
+    const text = `${buildShareText(entity)} ${shareUrl}`.trim();
+    let linkCopied = false;
+    if (shareUrl && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareUrl).then(() => { linkCopied = true; }).catch(() => { /* sin permiso */ });
     }
-
-    if (!isOpen || !previewImage) return null;
-
-    return (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm" onClick={close}>
-            <div className="flex max-h-full w-full max-w-lg flex-col gap-3" onClick={(event) => event.stopPropagation()}>
-                <img
-                    src={previewImage}
-                    alt="Tarjeta para compartir"
-                    className="max-h-[70vh] w-full rounded-2xl border border-white/15 object-contain shadow-2xl"
-                />
-                <CardPalettePicker value={palette} onChange={onPaletteChange} />
-                {feedback && (
-                    <p className="rounded-xl border border-white/15 bg-black/60 px-4 py-2 text-center text-xs font-bold text-white">
-                        <Check className="mr-1 inline h-3.5 w-3.5 text-emerald-400" />
-                        {feedback}
-                    </p>
-                )}
-                <div className="flex gap-2">
-                    <button
-                        type="button"
-                        onClick={share}
-                        className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 text-sm font-black text-white shadow-lg"
-                    >
-                        <Share2 className="mr-1.5 inline h-4 w-4" />
-                        Compartir
-                    </button>
-                    <button
-                        type="button"
-                        onClick={download}
-                        className="rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-bold text-white"
-                    >
-                        <Download className="mr-1.5 inline h-4 w-4" />
-                        Guardar
-                    </button>
-                    <button
-                        type="button"
-                        onClick={close}
-                        className="rounded-xl border border-white/15 bg-white/10 px-3 py-3 text-white"
-                        aria-label="Cerrar"
-                    >
-                        <X className="h-4 w-4" />
-                    </button>
-                </div>
-                {!feedback && (
-                    <p className="text-center text-[11px] leading-snug text-gray-300">
-                        🔗 Al compartir se copia el enlace: pégalo en tu publicación o, en una historia de Instagram, con el sticker «Enlace».
-                    </p>
-                )}
-            </div>
-        </div>
-    );
+    const shared = () => (linkCopied ? 'Tarjeta compartida. 🔗 El enlace está copiado: pégalo en tu publicación.' : 'Tarjeta compartida');
+    try {
+        if (Capacitor.isNativePlatform()) {
+            const saved = await Filesystem.writeFile({ path: fileName, data: image.split(',')[1], directory: Directory.Cache });
+            await Share.share({ title: entity.title, text, url: saved.uri, dialogTitle: 'Compartir Listopic' });
+            return shared();
+        }
+        const blob = await (await fetch(image)).blob();
+        const file = new File([blob], fileName, { type: 'image/png' });
+        if (typeof navigator.share === 'function' && navigator.canShare?.({ files: [file] })) {
+            await navigator.share({ files: [file], title: entity.title, text });
+            return shared();
+        }
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+            return 'Tu dispositivo no comparte imágenes: copiamos el texto con el enlace. Guarda la tarjeta y súbela.';
+        }
+        return 'No se pudo compartir la tarjeta.';
+    } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return '';
+        return 'No se pudo compartir la tarjeta.';
+    }
 };
