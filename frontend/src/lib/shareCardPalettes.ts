@@ -1,4 +1,4 @@
-/** Colores de la tarjeta, sacados de los temas de fondo oscuro o intermedio. */
+/** Colores de la tarjeta (siempre de fondo oscuro: el texto va en blanco), uno por tema. */
 export type CardPaletteId = 'dark' | 'neon' | 'graphite' | 'warm' | 'cool' | 'sunset' | 'lagoon';
 
 export interface CardPalette {
@@ -39,9 +39,10 @@ export const CARD_PALETTES: Record<CardPaletteId, CardPalette> = {
         highlight: '#fcd34d', pin: '#fb923c', glow: 'rgba(124,45,18,0.9)', glow2: 'rgba(153,27,27,0.3)',
     },
     cool: {
-        label: 'Fresco', bg: '#031a20', bgRgb: '3,26,32', panelRgb: '12,42,50',
-        accent: '#14b8a6', accent2: '#06b6d4', accentRgb: '20,184,166', accentSoft: '#99f6e4', chipText: '#ccfbf1',
-        highlight: '#5eead4', pin: '#2dd4bf', glow: 'rgba(17,94,89,0.9)', glow2: 'rgba(14,116,144,0.35)',
+        // Fresco ahora es claro, pero la tarjeta pinta el texto en blanco: menta oscura con fresa.
+        label: 'Fresco', bg: '#0f3d36', bgRgb: '15,61,54', panelRgb: '24,82,73',
+        accent: '#14b8a6', accent2: '#e23d68', accentRgb: '20,184,166', accentSoft: '#99f6e4', chipText: '#ccfbf1',
+        highlight: '#fda4af', pin: '#fb7185', glow: 'rgba(17,94,89,0.9)', glow2: 'rgba(226,61,104,0.35)',
     },
     sunset: {
         label: 'Atardecer', bg: '#4a2b52', bgRgb: '74,43,82', panelRgb: '94,55,103',
