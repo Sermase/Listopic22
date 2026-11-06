@@ -2,8 +2,8 @@ import React from 'react';
 import type { SceneMoment } from '../../lib/homeScene';
 
 /**
- * Dibujo de la cabecera de Inicio: una calle con su bar que cambia con la hora
- * (desayuno, terraza al mediodía, cañas al atardecer y luna de noche). El toldo y
+ * Dibujo de la cabecera de Inicio: una calle con su bar; el cielo cambia con la
+ * hora (mañana, mediodía con sombrillas, atardecer y luna de noche). El toldo y
  * el letrero van con el color del tema. El dibujo es ancho (720) y se recorta por
  * los lados en el móvil: lo importante va en el centro (180–540).
  */
@@ -51,7 +51,7 @@ const Buildings: React.FC<{ p: Palette; lit: boolean }> = ({ p, lit }) => (
 );
 
 /** El bar del centro, con toldo de rayas del color del tema y su letrero. */
-const Bar: React.FC<{ p: Palette; sign: string; glow?: boolean }> = ({ p, sign, glow }) => (
+const Bar: React.FC<{ p: Palette; glow?: boolean }> = ({ p, glow }) => (
     // Un poco más abajo: el letrero no choca con el saludo.
     <g transform="translate(0 14)">
         <rect x="282" y="74" width="156" height="76" fill={p.facade} />
@@ -59,8 +59,8 @@ const Bar: React.FC<{ p: Palette; sign: string; glow?: boolean }> = ({ p, sign, 
         <g fill="#ffffff" opacity=".92">
             {[0, 1, 2, 3, 4, 5].map((i) => <path key={i} d={`M${290 + i * 26} 74h12l${i < 3 ? -1.5 : 1.5} 22h-12z`} />)}
         </g>
-        <rect x="324" y="52" width="72" height="18" rx="5" fill={glow ? '#0d1431' : '#ffffff'} stroke="var(--lt-accent)" strokeWidth="2" />
-        <text x="360" y="65" textAnchor="middle" fontFamily="Inter, system-ui, sans-serif" fontWeight="800" fontSize="10.5" letterSpacing="2" style={{ fill: glow ? '#fde68a' : 'var(--lt-accent)' }}>{sign}</text>
+        <rect x="314" y="52" width="92" height="18" rx="5" fill={glow ? '#0d1431' : '#ffffff'} stroke="var(--lt-accent)" strokeWidth="2" />
+        <text x="360" y="65" textAnchor="middle" fontFamily="Inter, system-ui, sans-serif" fontWeight="800" fontSize="10.5" letterSpacing="2" style={{ fill: glow ? '#fde68a' : 'var(--lt-accent)' }}>LISTOPIC</text>
         <rect x="296" y="104" width="50" height="34" rx="3" fill={p.window} opacity={glow ? 0.9 : 0.75} />
         <rect x="372" y="104" width="46" height="46" rx="3" fill={p.door} />
         <circle cx="410" cy="128" r="2" fill="#fbbf24" />
@@ -83,45 +83,11 @@ const Table: React.FC<{ x: number; p: Palette; children?: React.ReactNode }> = (
     </g>
 );
 
-const Fries: React.FC<{ x: number }> = ({ x }) => (
+/** Un plato de los de verdad: el emoji del mejor valorado cerca (lib/dishArt). */
+const Dish: React.FC<{ x: number; emoji: string }> = ({ x, emoji }) => (
     <g>
-        <ellipse cx={x} cy="130" rx="11" ry="3" fill="#ffffff" />
-        <g fill="#f59e0b"><rect x={x - 8} y="122" width="4" height="8" rx="1" /><rect x={x - 3} y="119" width="4" height="11" rx="1" /><rect x={x + 2} y="123" width="4" height="7" rx="1" /></g>
-        <circle cx={x - 1} cy="124" r="2.2" fill="#ef4444" opacity=".85" />
-    </g>
-);
-
-const Beer: React.FC<{ x: number }> = ({ x }) => (
-    <g>
-        <path d={`M${x - 4} 114h8l-1 16h-6z`} fill="#fbbf24" opacity=".95" />
-        <rect x={x - 4.5} y="111" width="9" height="4" rx="2" fill="#ffffff" />
-    </g>
-);
-
-const Coffee: React.FC<{ x: number }> = ({ x }) => (
-    <g>
-        <ellipse cx={x} cy="130" rx="8" ry="2.2" fill="#e5e7eb" />
-        <path d={`M${x - 5} 120h10v6a5 4 0 0 1-10 0z`} fill="#ffffff" />
-        <path d={`M${x + 5} 121.5a3 3 0 0 1 0 5`} stroke="#ffffff" strokeWidth="1.6" fill="none" />
-        <ellipse cx={x} cy="120.4" rx="4.6" ry="1.2" fill="#7c4a2a" />
-    </g>
-);
-
-const Churros: React.FC<{ x: number }> = ({ x }) => (
-    <g>
-        <ellipse cx={x} cy="130" rx="12" ry="3" fill="#ffffff" />
-        <g stroke="#d97706" strokeWidth="3.4" strokeLinecap="round">
-            <path d={`M${x - 9} 127l16-5`} /><path d={`M${x - 8} 129.5l17-3`} />
-        </g>
-    </g>
-);
-
-const Vermouth: React.FC<{ x: number }> = ({ x }) => (
-    <g>
-        <path d={`M${x - 5} 114h10l-5 8z`} fill="#b91c1c" opacity=".9" />
-        <rect x={x - 0.7} y="122" width="1.4" height="7" fill="#e5e7eb" />
-        <ellipse cx={x} cy="130" rx="4" ry="1.2" fill="#e5e7eb" />
-        <circle cx={x + 2} cy="115.5" r="1.6" fill="#65a30d" />
+        <ellipse cx={x} cy="130.5" rx="13" ry="3.2" fill="#ffffff" />
+        <text x={x} y="129" textAnchor="middle" fontSize="17">{emoji}</text>
     </g>
 );
 
@@ -149,8 +115,14 @@ const SCENE_STYLES = `
 @media (prefers-reduced-motion: reduce) { .lt-scene-steam path, .lt-scene-star { animation: none; } }
 `;
 
-export const HomeScene: React.FC<{ moment: SceneMoment; children?: React.ReactNode }> = ({ moment, children }) => {
+/**
+ * `dishes`: emojis de los platos mejor valorados cerca, para las mesas. Nada de cafés
+ * ni cañas inventados: en las mesas solo hay lo que se valora en Listopic.
+ */
+export const HomeScene: React.FC<{ moment: SceneMoment; dishes?: readonly string[]; children?: React.ReactNode }> = ({ moment, dishes = [], children }) => {
     const p = PALETTES[moment];
+    const first = dishes[0] ?? '🍽️';
+    const second = dishes[1] ?? first;
     const id = `lt-sky-${moment}`;
     return (
         <div className="relative h-[176px] overflow-hidden rounded-3xl border border-[var(--lt-border)] shadow-lg sm:h-[200px]">
@@ -201,30 +173,30 @@ export const HomeScene: React.FC<{ moment: SceneMoment; children?: React.ReactNo
 
                 {moment === 'manana' && (
                     <>
-                        <Bar p={p} sign="CAFÉ" />
-                        <Table x={248} p={p}><Coffee x={240} /><Churros x={258} /></Table>
-                        <Steam x={237} y={114} />
+                        <Bar p={p} />
+                        <Table x={248} p={p}><Dish x={248} emoji={first} /></Table>
+                        <Steam x={242} y={110} />
                     </>
                 )}
                 {moment === 'mediodia' && (
                     <>
-                        <Bar p={p} sign="TERRAZA" />
-                        <Umbrella x={246} /><Table x={246} p={p}><Fries x={240} /><Beer x={258} /></Table>
-                        <Umbrella x={474} /><Table x={474} p={p}><Beer x={468} /><Beer x={480} /></Table>
+                        <Bar p={p} />
+                        <Umbrella x={246} /><Table x={246} p={p}><Dish x={246} emoji={first} /></Table>
+                        <Umbrella x={474} /><Table x={474} p={p}><Dish x={474} emoji={second} /></Table>
                     </>
                 )}
                 {moment === 'tarde' && (
                     <>
-                        <Bar p={p} sign="CAÑAS" glow />
-                        <Table x={248} p={p}><Beer x={240} /><Vermouth x={256} /></Table>
-                        <Table x={474} p={p}><Fries x={474} /></Table>
+                        <Bar p={p} glow />
+                        <Table x={248} p={p}><Dish x={248} emoji={first} /></Table>
+                        <Table x={474} p={p}><Dish x={474} emoji={second} /></Table>
                     </>
                 )}
                 {moment === 'noche' && (
                     <>
-                        <Bar p={p} sign="BAR" glow />
-                        <Table x={248} p={p}><Fries x={248} /></Table>
-                        <Steam x={242} y={116} />
+                        <Bar p={p} glow />
+                        <Table x={248} p={p}><Dish x={248} emoji={first} /></Table>
+                        <Steam x={242} y={110} />
                     </>
                 )}
             </svg>

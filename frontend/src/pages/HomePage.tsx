@@ -48,7 +48,8 @@ import { placeRating } from '../lib/placeRating';
 import { AREA_STORAGE_KEY, buildAreaOptions, decodeArea, encodeArea, inferUserGeo, localAreaOptions, matchesArea, type GeoFields, type ListArea } from '../lib/geoAreas';
 import { exploreSearchUrl } from '../lib/searchZones';
 import { HomeScene } from '../components/home/HomeScene';
-import { mealLine, sceneMoment, timeGreeting } from '../lib/homeScene';
+import { sceneMoment, timeGreeting } from '../lib/homeScene';
+import { dishArt } from '../lib/dishArt';
 import { FriendsRow, ZoneWeekCard } from '../components/home/ZoneWeek';
 import { buildFriendBites, buildZoneWeek, isWeekSampleCapped } from '../lib/zoneWeek';
 
@@ -1392,6 +1393,10 @@ export const HomePage: React.FC = () => {
     const [sceneHour] = useState(() => new Date().getHours());
     const firstName = (user?.displayName || '').trim().split(/\s+/)[0];
     const greeting = user ? `${timeGreeting(sceneHour)}${firstName ? `, ${firstName}` : ''}` : 'Hola 👋, esto es Listopic';
+    const topDish = rankedDishes[0];
+    const topDishLine = topDish && typeof topDish.score === 'number'
+        ? `Lo mejor por aquí: ${topDish.title}${topDish.subtitle ? ` de ${topDish.subtitle}` : ''} · ${topDish.score.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`
+        : filteredPlaces.length > 0 ? `${filteredPlaces.length} ${filteredPlaces.length === 1 ? 'sitio valorado' : 'sitios valorados'} por aquí` : '';
 
     return (
         <>
@@ -1401,14 +1406,14 @@ export const HomePage: React.FC = () => {
                     {/* Cabecera: saludo, frase con gancho y buscador */}
                     <div className="max-w-4xl mx-auto pt-2 sm:pt-6 relative z-10">
                         <div className="absolute -top-16 right-0 w-72 h-72 rounded-full blur-[90px] pointer-events-none -z-10 opacity-80" style={{ backgroundColor: 'var(--lt-accent-soft)' }} />
-                        <HomeScene moment={sceneMoment(sceneHour)}>
+                        <HomeScene moment={sceneMoment(sceneHour)} dishes={Array.from(new Set(rankedDishes.slice(0, 6).map((row) => dishArt(row.title, row.subtitle).emoji))).slice(0, 2)}>
                             <h1 className="text-xl md:text-2xl font-bold tracking-tight">
                                 {greeting}
                             </h1>
-                            {/* Con sesión, la hora de comer y lo que hay; sin sesión, la frase con gancho. */}
+                            {/* Con sesión, lo mejor de verdad por aquí; sin sesión, la frase con gancho. */}
                             {user ? (
-                                <p className="mt-0.5 text-sm font-semibold opacity-90">
-                                    {mealLine(sceneHour)}{filteredPlaces.length > 0 ? ` · ${filteredPlaces.length} ${filteredPlaces.length === 1 ? 'sitio valorado' : 'sitios valorados'} por aquí` : ''}
+                                <p className="mt-0.5 max-w-[19rem] truncate text-sm font-semibold opacity-90">
+                                    {topDishLine}
                                 </p>
                             ) : (
                                 <p className="mt-0.5 max-w-[17rem] text-sm font-medium opacity-90 [text-wrap:balance]">
