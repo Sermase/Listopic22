@@ -130,6 +130,16 @@ export function buildZoneWeek(input: {
     };
 }
 
+/**
+ * Inicio carga como mucho `cap` reseñas (las más nuevas). Si llegó al tope y la más
+ * antigua es de esta semana, faltan reseñas de la semana: los totales son «N o más».
+ */
+export function isWeekSampleCapped(reviews: ReadonlyArray<{ createdAt?: unknown }>, now: number, cap = 100): boolean {
+    if (reviews.length < cap) return false;
+    const oldest = Math.min(...reviews.map((r) => toMillis(r.createdAt) || Infinity));
+    return Number.isFinite(oldest) && oldest >= now - 7 * DAY_MS;
+}
+
 /** Lo último de cada persona a la que sigues (una por persona, del último mes, lo más nuevo primero). */
 export function buildFriendBites(input: {
     reviews: ReadonlyArray<HomeFeedReview & { authorPhotoURL?: string | null; userPhoto?: string | null }>;

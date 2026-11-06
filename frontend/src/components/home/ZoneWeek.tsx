@@ -9,9 +9,9 @@ import { DishArtTile } from './DishArt';
 
 const fmt = (n: number) => n.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-const Stat: React.FC<{ value: number; label: string }> = ({ value, label }) => (
+const Stat: React.FC<{ value: number; label: string; orMore?: boolean }> = ({ value, label, orMore }) => (
     <div className="rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-glass)] px-2 py-2 text-center">
-        <span className="block font-display text-xl font-bold tabular-nums text-[var(--lt-text)]">{value}</span>
+        <span className="block font-display text-xl font-bold tabular-nums text-[var(--lt-text)]">{value}{orMore && value > 0 ? '+' : ''}</span>
         <span className="block text-[11px] leading-tight text-[var(--lt-text-muted)]">{label}</span>
     </div>
 );
@@ -24,8 +24,11 @@ const Line: React.FC<{ icon: string; to: string; children: React.ReactNode }> = 
     </Link>
 );
 
-/** «Tu zona esta semana»: qué se mueve cerca (lib/zoneWeek). */
-export const ZoneWeekCard: React.FC<{ week: ZoneWeek; scope?: string }> = ({ week, scope }) => (
+/**
+ * «Tu zona esta semana»: qué se mueve cerca (lib/zoneWeek). `partial`: Inicio no
+ * ha cargado toda la semana (tope de reseñas), así que los totales son «N o más».
+ */
+export const ZoneWeekCard: React.FC<{ week: ZoneWeek; scope?: string; partial?: boolean }> = ({ week, scope, partial }) => (
     <section
         aria-label="Tu zona esta semana"
         className="rounded-3xl border border-[var(--lt-border)] p-3.5 shadow-lg"
@@ -43,9 +46,9 @@ export const ZoneWeekCard: React.FC<{ week: ZoneWeek; scope?: string }> = ({ wee
         ) : (
             <>
                 <div className="mt-3 grid grid-cols-3 gap-2">
-                    <Stat value={week.reviews} label={week.reviews === 1 ? 'valoración' : 'valoraciones'} />
-                    <Stat value={week.withPhoto} label="con foto" />
-                    <Stat value={week.newPlaces} label={week.newPlaces === 1 ? 'sitio nuevo' : 'sitios nuevos'} />
+                    <Stat value={week.reviews} label={week.reviews === 1 ? 'valoración' : 'valoraciones'} orMore={partial} />
+                    <Stat value={week.withPhoto} label="con foto" orMore={partial} />
+                    <Stat value={week.newPlaces} label={week.newPlaces === 1 ? 'sitio nuevo' : 'sitios nuevos'} orMore={partial} />
                 </div>
                 <div className="mt-2">
                     {week.star && (

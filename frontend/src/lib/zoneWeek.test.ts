@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFriendBites, buildZoneWeek, shortAgo } from './zoneWeek';
+import { buildFriendBites, buildZoneWeek, isWeekSampleCapped, shortAgo } from './zoneWeek';
 import type { HomeFeedReview } from './homeFeeds';
 
 const NOW = new Date(2026, 10, 6, 20).getTime();
@@ -46,6 +46,15 @@ describe('tu zona esta semana', () => {
         });
         expect(week.reviews).toBe(0);
         expect(week.star).toBeNull();
+    });
+});
+
+describe('reseñas cargadas con tope', () => {
+    it('con 100 y la más antigua de esta semana, los totales son «o más»', () => {
+        const recent = Array.from({ length: 100 }, (_, i) => ({ createdAt: daysAgo(i % 5) }));
+        expect(isWeekSampleCapped(recent, NOW)).toBe(true);
+        expect(isWeekSampleCapped([...recent.slice(1), { createdAt: daysAgo(9) }], NOW)).toBe(false);
+        expect(isWeekSampleCapped(recent.slice(0, 40), NOW)).toBe(false);
     });
 });
 

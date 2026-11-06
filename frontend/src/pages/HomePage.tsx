@@ -50,7 +50,7 @@ import { exploreSearchUrl } from '../lib/searchZones';
 import { HomeScene } from '../components/home/HomeScene';
 import { mealLine, sceneMoment, timeGreeting } from '../lib/homeScene';
 import { FriendsRow, ZoneWeekCard } from '../components/home/ZoneWeek';
-import { buildFriendBites, buildZoneWeek } from '../lib/zoneWeek';
+import { buildFriendBites, buildZoneWeek, isWeekSampleCapped } from '../lib/zoneWeek';
 
 /* 
     HOMEPAGE (Legacy Screenshot Match + Functional Logic: Categories & Range)
@@ -1385,6 +1385,8 @@ export const HomePage: React.FC = () => {
         now: nowMs,
     }), [reviews, followingIds, user?.uid, nowMs]);
     const zoneScope = areaFilter.kind === 'near' && range && location ? `a menos de ${formatRangeKm(range)}` : undefined;
+    // Inicio carga como mucho 100 reseñas: si no llegan a cubrir la semana, los totales son «N+».
+    const zoneWeekPartial = useMemo(() => isWeekSampleCapped(reviews as unknown as HomeFeedReview[], nowMs), [reviews, nowMs]);
 
     // Cabecera: dibujo según la hora (lib/homeScene).
     const [sceneHour] = useState(() => new Date().getHours());
@@ -1591,7 +1593,7 @@ export const HomePage: React.FC = () => {
                     {/* «Tu zona esta semana» y «Tus colegas»: después del ranking, que es lo esencial. */}
                     {activeTab === 'explore' && !loadingReviews && (
                         <div className="mx-auto mb-8 w-full max-w-4xl space-y-5">
-                            <ZoneWeekCard week={zoneWeek} scope={zoneScope} />
+                            <ZoneWeekCard week={zoneWeek} scope={zoneScope} partial={zoneWeekPartial} />
                             <FriendsRow bites={friendBites} now={nowMs} onViewAll={() => { setActiveTab('news'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
                         </div>
                     )}
