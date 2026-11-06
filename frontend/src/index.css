@@ -681,7 +681,7 @@
     --lt-brand-mark: linear-gradient(135deg, #5eead4, #0c8a78);
     --lt-awning: repeating-linear-gradient(90deg, #6fd6c2 0 22px, #ffffff 22px 44px);
     --lt-body-mesh:
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cg opacity='.28'%3E%3Crect x='20' y='30' width='10' height='3' rx='1.5' fill='%23f472b6' transform='rotate(30 25 31)'/%3E%3Crect x='110' y='20' width='10' height='3' rx='1.5' fill='%2314b8a6' transform='rotate(-20 115 21)'/%3E%3Crect x='70' y='100' width='10' height='3' rx='1.5' fill='%23facc15' transform='rotate(70 75 101)'/%3E%3Crect x='150' y='120' width='10' height='3' rx='1.5' fill='%23a78bfa' transform='rotate(10 155 121)'/%3E%3Crect x='30' y='150' width='10' height='3' rx='1.5' fill='%2338bdf8' transform='rotate(-50 35 151)'/%3E%3C/g%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cg opacity='.14'%3E%3Crect x='20' y='30' width='10' height='3' rx='1.5' fill='%23f472b6' transform='rotate(30 25 31)'/%3E%3Crect x='110' y='20' width='10' height='3' rx='1.5' fill='%2314b8a6' transform='rotate(-20 115 21)'/%3E%3Crect x='70' y='100' width='10' height='3' rx='1.5' fill='%23facc15' transform='rotate(70 75 101)'/%3E%3Crect x='150' y='120' width='10' height='3' rx='1.5' fill='%23a78bfa' transform='rotate(10 155 121)'/%3E%3Crect x='30' y='150' width='10' height='3' rx='1.5' fill='%2338bdf8' transform='rotate(-50 35 151)'/%3E%3C/g%3E%3C/svg%3E"),
         radial-gradient(circle at 8% 8%, rgba(20, 184, 166, 0.16), transparent 42%),
         radial-gradient(circle at 92% 16%, rgba(244, 114, 182, 0.14), transparent 40%),
         radial-gradient(circle at 80% 92%, rgba(250, 204, 21, 0.12), transparent 45%);
@@ -915,22 +915,12 @@
    algún detalle. Solo adorno: los colores siguen saliendo de los tokens.
    --------------------------------------------------------------------- */
 
-/* Despensa al pie del menú (la Abuela tiene la suya arriba). */
-:is(.theme-dark, .theme-warm, .theme-cool, .theme-neon, .theme-graphite) .lt-menu-sheet::after {
-    display: block;
-    margin-top: 0.75rem;
-    text-align: center;
-    font-size: 1.25rem;
-    letter-spacing: 0.2em;
-}
-
 /* Oscuro · Medianoche: el menú es cielo con estrellas; la barra, una línea de luna. */
 html.theme-dark .lt-menu-sheet {
     background-color: #141b3a;
     background-image: var(--lt-body-mesh);
     border-top: 1px solid rgba(199, 210, 254, 0.35);
 }
-html.theme-dark .lt-menu-sheet::after { content: '🌙 ✨ 🍷 ✨ 🌃'; }
 html.theme-dark .lt-bottom-bar {
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(199, 210, 254, 0.28), 0 -1px 18px rgba(129, 140, 248, 0.16) !important;
 }
@@ -946,14 +936,6 @@ html[data-theme="light"] .lt-menu-sheet {
     background-repeat: no-repeat;
     border-top: 0;
 }
-html[data-theme="light"] .lt-menu-sheet::after {
-    content: '☀️ 🥗 🍋 🍉 🧃 🌤️';
-    display: block;
-    margin-top: 0.75rem;
-    text-align: center;
-    font-size: 1.25rem;
-    letter-spacing: 0.2em;
-}
 html[data-theme="light"] .lt-bottom-bar {
     box-shadow: 0 12px 30px rgba(26, 22, 37, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 -2px 18px rgba(253, 224, 71, 0.28) !important;
 }
@@ -968,13 +950,12 @@ html.theme-warm .lt-menu-sheet {
     box-shadow: 0 -10px 34px rgba(249, 115, 22, 0.4) !important;
 }
 html.theme-warm .lt-menu-sheet :is(a, button)[class*="rounded"] { background-color: rgba(58, 28, 19, 0.92); }
-html.theme-warm .lt-menu-sheet::after { content: '🔥 🥩 🌽 🍖 🧄 🫑 🥖'; }
 html.theme-warm .lt-bottom-bar {
     border-color: rgba(251, 146, 60, 0.5) !important;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 -4px 26px rgba(249, 115, 22, 0.32), inset 0 1px 0 rgba(253, 186, 116, 0.25) !important;
 }
 
-/* Fresco · Heladería: toldo a rayas encima del menú y virutas de colores; barra con ribete de toldo. */
+/* Fresco · Heladería: toldo a rayas encima del menú; barra con línea menta → fresa. */
 html.theme-cool .lt-menu-sheet {
     background-color: #f7fdfa;
     background-image:
@@ -987,12 +968,11 @@ html.theme-cool .lt-menu-sheet {
     border-top: 0;
     padding-top: 2.4rem !important;
 }
-html.theme-cool .lt-menu-sheet::after { content: '🍦 🍓 🍋 🍧 🌿 🍉 🍨'; }
 html.theme-cool .lt-bottom-bar {
-    border: 4px solid transparent !important;
+    border: 2px solid transparent !important;
     background:
         linear-gradient(#ffffff, #ffffff) padding-box,
-        repeating-linear-gradient(90deg, #6fd6c2 0 10px, #ffffff 10px 20px) border-box !important;
+        linear-gradient(90deg, #5eead4, #f9a8d4) border-box !important;
 }
 
 /* Neón: rótulos que brillan, menú con tubo de neón y la barra como letrero. */
@@ -1017,7 +997,6 @@ html.theme-neon .lt-menu-sheet {
     border-top: 2px solid #f472b6;
     box-shadow: 0 -2px 14px rgba(236, 72, 153, 0.7), 0 -12px 40px rgba(139, 92, 246, 0.35) !important;
 }
-html.theme-neon .lt-menu-sheet::after { content: '🍸 🎶 🌮 🪩 🍕 🎧 🍔'; }
 html.theme-neon .lt-bottom-bar {
     border: 1.5px solid rgba(244, 114, 182, 0.9) !important;
     box-shadow: 0 0 10px rgba(236, 72, 153, 0.6), 0 0 30px rgba(139, 92, 246, 0.35), inset 0 0 12px rgba(236, 72, 153, 0.22) !important;
@@ -1025,7 +1004,7 @@ html.theme-neon .lt-bottom-bar {
 
 /* Grafito · Pizarra: títulos a tiza, menú del día con marco de madera. */
 html.theme-graphite :is(h1, h2) {
-    font-family: var(--font-display);
+    font-family: var(--lt-title-font);
     font-weight: 700;
     letter-spacing: 0.01em;
     /* Caveat es bajita: igualada en altura a la letra normal sin tocar los tamaños. */
@@ -1039,7 +1018,6 @@ html.theme-graphite .lt-menu-sheet {
     border-top: 0;
     padding-top: 0.9rem !important;
 }
-html.theme-graphite .lt-menu-sheet::after { content: '🍳 🥗 🍝 🐟 🍮 ☕'; }
 html.theme-graphite .lt-bottom-bar {
     border: 5px solid transparent !important;
     background:
@@ -1059,14 +1037,6 @@ html.theme-sunset .lt-menu-sheet {
     border-top: 0;
     padding-top: 3.1rem !important;
 }
-html.theme-sunset .lt-menu-sheet::after {
-    content: '🌅 🍹 🥂 🫒 🧀 🍤 🌇';
-    display: block;
-    margin-top: 0.75rem;
-    text-align: center;
-    font-size: 1.25rem;
-    letter-spacing: 0.2em;
-}
 html.theme-sunset .lt-bottom-bar {
     border-color: rgba(255, 196, 120, 0.55) !important;
     box-shadow: 0 12px 32px rgba(40, 10, 50, 0.45), 0 -4px 24px rgba(255, 140, 90, 0.35), inset 0 1px 0 rgba(255, 220, 160, 0.35) !important;
@@ -1081,14 +1051,6 @@ html.theme-lagoon .lt-menu-sheet {
     background-repeat: repeat-x, repeat;
     border-top: 0;
     padding-top: 1.4rem !important;
-}
-html.theme-lagoon .lt-menu-sheet::after {
-    content: '🏝️ 🍍 🥥 🐠 🍹 🌺 🦀';
-    display: block;
-    margin-top: 0.75rem;
-    text-align: center;
-    font-size: 1.25rem;
-    letter-spacing: 0.2em;
 }
 html.theme-lagoon .lt-bottom-bar {
     border: 2px solid transparent !important;
@@ -1114,50 +1076,50 @@ html.theme-sunset {
         radial-gradient(circle at 85% 92%, rgba(253, 224, 71, 0.12), transparent 45%);
 }
 
-/* Letra y forma de cada tema: los títulos (h1, h2 y .font-display) cambian de
-   letra y las esquinas cambian de radio (Tailwind 4 las lee de --radius-*).
-   El texto normal sigue en Manrope para que todo se lea igual de bien. */
+/* Letra y forma de cada tema: solo los títulos de página (h1, h2) cambian de
+   letra; notas, nombres y números siguen en la letra de siempre para que el
+   ranking se lea serio. Las esquinas cambian de radio (Tailwind 4 las lee de --radius-*). */
 html.theme-dark,
-html[data-theme="light"] { --font-display: 'Fraunces Variable', Georgia, serif; }
+html[data-theme="light"] { --lt-title-font: 'Fraunces Variable', Georgia, serif; }
 html.theme-warm {
-    --font-display: 'Alfa Slab One', 'Rockwell', serif;
+    --lt-title-font: 'Alfa Slab One', 'Rockwell', serif;
     --radius-xl: 0.7rem;
     --radius-2xl: 0.9rem;
     --radius-3xl: 1.1rem;
 }
 html.theme-cool {
-    --font-display: 'Fredoka Variable', 'Fredoka', sans-serif;
+    --lt-title-font: 'DM Serif Display', Georgia, serif;
     --radius-xl: 1.05rem;
     --radius-2xl: 1.6rem;
     --radius-3xl: 2.2rem;
 }
 html.theme-neon {
-    --font-display: 'Tilt Neon Variable', 'Tilt Neon', sans-serif;
+    --lt-title-font: 'Tilt Neon Variable', 'Tilt Neon', sans-serif;
     --radius-xl: 0.55rem;
     --radius-2xl: 0.7rem;
     --radius-3xl: 0.9rem;
 }
 html.theme-graphite {
-    --font-display: 'Caveat Variable', 'Caveat', cursive;
+    --lt-title-font: 'Caveat Variable', 'Caveat', cursive;
     --radius-xl: 0.4rem;
     --radius-2xl: 0.5rem;
     --radius-3xl: 0.65rem;
 }
-html.theme-sunset { --font-display: 'Righteous', sans-serif; }
+html.theme-sunset { --lt-title-font: 'Righteous', sans-serif; }
 html.theme-lagoon {
-    --font-display: 'Lilita One', sans-serif;
+    --lt-title-font: 'Bricolage Grotesque Variable', 'Bricolage Grotesque', sans-serif;
     --radius-2xl: 1.3rem;
     --radius-3xl: 1.8rem;
 }
 :is(html.theme-dark, html[data-theme="light"], html.theme-warm, html.theme-cool, html.theme-neon, html.theme-sunset, html.theme-lagoon) :is(h1, h2) {
-    font-family: var(--font-display);
+    font-family: var(--lt-title-font);
 }
 :is(html.theme-dark, html[data-theme="light"]) :is(h1, h2) { font-weight: 650; letter-spacing: -0.01em; }
 html.theme-warm :is(h1, h2) { font-weight: 400; letter-spacing: 0.01em; }
-html.theme-cool :is(h1, h2) { font-weight: 600; }
+html.theme-cool :is(h1, h2) { font-weight: 400; letter-spacing: 0; }
 html.theme-neon :is(h1, h2) { font-weight: 500; }
-html.theme-sunset :is(h1, h2), html.theme-lagoon :is(h1, h2) { font-weight: 400; letter-spacing: 0.01em; }
-html.theme-graphite .font-display { font-size-adjust: 0.56; font-weight: 700; }
+html.theme-sunset :is(h1, h2) { font-weight: 400; letter-spacing: 0.01em; }
+html.theme-lagoon :is(h1, h2) { font-weight: 750; letter-spacing: -0.015em; }
 
 /* Tarjetas con carácter: tubo luminoso en Neón, borde de tiza en Pizarra,
    brillo de brasa en Cálido y sombra de helado en Fresco. */
