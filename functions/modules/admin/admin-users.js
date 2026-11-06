@@ -157,6 +157,7 @@ async function handleUserOwnedLists(userId, keepSublists, state) {
 async function recalculateAggregatesForUser(userId, reviewCount) {
   const listsSnap = await db.collection('lists').where('userId', '==', userId).get();
   const listCount = listsSnap.size;
+  const publicListsCount = listsSnap.docs.filter((d) => d.get('isPublic')).length;
 
   const followersSnap = await db.collection('users').doc(userId).collection('followers').get();
   const followersCount = followersSnap.size;
@@ -167,13 +168,19 @@ async function recalculateAggregatesForUser(userId, reviewCount) {
   const followingListsSnap = await db.collection('users').doc(userId).collection('followingLists').get();
   const followingListsCount = followingListsSnap.size;
 
+  // Listas y seguidos en los campos que mantienen los triggers (publicListsCount/
+  // privateListsCount y followingCount). listCount y followingUsersCount se quedaban como
+  // foto fija de este recuento y tapaban a esos, también al repartir medallas: se borran.
   await db.collection('users').doc(userId).set({
     reviewsCount: reviewCount,
     reviewCount,
-    listCount,
+    publicListsCount,
+    privateListsCount: listCount - publicListsCount,
+    listCount: FieldValue.delete(),
+    listsCount: FieldValue.delete(),
     followersCount,
     followingCount,
-    followingUsersCount: followingCount,
+    followingUsersCount: FieldValue.delete(),
     followingListsCount,
     lastStatsRecalc: FieldValue.serverTimestamp()
   }, { merge: true });

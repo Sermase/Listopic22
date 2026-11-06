@@ -381,4 +381,4 @@ const claimThemeBadges = onCall(async (request) => {
   return { awarded: add.map((id) => ({ id, name: badgeMeta(id).name, icon: badgeMeta(id).icon, theme: THEME_BADGES[id].theme })) };
 });
 
-module.exports = { claimSurpriseBadge, tortillaPoll, reviewSecretBadges, recalcSecretBadges, claimThemeBadges };
+module.exports = { claimSurpriseBadge, tortillaPoll, reviewSecretBadges, recalcSecretBadges, claimThemeBadges, syncCheckableBadges };

@@ -1549,7 +1549,7 @@ export const DeveloperPage: React.FC = () => {
                                         <div className="flex gap-4">
                                             <button
                                                 onClick={async () => {
-                                                    if (!confirm("⚠️ RECALCULAR GAMIFICACIÓN GLOBAL: ¿Estás seguro?")) return;
+                                                    if (!confirm("⚠️ Recalcular medallas de todos: se cuentan de nuevo valoraciones, fotos, listas y seguidores, y se quitan las medallas que ya no se cumplen. ¿Seguir?")) return;
                                                     setLoadingBadges(true);
                                                     setMaintenanceLog(prev => [`[${new Date().toLocaleTimeString()}] GLOBAL SYNC START...`, ...prev]);
                                                     try {
