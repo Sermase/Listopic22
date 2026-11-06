@@ -181,6 +181,17 @@ function uniqueTags(values) {
  * Las valoraciones llegan ya filtradas por visibilidad (Algolia: solo públicas).
  * @returns {Array<object>} grupos ordenados por puesto.
  */
+/** Fecha de la valoración en ms (Timestamp de Firestore, Date, texto o número); 0 si no hay. */
+function reviewMillis(review) {
+    const value = review && (review.createdAt || review.updatedAt);
+    if (!value) return 0;
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    if (typeof value._seconds === 'number') return value._seconds * 1000;
+    if (typeof value.seconds === 'number') return value.seconds * 1000;
+    const ms = value instanceof Date ? value.getTime() : (typeof value === 'number' ? value : Date.parse(value));
+    return Number.isFinite(ms) ? ms : 0;
+}
+
 function aggregateGroups(listId, listData, reviews, placeMap, botAuthorIds = new Set()) {
     const groups = new Map();
 
@@ -228,12 +239,16 @@ function aggregateGroups(listId, listData, reviews, placeMap, botAuthorIds = new
                 placeAccessibilityOptions: placeInfo ? (placeInfo.businessAccessibility ? { ...(placeInfo.accessibility || {}), ...placeInfo.businessAccessibility } : (placeInfo.accessibilityOptions || placeInfo.accessibility || null)) : null,
                 placePetOptions: placeInfo ? (placeInfo.businessPetOptions || placeInfo.petOptions || placeInfo.pets || null) : null,
                 geoloc: extractGeoloc(placeInfo),
-                thumbnailMaxLikes: -1 // Track max likes for thumbnail selection
+                thumbnailMaxLikes: -1, // Track max likes for thumbnail selection
+                // Última valoración (ms), de personas y de bots: «Top reciente» filtra por ella en Buscar.
+                lastReviewAtMs: { human: 0, bot: 0 }
             };
             groups.set(key, group);
         }
 
         group.counted[isBot ? 'bot' : 'human'].push({ review, score });
+        const at = reviewMillis(review);
+        if (at > group.lastReviewAtMs[isBot ? 'bot' : 'human']) group.lastReviewAtMs[isBot ? 'bot' : 'human'] = at;
         if (hasGlutenFreeSeal(placeInfo, review)) group.glutenFreeSeal = true;
 
         // Thumbnail Logic: Pick image with most likes
@@ -282,12 +297,13 @@ function aggregateGroups(listId, listData, reviews, placeMap, botAuthorIds = new
             avgScores[criterion] = Number((total / criteriaCounts[criterion]).toFixed(1));
         });
 
-        const { counted: _counted, authorUserTypes, thumbnailMaxLikes: _likes, key, ...rest } = group;
+        const { counted: _counted, authorUserTypes, thumbnailMaxLikes: _likes, lastReviewAtMs, key, ...rest } = group;
         return {
             ...rest,
             key,
             botOnly,
             itemCount,
+            lastReviewAtMs: (botOnly ? lastReviewAtMs.bot : lastReviewAtMs.human) || null,
             // Sin redondear: con esta se ordena (rankingScore). La que se ve, a 1 decimal.
             average: Number(average.toFixed(4)),
             avgGeneralScore: Number(average.toFixed(1)),

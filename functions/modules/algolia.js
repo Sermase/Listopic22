@@ -113,7 +113,8 @@ const INDEX_SETTINGS = {
         // Mismo orden que la Lista (compareElementsByRank): listRank deshace los
         // empates de nota y nº de valoraciones con la clave del elemento.
         customRanking: ["desc(rankingScore)", "desc(reviewCount)", "asc(listRank)"],
-        numericAttributesForFiltering: ["rankingScore", "avgGeneralScore", "reviewCount", "listRank"]
+        // lastReviewAtTimestamp: «Ver todo» de «Top reciente» (lo valorado estos días).
+        numericAttributesForFiltering: ["rankingScore", "avgGeneralScore", "reviewCount", "listRank", "lastReviewAtTimestamp"]
     }
 };
 
@@ -164,6 +165,7 @@ async function ensureIndexSettings(indexName, index) {
                         // Las réplicas no heredan cambios del principal: mismas facetas (zona en Buscar).
                         await replicaIndex.setSettings({
                             ...(settings.attributesForFaceting ? { attributesForFaceting: settings.attributesForFaceting } : {}),
+                            ...(settings.numericAttributesForFiltering ? { numericAttributesForFiltering: settings.numericAttributesForFiltering } : {}),
                             ...replicaSettings,
                         });
                     }
@@ -756,6 +758,7 @@ function mapGroupToAlgoliaRecord(listId, listData, group, category = null) {
         averageRating: typeof group.avgGeneralScore === "number" ? group.avgGeneralScore : 0,
         rankingScore: calculateGroupedItemRankingScore(group),
         listRank: typeof group.listRank === "number" ? group.listRank : 0,
+        lastReviewAtTimestamp: typeof group.lastReviewAtMs === "number" && group.lastReviewAtMs > 0 ? Math.floor(group.lastReviewAtMs / 1000) : 0,
         // Solo valoraciones de bots: Buscar lo oculta por defecto, como la Lista.
         botOnly: group.botOnly === true,
         groupTags: Array.isArray(group.groupTags) ? group.groupTags : [],

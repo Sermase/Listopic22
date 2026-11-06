@@ -5,6 +5,7 @@ import type { HomeFeedCard as HomeFeedCardData } from '../../lib/homeFeeds';
 import { scoreBadgeStyle } from '../../lib/scoreScale';
 import { ProgressiveImage } from '../ProgressiveImage';
 import { MarqueeText } from '../ui/MarqueeText';
+import { DishArtTile } from './DishArt';
 
 const FALLBACK_ICON = { dish: Utensils, place: MapPin, list: ListIcon, review: Utensils } as const;
 
@@ -20,9 +21,14 @@ const RANK_STYLE: Record<number, React.CSSProperties> = {
 export const HomeFeedCard: React.FC<{ card: HomeFeedCardData }> = ({ card }) => {
     const Fallback = FALLBACK_ICON[card.kind];
     const isReview = card.kind === 'review';
-    const placeholder = (
+    // Sin foto: el dibujo del plato o del sitio; las listas, su icono.
+    const placeholder = card.kind === 'list' ? (
         <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundImage: 'linear-gradient(135deg, var(--lt-accent-soft), transparent)' }}>
             <Fallback className="h-10 w-10 text-[var(--lt-text-muted)] opacity-50" />
+        </div>
+    ) : (
+        <div className="absolute inset-0 pb-10">
+            <DishArtTile names={[card.itemName, card.title, card.placeName]} emojiClassName="text-6xl" />
         </div>
     );
 

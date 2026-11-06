@@ -87,7 +87,7 @@ export type SurpriseEffect =
     | { kind: 'broken'; title?: string }
     | { kind: 'shake' }
     /** `haptic`: cómo vibra al salir (por defecto, un toque suave). */
-    | { kind: 'bubble'; emoji: string; text: string; haptic?: HapticKind }
+    | { kind: 'bubble'; emoji: string; text: string; haptic?: HapticKind; /** Enlace del chivatazo: la burbuja se puede tocar. */ to?: string }
     | { kind: 'croqueta'; gated?: boolean }
     | { kind: 'roulette' }
     | { kind: 'poll'; poll: PollId; side?: PollSide }
