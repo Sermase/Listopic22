@@ -259,6 +259,10 @@ export const Navbar: React.FC = () => {
                     <Link to="/" className="flex items-center gap-3 group brand-logo relative z-50">
                         {isConfigLoading ? (
                             <div className="w-32 h-8 rounded-lg bg-[var(--lt-accent-soft)] animate-pulse" />
+                        ) : (config.logoType === 'image' || config.logoType === 'tinted') && themeLogoUrls[theme] ? (
+                            <img src={themeLogoUrls[theme]} alt={config.appName} className="max-h-12 w-auto object-contain transition-transform group-hover:scale-105" />
+                        ) : config.logoType === 'tinted' ? (
+                            <span role="img" aria-label={config.appName} className="lt-wordmark transition-transform group-hover:scale-105" />
                         ) : config.logoType === 'image' && activeLogoUrl ? (
                             <img src={activeLogoUrl} alt={config.appName} className="max-h-12 w-auto object-contain transition-transform group-hover:scale-105" />
                         ) : (

@@ -1000,7 +1000,7 @@ html.theme-neon .lt-bottom-bar {
 
 /* Grafito · Pizarra: títulos a tiza, menú del día con marco de madera. */
 html.theme-graphite :is(h1, h2) {
-    font-family: 'Caveat Variable', 'Caveat', cursive;
+    font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: 0.01em;
     /* Caveat es bajita: igualada en altura a la letra normal sin tocar los tamaños. */
@@ -1021,6 +1021,156 @@ html.theme-graphite .lt-bottom-bar {
         linear-gradient(#2f3e38, #2f3e38) padding-box,
         var(--lt-wood) border-box !important;
 }
+
+/* Atardecer · Hora dorada: el sol se pone sobre el menú; la barra, con la luz dorada. */
+html.theme-sunset .lt-menu-sheet {
+    background-color: #5e3767;
+    background-image:
+        radial-gradient(circle at 50% 100%, #ffd27a 0 34px, rgba(255, 179, 71, 0.55) 35px, transparent 70px),
+        linear-gradient(to bottom, #ffb347 0%, #ff7a59 45%, rgba(244, 63, 94, 0.55) 75%, rgba(94, 55, 103, 0) 100%);
+    background-size: 100% 46px, 100% 46px;
+    background-position: 0 0, 0 0;
+    background-repeat: no-repeat;
+    border-top: 0;
+    padding-top: 3.1rem !important;
+}
+html.theme-sunset .lt-menu-sheet::after {
+    content: '🌅 🍹 🥂 🫒 🧀 🍤 🌇';
+    display: block;
+    margin-top: 0.75rem;
+    text-align: center;
+    font-size: 1.25rem;
+    letter-spacing: 0.2em;
+}
+html.theme-sunset .lt-bottom-bar {
+    border-color: rgba(255, 196, 120, 0.55) !important;
+    box-shadow: 0 12px 32px rgba(40, 10, 50, 0.45), 0 -4px 24px rgba(255, 140, 90, 0.35), inset 0 1px 0 rgba(255, 220, 160, 0.35) !important;
+}
+
+/* Laguna · Chiringuito: olas con espuma encima del menú y burbujas; la barra flota en el agua. */
+html.theme-lagoon .lt-menu-sheet {
+    background-color: #26697b;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='16'%3E%3Cpath d='M0 9 Q15 0 30 9 T60 9 V16 H0Z' fill='%2326697b'/%3E%3Cpath d='M0 9 Q15 0 30 9 T60 9' fill='none' stroke='%23e6fffb' stroke-width='2' stroke-opacity='.75'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cg fill='none' stroke='%23e6fffb' stroke-opacity='.22'%3E%3Ccircle cx='30' cy='160' r='5'/%3E%3Ccircle cx='44' cy='140' r='2.5'/%3E%3Ccircle cx='150' cy='60' r='4'/%3E%3Ccircle cx='160' cy='44' r='2'/%3E%3Ccircle cx='100' cy='120' r='3'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 60px 16px, auto;
+    background-position: 0 0, 0 0;
+    background-repeat: repeat-x, repeat;
+    border-top: 0;
+    padding-top: 1.4rem !important;
+}
+html.theme-lagoon .lt-menu-sheet::after {
+    content: '🏝️ 🍍 🥥 🐠 🍹 🌺 🦀';
+    display: block;
+    margin-top: 0.75rem;
+    text-align: center;
+    font-size: 1.25rem;
+    letter-spacing: 0.2em;
+}
+html.theme-lagoon .lt-bottom-bar {
+    border: 2px solid transparent !important;
+    background:
+        linear-gradient(#26697b, #26697b) padding-box,
+        linear-gradient(90deg, #f472b6, #fb923c) border-box !important;
+    box-shadow: 0 12px 32px rgba(0, 30, 40, 0.4), 0 0 18px rgba(244, 114, 182, 0.28) !important;
+}
+html.theme-lagoon {
+    --lt-body-mesh:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cg fill='none' stroke='%23e6fffb' stroke-opacity='.22'%3E%3Ccircle cx='30' cy='160' r='5'/%3E%3Ccircle cx='44' cy='140' r='2.5'/%3E%3Ccircle cx='150' cy='60' r='4'/%3E%3Ccircle cx='160' cy='44' r='2'/%3E%3Ccircle cx='100' cy='120' r='3'/%3E%3C/g%3E%3C/svg%3E"),
+        radial-gradient(circle at 10% 12%, rgba(45, 212, 191, 0.30), transparent 45%),
+        radial-gradient(circle at 88% 20%, rgba(244, 114, 182, 0.20), transparent 42%),
+        radial-gradient(circle at 50% 68%, rgba(56, 189, 248, 0.18), transparent 50%),
+        radial-gradient(circle at 85% 92%, rgba(253, 224, 71, 0.12), transparent 45%);
+}
+html.theme-sunset {
+    --lt-body-mesh:
+        radial-gradient(circle at 82% 4%, rgba(255, 210, 122, 0.38), transparent 22%),
+        radial-gradient(circle at 12% 10%, rgba(255, 140, 90, 0.30), transparent 45%),
+        radial-gradient(circle at 90% 18%, rgba(244, 63, 94, 0.22), transparent 42%),
+        radial-gradient(circle at 50% 70%, rgba(168, 85, 247, 0.20), transparent 50%),
+        radial-gradient(circle at 85% 92%, rgba(253, 224, 71, 0.12), transparent 45%);
+}
+
+/* Letra y forma de cada tema: los títulos (h1, h2 y .font-display) cambian de
+   letra y las esquinas cambian de radio (Tailwind 4 las lee de --radius-*).
+   El texto normal sigue en Manrope para que todo se lea igual de bien. */
+html.theme-dark { --font-display: 'Fraunces Variable', Georgia, serif; }
+html.theme-warm {
+    --font-display: 'Alfa Slab One', 'Rockwell', serif;
+    --radius-xl: 0.7rem;
+    --radius-2xl: 0.9rem;
+    --radius-3xl: 1.1rem;
+}
+html.theme-cool {
+    --font-display: 'Fredoka Variable', 'Fredoka', sans-serif;
+    --radius-xl: 1.05rem;
+    --radius-2xl: 1.6rem;
+    --radius-3xl: 2.2rem;
+}
+html.theme-neon {
+    --font-display: 'Tilt Neon Variable', 'Tilt Neon', sans-serif;
+    --radius-xl: 0.55rem;
+    --radius-2xl: 0.7rem;
+    --radius-3xl: 0.9rem;
+}
+html.theme-graphite {
+    --font-display: 'Caveat Variable', 'Caveat', cursive;
+    --radius-xl: 0.4rem;
+    --radius-2xl: 0.5rem;
+    --radius-3xl: 0.65rem;
+}
+html.theme-sunset { --font-display: 'Righteous', sans-serif; }
+html.theme-lagoon {
+    --font-display: 'Lilita One', sans-serif;
+    --radius-2xl: 1.3rem;
+    --radius-3xl: 1.8rem;
+}
+:is(html.theme-dark, html.theme-warm, html.theme-cool, html.theme-neon, html.theme-sunset, html.theme-lagoon) :is(h1, h2) {
+    font-family: var(--font-display);
+}
+html.theme-dark :is(h1, h2) { font-weight: 650; letter-spacing: -0.01em; }
+html.theme-warm :is(h1, h2) { font-weight: 400; letter-spacing: 0.01em; }
+html.theme-cool :is(h1, h2) { font-weight: 600; }
+html.theme-neon :is(h1, h2) { font-weight: 500; }
+html.theme-sunset :is(h1, h2), html.theme-lagoon :is(h1, h2) { font-weight: 400; letter-spacing: 0.01em; }
+html.theme-graphite .font-display { font-size-adjust: 0.56; font-weight: 700; }
+
+/* Tarjetas con carácter: tubo luminoso en Neón, borde de tiza en Pizarra,
+   brillo de brasa en Cálido y sombra de helado en Fresco. */
+html.theme-neon :is(.bg-\[var\(--lt-card\)\], .bg-\[var\(--lt-card-strong\)\]) {
+    box-shadow: 0 0 0 1px rgba(244, 114, 182, 0.32), 0 0 16px rgba(236, 72, 153, 0.16);
+}
+html.theme-graphite :is(.bg-\[var\(--lt-card\)\], .bg-\[var\(--lt-card-strong\)\]) {
+    border-style: dashed;
+}
+html.theme-warm :is(.bg-\[var\(--lt-card\)\], .bg-\[var\(--lt-card-strong\)\]) {
+    box-shadow: inset 0 1px 0 rgba(253, 186, 116, 0.18), 0 8px 22px rgba(20, 5, 0, 0.35);
+}
+html.theme-cool :is(.bg-\[var\(--lt-card\)\], .bg-\[var\(--lt-card-strong\)\]) {
+    box-shadow: 0 10px 26px rgba(12, 138, 120, 0.12);
+}
+html.theme-graphite .lt-bottom-bar { border-radius: 0.9rem; }
+html.theme-neon .lt-bottom-bar { border-radius: 1rem; }
+
+/* Logo «Letras por tema» (Developer → Marca): una sola silueta pintada con el color
+   de cada tema. Va en public/ porque mask-image exige el mismo origen (Storage no da CORS). */
+.lt-wordmark {
+    display: block;
+    height: 2.7rem;
+    aspect-ratio: 428 / 159;
+    background: var(--lt-logo-grad, var(--lt-hero-grad));
+    -webkit-mask: url('/brand/listopic-letras.png') center / contain no-repeat;
+    mask: url('/brand/listopic-letras.png') center / contain no-repeat;
+}
+.lt-wordmark--big { height: 5rem; }
+:root, html.theme-dark { --lt-logo-grad: linear-gradient(90deg, #22d3ee, #818cf8, #c084fc); }
+html.theme-light { --lt-logo-grad: linear-gradient(90deg, #06b6d4, #5b4cf5, #a855f7); }
+html.theme-warm { --lt-logo-grad: linear-gradient(90deg, #fde047, #f97316, #ef4444); }
+html.theme-cool { --lt-logo-grad: linear-gradient(90deg, #14b8a6, #0c8a78, #e23d68); }
+html.theme-neon { --lt-logo-grad: linear-gradient(90deg, #67e8f9, #f472b6, #a78bfa); }
+html.theme-graphite { --lt-logo-grad: linear-gradient(90deg, #fef9c3, #bef264, #84cc16); }
+html.theme-sunset { --lt-logo-grad: linear-gradient(90deg, #fde68a, #ff7a59, #f472b6); }
+html.theme-lagoon { --lt-logo-grad: linear-gradient(90deg, #fa7459, #fc964a); }
+html.theme-abuela { --lt-logo-grad: linear-gradient(90deg, #a65339, #c48e45, #3b4f2e); }
+html.theme-neon .lt-wordmark { filter: drop-shadow(0 0 6px rgba(236, 72, 153, 0.7)); }
 
 /* =====================================================================
    Legacy tokens mapeados a --lt-*. Así los componentes viejos que usan

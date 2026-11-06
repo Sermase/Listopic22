@@ -8,6 +8,13 @@ import { reloadOnceForNewVersion } from './lib/chunkErrors'
 import '@fontsource-variable/manrope'
 import '@fontsource-variable/space-grotesk'
 import '@fontsource-variable/caveat';
+// Letra de los títulos de cada tema (solo se descarga la del tema que se usa).
+import '@fontsource-variable/fraunces';
+import '@fontsource/alfa-slab-one';
+import '@fontsource-variable/fredoka';
+import '@fontsource-variable/tilt-neon';
+import '@fontsource/righteous';
+import '@fontsource/lilita-one';
 import './index.css'
 import App from './App.tsx'
 
