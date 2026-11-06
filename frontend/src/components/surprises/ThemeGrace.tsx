@@ -118,7 +118,7 @@ const IceCream: React.FC<{ scoops: string[] }> = ({ scoops }) => {
     return (
         <div className={layer} aria-hidden="true" style={{ animation: 'lt-grace-fadeout 5s ease-out forwards' }}>
             <div className="absolute left-1/2 top-[58%] -translate-x-1/2">
-                {/* Cucurucho de barquillo. */}
+                {/* Cucurucho de barquillo, por delante: la bola de abajo queda metida dentro. */}
                 <div
                     className="absolute left-1/2 top-0 -translate-x-1/2"
                     style={{
@@ -126,6 +126,7 @@ const IceCream: React.FC<{ scoops: string[] }> = ({ scoops }) => {
                         borderLeft: `${size * 0.55}px solid transparent`, borderRight: `${size * 0.55}px solid transparent`,
                         borderTop: `${size * 1.45}px solid #d9a35b`,
                         filter: 'drop-shadow(0 8px 16px rgba(0,0,0,.18))',
+                        zIndex: 2,
                     }}
                 />
                 <div
@@ -133,6 +134,7 @@ const IceCream: React.FC<{ scoops: string[] }> = ({ scoops }) => {
                     style={{
                         width: size * 1.1, height: size * 1.45,
                         clipPath: 'polygon(0 0, 100% 0, 50% 100%)',
+                        zIndex: 2,
                         background: 'repeating-linear-gradient(45deg, rgba(120,72,24,.35) 0 2px, transparent 2px 13px), repeating-linear-gradient(-45deg, rgba(120,72,24,.35) 0 2px, transparent 2px 13px)',
                     }}
                 />
@@ -147,12 +149,13 @@ const IceCream: React.FC<{ scoops: string[] }> = ({ scoops }) => {
                             boxShadow: `inset 0 -8px 0 rgba(0,0,0,.08), 0 4px 10px rgba(0,0,0,.12)`,
                             transform: 'translate(-50%, -70vh)',
                             animation: `lt-grace-drop .55s ${i * step}s cubic-bezier(.5,0,.6,1) forwards`,
+                            zIndex: 1,
                         }}
                     />
                 ))}
                 <div
                     className="absolute left-1/2 text-3xl"
-                    style={{ bottom: list.length * size * 0.62 - size * 0.05, transform: 'translate(-50%, -70vh)', animation: `lt-grace-drop .5s ${list.length * step + 0.1}s cubic-bezier(.5,0,.6,1) forwards` }}
+                    style={{ bottom: list.length * size * 0.62 - size * 0.05, zIndex: 3, transform: 'translate(-50%, -70vh)', animation: `lt-grace-drop .5s ${list.length * step + 0.1}s cubic-bezier(.5,0,.6,1) forwards` }}
                 >
                     🍒
                 </div>
