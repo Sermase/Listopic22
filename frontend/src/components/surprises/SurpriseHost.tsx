@@ -20,6 +20,8 @@ import { haptic, type HapticKind } from '../../utils/haptics';
 import { activeCharacter, pickGreeting } from '../../lib/themeCharacters';
 import { ThemeGrace } from './ThemeGrace';
 import { GRACE_MS, GRACE_STYLES } from './graceMeta';
+import { ThemeAmbience } from './ThemeAmbience';
+import { abuelaMemoryLine } from '../../lib/themeAmbience';
 
 // Cómo vibra cada sorpresa al salir (las burbujas, como digan; si no, suave).
 const EFFECT_HAPTIC: Partial<Record<SurpriseEffect['kind'], HapticKind>> = {
@@ -203,7 +205,11 @@ export const SurpriseHost: React.FC = () => {
             const wait = ABUELA_EVERY_MS.min + Math.random() * (ABUELA_EVERY_MS.max - ABUELA_EVERY_MS.min);
             t = window.setTimeout(() => {
                 // Con la pestaña escondida no habla: no se acumulan frases. Callada en Preferencias, tampoco.
-                if (document.visibilityState === 'visible' && activeCharacter('abuela')) fireSurprise({ kind: 'bubble', emoji: '👵', text: abuelaLine() });
+                if (document.visibilityState === 'visible' && activeCharacter('abuela')) {
+                    // A veces se acuerda de lo último que valoraste.
+                    const memory = Math.random() < 0.25 ? abuelaMemoryLine() : null;
+                    fireSurprise({ kind: 'bubble', emoji: '👵', text: memory ?? abuelaLine() });
+                }
                 next();
             }, wait);
         };
@@ -264,6 +270,7 @@ export const SurpriseHost: React.FC = () => {
 
     return (
         <>
+            <ThemeAmbience theme={theme} gracesOn={gracesOn} charactersOn={charactersOn} />
             {createPortal(
                 <>
                     <style>{STYLES}</style>

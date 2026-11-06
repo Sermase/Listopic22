@@ -642,8 +642,8 @@
     --lt-brick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='32'%3E%3Crect width='64' height='32' fill='%23411f15'/%3E%3Cg fill='%23562a1c'%3E%3Crect x='1' y='1' width='30' height='14' rx='2'/%3E%3Crect x='33' y='1' width='30' height='14' rx='2'/%3E%3Crect x='-15' y='17' width='30' height='14' rx='2'/%3E%3Crect x='17' y='17' width='30' height='14' rx='2'/%3E%3Crect x='49' y='17' width='30' height='14' rx='2'/%3E%3C/g%3E%3C/svg%3E");
     --lt-body-mesh:
         url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg fill='%23fdba74'%3E%3Ccircle cx='30' cy='210' r='1.2' opacity='.55'/%3E%3Ccircle cx='120' cy='150' r='.8' opacity='.45'/%3E%3Ccircle cx='200' cy='230' r='1' opacity='.5'/%3E%3Ccircle cx='230' cy='90' r='.7' opacity='.35'/%3E%3Ccircle cx='80' cy='60' r='.6' opacity='.3'/%3E%3C/g%3E%3C/svg%3E"),
-        radial-gradient(ellipse 120% 55% at 50% 112%, rgba(249, 115, 22, 0.42), transparent 62%),
-        radial-gradient(ellipse 55% 35% at 12% 102%, rgba(239, 68, 68, 0.28), transparent 70%),
+        radial-gradient(ellipse 120% 55% at 50% 112%, rgba(249, 115, 22, var(--lt-ember-a, 0.42)), transparent 62%),
+        radial-gradient(ellipse 55% 35% at 12% 102%, rgba(239, 68, 68, calc(var(--lt-ember-a, 0.42) * 0.66)), transparent 70%),
         radial-gradient(ellipse 50% 30% at 92% 104%, rgba(250, 204, 21, 0.18), transparent 70%),
         radial-gradient(circle at 80% 8%, rgba(249, 115, 22, 0.12), transparent 40%);
 }
@@ -1098,7 +1098,9 @@ html.theme-lagoon {
         radial-gradient(circle at 85% 92%, rgba(253, 224, 71, 0.12), transparent 45%);
 }
 html.theme-sunset {
+    /* --lt-dusk-a: lo pone ThemeAmbience al acercarse la puesta de sol (0 si no). */
     --lt-body-mesh:
+        linear-gradient(to top, rgba(255, 122, 89, var(--lt-dusk-a, 0)), rgba(244, 114, 182, calc(var(--lt-dusk-a, 0) * 0.45)) 32%, transparent 62%),
         radial-gradient(circle at 82% 4%, rgba(255, 210, 122, 0.38), transparent 22%),
         radial-gradient(circle at 12% 10%, rgba(255, 140, 90, 0.30), transparent 45%),
         radial-gradient(circle at 90% 18%, rgba(244, 63, 94, 0.22), transparent 42%),

@@ -23,6 +23,7 @@ import { CLOSE_MENU_EVENT, OPEN_MENU_EVENT, registerMenuPanel } from '../lib/men
 import { isLabAppEnabled } from '../lib/labApps';
 import { PACHOTE_URL } from '../lib/pachote';
 import { PachoteService } from '../services/PachoteService';
+import { MenuAmbience } from './surprises/MenuAmbience';
 
 const FIREBASE_STORAGE_HOST = 'firebasestorage.googleapis.com';
 
@@ -431,6 +432,7 @@ export const Navbar: React.FC = () => {
                         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 1rem)' }}
                     >
                         <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-[var(--lt-border)]" aria-hidden="true" />
+                        <MenuAmbience onNavigate={() => setIsMenuOpen(false)} />
 
                         {user ? (
                             <Link to={`/profile/${user.uid}`} onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 rounded-2xl p-2 text-[var(--lt-text)] transition-colors hover:bg-[var(--lt-glass)]">

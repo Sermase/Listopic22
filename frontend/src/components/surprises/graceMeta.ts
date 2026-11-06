@@ -34,4 +34,8 @@ export const GRACE_STYLES = `
 @keyframes lt-grace-fly { 0% { transform: translate(-25vw, 0); } 25% { transform: translate(20vw, -3vh); } 50% { transform: translate(55vw, 2vh); } 75% { transform: translate(85vw, -2vh); } 100% { transform: translate(125vw, 0); } }
 @keyframes lt-grace-flap { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(-.55); } }
 @keyframes lt-grace-fall { to { transform: translateY(70vh) rotate(260deg); opacity: 0; } }
+@keyframes lt-sky-twinkle { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+@keyframes lt-neon-flicker { 0%, 90%, 100% { opacity: 1; } 91% { opacity: .3; } 92% { opacity: 1; } 94% { opacity: .45; } 95.5% { opacity: 1; } }
+html.lt-graces.theme-neon .brand-logo { animation: lt-neon-flicker 11s linear infinite; }
+@media (prefers-reduced-motion: reduce) { html.lt-graces.theme-neon .brand-logo { animation: none; } }
 `;

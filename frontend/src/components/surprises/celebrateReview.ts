@@ -1,5 +1,6 @@
 import { fireSurprise, isSurpriseOn, reviewSurprises, type ReviewSurpriseInput } from '../../lib/surprises';
 import { THEME_GRACES, characterLine, scoopColors, type ThemeCharacter } from '../../lib/themeCharacters';
+import { rememberDish } from '../../lib/themeAmbience';
 import type { ThemeId } from '../../context/ThemeContext';
 import { claimSecretBadge, claimThemeBadges, type SecretBadgeId } from '../../services/SurpriseService';
 
@@ -52,6 +53,9 @@ export function celebrateReview(
         const line = characterLine(character);
         if (line) window.setTimeout(() => fireSurprise({ kind: 'bubble', emoji: character.emoji, text: line }), after + 400);
     }
+
+    // La Abuela se acuerda de lo último que valoraste (en este dispositivo).
+    if (isNew) rememberDish(input.itemName || input.listName);
 
     // Escalera de temas: no depende del interruptor de sorpresas de cada uno.
     if (isNew && config.surprises?.themeLadder !== false) void claimThemeBadges();
