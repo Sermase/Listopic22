@@ -19,22 +19,22 @@ export interface CardPalette {
 
 export const CARD_PALETTES: Record<CardPaletteId, CardPalette> = {
     dark: {
-        label: 'Noche', bg: '#0b1021', bgRgb: '11,16,33', panelRgb: '21,27,46',
+        label: 'Medianoche', bg: '#0d1431', bgRgb: '13,20,49', panelRgb: '24,32,66',
         accent: '#6366f1', accent2: '#a855f7', accentRgb: '99,102,241', accentSoft: '#a5b4fc', chipText: '#c7d2fe',
         highlight: '#67e8f9', pin: '#22d3ee', glow: 'rgba(49,46,129,0.95)', glow2: 'rgba(14,116,144,0.28)',
     },
     neon: {
-        label: 'Neón', bg: '#12081a', bgRgb: '18,8,26', panelRgb: '31,16,41',
+        label: 'Neón', bg: '#170a28', bgRgb: '23,10,40', panelRgb: '36,18,58',
         accent: '#ec4899', accent2: '#8b5cf6', accentRgb: '236,72,153', accentSoft: '#f9a8d4', chipText: '#fbcfe8',
         highlight: '#f0abfc', pin: '#e879f9', glow: 'rgba(131,24,67,0.9)', glow2: 'rgba(91,33,182,0.35)',
     },
     graphite: {
-        label: 'Grafito', bg: '#050506', bgRgb: '5,5,6', panelRgb: '20,20,23',
+        label: 'Pizarra', bg: '#26332e', bgRgb: '38,51,46', panelRgb: '50,66,60',
         accent: '#65a30d', accent2: '#0891b2', accentRgb: '101,163,13', accentSoft: '#d9f99d', chipText: '#ecfccb',
         highlight: '#bef264', pin: '#a3e635', glow: 'rgba(54,83,20,0.85)', glow2: 'rgba(14,116,144,0.3)',
     },
     warm: {
-        label: 'Cálido', bg: '#1a0f0c', bgRgb: '26,15,12', panelRgb: '42,24,18',
+        label: 'Cálido', bg: '#3a1c13', bgRgb: '58,28,19', panelRgb: '76,38,26',
         accent: '#f97316', accent2: '#dc2626', accentRgb: '249,115,22', accentSoft: '#fdba74', chipText: '#fed7aa',
         highlight: '#fcd34d', pin: '#fb923c', glow: 'rgba(124,45,18,0.9)', glow2: 'rgba(153,27,27,0.3)',
     },
@@ -57,6 +57,6 @@ export const CARD_PALETTES: Record<CardPaletteId, CardPalette> = {
 
 export const CARD_PALETTE_IDS = Object.keys(CARD_PALETTES) as CardPaletteId[];
 
-/** El tema de la app si es oscuro; si no, «Noche». */
+/** El tema de la app si es oscuro; si no, «Medianoche». */
 export const defaultCardPalette = (themeId?: string): CardPaletteId =>
     (CARD_PALETTE_IDS as string[]).includes(themeId || '') ? themeId as CardPaletteId : 'dark';

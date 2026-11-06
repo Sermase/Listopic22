@@ -40,17 +40,17 @@ export interface ThemeMeta {
 export const THEMES: ThemeMeta[] = [
     {
         id: 'dark',
-        label: 'Oscuro',
-        mood: 'Medianoche · Estrellas',
+        label: 'Medianoche',
+        mood: 'Estrellas · Luna',
         description: 'El de siempre: cielo de medianoche con estrellas finas y halo de luna.',
         preview: { bg: '#0d1431', card: '#18203f', accent: '#6366f1', accent2: '#a855f7', text: '#f8fafc' },
         statusBarStyle: 'dark',   // Style.Dark = iconos blancos sobre fondo oscuro
     },
     {
         id: 'light',
-        label: 'Claro',
-        mood: 'Crema · Índigo',
-        description: 'Fondo crema cálido para uso diurno prolongado.',
+        label: 'Mediodía',
+        mood: 'Sol · Cielo',
+        description: 'La pareja de Medianoche: luz de mediodía, sol arriba y cielo en el menú.',
         preview: { bg: '#faf8f4', card: '#ffffff', accent: '#5b4cf5', accent2: '#a855f7', text: '#1a1625' },
         statusBarStyle: 'light',  // Style.Light = iconos negros sobre fondo claro
     },

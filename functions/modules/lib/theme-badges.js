@@ -12,7 +12,7 @@ const THEME_BADGES = {
   TEMA_CALIDO: { theme: 'warm', name: 'Primer bocado', icon: '🔥', description: 'Tu primera valoración. Desbloquea el tema Cálido.', met: (s) => s.reviews >= 1 },
   TEMA_FRESCO: { theme: 'cool', name: 'Aire fresco', icon: '🌿', description: 'Valorar en 3 sitios distintos. Desbloquea el tema Fresco.', met: (s) => s.places.size >= 3 },
   TEMA_NEON: { theme: 'neon', name: 'Noche de ciudad', icon: '💜', description: '10 valoraciones hechas después de las 21 h. Desbloquea el tema Neón.', met: (s) => s.night >= 10 },
-  TEMA_GRAFITO: { theme: 'graphite', name: 'Ojo de lince', icon: '🖤', description: '25 valoraciones con foto. Desbloquea el tema Grafito.', met: (s) => s.photos >= 25 },
+  TEMA_GRAFITO: { theme: 'graphite', name: 'Ojo de lince', icon: '🖤', description: '25 valoraciones con foto. Desbloquea el tema Pizarra.', met: (s) => s.photos >= 25 },
   TEMA_ATARDECER: { theme: 'sunset', name: 'Hora dorada', icon: '🌇', description: '20 valoraciones entre las 18 y las 22 h, en 8 días distintos. Desbloquea el tema Atardecer.', met: (s) => s.golden >= 20 && s.goldenDays.size >= 8 },
   TEMA_LAGUNA: { theme: 'lagoon', name: 'Culo inquieto', icon: '🏝️', description: 'Valorar en 40 sitios distintos. Desbloquea el tema Laguna.', met: (s) => s.places.size >= 40 },
 };
