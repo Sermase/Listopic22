@@ -1404,10 +1404,6 @@ export const HomePage: React.FC = () => {
             <React.Fragment key={segment.key}>{segment.text}</React.Fragment>
         )
     ));
-    const topDish = rankedDishes[0];
-    const topDishLine = topDish && typeof topDish.score === 'number'
-        ? `Lo mejor por aquí: ${topDish.title}${topDish.subtitle ? ` de ${topDish.subtitle}` : ''} · ${topDish.score.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`
-        : filteredPlaces.length > 0 ? `${filteredPlaces.length} ${filteredPlaces.length === 1 ? 'sitio valorado' : 'sitios valorados'} por aquí` : '';
 
     return (
         <>
@@ -1422,23 +1418,15 @@ export const HomePage: React.FC = () => {
                                 <h1 className="text-xl md:text-2xl font-bold tracking-tight">
                                     {greeting}
                                 </h1>
-                                {user ? (
-                                    <p className="mt-0.5 max-w-[19rem] truncate text-sm font-semibold opacity-90">{topDishLine}</p>
-                                ) : (
-                                    <p className="mt-0.5 max-w-[17rem] text-sm font-medium opacity-90 [text-wrap:balance]">{heroSubtitleNode}</p>
-                                )}
+                                {!user && <p className="mt-0.5 max-w-[17rem] text-sm font-medium opacity-90 [text-wrap:balance]">{heroSubtitleNode}</p>}
                             </HomeScene>
                         ) : (
                             <>
                                 <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[var(--lt-text)]">
                                     {user ? `${greeting} 👋` : greeting}
                                 </h1>
-                                {/* Con sesión, lo mejor de verdad por aquí; sin sesión, la frase con gancho. */}
-                                {(user ? topDishLine : true) && (
-                                    <p className={`mt-0.5 text-sm font-medium text-[var(--lt-text-muted)] ${user ? 'truncate' : '[text-wrap:balance]'}`}>
-                                        {user ? topDishLine : heroSubtitleNode}
-                                    </p>
-                                )}
+                                {/* Con sesión basta el saludo; sin sesión, la frase en una línea pequeña. */}
+                                {!user && <p className="mt-0.5 text-sm font-medium text-[var(--lt-text-muted)] [text-wrap:balance]">{heroSubtitleNode}</p>}
                             </>
                         )}
                         <form
