@@ -8,6 +8,7 @@
  */
 import { foldText } from '../components/business/kit/text';
 import type { HapticKind } from '../utils/haptics';
+import type { GraceId, ThemeCharacter } from './themeCharacters';
 
 export type SurpriseId =
     | 'perfectTen'
@@ -22,6 +23,8 @@ export type SurpriseId =
     | 'secretBadges'
     | 'abuela'
     | 'themeLadder'
+    | 'themeCharacters'
+    | 'themeGraces'
     | 'ansievi';
 
 export interface SurpriseMeta {
@@ -44,6 +47,8 @@ export const SURPRISES: readonly SurpriseMeta[] = [
     { id: 'secretBadges', emoji: '🏅', name: 'Medallas secretas', how: 'Medallas escondidas que se ganan con las sorpresas.' },
     { id: 'abuela', emoji: '👵', name: 'Tema Abuela', how: '3 valoraciones en un domingo: medalla «Bien comido» y tema Abuela.' },
     { id: 'themeLadder', emoji: '🎨', name: 'Escalera de temas', how: 'Cada tema se desbloquea con su medalla (Cálido → Fresco → Neón → Pizarra → Atardecer → Laguna → Abuela). Apagada: todos libres salvo la Abuela.' },
+    { id: 'themeCharacters', emoji: '🎭', name: 'Personajes de los temas', how: 'Brasa, Heladería, Neón, Pizarra, Atardecer y Laguna tienen personaje: saluda al entrar y comenta al publicar. Cada persona lo calla en Preferencias → Tema.' },
+    { id: 'themeGraces', emoji: '🌠', name: 'Gracias de los temas', how: 'Animación al publicar en cada tema (estrella fugaz, sol, chispazo, helado, letrero, tiza, brindis, gaviota). Medianoche y Mediodía la ganan con su medalla.' },
     { id: 'ansievi', emoji: '💃', name: '«ansievi»', how: 'Buscar «ansievi» abre el Baile de los apegos.' },
 ];
 
@@ -85,7 +90,9 @@ export type SurpriseEffect =
     | { kind: 'bubble'; emoji: string; text: string; haptic?: HapticKind }
     | { kind: 'croqueta'; gated?: boolean }
     | { kind: 'roulette' }
-    | { kind: 'poll'; poll: PollId; side?: PollSide };
+    | { kind: 'poll'; poll: PollId; side?: PollSide }
+    /** Animación de un tema (lib/themeCharacters.ts). `scoops`: colores del helado de notas. */
+    | { kind: 'grace'; grace: GraceId; text?: string; scoops?: string[]; ambient?: boolean };
 
 export const SURPRISE_EVENT = 'listopic:surprise';
 /** Agitar otra vez con la ruleta abierta: otra vuelta. */
@@ -149,7 +156,8 @@ export interface ReviewSurpriseInput {
     itemName?: string | null;
     tags?: readonly string[];
     now?: Date;
-    abuela?: boolean;
+    /** El personaje del tema, si habla: pone sus frases a las reacciones. */
+    character?: Pick<ThemeCharacter, 'theme' | 'emoji' | 'ten' | 'fail' | 'tiny'> | null;
 }
 
 export interface ReviewSurprise {
@@ -174,10 +182,10 @@ export function reviewSurprises(input: ReviewSurpriseInput): ReviewSurprise[] {
     if (overallRating !== null && overallRating >= 9) {
         out.push({
             id: 'perfectTen',
-            effect: { kind: 'rain', emoji: dishEmoji(listName, itemName), title: input.abuela ? '¡Así me gusta, que comas bien!' : overallRating >= 9.95 ? '¡Un 10! Que lo sepa el mundo' : '¡Sobresaliente! Que lo sepa el mundo' },
+            effect: { kind: 'rain', emoji: dishEmoji(listName, itemName), title: input.character?.ten ?? (overallRating >= 9.95 ? '¡Un 10! Que lo sepa el mundo' : '¡Sobresaliente! Que lo sepa el mundo') },
         });
     } else if (overallRating !== null && overallRating < 5) {
-        out.push({ id: 'brokenPlate', effect: { kind: 'broken', title: input.abuela ? '¡Ay, hijo, qué disgusto!' : '¡Suspenso! ¡Puaj!' } });
+        out.push({ id: 'brokenPlate', effect: { kind: 'broken', title: input.character?.fail ?? '¡Suspenso! ¡Puaj!' } });
     }
 
     const spicyMax = criteria.some((c) => {
@@ -191,10 +199,16 @@ export function reviewSurprises(input: ReviewSurpriseInput): ReviewSurprise[] {
         out.push({ id: 'lateNight', effect: { kind: 'bubble', emoji: '🌙', text: pick(LATE_NIGHT_LINES) } });
     }
 
-    if (input.abuela) {
+    const character = input.character;
+    if (character) {
         const tiny = criteria.some((c) => /cantidad|racion|tamano/.test(foldText(c.label || c.id))
             && typeof scores[c.id] === 'number' && scores[c.id] <= 4);
-        if (tiny) out.push({ id: 'abuela', effect: { kind: 'bubble', emoji: '👵', text: 'Eso es muy poco, te vas a quedar con hambre.' } });
+        if (tiny) {
+            out.push({
+                id: character.theme === 'abuela' ? 'abuela' : 'themeCharacters',
+                effect: { kind: 'bubble', emoji: character.emoji, text: character.tiny },
+            });
+        }
     }
     return out;
 }

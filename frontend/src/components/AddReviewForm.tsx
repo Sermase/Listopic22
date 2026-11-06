@@ -33,6 +33,8 @@ import { findSameElementReview } from '../lib/reviewUniqueness';
 import { useAppConfig } from '../context/AppConfigContext';
 import { useTheme } from '../context/ThemeContext';
 import { celebrateReview } from './surprises/celebrateReview';
+import { isSurpriseOn } from '../lib/surprises';
+import { activeCharacter } from '../lib/themeCharacters';
 import { haptic } from '../utils/haptics';
 
 interface AddReviewFormProps {
@@ -263,7 +265,9 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
 
     const isNew = !editReviewId;
     const appConfig = useAppConfig();
-    const abuela = useTheme().theme === 'abuela';
+    const { theme: currentTheme, graceUnlocked } = useTheme();
+    // El personaje del tema pone los títulos (la Abuela: «¿Qué has comido, hijo?»).
+    const character = isSurpriseOn(appConfig, currentTheme === 'abuela' ? 'abuela' : 'themeCharacters') ? activeCharacter(currentTheme) : null;
 
     // Borrador: va atado a lista + sitio y solo se recupera al elegir ese mismo
     // sitio (lib/reviewDraft). Antes salía en cualquier reseña de la lista.
@@ -1057,7 +1061,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             haptic('success');
             showToast({
                 variant: 'success',
-                title: isNew ? (abuela ? '¡Muy bien, hijo!' : 'Reseña publicada') : 'Cambios guardados',
+                title: isNew ? (character?.published ?? 'Reseña publicada') : 'Cambios guardados',
                 message: isNew ? pickRandom(REVIEW_CREATE_TOASTS) : pickRandom(REVIEW_EDIT_TOASTS),
             });
             // El borrador se guarda con la lista elegida (en una Minilista no es finalListId).
@@ -1078,8 +1082,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 listName: listData?.name,
                 itemName,
                 tags: customTags,
-                abuela,
-            }, isNew);
+            }, isNew, { theme: currentTheme, character, graceUnlocked: graceUnlocked(currentTheme) });
             onSuccess();
             onClose();
 
@@ -1209,7 +1212,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                             </div>
                             <div>
                                 <h2 className="text-base font-bold text-white font-display leading-tight">
-                                    {isNew ? (abuela ? '¿Qué has comido, hijo?' : 'Nueva reseña') : 'Editar reseña'}
+                                    {isNew ? (character?.formTitle ?? 'Nueva reseña') : 'Editar reseña'}
                                 </h2>
                                 {listData?.name && (
                                     <p className="text-xs text-[var(--lt-accent)]/60 mt-0.5">en {listData.name}</p>

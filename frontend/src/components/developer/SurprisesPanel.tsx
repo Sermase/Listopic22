@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAppConfig } from '../../context/AppConfigContext';
-import { SURPRISES, fireSurprise, type SurpriseId } from '../../lib/surprises';
+import { SURPRISES, fireSurprise, type SurpriseEffect, type SurpriseId } from '../../lib/surprises';
 import { recalcSecretBadges } from '../../services/SurpriseService';
 import { AbilitiesSection } from './AbilitiesSection';
 
@@ -17,6 +17,21 @@ const PREVIEW: Partial<Record<SurpriseId, () => void>> = {
     tortilla: () => fireSurprise({ kind: 'poll', poll: 'tortilla' }),
     pizzaPoll: () => fireSurprise({ kind: 'poll', poll: 'pizza', side: 'con' }),
     abuela: () => fireSurprise({ kind: 'bubble', emoji: '👵', text: '¿Has comido? Estás en los huesos.' }),
+    themeCharacters: () => fireSurprise({ kind: 'bubble', emoji: '🐦', text: 'Esa patata no te la vas a comer, ¿verdad?' }),
+    themeGraces: () => {
+        // Todas seguidas, para verlas de una vez.
+        const all: SurpriseEffect[] = [
+            { kind: 'grace', grace: 'star' },
+            { kind: 'grace', grace: 'sunrise' },
+            { kind: 'grace', grace: 'sparks' },
+            { kind: 'grace', grace: 'icecream', scoops: ['#8b5e3c', '#fde68a', '#f9a8d4'] },
+            { kind: 'grace', grace: 'neon', text: '★ PUBLICADO ★' },
+            { kind: 'grace', grace: 'chalk', text: '¡Marchando!' },
+            { kind: 'grace', grace: 'cheers' },
+            { kind: 'grace', grace: 'gull' },
+        ];
+        all.forEach((effect, i) => window.setTimeout(() => fireSurprise(effect), i * 4500));
+    },
 };
 
 /** Developer → Sorpresas: un interruptor por sorpresa (config/app.surprises), para todo el mundo. */

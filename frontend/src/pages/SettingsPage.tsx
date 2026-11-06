@@ -20,6 +20,7 @@ import { setUserWantsSurprises, userWantsSurprises } from '../lib/surprises';
 import { requestShakePermission, shakeNeedsPermission } from '../components/surprises/useShake';
 import { haptic, isHapticsOn, setHapticsOn } from '../utils/haptics';
 import { PrizesEditor } from '../components/settings/PrizesEditor';
+import { ThemeExtras } from '../components/settings/ThemeExtras';
 import { useMyAbilities } from '../hooks/useAbilities';
 import { ABILITIES } from '../lib/abilities';
 
@@ -301,6 +302,7 @@ export const SettingsPage: React.FC = () => {
                     )}
                 </div>
                 <p className="mt-3 text-xs text-[var(--lt-text-muted)]">{nextLocked ? 'Cada tema nuevo se gana con una medalla. ' : ''}Se aplica al momento{user ? ' y te sigue en otros dispositivos' : ''}.</p>
+                {surprises && <ThemeExtras />}
             </Modal>
 
             <Modal isOpen={sheet === 'prizes'} onClose={close} title="🏅 Mis premios">

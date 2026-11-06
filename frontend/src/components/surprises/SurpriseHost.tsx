@@ -17,6 +17,9 @@ import {
 } from '../../lib/surprises';
 import { useShake } from './useShake';
 import { haptic, type HapticKind } from '../../utils/haptics';
+import { activeCharacter, pickGreeting } from '../../lib/themeCharacters';
+import { ThemeGrace } from './ThemeGrace';
+import { GRACE_MS, GRACE_STYLES } from './graceMeta';
 
 // Cómo vibra cada sorpresa al salir (las burbujas, como digan; si no, suave).
 const EFFECT_HAPTIC: Partial<Record<SurpriseEffect['kind'], HapticKind>> = {
@@ -41,7 +44,7 @@ const STYLES = `
 @keyframes lt-egg-shake { 0%,100% { transform: translate(0,0); } 20% { transform: translate(-6px, 2px); } 40% { transform: translate(5px,-3px); } 60% { transform: translate(-4px, 3px); } 80% { transform: translate(3px,-2px); } }
 @keyframes lt-egg-heat { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
 .lt-egg-shaking #root { animation: lt-egg-shake 450ms linear 2; }
-`;
+${GRACE_STYLES}`;
 
 interface Running {
     key: number;
@@ -125,7 +128,7 @@ const Heat: React.FC = () => (
 export const SurpriseHost: React.FC = () => {
     const config = useAppConfig();
     const { pathname } = useLocation();
-    const { theme } = useTheme();
+    const { theme, graceUnlocked } = useTheme();
     const [running, setRunning] = useState<Running[]>([]);
     const [sheet, setSheet] = useState<{ kind: 'croqueta' | 'roulette' | 'poll'; poll?: PollId; side?: PollSide } | null>(null);
     const counter = useRef(0);
@@ -156,7 +159,8 @@ export const SurpriseHost: React.FC = () => {
                     window.setTimeout(() => document.documentElement.classList.remove('lt-egg-shaking'), 950);
                 }
             }
-            window.setTimeout(() => remove(key), effect.kind === 'shake' ? 1900 : 6700);
+            const ms = effect.kind === 'shake' ? 1900 : effect.kind === 'grace' ? GRACE_MS[effect.grace] + 300 : 6700;
+            window.setTimeout(() => remove(key), ms);
         };
         window.addEventListener(SURPRISE_EVENT, onSurprise);
         return () => window.removeEventListener(SURPRISE_EVENT, onSurprise);
@@ -170,36 +174,90 @@ export const SurpriseHost: React.FC = () => {
         else fireSurprise({ kind: 'roulette' });
     });
 
-    // La abuela saluda una vez al día y luego suelta una frase cada 2 minutos o así.
-    const abuelaOn = theme === 'abuela' && isSurpriseOn(config, 'abuela');
+    // El personaje del tema saluda una vez al día al entrar en Inicio. La Abuela, además,
+    // suelta una frase cada 2 minutos o así; los demás solo hablan cuando haces algo.
+    const characterFlag = theme === 'abuela' ? 'abuela' : 'themeCharacters';
+    const charactersOn = isSurpriseOn(config, characterFlag);
     useEffect(() => {
-        if (!abuelaOn || pathname !== '/') return;
+        if (!charactersOn || pathname !== '/') return;
+        const character = activeCharacter(theme);
+        if (!character) return;
+        const key = `listopic_hola_${theme}`;
         const today = new Date().toDateString();
         try {
-            if (localStorage.getItem('listopic_abuela_hola') === today) return;
+            if (localStorage.getItem(key) === today) return;
         } catch { return; }
         const t = window.setTimeout(() => {
-            try { localStorage.setItem('listopic_abuela_hola', today); } catch { /* opcional */ }
-            fireSurprise({ kind: 'bubble', emoji: '👵', text: '¿Has comido? Estás en los huesos.' });
+            try { localStorage.setItem(key, today); } catch { /* opcional */ }
+            fireSurprise({ kind: 'bubble', emoji: character.emoji, text: pickGreeting(character) });
         }, 1200);
         return () => window.clearTimeout(t);
-    }, [abuelaOn, pathname]);
+    }, [charactersOn, theme, pathname]);
 
     const sheetOpen = sheet !== null;
+    const chatty = charactersOn && theme === 'abuela';
     useEffect(() => {
-        if (!abuelaOn || sheetOpen) return;
+        if (!chatty || sheetOpen) return;
         let t = 0;
         const next = () => {
             const wait = ABUELA_EVERY_MS.min + Math.random() * (ABUELA_EVERY_MS.max - ABUELA_EVERY_MS.min);
             t = window.setTimeout(() => {
-                // Con la pestaña escondida no habla: no se acumulan frases.
-                if (document.visibilityState === 'visible') fireSurprise({ kind: 'bubble', emoji: '👵', text: abuelaLine() });
+                // Con la pestaña escondida no habla: no se acumulan frases. Callada en Preferencias, tampoco.
+                if (document.visibilityState === 'visible' && activeCharacter('abuela')) fireSurprise({ kind: 'bubble', emoji: '👵', text: abuelaLine() });
                 next();
             }, wait);
         };
         next();
         return () => window.clearTimeout(t);
-    }, [abuelaOn, sheetOpen]);
+    }, [chatty, sheetOpen]);
+
+    // Gracias de ambiente en Inicio: estrellas fugaces en Medianoche (con su medalla)
+    // y la gaviota de Laguna, que cruza de vez en cuando con una patata.
+    const gracesOn = isSurpriseOn(config, 'themeGraces');
+    const ambient = theme === 'dark' ? { grace: 'star' as const, min: 70_000, max: 140_000 }
+        : theme === 'lagoon' ? { grace: 'gull' as const, min: 150_000, max: 260_000 }
+            : null;
+    const ambientOn = gracesOn && !!ambient && graceUnlocked(theme) && pathname === '/' && !sheetOpen && !prefersReducedMotion();
+    const ambientGrace = ambient?.grace;
+    const ambientMin = ambient?.min ?? 0;
+    const ambientMax = ambient?.max ?? 0;
+    useEffect(() => {
+        if (!ambientOn || !ambientGrace) return;
+        let t = 0;
+        const next = (first: boolean) => {
+            const wait = first ? 9_000 + Math.random() * 12_000 : ambientMin + Math.random() * (ambientMax - ambientMin);
+            t = window.setTimeout(() => {
+                if (document.visibilityState === 'visible') fireSurprise({ kind: 'grace', grace: ambientGrace, ambient: true });
+                next(false);
+            }, wait);
+        };
+        next(true);
+        return () => window.clearTimeout(t);
+    }, [ambientOn, ambientGrace, ambientMin, ambientMax]);
+
+    // Mediodía (con su medalla): el sol del fondo sigue la hora real, de este a oeste.
+    const sunOn = gracesOn && theme === 'light' && graceUnlocked('light');
+    useEffect(() => {
+        if (!sunOn) return;
+        const root = document.documentElement;
+        const place = () => {
+            const now = new Date();
+            const hours = now.getHours() + now.getMinutes() / 60;
+            // De 7 a 21 h cruza el cielo; de noche se queda escondido abajo a la derecha.
+            const t = Math.min(1, Math.max(0, (hours - 7) / 14));
+            const x = 8 + t * 84;
+            const y = hours < 7 || hours > 21 ? 30 : 3 + (1 - Math.sin(Math.PI * t)) * 16;
+            root.style.setProperty('--lt-sun-x', `${x.toFixed(1)}%`);
+            root.style.setProperty('--lt-sun-y', `${y.toFixed(1)}%`);
+        };
+        place();
+        const timer = window.setInterval(place, 10 * 60_000);
+        return () => {
+            window.clearInterval(timer);
+            root.style.removeProperty('--lt-sun-x');
+            root.style.removeProperty('--lt-sun-y');
+        };
+    }, [sunOn]);
 
     const still = prefersReducedMotion();
     const close = () => setSheet(null);
@@ -215,6 +273,7 @@ export const SurpriseHost: React.FC = () => {
                             case 'broken': return <Broken key={key} title={effect.title} still={still} />;
                             case 'shake': return <Heat key={key} />;
                             case 'bubble': return <Bubble key={key} emoji={effect.emoji} text={effect.text} />;
+                            case 'grace': return still ? null : <ThemeGrace key={key} grace={effect.grace} text={effect.text} scoops={effect.scoops} ambient={effect.ambient} />;
                             default: return null;
                         }
                     })}

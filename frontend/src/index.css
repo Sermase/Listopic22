@@ -601,7 +601,7 @@
     --lt-brand-mark: linear-gradient(135deg, #06b6d4, #3b82f6, #5b4cf5);
     /* Mediodía (pareja de Medianoche): sol arriba a la derecha y un poco de cielo. */
     --lt-body-mesh:
-        radial-gradient(circle at 88% 3%, rgba(253, 224, 71, 0.58), rgba(253, 186, 116, 0.22) 13%, transparent 29%),
+        radial-gradient(circle at var(--lt-sun-x, 88%) var(--lt-sun-y, 3%), rgba(253, 224, 71, 0.58), rgba(253, 186, 116, 0.22) 13%, transparent 29%),
         radial-gradient(ellipse 100% 32% at 50% 0%, rgba(125, 211, 252, 0.26), transparent 72%),
         radial-gradient(circle at 10% 20%, rgba(91, 76, 245, 0.08), transparent 45%),
         radial-gradient(circle at 45% 60%, rgba(168, 85, 247, 0.07), transparent 50%),
