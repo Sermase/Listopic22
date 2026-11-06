@@ -19,7 +19,7 @@ export const BrandingManager: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-    const [logoType, setLogoType] = useState<'default' | 'image'>(config.logoType);
+    const [logoType, setLogoType] = useState<'default' | 'image' | 'tinted'>(config.logoType);
     const [faviconType, setFaviconType] = useState<'default' | 'image'>(config.faviconType || 'default');
     const [appName, setAppName] = useState(config.appName);
     const [appDescription, setAppDescription] = useState(config.appDescription);
@@ -243,10 +243,15 @@ export const BrandingManager: React.FC = () => {
                         <button onClick={() => setLogoType('image')} className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${logoType === 'image' ? 'bg-[var(--lt-accent)] text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>
                             Imagen
                         </button>
+                        <button onClick={() => setLogoType('tinted')} className={`flex-1 py-2 rounded-md text-sm font-bold transition-all ${logoType === 'tinted' ? 'bg-[var(--lt-accent)] text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>
+                            Letras por tema
+                        </button>
                     </div>
 
                     <div className="h-32 bg-black/40 rounded-xl border border-dashed border-white/10 flex items-center justify-center overflow-hidden relative group">
-                        {logoType === 'default' ? (
+                        {logoType === 'tinted' ? (
+                            <span role="img" aria-label="Letras teñidas con el tema" className="lt-wordmark lt-wordmark--big" />
+                        ) : logoType === 'default' ? (
                             <div className="flex items-center gap-3">
                                 <div className="relative w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style={{ backgroundImage: 'var(--lt-brand-mark)' }}>
                                     <div className="w-4 h-4 bg-white rounded-full shadow-sm" />

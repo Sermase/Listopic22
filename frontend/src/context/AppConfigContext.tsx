@@ -3,7 +3,8 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 
 export interface AppConfig {
-    logoType: 'default' | 'image';
+    /** tinted: las letras de public/brand/listopic-letras.png pintadas con el color de cada tema. */
+    logoType: 'default' | 'image' | 'tinted';
     logoUrl?: string;
     logoUrlDark?: string;
     logoUrlLight?: string;
@@ -78,7 +79,7 @@ export const AppConfigProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 setConfig({
                     ...defaultConfig,
                     ...data,
-                    logoType: data.logoType === 'image' ? 'image' : 'default',
+                    logoType: data.logoType === 'image' || data.logoType === 'tinted' ? data.logoType : 'default',
                     faviconType: data.faviconType === 'image' ? 'image' : 'default',
                     showRandomChoiceButton: typeof data.showRandomChoiceButton === 'boolean'
                         ? data.showRandomChoiceButton

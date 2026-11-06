@@ -519,9 +519,9 @@
 }
 
 /* =====================================================================
-   Listopic Theme System — 4 paletas compartiendo los mismos --lt-* tokens
-   Uso: aplicar class="theme-dark" | "theme-light" | "theme-warm" | "theme-cool"
-        al <html> (ThemeContext lo gestiona). Default: theme-dark.
+   Listopic Theme System — todas las paletas comparten los mismos --lt-* tokens
+   Uso: ThemeContext pone la clase en <html> (theme-dark, theme-light, theme-warm…).
+        Abuela y Fresco van encima de theme-light. Default: theme-dark.
    ===================================================================== */
 
 /* Defaults (= theme-dark) por si se renderiza antes de que el provider
@@ -529,17 +529,17 @@
 :root,
 .theme-dark {
     color-scheme: dark;
-    --lt-bg: #0b1021;
-    --lt-bg-deep: #060913;
+    --lt-bg: #0d1431;
+    --lt-bg-deep: #080c22;
     --lt-text: #f8fafc;
     --lt-text-muted: #94a3b8;
-    --lt-card: rgba(21, 27, 46, 0.6);
-    --lt-card-strong: #151b2e;
-    --lt-card-strong-alpha: rgba(21, 27, 46, 0.7);
+    --lt-card: rgba(25, 33, 68, 0.62);
+    --lt-card-strong: #18203f;
+    --lt-card-strong-alpha: rgba(24, 32, 63, 0.74);
     --lt-glass: rgba(255, 255, 255, 0.05);
     --lt-border: rgba(255, 255, 255, 0.08);
     --lt-border-strong: rgba(255, 255, 255, 0.18);
-    --lt-nav-scrolled: rgba(21, 27, 46, 0.7);
+    --lt-nav-scrolled: rgba(24, 32, 63, 0.74);
     --lt-accent: #6366f1;
     --lt-accent-2: #a855f7;
     --lt-accent-grad: linear-gradient(135deg, #6366f1, #a855f7);
@@ -557,12 +557,14 @@
     --lt-promo-soft: rgba(251, 191, 36, 0.15);
     --lt-hero-grad: linear-gradient(90deg, #22d3ee, #6366f1, #a855f7);
     --lt-brand-mark: linear-gradient(135deg, #22d3ee, #3b82f6, #6366f1);
+    /* Medianoche: estrellas finas y el halo de la luna arriba a la derecha. */
     --lt-body-mesh:
-        radial-gradient(circle at 10% 20%, rgba(92, 124, 250, 0.15), transparent 45%),
-        radial-gradient(circle at 85% 15%, rgba(255, 113, 91, 0.15), transparent 40%),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='230' height='230'%3E%3Cg fill='%23ffffff'%3E%3Ccircle cx='14' cy='22' r='.9' opacity='.75'/%3E%3Ccircle cx='68' cy='140' r='.6' opacity='.5'/%3E%3Ccircle cx='121' cy='48' r='1.1' opacity='.8'/%3E%3Ccircle cx='190' cy='96' r='.7' opacity='.55'/%3E%3Ccircle cx='166' cy='201' r='.9' opacity='.65'/%3E%3Ccircle cx='38' cy='190' r='.5' opacity='.45'/%3E%3Ccircle cx='96' cy='96' r='.5' opacity='.4'/%3E%3Ccircle cx='211' cy='18' r='.6' opacity='.5'/%3E%3C/g%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='370' height='370'%3E%3Cg fill='%23c7d2fe'%3E%3Ccircle cx='52' cy='80' r='1.3' opacity='.7'/%3E%3Ccircle cx='250' cy='30' r='.8' opacity='.6'/%3E%3Ccircle cx='310' cy='250' r='1.2' opacity='.65'/%3E%3Ccircle cx='140' cy='300' r='.8' opacity='.5'/%3E%3Ccircle cx='200' cy='160' r='.6' opacity='.45'/%3E%3C/g%3E%3C/svg%3E"),
+        radial-gradient(circle at 88% 4%, rgba(199, 210, 254, 0.22), transparent 26%),
+        radial-gradient(circle at 10% 20%, rgba(92, 124, 250, 0.16), transparent 45%),
         radial-gradient(circle at 45% 60%, rgba(155, 81, 224, 0.12), transparent 50%),
-        radial-gradient(circle at 80% 90%, rgba(61, 213, 152, 0.12), transparent 45%),
-        radial-gradient(circle at 20% 80%, rgba(36, 163, 255, 0.10), transparent 50%);
+        radial-gradient(circle at 20% 85%, rgba(36, 163, 255, 0.10), transparent 50%);
 }
 
 .theme-light {
@@ -597,9 +599,11 @@
     --lt-promo-soft: rgba(217, 119, 6, 0.10);
     --lt-hero-grad: linear-gradient(90deg, #06b6d4, #5b4cf5, #a855f7);
     --lt-brand-mark: linear-gradient(135deg, #06b6d4, #3b82f6, #5b4cf5);
+    /* Mediodía (pareja de Medianoche): sol arriba a la derecha y un poco de cielo. */
     --lt-body-mesh:
-        radial-gradient(circle at 10% 20%, rgba(91, 76, 245, 0.10), transparent 45%),
-        radial-gradient(circle at 85% 15%, rgba(244, 114, 182, 0.08), transparent 40%),
+        radial-gradient(circle at 88% 3%, rgba(253, 224, 71, 0.58), rgba(253, 186, 116, 0.22) 13%, transparent 29%),
+        radial-gradient(ellipse 100% 32% at 50% 0%, rgba(125, 211, 252, 0.26), transparent 72%),
+        radial-gradient(circle at 10% 20%, rgba(91, 76, 245, 0.08), transparent 45%),
         radial-gradient(circle at 45% 60%, rgba(168, 85, 247, 0.07), transparent 50%),
         radial-gradient(circle at 80% 90%, rgba(6, 182, 212, 0.08), transparent 45%),
         radial-gradient(circle at 20% 80%, rgba(91, 76, 245, 0.06), transparent 50%);
@@ -607,97 +611,101 @@
 
 .theme-warm {
     color-scheme: dark;
-    --lt-bg: #1a0f0c;
-    --lt-bg-deep: #120906;
-    --lt-text: #fff8f0;
-    --lt-text-muted: #c9a68a;
-    --lt-card: rgba(45, 22, 18, 0.6);
-    --lt-card-strong: #2a1812;
-    --lt-card-strong-alpha: rgba(45, 22, 18, 0.7);
-    --lt-glass: rgba(255, 200, 150, 0.05);
-    --lt-border: rgba(255, 180, 120, 0.10);
-    --lt-border-strong: rgba(255, 180, 120, 0.22);
-    --lt-nav-scrolled: rgba(45, 22, 18, 0.75);
+    --lt-bg: #3a1c13;
+    --lt-bg-deep: #2a120c;
+    --lt-text: #fff4ea;
+    --lt-text-muted: #e2b89b;
+    --lt-card: rgba(78, 38, 25, 0.62);
+    --lt-card-strong: #4a2418;
+    --lt-card-strong-alpha: rgba(74, 36, 24, 0.8);
+    --lt-glass: rgba(255, 190, 140, 0.07);
+    --lt-border: rgba(255, 170, 110, 0.15);
+    --lt-border-strong: rgba(255, 170, 110, 0.3);
+    --lt-nav-scrolled: rgba(74, 36, 24, 0.82);
     --lt-accent: #f97316;
-    --lt-accent-2: #dc2626;
-    --lt-accent-grad: linear-gradient(135deg, #f97316, #dc2626);
+    --lt-accent-2: #ef4444;
+    --lt-accent-grad: linear-gradient(135deg, #fbbf24, #f97316 45%, #dc2626);
     --lt-accent-border: #fb923c;
-    --lt-accent-shadow: rgba(249, 115, 22, 0.4);
-    --lt-accent-soft: rgba(249, 115, 22, 0.15);
-    --lt-success: #3dd598;
-    --lt-success-soft: rgba(61, 213, 152, 0.15);
-    --lt-warning: #eab308;
-    --lt-warning-soft: rgba(234, 179, 8, 0.15);
+    --lt-accent-shadow: rgba(249, 115, 22, 0.45);
+    --lt-accent-soft: rgba(249, 115, 22, 0.18);
+    --lt-success: #4ade80;
+    --lt-success-soft: rgba(74, 222, 128, 0.16);
+    --lt-warning: #facc15;
+    --lt-warning-soft: rgba(250, 204, 21, 0.16);
     --lt-danger: #fca5a5;
-    --lt-danger-soft: rgba(252, 165, 165, 0.15);
+    --lt-danger-soft: rgba(252, 165, 165, 0.16);
     --lt-promo: #fbbf24;
-    --lt-promo-soft: rgba(251, 191, 36, 0.15);
-    --lt-hero-grad: linear-gradient(90deg, #facc15, #f97316, #dc2626);
-    --lt-brand-mark: linear-gradient(135deg, #facc15, #f97316, #dc2626);
+    --lt-promo-soft: rgba(251, 191, 36, 0.16);
+    --lt-hero-grad: linear-gradient(90deg, #fde047, #f97316, #ef4444);
+    --lt-brand-mark: linear-gradient(135deg, #fde047, #f97316, #dc2626);
+    /* Brasa: el fuego abajo, chispas sueltas y el ladrillo del horno en el menú. */
+    --lt-brick: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='32'%3E%3Crect width='64' height='32' fill='%23411f15'/%3E%3Cg fill='%23562a1c'%3E%3Crect x='1' y='1' width='30' height='14' rx='2'/%3E%3Crect x='33' y='1' width='30' height='14' rx='2'/%3E%3Crect x='-15' y='17' width='30' height='14' rx='2'/%3E%3Crect x='17' y='17' width='30' height='14' rx='2'/%3E%3Crect x='49' y='17' width='30' height='14' rx='2'/%3E%3C/g%3E%3C/svg%3E");
     --lt-body-mesh:
-        radial-gradient(circle at 10% 20%, rgba(249, 115, 22, 0.18), transparent 45%),
-        radial-gradient(circle at 85% 15%, rgba(220, 38, 38, 0.15), transparent 40%),
-        radial-gradient(circle at 45% 60%, rgba(250, 204, 21, 0.10), transparent 50%),
-        radial-gradient(circle at 80% 90%, rgba(249, 115, 22, 0.12), transparent 45%),
-        radial-gradient(circle at 20% 80%, rgba(220, 38, 38, 0.08), transparent 50%);
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cg fill='%23fdba74'%3E%3Ccircle cx='30' cy='210' r='1.2' opacity='.55'/%3E%3Ccircle cx='120' cy='150' r='.8' opacity='.45'/%3E%3Ccircle cx='200' cy='230' r='1' opacity='.5'/%3E%3Ccircle cx='230' cy='90' r='.7' opacity='.35'/%3E%3Ccircle cx='80' cy='60' r='.6' opacity='.3'/%3E%3C/g%3E%3C/svg%3E"),
+        radial-gradient(ellipse 120% 55% at 50% 112%, rgba(249, 115, 22, 0.42), transparent 62%),
+        radial-gradient(ellipse 55% 35% at 12% 102%, rgba(239, 68, 68, 0.28), transparent 70%),
+        radial-gradient(ellipse 50% 30% at 92% 104%, rgba(250, 204, 21, 0.18), transparent 70%),
+        radial-gradient(circle at 80% 8%, rgba(249, 115, 22, 0.12), transparent 40%);
 }
 
+/* Fresco = heladería: tema claro (va encima de .theme-light, como la Abuela). */
 .theme-cool {
-    color-scheme: dark;
-    --lt-bg: #031a20;
-    --lt-bg-deep: #021017;
-    --lt-text: #ecfeff;
-    --lt-text-muted: #7aa9b1;
-    --lt-card: rgba(12, 42, 50, 0.6);
-    --lt-card-strong: #0c2a32;
-    --lt-card-strong-alpha: rgba(12, 42, 50, 0.7);
-    --lt-glass: rgba(150, 255, 230, 0.05);
-    --lt-border: rgba(150, 240, 220, 0.10);
-    --lt-border-strong: rgba(150, 240, 220, 0.22);
-    --lt-nav-scrolled: rgba(12, 42, 50, 0.75);
-    --lt-accent: #14b8a6;
-    --lt-accent-2: #06b6d4;
-    --lt-accent-grad: linear-gradient(135deg, #14b8a6, #06b6d4);
-    --lt-accent-border: #2dd4bf;
-    --lt-accent-shadow: rgba(20, 184, 166, 0.4);
-    --lt-accent-soft: rgba(20, 184, 166, 0.15);
-    --lt-success: #a3e635;
-    --lt-success-soft: rgba(163, 230, 53, 0.15);
-    --lt-warning: #ff715b;
-    --lt-warning-soft: rgba(255, 113, 91, 0.15);
-    --lt-danger: #fb7185;
-    --lt-danger-soft: rgba(251, 113, 133, 0.15);
-    --lt-promo: #fbbf24;
-    --lt-promo-soft: rgba(251, 191, 36, 0.15);
-    --lt-hero-grad: linear-gradient(90deg, #a7f3d0, #14b8a6, #06b6d4);
-    --lt-brand-mark: linear-gradient(135deg, #a7f3d0, #14b8a6, #06b6d4);
+    color-scheme: light;
+    --lt-hero-top: rgba(239, 250, 245, 0.6);
+    --lt-bg: #effaf5;
+    --lt-bg-deep: #dcf3ea;
+    --lt-text: #0f3d36;
+    --lt-text-muted: #4d746c;
+    --lt-card: rgba(255, 255, 255, 0.92);
+    --lt-card-strong: #ffffff;
+    --lt-card-strong-alpha: rgba(255, 255, 255, 0.88);
+    --lt-glass: rgba(20, 184, 166, 0.07);
+    --lt-border: rgba(15, 61, 54, 0.1);
+    --lt-border-strong: rgba(15, 61, 54, 0.22);
+    --lt-nav-scrolled: rgba(239, 250, 245, 0.9);
+    --lt-accent: #0c8a78;
+    --lt-accent-2: #e23d68;
+    --lt-accent-grad: linear-gradient(135deg, #14b8a6, #0c8a78);
+    --lt-accent-border: #3cc7b2;
+    --lt-accent-shadow: rgba(12, 138, 120, 0.28);
+    --lt-accent-soft: rgba(12, 138, 120, 0.1);
+    --lt-success: #15803d;
+    --lt-success-soft: rgba(21, 128, 61, 0.1);
+    --lt-warning: #b8410c;
+    --lt-warning-soft: rgba(234, 88, 12, 0.1);
+    --lt-danger: #dc2626;
+    --lt-danger-soft: rgba(220, 38, 38, 0.1);
+    --lt-promo: #b45309;
+    --lt-promo-soft: rgba(217, 119, 6, 0.1);
+    --lt-hero-grad: linear-gradient(90deg, #0c8a78, #14b8a6, #e23d68);
+    --lt-brand-mark: linear-gradient(135deg, #5eead4, #0c8a78);
+    --lt-awning: repeating-linear-gradient(90deg, #6fd6c2 0 22px, #ffffff 22px 44px);
     --lt-body-mesh:
-        radial-gradient(circle at 10% 20%, rgba(20, 184, 166, 0.15), transparent 45%),
-        radial-gradient(circle at 85% 15%, rgba(6, 182, 212, 0.14), transparent 40%),
-        radial-gradient(circle at 45% 60%, rgba(167, 243, 208, 0.10), transparent 50%),
-        radial-gradient(circle at 80% 90%, rgba(34, 211, 238, 0.10), transparent 45%),
-        radial-gradient(circle at 20% 80%, rgba(20, 184, 166, 0.08), transparent 50%);
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cg opacity='.28'%3E%3Crect x='20' y='30' width='10' height='3' rx='1.5' fill='%23f472b6' transform='rotate(30 25 31)'/%3E%3Crect x='110' y='20' width='10' height='3' rx='1.5' fill='%2314b8a6' transform='rotate(-20 115 21)'/%3E%3Crect x='70' y='100' width='10' height='3' rx='1.5' fill='%23facc15' transform='rotate(70 75 101)'/%3E%3Crect x='150' y='120' width='10' height='3' rx='1.5' fill='%23a78bfa' transform='rotate(10 155 121)'/%3E%3Crect x='30' y='150' width='10' height='3' rx='1.5' fill='%2338bdf8' transform='rotate(-50 35 151)'/%3E%3C/g%3E%3C/svg%3E"),
+        radial-gradient(circle at 8% 8%, rgba(20, 184, 166, 0.16), transparent 42%),
+        radial-gradient(circle at 92% 16%, rgba(244, 114, 182, 0.14), transparent 40%),
+        radial-gradient(circle at 80% 92%, rgba(250, 204, 21, 0.12), transparent 45%);
 }
 
 .theme-neon {
     color-scheme: dark;
-    --lt-bg: #12081a;
-    --lt-bg-deep: #0b0411;
+    --lt-bg: #170a28;
+    --lt-bg-deep: #0d0517;
     --lt-text: #fdf4ff;
-    --lt-text-muted: #c4a7d4;
-    --lt-card: rgba(38, 16, 52, 0.6);
-    --lt-card-strong: #1f1029;
-    --lt-card-strong-alpha: rgba(38, 16, 52, 0.72);
-    --lt-glass: rgba(255, 170, 230, 0.05);
-    --lt-border: rgba(244, 114, 182, 0.12);
-    --lt-border-strong: rgba(244, 114, 182, 0.26);
-    --lt-nav-scrolled: rgba(31, 16, 41, 0.75);
+    --lt-text-muted: #d1b3e2;
+    --lt-card: rgba(44, 18, 66, 0.62);
+    --lt-card-strong: #25123a;
+    --lt-card-strong-alpha: rgba(37, 18, 58, 0.78);
+    --lt-glass: rgba(255, 170, 230, 0.06);
+    --lt-border: rgba(244, 114, 182, 0.24);
+    --lt-border-strong: rgba(244, 114, 182, 0.45);
+    --lt-nav-scrolled: rgba(37, 18, 58, 0.8);
     --lt-accent: #ec4899;
-    --lt-accent-2: #8b5cf6;
-    --lt-accent-grad: linear-gradient(135deg, #ec4899, #8b5cf6);
+    --lt-accent-2: #22d3ee;
+    --lt-accent-grad: linear-gradient(135deg, #f472b6, #ec4899 50%, #8b5cf6);
     --lt-accent-border: #f472b6;
-    --lt-accent-shadow: rgba(236, 72, 153, 0.42);
-    --lt-accent-soft: rgba(236, 72, 153, 0.16);
+    --lt-accent-shadow: rgba(236, 72, 153, 0.6);
+    --lt-accent-soft: rgba(236, 72, 153, 0.18);
     --lt-success: #34d399;
     --lt-success-soft: rgba(52, 211, 153, 0.15);
     --lt-warning: #fb923c;
@@ -706,47 +714,55 @@
     --lt-danger-soft: rgba(251, 113, 133, 0.15);
     --lt-promo: #fbbf24;
     --lt-promo-soft: rgba(251, 191, 36, 0.15);
-    --lt-hero-grad: linear-gradient(90deg, #f9a8d4, #ec4899, #8b5cf6);
-    --lt-brand-mark: linear-gradient(135deg, #f9a8d4, #ec4899, #8b5cf6);
+    --lt-hero-grad: linear-gradient(90deg, #67e8f9, #f472b6, #a78bfa);
+    --lt-brand-mark: linear-gradient(135deg, #67e8f9, #ec4899, #8b5cf6);
+    /* Neón: horizonte con rejilla (los tres primeros, abajo de la pantalla) y brillos. */
     --lt-body-mesh:
-        radial-gradient(circle at 10% 15%, rgba(236, 72, 153, 0.20), transparent 45%),
-        radial-gradient(circle at 90% 20%, rgba(139, 92, 246, 0.18), transparent 42%),
-        radial-gradient(circle at 50% 65%, rgba(217, 70, 239, 0.10), transparent 50%),
-        radial-gradient(circle at 85% 90%, rgba(56, 189, 248, 0.08), transparent 45%);
+        linear-gradient(to bottom, #170a28 0%, rgba(23, 10, 40, 0) 70%),
+        repeating-conic-gradient(from 0deg at 50% 0%, rgba(236, 72, 153, 0.34) 0deg 0.35deg, transparent 0.35deg 7.5deg),
+        repeating-linear-gradient(to bottom, rgba(236, 72, 153, 0.38) 0 1px, transparent 1px 26px),
+        radial-gradient(ellipse 70% 22% at 50% 66%, rgba(236, 72, 153, 0.24), transparent 72%),
+        radial-gradient(circle at 10% 12%, rgba(236, 72, 153, 0.2), transparent 42%),
+        radial-gradient(circle at 92% 22%, rgba(34, 211, 238, 0.14), transparent 40%),
+        radial-gradient(circle at 50% 45%, rgba(139, 92, 246, 0.12), transparent 50%);
 }
 
+/* Grafito = pizarra del menú del día: tiza, polvo de tiza y marco de madera. */
 .theme-graphite {
     color-scheme: dark;
-    --lt-bg: #050506;
-    --lt-bg-deep: #000000;
-    --lt-text: #f4f4f5;
-    --lt-text-muted: #a1a1aa;
-    --lt-card: rgba(24, 24, 27, 0.7);
-    --lt-card-strong: #141417;
-    --lt-card-strong-alpha: rgba(20, 20, 23, 0.8);
-    --lt-glass: rgba(255, 255, 255, 0.04);
-    --lt-border: rgba(255, 255, 255, 0.08);
-    --lt-border-strong: rgba(255, 255, 255, 0.16);
-    --lt-nav-scrolled: rgba(20, 20, 23, 0.8);
+    --lt-bg: #26332e;
+    --lt-bg-deep: #1b2521;
+    --lt-text: #f3f6ef;
+    --lt-text-muted: #b9c6bb;
+    --lt-card: rgba(255, 255, 255, 0.055);
+    --lt-card-strong: #2f3e38;
+    --lt-card-strong-alpha: rgba(47, 62, 56, 0.86);
+    --lt-glass: rgba(255, 255, 255, 0.05);
+    --lt-border: rgba(243, 246, 239, 0.17);
+    --lt-border-strong: rgba(243, 246, 239, 0.34);
+    --lt-nav-scrolled: rgba(38, 51, 46, 0.88);
     --lt-accent: #65a30d;
-    --lt-accent-2: #0891b2;
-    --lt-accent-grad: linear-gradient(135deg, #65a30d, #0891b2);
-    --lt-accent-border: #a3e635;
-    --lt-accent-shadow: rgba(163, 230, 53, 0.45);
-    --lt-accent-soft: rgba(163, 230, 53, 0.16);
-    --lt-success: #34d399;
-    --lt-success-soft: rgba(74, 222, 128, 0.14);
-    --lt-warning: #fb923c;
-    --lt-warning-soft: rgba(251, 146, 60, 0.14);
-    --lt-danger: #f87171;
-    --lt-danger-soft: rgba(248, 113, 113, 0.14);
-    --lt-promo: #fbbf24;
-    --lt-promo-soft: rgba(251, 191, 36, 0.14);
-    --lt-hero-grad: linear-gradient(90deg, #ecfccb, #a3e635, #22d3ee);
-    --lt-brand-mark: linear-gradient(135deg, #ecfccb, #a3e635, #22d3ee);
+    --lt-accent-2: #fde047;
+    --lt-accent-grad: linear-gradient(135deg, #84cc16, #4d7c0f);
+    --lt-accent-border: #bef264;
+    --lt-accent-shadow: rgba(163, 230, 53, 0.35);
+    --lt-accent-soft: rgba(190, 242, 100, 0.14);
+    --lt-success: #86efac;
+    --lt-success-soft: rgba(134, 239, 172, 0.14);
+    --lt-warning: #fdba74;
+    --lt-warning-soft: rgba(253, 186, 116, 0.14);
+    --lt-danger: #fca5a5;
+    --lt-danger-soft: rgba(252, 165, 165, 0.14);
+    --lt-promo: #fde047;
+    --lt-promo-soft: rgba(253, 224, 71, 0.14);
+    --lt-hero-grad: linear-gradient(90deg, #fef9c3, #bef264, #f9a8d4);
+    --lt-brand-mark: linear-gradient(135deg, #fef9c3, #bef264, #65a30d);
+    --lt-wood: linear-gradient(90deg, #7a4a24, #a06a3a 18%, #6b3f1e 37%, #9b6534 63%, #7a4a24 82%, #a06a3a);
     --lt-body-mesh:
-        radial-gradient(circle at 15% 10%, rgba(163, 230, 53, 0.16), transparent 45%),
-        radial-gradient(circle at 85% 85%, rgba(34, 211, 238, 0.12), transparent 45%);
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+        radial-gradient(ellipse 60% 25% at 25% 18%, rgba(255, 255, 255, 0.07), transparent 70%),
+        radial-gradient(ellipse 50% 22% at 75% 55%, rgba(255, 255, 255, 0.05), transparent 70%),
+        radial-gradient(ellipse 70% 30% at 40% 90%, rgba(255, 255, 255, 0.05), transparent 70%);
 }
 
 /* Fondo intermedio: ni noche ni día. Texto blanco, fondo de color con cuerpo. */
@@ -893,6 +909,294 @@
         linear-gradient(rgba(200, 32, 44, 0.45) 50%, transparent 50%) border-box 0 0 / 12px 12px,
         linear-gradient(90deg, rgba(200, 32, 44, 0.45) 50%, #fffdf6 50%) border-box 0 0 / 12px 12px !important;
 }
+
+/* ---------------------------------------------------------------------
+   Personalidad de cada tema: el menú (hoja de abajo), la barra de abajo y
+   algún detalle. Solo adorno: los colores siguen saliendo de los tokens.
+   --------------------------------------------------------------------- */
+
+/* Despensa al pie del menú (la Abuela tiene la suya arriba). */
+:is(.theme-dark, .theme-warm, .theme-cool, .theme-neon, .theme-graphite) .lt-menu-sheet::after {
+    display: block;
+    margin-top: 0.75rem;
+    text-align: center;
+    font-size: 1.25rem;
+    letter-spacing: 0.2em;
+}
+
+/* Oscuro · Medianoche: el menú es cielo con estrellas; la barra, una línea de luna. */
+html.theme-dark .lt-menu-sheet {
+    background-color: #141b3a;
+    background-image: var(--lt-body-mesh);
+    border-top: 1px solid rgba(199, 210, 254, 0.35);
+}
+html.theme-dark .lt-menu-sheet::after { content: '🌙 ✨ 🍷 ✨ 🌃'; }
+html.theme-dark .lt-bottom-bar {
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(199, 210, 254, 0.28), 0 -1px 18px rgba(129, 140, 248, 0.16) !important;
+}
+
+/* Claro · Mediodía: el menú es cielo de mediodía con su sol y nubes; la barra, con luz de sol. */
+html[data-theme="light"] .lt-menu-sheet {
+    background-color: #ffffff;
+    background-image:
+        radial-gradient(circle at 86% 26px, #fde047 0 15px, rgba(253, 224, 71, 0.35) 16px, transparent 34px),
+        radial-gradient(ellipse 46px 14px at 18% 30px, rgba(255, 255, 255, 0.95), transparent 70%),
+        radial-gradient(ellipse 60px 16px at 34% 22px, rgba(255, 255, 255, 0.9), transparent 70%),
+        linear-gradient(to bottom, #bae6fd 0%, #e0f2fe 40px, #ffffff 92px);
+    background-repeat: no-repeat;
+    border-top: 0;
+}
+html[data-theme="light"] .lt-menu-sheet::after {
+    content: '☀️ 🥗 🍋 🍉 🧃 🌤️';
+    display: block;
+    margin-top: 0.75rem;
+    text-align: center;
+    font-size: 1.25rem;
+    letter-spacing: 0.2em;
+}
+html[data-theme="light"] .lt-bottom-bar {
+    box-shadow: 0 12px 30px rgba(26, 22, 37, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 -2px 18px rgba(253, 224, 71, 0.28) !important;
+}
+
+/* Cálido · Brasa: menú de ladrillo de horno con el borde al rojo; barra sobre las ascuas. */
+html.theme-warm .lt-menu-sheet {
+    background-color: #411f15;
+    background-image: linear-gradient(90deg, #fbbf24, #f97316, #dc2626, #f97316, #fbbf24), var(--lt-brick);
+    background-size: 100% 5px, auto;
+    background-repeat: no-repeat, repeat;
+    border-top: 0;
+    box-shadow: 0 -10px 34px rgba(249, 115, 22, 0.4) !important;
+}
+html.theme-warm .lt-menu-sheet :is(a, button)[class*="rounded"] { background-color: rgba(58, 28, 19, 0.92); }
+html.theme-warm .lt-menu-sheet::after { content: '🔥 🥩 🌽 🍖 🧄 🫑 🥖'; }
+html.theme-warm .lt-bottom-bar {
+    border-color: rgba(251, 146, 60, 0.5) !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45), 0 -4px 26px rgba(249, 115, 22, 0.32), inset 0 1px 0 rgba(253, 186, 116, 0.25) !important;
+}
+
+/* Fresco · Heladería: toldo a rayas encima del menú y virutas de colores; barra con ribete de toldo. */
+html.theme-cool .lt-menu-sheet {
+    background-color: #f7fdfa;
+    background-image:
+        radial-gradient(circle at 11px 0, #6fd6c2 10px, transparent 10.5px),
+        var(--lt-awning),
+        var(--lt-body-mesh);
+    background-size: 44px 22px, 100% 14px, auto;
+    background-position: 0 14px, 0 0, 0 0;
+    background-repeat: repeat-x, no-repeat, repeat;
+    border-top: 0;
+    padding-top: 2.4rem !important;
+}
+html.theme-cool .lt-menu-sheet::after { content: '🍦 🍓 🍋 🍧 🌿 🍉 🍨'; }
+html.theme-cool .lt-bottom-bar {
+    border: 4px solid transparent !important;
+    background:
+        linear-gradient(#ffffff, #ffffff) padding-box,
+        repeating-linear-gradient(90deg, #6fd6c2 0 10px, #ffffff 10px 20px) border-box !important;
+}
+
+/* Neón: rótulos que brillan, menú con tubo de neón y la barra como letrero. */
+html.theme-neon body {
+    background-size: 100% 42vh, 100% 42vh, 100% 42vh, auto, auto, auto, auto;
+    background-position: bottom, bottom, bottom, 0 0, 0 0, 0 0, 0 0;
+    background-repeat: no-repeat;
+}
+html.theme-neon :is(h1, h2) {
+    text-shadow: 0 0 2px rgba(255, 255, 255, 0.45), 0 0 12px rgba(236, 72, 153, 0.6), 0 0 28px rgba(139, 92, 246, 0.35);
+}
+html.theme-neon .lt-menu-sheet {
+    background-color: #1c0d30;
+    /* El horizonte también al pie del menú. */
+    background-image:
+        linear-gradient(to bottom, #1c0d30 0%, rgba(28, 13, 48, 0) 75%),
+        repeating-conic-gradient(from 0deg at 50% 0%, rgba(236, 72, 153, 0.4) 0deg 0.4deg, transparent 0.4deg 7.5deg),
+        repeating-linear-gradient(to bottom, rgba(236, 72, 153, 0.42) 0 1px, transparent 1px 22px);
+    background-size: 100% 190px;
+    background-position: bottom;
+    background-repeat: no-repeat;
+    border-top: 2px solid #f472b6;
+    box-shadow: 0 -2px 14px rgba(236, 72, 153, 0.7), 0 -12px 40px rgba(139, 92, 246, 0.35) !important;
+}
+html.theme-neon .lt-menu-sheet::after { content: '🍸 🎶 🌮 🪩 🍕 🎧 🍔'; }
+html.theme-neon .lt-bottom-bar {
+    border: 1.5px solid rgba(244, 114, 182, 0.9) !important;
+    box-shadow: 0 0 10px rgba(236, 72, 153, 0.6), 0 0 30px rgba(139, 92, 246, 0.35), inset 0 0 12px rgba(236, 72, 153, 0.22) !important;
+}
+
+/* Grafito · Pizarra: títulos a tiza, menú del día con marco de madera. */
+html.theme-graphite :is(h1, h2) {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    /* Caveat es bajita: igualada en altura a la letra normal sin tocar los tamaños. */
+    font-size-adjust: 0.56;
+}
+html.theme-graphite .lt-menu-sheet {
+    background-color: #26332e;
+    background-image: var(--lt-wood), var(--lt-body-mesh);
+    background-size: 100% 10px, auto;
+    background-repeat: no-repeat, repeat;
+    border-top: 0;
+    padding-top: 0.9rem !important;
+}
+html.theme-graphite .lt-menu-sheet::after { content: '🍳 🥗 🍝 🐟 🍮 ☕'; }
+html.theme-graphite .lt-bottom-bar {
+    border: 5px solid transparent !important;
+    background:
+        linear-gradient(#2f3e38, #2f3e38) padding-box,
+        var(--lt-wood) border-box !important;
+}
+
+/* Atardecer · Hora dorada: el sol se pone sobre el menú; la barra, con la luz dorada. */
+html.theme-sunset .lt-menu-sheet {
+    background-color: #5e3767;
+    background-image:
+        radial-gradient(circle at 50% 100%, #ffd27a 0 34px, rgba(255, 179, 71, 0.55) 35px, transparent 70px),
+        linear-gradient(to bottom, #ffb347 0%, #ff7a59 45%, rgba(244, 63, 94, 0.55) 75%, rgba(94, 55, 103, 0) 100%);
+    background-size: 100% 46px, 100% 46px;
+    background-position: 0 0, 0 0;
+    background-repeat: no-repeat;
+    border-top: 0;
+    padding-top: 3.1rem !important;
+}
+html.theme-sunset .lt-menu-sheet::after {
+    content: '🌅 🍹 🥂 🫒 🧀 🍤 🌇';
+    display: block;
+    margin-top: 0.75rem;
+    text-align: center;
+    font-size: 1.25rem;
+    letter-spacing: 0.2em;
+}
+html.theme-sunset .lt-bottom-bar {
+    border-color: rgba(255, 196, 120, 0.55) !important;
+    box-shadow: 0 12px 32px rgba(40, 10, 50, 0.45), 0 -4px 24px rgba(255, 140, 90, 0.35), inset 0 1px 0 rgba(255, 220, 160, 0.35) !important;
+}
+
+/* Laguna · Chiringuito: olas con espuma encima del menú y burbujas; la barra flota en el agua. */
+html.theme-lagoon .lt-menu-sheet {
+    background-color: #26697b;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='16'%3E%3Cpath d='M0 9 Q15 0 30 9 T60 9 V16 H0Z' fill='%2326697b'/%3E%3Cpath d='M0 9 Q15 0 30 9 T60 9' fill='none' stroke='%23e6fffb' stroke-width='2' stroke-opacity='.75'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cg fill='none' stroke='%23e6fffb' stroke-opacity='.22'%3E%3Ccircle cx='30' cy='160' r='5'/%3E%3Ccircle cx='44' cy='140' r='2.5'/%3E%3Ccircle cx='150' cy='60' r='4'/%3E%3Ccircle cx='160' cy='44' r='2'/%3E%3Ccircle cx='100' cy='120' r='3'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 60px 16px, auto;
+    background-position: 0 0, 0 0;
+    background-repeat: repeat-x, repeat;
+    border-top: 0;
+    padding-top: 1.4rem !important;
+}
+html.theme-lagoon .lt-menu-sheet::after {
+    content: '🏝️ 🍍 🥥 🐠 🍹 🌺 🦀';
+    display: block;
+    margin-top: 0.75rem;
+    text-align: center;
+    font-size: 1.25rem;
+    letter-spacing: 0.2em;
+}
+html.theme-lagoon .lt-bottom-bar {
+    border: 2px solid transparent !important;
+    background:
+        linear-gradient(#26697b, #26697b) padding-box,
+        linear-gradient(90deg, #f472b6, #fb923c) border-box !important;
+    box-shadow: 0 12px 32px rgba(0, 30, 40, 0.4), 0 0 18px rgba(244, 114, 182, 0.28) !important;
+}
+html.theme-lagoon {
+    --lt-body-mesh:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cg fill='none' stroke='%23e6fffb' stroke-opacity='.22'%3E%3Ccircle cx='30' cy='160' r='5'/%3E%3Ccircle cx='44' cy='140' r='2.5'/%3E%3Ccircle cx='150' cy='60' r='4'/%3E%3Ccircle cx='160' cy='44' r='2'/%3E%3Ccircle cx='100' cy='120' r='3'/%3E%3C/g%3E%3C/svg%3E"),
+        radial-gradient(circle at 10% 12%, rgba(45, 212, 191, 0.30), transparent 45%),
+        radial-gradient(circle at 88% 20%, rgba(244, 114, 182, 0.20), transparent 42%),
+        radial-gradient(circle at 50% 68%, rgba(56, 189, 248, 0.18), transparent 50%),
+        radial-gradient(circle at 85% 92%, rgba(253, 224, 71, 0.12), transparent 45%);
+}
+html.theme-sunset {
+    --lt-body-mesh:
+        radial-gradient(circle at 82% 4%, rgba(255, 210, 122, 0.38), transparent 22%),
+        radial-gradient(circle at 12% 10%, rgba(255, 140, 90, 0.30), transparent 45%),
+        radial-gradient(circle at 90% 18%, rgba(244, 63, 94, 0.22), transparent 42%),
+        radial-gradient(circle at 50% 70%, rgba(168, 85, 247, 0.20), transparent 50%),
+        radial-gradient(circle at 85% 92%, rgba(253, 224, 71, 0.12), transparent 45%);
+}
+
+/* Letra y forma de cada tema: los títulos (h1, h2 y .font-display) cambian de
+   letra y las esquinas cambian de radio (Tailwind 4 las lee de --radius-*).
+   El texto normal sigue en Manrope para que todo se lea igual de bien. */
+html.theme-dark,
+html[data-theme="light"] { --font-display: 'Fraunces Variable', Georgia, serif; }
+html.theme-warm {
+    --font-display: 'Alfa Slab One', 'Rockwell', serif;
+    --radius-xl: 0.7rem;
+    --radius-2xl: 0.9rem;
+    --radius-3xl: 1.1rem;
+}
+html.theme-cool {
+    --font-display: 'Fredoka Variable', 'Fredoka', sans-serif;
+    --radius-xl: 1.05rem;
+    --radius-2xl: 1.6rem;
+    --radius-3xl: 2.2rem;
+}
+html.theme-neon {
+    --font-display: 'Tilt Neon Variable', 'Tilt Neon', sans-serif;
+    --radius-xl: 0.55rem;
+    --radius-2xl: 0.7rem;
+    --radius-3xl: 0.9rem;
+}
+html.theme-graphite {
+    --font-display: 'Caveat Variable', 'Caveat', cursive;
+    --radius-xl: 0.4rem;
+    --radius-2xl: 0.5rem;
+    --radius-3xl: 0.65rem;
+}
+html.theme-sunset { --font-display: 'Righteous', sans-serif; }
+html.theme-lagoon {
+    --font-display: 'Lilita One', sans-serif;
+    --radius-2xl: 1.3rem;
+    --radius-3xl: 1.8rem;
+}
+:is(html.theme-dark, html[data-theme="light"], html.theme-warm, html.theme-cool, html.theme-neon, html.theme-sunset, html.theme-lagoon) :is(h1, h2) {
+    font-family: var(--font-display);
+}
+:is(html.theme-dark, html[data-theme="light"]) :is(h1, h2) { font-weight: 650; letter-spacing: -0.01em; }
+html.theme-warm :is(h1, h2) { font-weight: 400; letter-spacing: 0.01em; }
+html.theme-cool :is(h1, h2) { font-weight: 600; }
+html.theme-neon :is(h1, h2) { font-weight: 500; }
+html.theme-sunset :is(h1, h2), html.theme-lagoon :is(h1, h2) { font-weight: 400; letter-spacing: 0.01em; }
+html.theme-graphite .font-display { font-size-adjust: 0.56; font-weight: 700; }
+
+/* Tarjetas con carácter: tubo luminoso en Neón, borde de tiza en Pizarra,
+   brillo de brasa en Cálido y sombra de helado en Fresco. */
+html.theme-neon :is(.bg-\[var\(--lt-card\)\], .bg-\[var\(--lt-card-strong\)\]) {
+    box-shadow: 0 0 0 1px rgba(244, 114, 182, 0.32), 0 0 16px rgba(236, 72, 153, 0.16);
+}
+html.theme-graphite :is(.bg-\[var\(--lt-card\)\], .bg-\[var\(--lt-card-strong\)\]) {
+    border-style: dashed;
+}
+html.theme-warm :is(.bg-\[var\(--lt-card\)\], .bg-\[var\(--lt-card-strong\)\]) {
+    box-shadow: inset 0 1px 0 rgba(253, 186, 116, 0.18), 0 8px 22px rgba(20, 5, 0, 0.35);
+}
+html.theme-cool :is(.bg-\[var\(--lt-card\)\], .bg-\[var\(--lt-card-strong\)\]) {
+    box-shadow: 0 10px 26px rgba(12, 138, 120, 0.12);
+}
+html.theme-graphite .lt-bottom-bar { border-radius: 0.9rem; }
+html.theme-neon .lt-bottom-bar { border-radius: 1rem; }
+
+/* Logo «Letras por tema» (Developer → Marca): una sola silueta pintada con el color
+   de cada tema. Va en public/ porque mask-image exige el mismo origen (Storage no da CORS). */
+.lt-wordmark {
+    display: block;
+    height: 2.7rem;
+    aspect-ratio: 428 / 159;
+    background: var(--lt-logo-grad, var(--lt-hero-grad));
+    -webkit-mask: url('/brand/listopic-letras.png') center / contain no-repeat;
+    mask: url('/brand/listopic-letras.png') center / contain no-repeat;
+}
+.lt-wordmark--big { height: 5rem; }
+:root, html.theme-dark { --lt-logo-grad: linear-gradient(90deg, #22d3ee, #818cf8, #c084fc); }
+html.theme-light { --lt-logo-grad: linear-gradient(90deg, #06b6d4, #5b4cf5, #a855f7); }
+html.theme-warm { --lt-logo-grad: linear-gradient(90deg, #fde047, #f97316, #ef4444); }
+html.theme-cool { --lt-logo-grad: linear-gradient(90deg, #14b8a6, #0c8a78, #e23d68); }
+html.theme-neon { --lt-logo-grad: linear-gradient(90deg, #67e8f9, #f472b6, #a78bfa); }
+html.theme-graphite { --lt-logo-grad: linear-gradient(90deg, #fef9c3, #bef264, #84cc16); }
+html.theme-sunset { --lt-logo-grad: linear-gradient(90deg, #fde68a, #ff7a59, #f472b6); }
+html.theme-lagoon { --lt-logo-grad: linear-gradient(90deg, #fa7459, #fc964a); }
+html.theme-abuela { --lt-logo-grad: linear-gradient(90deg, #a65339, #c48e45, #3b4f2e); }
+html.theme-neon .lt-wordmark { filter: drop-shadow(0 0 6px rgba(236, 72, 153, 0.7)); }
 
 /* =====================================================================
    Legacy tokens mapeados a --lt-*. Así los componentes viejos que usan
@@ -1370,8 +1674,7 @@ html.theme-light .lt-media-card .bg-black\/60 { background-color: rgba(0, 0, 0, 
    ===================================================================== */
 :root,
 .theme-dark,
-.theme-warm,
-.theme-cool {
+.theme-warm {
     --lt-skeleton-base: rgba(255, 255, 255, 0.05);
     --lt-skeleton-highlight: rgba(255, 255, 255, 0.07);
 }
@@ -1430,8 +1733,7 @@ html.theme-light .lt-media-card .bg-black\/60 { background-color: rgba(0, 0, 0, 
    así que en el tema claro el título va oscuro (sin sombra negra). */
 :root,
 .theme-dark,
-.theme-warm,
-.theme-cool {
+.theme-warm {
     --lt-hero-title: #ffffff;
     --lt-hero-text: rgba(255, 255, 255, 0.82);
     --lt-hero-title-shadow: 0 2px 18px rgba(0, 0, 0, 0.34);
@@ -1455,8 +1757,7 @@ html.theme-light .lt-media-card .bg-black\/60 { background-color: rgba(0, 0, 0, 
    del tema. Las chapas de color usan SCORE_BADGE y no dependen del tema. */
 :root,
 .theme-dark,
-.theme-warm,
-.theme-cool {
+.theme-warm {
     --lt-score-top: #34d399;
     --lt-score-good: #86efac;
     --lt-score-ok: #fbbf24;
