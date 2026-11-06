@@ -2,6 +2,8 @@
 
 // Escalera de temas: cada medalla desbloquea un tema (frontend/src/context/ThemeContext.tsx,
 // en el mismo orden). Se comprueban con las valoraciones; si se borra la que la dio, se pierde.
+// ANIM_*: Medianoche y Mediodía ya son libres; su medalla da su gracia (la animación,
+// THEME_PERKS en ThemeContext.tsx).
 // La usan claimThemeBadges (al momento) y el repaso de madrugada (functions/modules/surprises.js).
 
 const TIME_ZONE = 'Europe/Madrid';
@@ -15,10 +17,12 @@ const THEME_BADGES = {
   TEMA_GRAFITO: { theme: 'graphite', name: 'Ojo de lince', icon: '🖤', description: '25 valoraciones con foto. Desbloquea el tema Pizarra.', met: (s) => s.photos >= 25 },
   TEMA_ATARDECER: { theme: 'sunset', name: 'Hora dorada', icon: '🌇', description: '20 valoraciones entre las 18 y las 22 h, en 8 días distintos. Desbloquea el tema Atardecer.', met: (s) => s.golden >= 20 && s.goldenDays.size >= 8 },
   TEMA_LAGUNA: { theme: 'lagoon', name: 'Culo inquieto', icon: '🏝️', description: 'Valorar en 40 sitios distintos. Desbloquea el tema Laguna.', met: (s) => s.places.size >= 40 },
+  ANIM_MEDIANOCHE: { theme: 'dark', name: 'Cielo estrellado', icon: '🌠', description: '30 valoraciones. Da las estrellas fugaces del tema Medianoche.', met: (s) => s.reviews >= 30 },
+  ANIM_MEDIODIA: { theme: 'light', name: 'Sol de mediodía', icon: '☀️', description: '10 valoraciones entre las 13 y las 16 h. Da el sol del tema Mediodía.', met: (s) => s.noon >= 10 },
 };
 const THEME_IDS = Object.keys(THEME_BADGES);
 
-const emptyThemeStats = () => ({ reviews: 0, places: new Set(), night: 0, photos: 0, golden: 0, goldenDays: new Set() });
+const emptyThemeStats = () => ({ reviews: 0, places: new Set(), night: 0, noon: 0, photos: 0, golden: 0, goldenDays: new Set() });
 
 const hasPhoto = (r) => ['photos', 'images'].some((k) => Array.isArray(r[k]) && r[k].some((u) => typeof u === 'string' && u.trim()))
   || (typeof r.photoUrl === 'string' && r.photoUrl.trim().length > 0);
@@ -33,6 +37,7 @@ function addThemeStat(stats, r) {
   if (!created) return;
   const hour = madridHour(created);
   if (hour >= 21 || hour < 3) stats.night += 1;
+  if (hour >= 13 && hour < 16) stats.noon += 1;
   if (hour >= 18 && hour < 22) {
     stats.golden += 1;
     stats.goldenDays.add(madridDay(created));

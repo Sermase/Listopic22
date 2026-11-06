@@ -47,3 +47,17 @@ test('Laguna pide 40 sitios distintos', () => {
   assert.ok(themeBadgesMet(stats(places)).includes('TEMA_LAGUNA'));
   assert.ok(!themeBadgesMet(stats(places.slice(1))).includes('TEMA_LAGUNA'));
 });
+
+test('Medianoche: 30 valoraciones dan «Cielo estrellado»', () => {
+  const many = Array.from({ length: 30 }, () => ({ placeId: 'a' }));
+  assert.ok(themeBadgesMet(stats(many)).includes('ANIM_MEDIANOCHE'));
+  assert.ok(!themeBadgesMet(stats(many.slice(1))).includes('ANIM_MEDIANOCHE'));
+});
+
+test('Mediodía: 10 entre las 13 y las 16 h (Madrid) dan «Sol de mediodía»', () => {
+  // 12:30 UTC en octubre = 14:30 en Madrid; 14:30 UTC = 16:30, ya fuera.
+  const lunch = Array.from({ length: 10 }, (_, i) => ({ createdAt: at(`2026-10-${day(i + 1)}T12:30:00Z`) }));
+  assert.ok(themeBadgesMet(stats(lunch)).includes('ANIM_MEDIODIA'));
+  const late = lunch.slice(1).concat({ createdAt: at('2026-10-20T14:30:00Z') });
+  assert.ok(!themeBadgesMet(stats(late)).includes('ANIM_MEDIODIA'));
+});

@@ -15,6 +15,7 @@ import { useAuth } from './AuthContext';
 import { useAppConfig, useAppConfigLoading } from './AppConfigContext';
 import { fireSurprise } from '../lib/surprises';
 import { claimThemeBadges } from '../services/SurpriseService';
+import { THEME_PERKS, type ThemePerk } from '../lib/themeCharacters';
 
 export type ThemeId = 'dark' | 'light' | 'warm' | 'cool' | 'neon' | 'graphite' | 'sunset' | 'lagoon' | 'abuela';
 
@@ -179,6 +180,8 @@ interface ThemeContextType {
     themes: ThemeMeta[];
     /** El siguiente tema de la escalera que aún no tienes (con su pista), o null. */
     nextLocked: ThemeMeta | null;
+    /** Si el tema tiene ya su gracia (Medianoche y Mediodía la ganan con su medalla). */
+    graceUnlocked: (id: ThemeId) => boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -186,6 +189,7 @@ const ThemeContext = createContext<ThemeContextType>({
     setTheme: async () => { /* noop default */ },
     themes: THEMES,
     nextLocked: null,
+    graceUnlocked: () => false,
 });
 
 export const useTheme = () => useContext(ThemeContext);
@@ -224,6 +228,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                             text: `Medalla «${t.unlock!.medal}»: tema ${t.label} desbloqueado. Pruébalo en Preferencias → Tema.`,
                             haptic: 'success',
                         }), i * 1200));
+                    // Medalla que da la gracia de Medianoche o Mediodía.
+                    (Object.values(THEME_PERKS) as ThemePerk[]).filter((p) => next.has(p.badge) && !seen.has(p.badge))
+                        .forEach((p, i) => window.setTimeout(() => fireSurprise({
+                            kind: 'bubble',
+                            emoji: p.icon,
+                            text: `Medalla «${p.medal}». ${p.what}`,
+                            haptic: 'success',
+                        }), 600 + i * 1200));
                 }
                 seenBadgesRef.current = next;
                 setBadges(next);
@@ -276,6 +288,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         [isJefe, mine, ladder],
     );
     const themes = useMemo(() => THEMES.filter(isUnlocked), [isUnlocked]);
+    const graceUnlocked = useCallback((id: ThemeId) => {
+        const perk = THEME_PERKS[id];
+        return !perk || isJefe || mine.has(perk.badge) || !ladder;
+    }, [isJefe, mine, ladder]);
     const nextLocked = useMemo(
         () => (ladder ? THEMES.find((t) => t.unlock && !isUnlocked(t)) ?? null : null),
         [ladder, isUnlocked],
@@ -298,8 +314,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }, [shown]);
 
     const value = useMemo<ThemeContextType>(
-        () => ({ theme: shown, setTheme, themes, nextLocked }),
-        [shown, setTheme, themes, nextLocked],
+        () => ({ theme: shown, setTheme, themes, nextLocked, graceUnlocked }),
+        [shown, setTheme, themes, nextLocked, graceUnlocked],
     );
 
     return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;

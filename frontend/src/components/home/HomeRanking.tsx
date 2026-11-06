@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight, MapPin, Utensils } from 'lucide-react';
 import { ProgressiveImage } from '../ProgressiveImage';
 import { scoreBadgeStyle } from '../../lib/scoreScale';
 import { MarqueeText } from '../ui/MarqueeText';
 import { HelpTip } from '../HelpTip';
+import { saveMenuSource } from '../../lib/themeAmbience';
 
 export interface RankingRow {
     key: string;
@@ -85,6 +86,8 @@ const Row: React.FC<{ row: RankingRow; position: number; fallbackIcon: React.Ele
 /** Ranking en filas de la home: platos y sitios mejor valorados de la zona. */
 export const HomeRanking: React.FC<HomeRankingProps> = ({ dishes, places, dishesLink, placesLink, loading }) => {
     const [tab, setTab] = useState<'dishes' | 'places'>('dishes');
+    // Lo mejor de aquí cerca es el «Menú del día» que canta la Pizarra en el menú.
+    useEffect(() => { saveMenuSource(dishes); }, [dishes]);
     const rows = (tab === 'dishes' ? dishes : places).slice(0, ROWS);
     const link = tab === 'dishes' ? dishesLink : placesLink;
 
