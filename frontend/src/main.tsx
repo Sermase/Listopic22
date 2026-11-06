@@ -7,6 +7,7 @@ import { reloadOnceForNewVersion } from './lib/chunkErrors'
 // Fuentes servidas desde Listopic (no desde Google Fonts): sin enviar la IP a terceros.
 import '@fontsource-variable/manrope'
 import '@fontsource-variable/space-grotesk'
+import '@fontsource-variable/caveat';
 import './index.css'
 import App from './App.tsx'
 
