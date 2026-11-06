@@ -163,6 +163,8 @@ const HIDDEN_GEM_MIN_RATING = 8.4;
 // Carruseles antiguos de la Home (listas, joyas, recientes, usuarios, que gustan).
 // Apagados desde que llegaron los de lib/homeFeeds; poner a true para recuperarlos.
 const SHOW_LEGACY_HOME_CAROUSELS = false;
+// El dibujo de la cabecera (calle con el bar según la hora) queda guardado para más adelante.
+const SHOW_HOME_SCENE = false;
 // Carruseles de lib/homeFeeds que se pintan. Apagados (no borrados) para dejar
 // la Home en 4 bloques; poner a true para recuperar cada uno.
 const HOME_FEEDS_VISIBLE: Record<string, boolean> = {
@@ -1353,7 +1355,7 @@ export const HomePage: React.FC = () => {
     const characterTips = useMemo<CharacterTip[]>(() => {
         if (!user?.uid) return [];
         const mine = new Set<string>();
-        [...reviewsInRange, ...memoriesInRange].forEach((r: any) => {
+        [...reviewsInRange, ...memoriesInRange].forEach((r: { userId?: unknown; authorId?: unknown; placeId?: unknown; itemName?: unknown }) => {
             if ((r.userId || r.authorId) !== user.uid || !r.placeId) return;
             mine.add(`${r.placeId}::${String(r.itemName || '').trim().toLowerCase()}`);
         });
@@ -1393,6 +1395,15 @@ export const HomePage: React.FC = () => {
     const [sceneHour] = useState(() => new Date().getHours());
     const firstName = (user?.displayName || '').trim().split(/\s+/)[0];
     const greeting = user ? `${timeGreeting(sceneHour)}${firstName ? `, ${firstName}` : ''}` : 'Hola 👋, esto es Listopic';
+    const heroSubtitleNode = parsedHeroSubtitle.map((segment) => (
+        segment.isHighlight ? (
+            <span key={segment.key} className={segment.className}>
+                {segment.text}
+            </span>
+        ) : (
+            <React.Fragment key={segment.key}>{segment.text}</React.Fragment>
+        )
+    ));
     const topDish = rankedDishes[0];
     const topDishLine = topDish && typeof topDish.score === 'number'
         ? `Lo mejor por aquí: ${topDish.title}${topDish.subtitle ? ` de ${topDish.subtitle}` : ''} · ${topDish.score.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`
@@ -1406,29 +1417,30 @@ export const HomePage: React.FC = () => {
                     {/* Cabecera: saludo, frase con gancho y buscador */}
                     <div className="max-w-4xl mx-auto pt-2 sm:pt-6 relative z-10">
                         <div className="absolute -top-16 right-0 w-72 h-72 rounded-full blur-[90px] pointer-events-none -z-10 opacity-80" style={{ backgroundColor: 'var(--lt-accent-soft)' }} />
-                        <HomeScene moment={sceneMoment(sceneHour)} dishes={Array.from(new Set(rankedDishes.slice(0, 6).map((row) => dishArt(row.title, row.subtitle).emoji))).slice(0, 2)}>
-                            <h1 className="text-xl md:text-2xl font-bold tracking-tight">
-                                {greeting}
-                            </h1>
-                            {/* Con sesión, lo mejor de verdad por aquí; sin sesión, la frase con gancho. */}
-                            {user ? (
-                                <p className="mt-0.5 max-w-[19rem] truncate text-sm font-semibold opacity-90">
-                                    {topDishLine}
-                                </p>
-                            ) : (
-                                <p className="mt-0.5 max-w-[17rem] text-sm font-medium opacity-90 [text-wrap:balance]">
-                                    {parsedHeroSubtitle.map((segment) => (
-                                        segment.isHighlight ? (
-                                            <span key={segment.key} className={segment.className}>
-                                                {segment.text}
-                                            </span>
-                                        ) : (
-                                            <React.Fragment key={segment.key}>{segment.text}</React.Fragment>
-                                        )
-                                    ))}
-                                </p>
-                            )}
-                        </HomeScene>
+                        {SHOW_HOME_SCENE ? (
+                            <HomeScene moment={sceneMoment(sceneHour)} dishes={Array.from(new Set(rankedDishes.slice(0, 6).map((row) => dishArt(row.title, row.subtitle).emoji))).slice(0, 2)}>
+                                <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+                                    {greeting}
+                                </h1>
+                                {user ? (
+                                    <p className="mt-0.5 max-w-[19rem] truncate text-sm font-semibold opacity-90">{topDishLine}</p>
+                                ) : (
+                                    <p className="mt-0.5 max-w-[17rem] text-sm font-medium opacity-90 [text-wrap:balance]">{heroSubtitleNode}</p>
+                                )}
+                            </HomeScene>
+                        ) : (
+                            <>
+                                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[var(--lt-text)]">
+                                    {user ? `${greeting} 👋` : greeting}
+                                </h1>
+                                {/* Con sesión, lo mejor de verdad por aquí; sin sesión, la frase con gancho. */}
+                                {(user ? topDishLine : true) && (
+                                    <p className={`mt-0.5 text-sm font-medium text-[var(--lt-text-muted)] ${user ? 'truncate' : '[text-wrap:balance]'}`}>
+                                        {user ? topDishLine : heroSubtitleNode}
+                                    </p>
+                                )}
+                            </>
+                        )}
                         <form
                             role="search"
                             onSubmit={(event) => {
