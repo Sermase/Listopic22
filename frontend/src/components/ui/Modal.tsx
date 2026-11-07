@@ -89,7 +89,9 @@ export const Modal: React.FC<ModalProps> = ({
           <div id={titleId} className="min-w-0 font-bold text-[var(--lt-text)]">{title}</div>
           <IconButton label={closeLabel} icon={<X className="w-5 h-5" />} variant="ghost" onClick={onClose} />
         </header>
-        <div className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain p-4', bodyClassName)}>
+        {/* relative: los controles ocultos (sr-only) se colocan dentro de lo que se desplaza; si no,
+            al tocarlos el navegador desplaza la ventana entera y se descoloca. */}
+        <div className={cn('relative min-h-0 flex-1 overflow-y-auto overscroll-contain p-4', bodyClassName)}>
           {children}
         </div>
         {/* La zona segura de abajo ya la deja libre el contenedor (paddingBottom). */}

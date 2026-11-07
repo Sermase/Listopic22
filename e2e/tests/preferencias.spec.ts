@@ -101,3 +101,23 @@ test('Barra de abajo: se elige y ordena en Preferencias; lo que no va en ella sa
   await expect(nav.getByRole('link', { name: 'Guardados' })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test.describe('Tema en el móvil', () => {
+  test.use({ viewport: { width: 390, height: 700 } });
+
+  // El interruptor oculto de cada fila no debe desplazar la ventana (se descolocaba al tocar un personaje).
+  test('tocar un personaje no descoloca la ventana de temas', async ({ page, errors }) => {
+    await login(page, 'jefe');
+    await page.goto('/preferencias');
+    await row(page, /^Tema/).click();
+    const dialog = page.getByRole('dialog');
+    const sheet = dialog.locator('section').first();
+    const character = dialog.locator('label').filter({ has: page.locator('input[type="checkbox"]') }).first();
+    await character.scrollIntoViewIfNeeded();
+    await character.click();
+    await expect(character.locator('input[type="checkbox"]')).not.toBeChecked();
+    expect(await sheet.evaluate((el) => el.scrollTop)).toBe(0);
+    await expect(dialog.getByRole('button', { name: 'Cerrar' }).last()).toBeInViewport();
+    expect(errors).toEqual([]);
+  });
+});
