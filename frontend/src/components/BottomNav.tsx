@@ -100,12 +100,16 @@ function useHoldSwipeUpMenu(bar: React.RefObject<HTMLElement | null>, enabled: b
             e.stopPropagation();
         };
         const noMenu = (e: Event) => e.preventDefault();
+        // Chrome en Android arrastra el enlace (la «copia gris») si lo mantienes pulsado y
+        // corta el gesto: aquí no se arrastra nada.
+        const noDrag = (e: Event) => e.preventDefault();
         el.addEventListener('touchstart', start, { passive: true });
         el.addEventListener('touchmove', move, { passive: false });
         el.addEventListener('touchend', end);
         el.addEventListener('touchcancel', end);
         el.addEventListener('click', click, true);
         el.addEventListener('contextmenu', noMenu);
+        el.addEventListener('dragstart', noDrag);
         return () => {
             stop();
             el.removeEventListener('touchstart', start);
@@ -114,6 +118,7 @@ function useHoldSwipeUpMenu(bar: React.RefObject<HTMLElement | null>, enabled: b
             el.removeEventListener('touchcancel', end);
             el.removeEventListener('click', click, true);
             el.removeEventListener('contextmenu', noMenu);
+            el.removeEventListener('dragstart', noDrag);
         };
     }, [bar, enabled]);
     return held;
@@ -157,7 +162,7 @@ const Tab: React.FC<TabProps> = ({ to, label, icon: Icon, active, badge, onClick
         onClick?.(event);
     };
     return to
-        ? <Link to={to} onClick={press} aria-current={active ? 'page' : undefined} className={className}>{content}</Link>
+        ? <Link to={to} onClick={press} draggable={false} aria-current={active ? 'page' : undefined} className={className}>{content}</Link>
         : <button type="button" onClick={press} className={className}>{content}</button>;
 };
 
@@ -221,7 +226,7 @@ export const BottomNav: React.FC = () => {
             >
                 <div
                     ref={barRef}
-                    className={`lt-bottom-bar relative mx-3 mb-2 grid grid-cols-5 items-end rounded-[1.75rem] border px-1 shadow-[0_12px_32px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl backdrop-saturate-150 select-none [-webkit-touch-callout:none] transition-transform duration-150 ${held ? '-translate-y-1 border-[var(--lt-accent-border)]' : 'border-[var(--lt-border)]'}`}
+                    className={`lt-bottom-bar relative mx-3 mb-2 grid grid-cols-5 items-end rounded-[1.75rem] border px-1 shadow-[0_12px_32px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl backdrop-saturate-150 select-none touch-none [-webkit-touch-callout:none] [-webkit-user-drag:none] [&_*]:[-webkit-user-drag:none] transition-transform duration-150 ${held ? '-translate-y-1 border-[var(--lt-accent-border)]' : 'border-[var(--lt-border)]'}`}
                     style={{ background: 'color-mix(in srgb, var(--lt-card-strong) 90%, transparent)' }}
                 >
                     {tabs.slice(0, 2).map(renderTab)}
@@ -230,6 +235,7 @@ export const BottomNav: React.FC = () => {
                             to="/create-review"
                             onClick={guard('escribir una reseña')}
                             aria-label="Nueva reseña"
+                            draggable={false}
                             className="group flex h-14 w-14 -translate-y-4 items-center justify-center rounded-full lt-on-accent transition-transform active:scale-90"
                             // El aro del color del fondo hace de «muesca» sobre la barra.
                             style={{ backgroundImage: 'var(--lt-accent-grad)', boxShadow: '0 0 0 5px var(--lt-bg), 0 10px 24px var(--lt-accent-shadow)' }}
