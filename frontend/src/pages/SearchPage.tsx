@@ -27,7 +27,7 @@ import {
     Search, Map as MapIcon, Users, List as ListIcon, MessageCircle,
     X, Clock, ChevronLeft, ChevronRight, Star, LocateFixed, Loader2,
     ArrowUpDown, ChevronDown, SlidersHorizontal, ShieldCheck, Bot, Utensils,
-    Coffee, Wine, EyeOff, AlertTriangle
+    Coffee, Wine, EyeOff, AlertTriangle, Sparkles
 } from 'lucide-react';
 
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
@@ -39,6 +39,7 @@ import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { getPlaceTypeLabel, getPlaceTypeLabels } from '../utils/placeTypeLabels';
 import { fetchClosedStatusesForPlaceIds, isClosedPlaceStatus } from '../utils/placeStatus';
 import { placeCardScore } from '../lib/placeRating';
+import { presetFor } from '../lib/searchPresets';
 import { HomeFeedCard } from '../components/home/HomeFeedCard';
 import type { HomeFeedCard as HomeFeedCardData } from '../lib/homeFeeds';
 import { useSearchEggs } from '../components/surprises/useSearchEggs';
@@ -1312,6 +1313,11 @@ export const SearchPage: React.FC = () => {
     const geoParam = searchParams.get('geo') === '1';
     const radiusParam = searchParams.get('radius');
     const zones = useMemo(() => parseZones(searchParams.getAll('zone')), [searchParams]);
+    // «Ver todo» de un carrusel de Inicio: el mismo criterio, como filtro que se quita con la ✕.
+    const presetParam = searchParams.get('preset') || '';
+    const activePreset = presetFor(presetParam, typeParam);
+    // Ahora, redondeado a la hora: el filtro no cambia en cada render.
+    const [presetNow] = useState(() => Math.floor(Date.now() / 3_600_000) * 3_600);
 
     const [sortByTab, setSortByTab] = useState<Record<string, string>>(() => (
         typeParam === 'all' ? {} : { [typeParam]: resolveSortValue(typeParam, sortParam) }
@@ -1368,9 +1374,10 @@ export const SearchPage: React.FC = () => {
         }
         // La zona se conserva al cambiar de pestaña (en Listas y Usuarios no se aplica).
         if (zonesValue.length > 0) nextParams.zone = zonesValue.map(zoneKey);
+        if (presetFor(presetParam, tab)) nextParams.preset = presetParam;
 
         return nextParams;
-    }, [activeSortOption.value, activeTab, effectiveGeoActive, geoRadius, queryParam, listIdParam, listNameParam, zones]);
+    }, [activeSortOption.value, activeTab, effectiveGeoActive, geoRadius, queryParam, listIdParam, listNameParam, zones, presetParam]);
 
     const handleZonesChange = useCallback((nextZones: Zone[]) => {
         setSearchParams(buildSearchParams({ zonesValue: nextZones }));
@@ -1490,8 +1497,9 @@ export const SearchPage: React.FC = () => {
             defaultClosedFilter,
             activeTab === 'places' ? PLACES_WITH_REVIEWS_FILTER : '',
             activeTab === 'items' && listIdParam ? `listId:"${listIdParam.replace(/"/g, '')}"` : '',
+            activePreset ? activePreset.filter(presetNow) : '',
         ])
-    ), [parsedAlgoliaFilters, defaultClosedFilter, activeTab, listIdParam]);
+    ), [parsedAlgoliaFilters, defaultClosedFilter, activeTab, listIdParam, activePreset, presetNow]);
     // «Mis preferencias»: se aplican solas y se pueden quitar mientras dura la búsqueda.
     const { prefs } = usePreferences();
     const [ignoredPrefs, setIgnoredPrefs] = useState<Record<string, boolean>>({});
@@ -1513,6 +1521,7 @@ export const SearchPage: React.FC = () => {
         && Boolean(listIdParam)
         && !parsedQuery.cleanedQuery.trim()
         && !parsedAlgoliaFilters
+        && !activePreset
         && !effectiveGeoActive
         && !includeClosedPlaces
         && (activeSortOption.value === 'grouped_items_by_score' || activeSortOption.value === 'grouped_items');
@@ -1520,6 +1529,11 @@ export const SearchPage: React.FC = () => {
         const next = new URLSearchParams(searchParams);
         next.delete('listId');
         next.delete('listName');
+        setSearchParams(next);
+    };
+    const clearPreset = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('preset');
         setSearchParams(next);
     };
     const activeGeoConfig = useMemo(() => {
@@ -1556,6 +1570,18 @@ export const SearchPage: React.FC = () => {
                 >
                     <ListIcon className="w-3.5 h-3.5 shrink-0 text-[var(--lt-accent)]" aria-hidden />
                     <span className="truncate">En la Lista «{listNameParam || 'elegida'}»</span>
+                    <X className="ml-0.5 w-3 h-3 text-[var(--lt-text-muted)]" aria-hidden />
+                </button>
+            )}
+            {activePreset && (
+                <button
+                    type="button"
+                    onClick={clearPreset}
+                    aria-label={`Quitar el filtro «${activePreset.label}»`}
+                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-3 py-1.5 text-xs font-bold text-[var(--lt-text)] hover:opacity-80"
+                >
+                    <Sparkles className="w-3.5 h-3.5 shrink-0 text-[var(--lt-accent)]" aria-hidden />
+                    <span className="truncate">{activePreset.label}</span>
                     <X className="ml-0.5 w-3 h-3 text-[var(--lt-text-muted)]" aria-hidden />
                 </button>
             )}

@@ -32,6 +32,8 @@ import { formatDistance } from '../utils/formatDistance';
 import { HomeFeedCard } from '../components/home/HomeFeedCard';
 import { buildSoulmateFeed } from '../lib/soulmateFeed';
 import { buildHomeFeeds, homeFeedAreaKey, isJunkName, isPermanentlyClosed, type HomeFeedCard as HomeFeedCardData, type HomeFeedReview } from '../lib/homeFeeds';
+import type { SearchPresetId } from '../lib/searchPresets';
+import { saveCharacterTips, type CharacterTip } from '../lib/characterTips';
 import {
     completeUserProfileSetup,
     getUsernameGateStatus,
@@ -45,6 +47,11 @@ import { AreaSelect } from '../components/AreaSelect';
 import { placeRating } from '../lib/placeRating';
 import { AREA_STORAGE_KEY, buildAreaOptions, decodeArea, encodeArea, inferUserGeo, localAreaOptions, matchesArea, type GeoFields, type ListArea } from '../lib/geoAreas';
 import { exploreSearchUrl } from '../lib/searchZones';
+import { HomeScene } from '../components/home/HomeScene';
+import { sceneMoment, timeGreeting } from '../lib/homeScene';
+import { dishArt } from '../lib/dishArt';
+import { FriendsRow, ZoneWeekCard } from '../components/home/ZoneWeek';
+import { buildFriendBites, buildZoneWeek, isWeekSampleCapped } from '../lib/zoneWeek';
 
 /* 
     HOMEPAGE (Legacy Screenshot Match + Functional Logic: Categories & Range)
@@ -156,6 +163,8 @@ const HIDDEN_GEM_MIN_RATING = 8.4;
 // Carruseles antiguos de la Home (listas, joyas, recientes, usuarios, que gustan).
 // Apagados desde que llegaron los de lib/homeFeeds; poner a true para recuperarlos.
 const SHOW_LEGACY_HOME_CAROUSELS = false;
+// El dibujo de la cabecera (calle con el bar según la hora) queda guardado para más adelante.
+const SHOW_HOME_SCENE = false;
 // Carruseles de lib/homeFeeds que se pintan. Apagados (no borrados) para dejar
 // la Home en 4 bloques; poner a true para recuperar cada uno.
 const HOME_FEEDS_VISIBLE: Record<string, boolean> = {
@@ -176,12 +185,13 @@ const MAX_AUTO_RANGE_KM = 10;
 /** Categoría de comida («Hmm...»): solo sus listas cuentan como platos. */
 const FOOD_CATEGORY_ID = 'comida_hmm';
 
-const HOME_FEED_LOOK: Record<string, { icon: React.ReactNode; accentClass: string; searchType: 'lists' | 'places' | 'items'; searchSort?: string }> = {
+// preset: «Ver todo» abre Buscar con el mismo criterio que el carrusel (lib/searchPresets).
+const HOME_FEED_LOOK: Record<string, { icon: React.ReactNode; accentClass: string; searchType: 'lists' | 'places' | 'items'; searchSort?: string; preset?: SearchPresetId }> = {
     platos: { icon: <Utensils className="w-5 h-5 text-amber-400" />, accentClass: 'bg-amber-500/20', searchType: 'items', searchSort: 'top_rated' },
-    joyas: { icon: <Gem className="w-5 h-5 text-emerald-300" />, accentClass: 'bg-emerald-500/20', searchType: 'places', searchSort: 'rating' },
+    joyas: { icon: <Gem className="w-5 h-5 text-emerald-300" />, accentClass: 'bg-emerald-500/20', searchType: 'places', searchSort: 'rating', preset: 'joyas' },
     listas: { icon: <ListIcon className="w-5 h-5 text-blue-400" />, accentClass: 'bg-blue-500/20', searchType: 'lists', searchSort: 'most_reviewed' },
     novedades: { icon: <Sparkles className="w-5 h-5 text-cyan-300" />, accentClass: 'bg-cyan-500/20', searchType: 'places', searchSort: 'latest' },
-    resenas: { icon: <Camera className="w-5 h-5 text-rose-400" />, accentClass: 'bg-rose-500/20', searchType: 'items', searchSort: 'latest' },
+    resenas: { icon: <Camera className="w-5 h-5 text-rose-400" />, accentClass: 'bg-rose-500/20', searchType: 'items', searchSort: 'top_rated', preset: 'top-reciente' },
     recuerdos: { icon: <History className="w-5 h-5 text-purple-300" />, accentClass: 'bg-purple-500/20', searchType: 'items' },
     ranking: { icon: <Trophy className="w-5 h-5 text-yellow-400" />, accentClass: 'bg-yellow-500/20', searchType: 'items', searchSort: 'top_rated' },
     default: { icon: <Star className="w-5 h-5 text-amber-400" />, accentClass: 'bg-amber-500/20', searchType: 'items' },
@@ -1238,11 +1248,12 @@ export const HomePage: React.FC = () => {
     }, [appConfig.showRandomChoiceButton, handleSurpriseChoice, searchParams, setSearchParams, surpriseCandidates.length]);
 
 
-    const buildCarouselSearchLink = useCallback((type: 'lists' | 'places' | 'users' | 'items', sort?: string) => {
+    const buildCarouselSearchLink = useCallback((type: 'lists' | 'places' | 'users' | 'items', sort?: string, preset?: SearchPresetId) => {
         const params = new URLSearchParams({ type });
         if (sort) {
             params.set('sort', sort);
         }
+        if (preset) params.set('preset', preset);
         if ((type === 'places' || type === 'items') && range !== null) {
             params.set('geo', '1');
             params.set('radius', String(Math.round(range * 1000)));
@@ -1340,8 +1351,59 @@ export const HomePage: React.FC = () => {
             dishKeys: rankedDishes.slice(0, 5).map((row) => row.key),
         },
     }), [reviewsInRange, filteredPlaces, lists, topUsers, botUserIds, feedSeed, areaFilter, range, user?.uid, memoriesInRange, rankedPlaces, rankedDishes]);
+    // Chivatazos de los personajes del tema (lib/characterTips): con lo ya cargado, sin lecturas extra.
+    const characterTips = useMemo<CharacterTip[]>(() => {
+        if (!user?.uid) return [];
+        const mine = new Set<string>();
+        [...reviewsInRange, ...memoriesInRange].forEach((r: { userId?: unknown; authorId?: unknown; placeId?: unknown; itemName?: unknown }) => {
+            if ((r.userId || r.authorId) !== user.uid || !r.placeId) return;
+            mine.add(`${r.placeId}::${String(r.itemName || '').trim().toLowerCase()}`);
+        });
+        const tips: CharacterTip[] = [];
+        rankedDishes.forEach((row) => {
+            if (mine.has(row.key) || typeof row.score !== 'number') return;
+            if (row.friendNote) tips.push({ kind: 'friend', key: `f:${row.key}`, title: row.title, place: row.subtitle, friendNote: row.friendNote, to: row.to });
+            else if (row.score >= 8) tips.push({ kind: 'dish', key: `d:${row.key}`, title: row.title, place: row.subtitle, score: row.score, distance: row.distanceLabel, to: row.to });
+        });
+        (homeFeeds.feeds.find((feed) => feed.id === 'joyas')?.items ?? []).slice(0, 4).forEach((card) => {
+            if (typeof card.rating !== 'number') return;
+            tips.push({ kind: 'gem', key: `g:${card.id}`, title: card.title, score: card.rating, count: card.count, to: card.to });
+        });
+        return tips;
+    }, [user?.uid, reviewsInRange, memoriesInRange, rankedDishes, homeFeeds]);
+    useEffect(() => { if (user?.uid) saveCharacterTips(user.uid, characterTips); }, [user?.uid, characterTips]);
+
+    // «Tu zona esta semana» y «Tus colegas» (lib/zoneWeek): con lo ya cargado.
+    const [nowMs] = useState(() => Date.now());
+    const zoneWeek = useMemo(() => buildZoneWeek({
+        reviews: reviewsInRange as unknown as HomeFeedReview[],
+        now: nowMs,
+        bots: botUserIds,
+        isDish: (r) => (r.categoryId ? r.categoryId === FOOD_CATEGORY_ID : !(r.listId && nonDishListIds.has(r.listId))),
+    }), [reviewsInRange, nowMs, botUserIds, nonDishListIds]);
+    const friendBites = useMemo(() => buildFriendBites({
+        reviews: reviews as unknown as HomeFeedReview[],
+        following: followingIds,
+        me: user?.uid ?? null,
+        now: nowMs,
+    }), [reviews, followingIds, user?.uid, nowMs]);
+    const zoneScope = areaFilter.kind === 'near' && range && location ? `a menos de ${formatRangeKm(range)}` : undefined;
+    // Inicio carga como mucho 100 reseñas: si no llegan a cubrir la semana, los totales son «N+».
+    const zoneWeekPartial = useMemo(() => isWeekSampleCapped(reviews as unknown as HomeFeedReview[], nowMs), [reviews, nowMs]);
+
+    // Cabecera: dibujo según la hora (lib/homeScene).
+    const [sceneHour] = useState(() => new Date().getHours());
     const firstName = (user?.displayName || '').trim().split(/\s+/)[0];
-    const greeting = user ? `Hola${firstName ? `, ${firstName}` : ''}` : 'Hola 👋, esto es Listopic';
+    const greeting = user ? `${timeGreeting(sceneHour)}${firstName ? `, ${firstName}` : ''}` : 'Hola 👋, esto es Listopic';
+    const heroSubtitleNode = parsedHeroSubtitle.map((segment) => (
+        segment.isHighlight ? (
+            <span key={segment.key} className={segment.className}>
+                {segment.text}
+            </span>
+        ) : (
+            <React.Fragment key={segment.key}>{segment.text}</React.Fragment>
+        )
+    ));
 
     return (
         <>
@@ -1351,21 +1413,22 @@ export const HomePage: React.FC = () => {
                     {/* Cabecera: saludo, frase con gancho y buscador */}
                     <div className="max-w-4xl mx-auto pt-2 sm:pt-6 relative z-10">
                         <div className="absolute -top-16 right-0 w-72 h-72 rounded-full blur-[90px] pointer-events-none -z-10 opacity-80" style={{ backgroundColor: 'var(--lt-accent-soft)' }} />
-                        <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[var(--lt-text)]">
-                            {user ? `${greeting} 👋` : greeting}
-                        </h1>
-                        {/* Con sesión basta el saludo; sin sesión, la frase en una línea pequeña. */}
-                        {!user && <p className="mt-0.5 text-sm font-medium text-[var(--lt-text-muted)] [text-wrap:balance]">
-                            {parsedHeroSubtitle.map((segment) => (
-                                segment.isHighlight ? (
-                                    <span key={segment.key} className={segment.className}>
-                                        {segment.text}
-                                    </span>
-                                ) : (
-                                    <React.Fragment key={segment.key}>{segment.text}</React.Fragment>
-                                )
-                            ))}
-                        </p>}
+                        {SHOW_HOME_SCENE ? (
+                            <HomeScene moment={sceneMoment(sceneHour)} dishes={Array.from(new Set(rankedDishes.slice(0, 6).map((row) => dishArt(row.title, row.subtitle).emoji))).slice(0, 2)}>
+                                <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+                                    {greeting}
+                                </h1>
+                                {!user && <p className="mt-0.5 max-w-[17rem] text-sm font-medium opacity-90 [text-wrap:balance]">{heroSubtitleNode}</p>}
+                            </HomeScene>
+                        ) : (
+                            <>
+                                <h1 className="text-xl md:text-2xl font-bold tracking-tight text-[var(--lt-text)]">
+                                    {user ? `${greeting} 👋` : greeting}
+                                </h1>
+                                {/* Con sesión basta el saludo; sin sesión, la frase en una línea pequeña. */}
+                                {!user && <p className="mt-0.5 text-sm font-medium text-[var(--lt-text-muted)] [text-wrap:balance]">{heroSubtitleNode}</p>}
+                            </>
+                        )}
                         <form
                             role="search"
                             onSubmit={(event) => {
@@ -1532,6 +1595,14 @@ export const HomePage: React.FC = () => {
                         </div>
                     )}
 
+                    {/* «Tu zona esta semana» y «Tus colegas»: después del ranking, que es lo esencial. */}
+                    {activeTab === 'explore' && !loadingReviews && (
+                        <div className="mx-auto mb-8 w-full max-w-4xl space-y-5">
+                            <ZoneWeekCard week={zoneWeek} scope={zoneScope} partial={zoneWeekPartial} />
+                            <FriendsRow bites={friendBites} now={nowMs} onViewAll={() => { setActiveTab('news'); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
+                        </div>
+                    )}
+
                     <div className="max-w-[95%] mx-auto space-y-1">
 
 
@@ -1543,7 +1614,7 @@ export const HomePage: React.FC = () => {
                                     <CardCarousel
                                         key={feed.id}
                                         title={feed.title}
-                                        viewAllLink={feed.viewAllTo ?? buildCarouselSearchLink(look.searchType, look.searchSort)}
+                                        viewAllLink={feed.viewAllTo ?? buildCarouselSearchLink(look.searchType, look.searchSort, look.preset)}
                                         items={feed.items}
                                         itemClassName="w-auto"
                                         icon={look.icon}

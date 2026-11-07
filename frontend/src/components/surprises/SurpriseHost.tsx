@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAppConfig } from '../../context/AppConfigContext';
 import { useTheme } from '../../context/ThemeContext';
 import {
@@ -22,6 +22,11 @@ import { ThemeGrace } from './ThemeGrace';
 import { GRACE_MS, GRACE_STYLES } from './graceMeta';
 import { ThemeAmbience } from './ThemeAmbience';
 import { abuelaMemoryLine } from '../../lib/themeAmbience';
+import { pickCharacterTip, readCharacterTips, tipText } from '../../lib/characterTips';
+import { useAuth } from '../../context/AuthContext';
+
+/** Cada cuánto el saludo del día es un chivatazo útil (si Inicio tiene alguno preparado). */
+const TIP_CHANCE = 0.5;
 
 // Cómo vibra cada sorpresa al salir (las burbujas, como digan; si no, suave).
 const EFFECT_HAPTIC: Partial<Record<SurpriseEffect['kind'], HapticKind>> = {
@@ -53,14 +58,19 @@ interface Running {
     effect: SurpriseEffect;
 }
 
-const Bubble: React.FC<{ emoji: string; text: string }> = ({ emoji, text }) => (
+const Bubble: React.FC<{ emoji: string; text: string; to?: string }> = ({ emoji, text, to }) => (
     <div
         role="status"
-        className="pointer-events-none fixed left-1/2 z-[12000] flex w-max max-w-[min(92vw,26rem)] items-center gap-2 rounded-2xl border border-[var(--lt-accent-border)] bg-[var(--lt-card-strong)] px-4 py-3 text-sm font-semibold text-[var(--lt-text)] shadow-2xl"
-        style={{ top: 'calc(env(safe-area-inset-top) + 4.5rem)', animation: 'lt-egg-pop 6.5s ease-out forwards' }}
+        className={`${to ? 'pointer-events-auto' : 'pointer-events-none'} fixed left-1/2 z-[12000] flex w-max max-w-[min(92vw,26rem)] items-center gap-2 rounded-2xl border border-[var(--lt-accent-border)] bg-[var(--lt-card-strong)] px-4 py-3 text-sm font-semibold text-[var(--lt-text)] shadow-2xl`}
+        style={{ top: 'calc(env(safe-area-inset-top) + 4.5rem)', animation: `lt-egg-pop ${to ? 9 : 6.5}s ease-out forwards` }}
     >
         <span className="text-2xl" aria-hidden="true">{emoji}</span>
         <span>{text}</span>
+        {to && (
+            <Link to={to} className="ml-1 shrink-0 rounded-full bg-[var(--lt-accent-soft)] px-2.5 py-1 text-xs font-bold text-[var(--lt-accent)]">
+                Ver ›
+            </Link>
+        )}
     </div>
 );
 
@@ -131,6 +141,8 @@ export const SurpriseHost: React.FC = () => {
     const config = useAppConfig();
     const { pathname } = useLocation();
     const { theme, graceUnlocked } = useTheme();
+    const { user } = useAuth();
+    const uid = user && !user.isAnonymous ? user.uid : null;
     const [running, setRunning] = useState<Running[]>([]);
     const [sheet, setSheet] = useState<{ kind: 'croqueta' | 'roulette' | 'poll'; poll?: PollId; side?: PollSide } | null>(null);
     const counter = useRef(0);
@@ -161,7 +173,7 @@ export const SurpriseHost: React.FC = () => {
                     window.setTimeout(() => document.documentElement.classList.remove('lt-egg-shaking'), 950);
                 }
             }
-            const ms = effect.kind === 'shake' ? 1900 : effect.kind === 'grace' ? GRACE_MS[effect.grace] + 300 : 6700;
+            const ms = effect.kind === 'shake' ? 1900 : effect.kind === 'grace' ? GRACE_MS[effect.grace] + 300 : effect.kind === 'bubble' && effect.to ? 9200 : 6700;
             window.setTimeout(() => remove(key), ms);
         };
         window.addEventListener(SURPRISE_EVENT, onSurprise);
@@ -191,10 +203,13 @@ export const SurpriseHost: React.FC = () => {
         } catch { return; }
         const t = window.setTimeout(() => {
             try { localStorage.setItem(key, today); } catch { /* opcional */ }
-            fireSurprise({ kind: 'bubble', emoji: character.emoji, text: pickGreeting(character) });
+            // De vez en cuando, en vez de saludar, un chivatazo útil con enlace.
+            const tip = Math.random() < TIP_CHANCE ? pickCharacterTip(readCharacterTips(uid)) : null;
+            if (tip) fireSurprise({ kind: 'bubble', emoji: character.emoji, text: tipText(character, tip), to: tip.to });
+            else fireSurprise({ kind: 'bubble', emoji: character.emoji, text: pickGreeting(character) });
         }, 1200);
         return () => window.clearTimeout(t);
-    }, [charactersOn, theme, pathname]);
+    }, [charactersOn, theme, pathname, uid]);
 
     const sheetOpen = sheet !== null;
     const chatty = charactersOn && theme === 'abuela';
@@ -279,7 +294,7 @@ export const SurpriseHost: React.FC = () => {
                             case 'rain': return <Rain key={key} emoji={effect.emoji} title={effect.title} still={still} />;
                             case 'broken': return <Broken key={key} title={effect.title} still={still} />;
                             case 'shake': return <Heat key={key} />;
-                            case 'bubble': return <Bubble key={key} emoji={effect.emoji} text={effect.text} />;
+                            case 'bubble': return <Bubble key={key} emoji={effect.emoji} text={effect.text} to={effect.to} />;
                             case 'grace': return still ? null : <ThemeGrace key={key} grace={effect.grace} text={effect.text} scoops={effect.scoops} ambient={effect.ambient} />;
                             default: return null;
                         }

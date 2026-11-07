@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, MapPin, Utensils } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { ProgressiveImage } from '../ProgressiveImage';
 import { scoreBadgeStyle } from '../../lib/scoreScale';
 import { MarqueeText } from '../ui/MarqueeText';
 import { HelpTip } from '../HelpTip';
 import { saveMenuSource } from '../../lib/themeAmbience';
+import { DishArtTile } from './DishArt';
 
 export interface RankingRow {
     key: string;
@@ -33,7 +34,7 @@ interface HomeRankingProps {
 
 const ROWS = 5;
 
-const Row: React.FC<{ row: RankingRow; position: number; fallbackIcon: React.ElementType }> = ({ row, position, fallbackIcon: Fallback }) => (
+const Row: React.FC<{ row: RankingRow; position: number }> = ({ row, position }) => (
     <li>
         <Link
             to={row.to}
@@ -49,12 +50,10 @@ const Row: React.FC<{ row: RankingRow; position: number; fallbackIcon: React.Ele
                         alt=""
                         containerClassName="h-full w-full"
                         className="h-full w-full object-cover"
-                        fallback={<span className="flex h-full w-full items-center justify-center text-[var(--lt-text-muted)]"><Fallback className="h-5 w-5" /></span>}
+                        fallback={<DishArtTile names={[row.title, row.subtitle]} />}
                     />
                 ) : (
-                    <span className="flex h-full w-full items-center justify-center text-[var(--lt-text-muted)]">
-                        <Fallback className="h-5 w-5" />
-                    </span>
+                    <DishArtTile names={[row.title, row.subtitle]} />
                 )}
             </span>
             <span className="min-w-0">
@@ -134,7 +133,7 @@ export const HomeRanking: React.FC<HomeRankingProps> = ({ dishes, places, dishes
                 ) : (
                     <ol className="divide-y divide-[var(--lt-border)]">
                         {rows.map((row, index) => (
-                            <Row key={row.key} row={row} position={index + 1} fallbackIcon={tab === 'dishes' ? Utensils : MapPin} />
+                            <Row key={row.key} row={row} position={index + 1} />
                         ))}
                     </ol>
                 )}
