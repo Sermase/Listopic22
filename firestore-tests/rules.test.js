@@ -1045,3 +1045,36 @@ describe('V12 · Pachote en el mismo Firebase: anónimos solo en Pachote', () =>
     await assertSucceeds(updateDoc(doc(as('alice'), 'pachoteGroups/riano'), { chatId: deleteField() }));
   });
 });
+
+// ---------------------------------------------------------------------------
+describe('V20 · Cuenta en revisión (claim «suspended»)', () => {
+  const suspendedBob = () => as('bob', { suspended: true });
+
+  it('❌ no valora, reacciona, comenta ni escribe en el chat', async () => {
+    const db = suspendedBob();
+    await assertFails(setDoc(doc(db, 'lists/pub/reviews/rPub/reactions/bob'), { reaction: 'like', userId: 'bob', createdAt: serverTimestamp() }));
+    await assertFails(setDoc(doc(db, 'lists/pub/reviews/rPub/comments/cb'), { userId: 'bob', userName: 'Bob', userPhoto: '', text: '¡Top!', createdAt: serverTimestamp() }));
+    await assertFails(updateDoc(doc(db, 'lists/pub/reviews/rPub'), { 'reactionCounts.like': increment(1) }));
+    await assertFails(setDoc(doc(db, 'chats/c1/messages/nuevo'), { text: 'Hola', senderId: 'bob', type: 'text', readBy: ['bob'] }));
+    await assertFails(setDoc(doc(db, 'lists/pub/reviews/rBob'), {
+      userId: 'bob', authorId: 'bob', listId: 'pub', visibility: 'public', itemName: 'Smash', placeId: 'p1',
+      overallRating: 7, scores: { carne: 7, pan: 7 }, comment: '', createdAt: serverTimestamp(),
+    }));
+  });
+
+  it('✅ sigue leyendo, guarda en su colección y borra lo suyo', async () => {
+    const db = suspendedBob();
+    await assertSucceeds(getDoc(doc(db, 'lists/pub/reviews/rPub')));
+    await assertSucceeds(getDoc(doc(db, 'chats/c1/messages/hola')));
+    await assertSucceeds(setDoc(doc(db, 'users/bob/archives/a1/items/place_p2'), { itemId: 'p2', type: 'place', name: 'Playa', route: '/place/p2', placeId: 'p2' }));
+  });
+
+  it('✅ sin el claim, bob vuelve a reaccionar', async () => {
+    await assertSucceeds(setDoc(doc(as('bob'), 'lists/pub/reviews/rPub/reactions/bob'), { reaction: 'like', userId: 'bob', createdAt: serverTimestamp() }));
+  });
+
+  it('❌ nadie se quita la suspensión desde la app', async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'users/bob'), { username: 'bob', suspension: { active: true, reason: 'x' } }, { merge: true }));
+    await assertFails(updateDoc(doc(suspendedBob(), 'users/bob'), { suspension: deleteField() }));
+  });
+});

@@ -331,7 +331,8 @@ const reportToItem = (id: string, data: Record<string, unknown>, now: number = D
         subtitle: joinParts(issue.label, `${target.emoji} ${target.label}`, reporterName && `por ${reporterName}`),
         placeId: targetType === 'place' ? targetId : str(data.placeId),
         userId: firstStr(data.userId, data.reportedByUserId, data.reporterUid),
-        urgent: URGENT_REPORT_ISSUES.has(issueType),
+        // También si 3 personas distintas han denunciado a la misma (reports.js escalateRepeatedReports).
+        urgent: URGENT_REPORT_ISSUES.has(issueType) || data.escalated === true,
         searchExtra: [targetId, str(data.description), str(data.userEmail), str(data.userName), issueType],
     });
 };

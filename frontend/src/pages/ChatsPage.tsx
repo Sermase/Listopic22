@@ -77,7 +77,7 @@ const listTime = (seconds?: number) => {
 };
 
 export const ChatsPage: React.FC = () => {
-    const { user, isJefe } = useAuth();
+    const { user, isJefe, suspension } = useAuth();
     const config = useAppConfig();
     // Developer → Proyectos → Pachote «🙈 Oculta» quita las cuentas del chat (las tarjetas ya enviadas siguen).
     const pachoteOn = isLabAppEnabled(config, 'pachote', isJefe);
@@ -320,7 +320,7 @@ export const ChatsPage: React.FC = () => {
 
     const handleSendMessage = async (e?: React.FormEvent) => {
         e?.preventDefault();
-        if (!user || !activeChat || !newMessage.trim()) return;
+        if (!user || !activeChat || !newMessage.trim() || suspension) return;
         const text = newMessage;
         haptic('light');
         setNewMessage('');
@@ -825,7 +825,8 @@ export const ChatsPage: React.FC = () => {
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     onKeyDown={onComposerKey}
                                     onFocus={() => { setEmojiOpen(false); setToolsOpen(false); }}
-                                    placeholder="Escribe un mensaje..."
+                                    disabled={!!suspension}
+                                    placeholder={suspension ? '⏸️ Cuenta en revisión: de momento no puedes escribir' : 'Escribe un mensaje...'}
                                     className="flex-1 min-w-0 resize-none bg-[var(--lt-bg)] border border-white/10 rounded-3xl px-4 py-2.5 text-white leading-5 focus:outline-none focus:border-[var(--lt-accent-border)]"
                                 />
                                 <button

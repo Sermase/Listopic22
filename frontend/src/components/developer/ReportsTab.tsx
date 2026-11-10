@@ -41,7 +41,9 @@ import {
 import {
     CLOSED_STATUS_LABELS,
     groupReportPlaceId,
+    listSuspendedUsers,
     markGroupItemUnavailable,
+    setUserSuspension,
     syncPlaceStatusFromGoogle,
     updateReportStatus,
     type PlaceClosedStatus,
@@ -72,6 +74,49 @@ const without = <T,>(record: Record<string, T>, key: string): Record<string, T> 
     const next = { ...record };
     delete next[key];
     return next;
+};
+
+const SUSPENDED_KEY = ['developer', 'suspendedUsers'] as const;
+
+/** Cuentas en revisión, plegadas: para levantarlas sin buscar el reporte. */
+const SuspendedAccounts: React.FC = () => {
+    const [open, setOpen] = useState(false);
+    const [busyUid, setBusyUid] = useState<string | null>(null);
+    const confirm = useConfirm();
+    const queryClient = useQueryClient();
+    const suspended = useQuery({ queryKey: SUSPENDED_KEY, queryFn: listSuspendedUsers, staleTime: 60_000 });
+    const rows = suspended.data || [];
+    if (!suspended.isSuccess || rows.length === 0) return null;
+    const lift = async (uid: string, name: string) => {
+        const ok = await confirm({ title: `¿Levantar la suspensión de ${name}?`, message: 'Vuelve a poder valorar, reaccionar y chatear. Se le avisa.', confirmLabel: 'Levantar' });
+        if (!ok) return;
+        setBusyUid(uid);
+        try {
+            await setUserSuspension({ uid, suspended: false });
+            await queryClient.invalidateQueries({ queryKey: SUSPENDED_KEY });
+        } finally {
+            setBusyUid(null);
+        }
+    };
+    return (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5">
+            <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open} className="flex w-full items-center justify-between px-4 py-2.5 text-sm font-semibold text-amber-300">
+                <span>⏸️ Cuentas en revisión ({rows.length})</span>
+                <ChevronDown className={cn('h-4 w-4 transition-transform', open && 'rotate-180')} />
+            </button>
+            {open && (
+                <ul className="divide-y divide-white/5 border-t border-white/10">
+                    {rows.map((row) => (
+                        <li key={row.uid} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm text-gray-300">
+                            <a href={`/profile/${row.uid}`} target="_blank" rel="noopener noreferrer" className="font-bold text-white hover:underline">{row.name}</a>
+                            {row.reason && <span className="min-w-0 flex-1 truncate text-gray-400">{row.reason}</span>}
+                            <Button variant="secondary" size="sm" className="ml-auto" onClick={() => void lift(row.uid, row.name)} loading={busyUid === row.uid}>▶️ Levantar</Button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
 };
 
 const reportRowDomId = (id: string): string => `report-${id}`;
@@ -314,6 +359,30 @@ export const ReportsTab: React.FC<DeveloperTabProps> = ({ focusId, view: viewPar
         }));
     };
 
+    const suspend = async (item: InboxItem, uid: string, suspended: boolean) => {
+        const note = (notes[item.id] || '').trim();
+        const ok = await confirm(suspended
+            ? {
+                title: '¿Suspender a esta persona mientras se revisa?',
+                message: `Podrá leer, editar su perfil, descargar sus datos y borrar su cuenta, pero no valorar, reaccionar, comentar ni chatear hasta que la levantes. Se le avisa con el motivo.${noteLine(note)}`,
+                confirmLabel: 'Suspender',
+                destructive: true,
+            }
+            : { title: '¿Levantar la suspensión?', message: 'Vuelve a poder valorar, reaccionar y chatear. Se le avisa.', confirmLabel: 'Levantar' });
+        if (!ok) return;
+        setBusyId(item.id);
+        setMessages((prev) => without(prev, item.id));
+        try {
+            await setUserSuspension({ uid, suspended, reason: note || text(item.data.description), reportId: item.id });
+            setMessages((prev) => ({ ...prev, [item.id]: { tone: 'success', text: suspended ? '⏸️ Cuenta suspendida mientras se revisa. El reporte sigue abierto.' : '▶️ Suspensión levantada.' } }));
+            void queryClient.invalidateQueries({ queryKey: SUSPENDED_KEY });
+        } catch (error) {
+            setMessages((prev) => ({ ...prev, [item.id]: { tone: 'error', text: `⚠️ No se pudo: ${errorMessage(error)}` } }));
+        } finally {
+            setBusyId(null);
+        }
+    };
+
     const syncPlace = async (placeId: string) => {
         setSyncingPlaceId(placeId);
         try {
@@ -347,6 +416,7 @@ export const ReportsTab: React.FC<DeveloperTabProps> = ({ focusId, view: viewPar
             message={messages[item.id]}
             onDecide={(status, closedStatus) => void decide(item, status, closedStatus)}
             onMarkUnavailable={() => void markUnavailable(item)}
+            onSuspend={(uid, suspended) => void suspend(item, uid, suspended)}
             syncingPlaceId={syncingPlaceId}
             syncResults={syncResults}
             onSync={(placeId) => void syncPlace(placeId)}
@@ -391,9 +461,11 @@ export const ReportsTab: React.FC<DeveloperTabProps> = ({ focusId, view: viewPar
                 degraded={degraded}
             />
 
+            <SuspendedAccounts />
+
             {urgentLoaded > 0 && (
                 <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-300">
-                    🚨 {urgentLoaded === 1 ? 'Hay 1 reporte urgente' : `Hay ${urgentLoaded} reportes urgentes`} (seguridad infantil, acoso o suplantación).
+                    🚨 {urgentLoaded === 1 ? 'Hay 1 reporte urgente' : `Hay ${urgentLoaded} reportes urgentes`} (seguridad infantil, acoso, suplantación o alguien denunciado por 3 personas).
                 </p>
             )}
 
@@ -470,6 +542,7 @@ interface ReportRowProps {
     message?: RowMessage;
     onDecide: (status: ReportDecision, closedStatus?: PlaceClosedStatus) => void;
     onMarkUnavailable: () => void;
+    onSuspend: (uid: string, suspended: boolean) => void;
     syncingPlaceId: string | null;
     syncResults: Record<string, string>;
     onSync: (placeId: string) => void;
@@ -491,6 +564,7 @@ const ReportRow: React.FC<ReportRowProps> = ({
     message,
     onDecide,
     onMarkUnavailable,
+    onSuspend,
     syncingPlaceId,
     syncResults,
     onSync,
@@ -510,6 +584,8 @@ const ReportRow: React.FC<ReportRowProps> = ({
     const closedStatus = text(data.resolvedClosedStatus);
     const targetHref = targetId && TARGET_LINKS[targetType] ? TARGET_LINKS[targetType](targetId) : null;
     const groupPlaceId = targetType === 'group' && targetId ? groupReportPlaceId(targetId) : null;
+    // Persona denunciada (ella o lo que escribió): se puede suspender mientras se revisa.
+    const reportedUserId = targetType === 'user' ? targetId : (targetType === 'review' ? text(data.targetOwnerId) : '');
     // Plato que ya no sirven: también los reportes antiguos hechos desde una reseña.
     const isDishGone = (targetType === 'group' && (issueType === 'item_not_available' || issueType === 'incorrect_info'))
         || (targetType === 'review' && (issueType === 'item_missing' || issueType === 'item_not_available'));
@@ -656,6 +732,28 @@ const ReportRow: React.FC<ReportRowProps> = ({
                                 Comprobar en Google Maps
                             </Button>
                             {syncResults[targetId] && <span className="text-xs text-gray-300">{syncResults[targetId]}</span>}
+                        </div>
+                    )}
+
+                    {reportedUserId && (
+                        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                            <p className="w-full text-xs font-bold uppercase tracking-wider text-gray-400">
+                                Persona denunciada{data.escalated === true ? ' · 🚨 la han denunciado 3 personas o más' : ''}
+                            </p>
+                            <a
+                                href={`/profile/${reportedUserId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-bold text-gray-300 hover:bg-white/10"
+                            >
+                                <ExternalLink className="h-3.5 w-3.5" /> Ver perfil
+                            </a>
+                            <Button variant="danger" size="sm" onClick={() => onSuspend(reportedUserId, true)} disabled={busy}>
+                                ⏸️ Suspender mientras se revisa
+                            </Button>
+                            <Button variant="secondary" size="sm" onClick={() => onSuspend(reportedUserId, false)} disabled={busy}>
+                                ▶️ Levantar suspensión
+                            </Button>
                         </div>
                     )}
 

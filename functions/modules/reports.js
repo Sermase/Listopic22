@@ -86,6 +86,7 @@ const submitReport = onCall({ region: 'europe-west1' }, async (request) => {
         throw new HttpsError('already-exists', 'Ya has reportado este contenido. Estamos revisandolo.');
     }
 
+    const reportedUserId = targetType === 'user' ? targetId : targetOwnerId;
     const userName = request.auth.token.name || request.auth.token.email || 'Anonimo';
     const userEmail = request.auth.token.email || null;
 
@@ -101,6 +102,8 @@ const submitReport = onCall({ region: 'europe-west1' }, async (request) => {
         targetType,
         targetOwnerId: targetOwnerId || null,
         itemName: itemName || null,
+        // Persona denunciada (ella o su contenido): para juntar sus reportes.
+        reportedUserId: reportedUserId || null,
         issueType,
         description,
         status: 'pending',
@@ -108,8 +111,35 @@ const submitReport = onCall({ region: 'europe-west1' }, async (request) => {
         createdAt: FieldValue.serverTimestamp(),
     });
 
+    if (reportedUserId) {
+        try {
+            await escalateRepeatedReports(reportedUserId);
+        } catch (error) {
+            logger.warn('submitReport: no se pudo revisar si hay que marcarlo urgente', error);
+        }
+    }
+
     return { ok: true, reportId: reportRef.id };
 });
+
+// Si 3 personas distintas tienen denuncias pendientes contra alguien (o su
+// contenido), sus reportes pasan a urgentes. Nunca se suspende sola: con eso
+// bastaría ponerse de acuerdo para tumbar a cualquiera.
+const ESCALATE_DISTINCT_REPORTERS = 3;
+
+async function escalateRepeatedReports(reportedUserId) {
+    const snap = await db.collection('reports')
+        .where('reportedUserId', '==', reportedUserId)
+        .where('status', '==', 'pending')
+        .limit(100)
+        .get();
+    const reporters = new Set(snap.docs.map((doc) => doc.get('userId')).filter(Boolean));
+    if (reporters.size < ESCALATE_DISTINCT_REPORTERS) return false;
+    const batch = db.batch();
+    snap.docs.filter((doc) => doc.get('escalated') !== true).forEach((doc) => batch.update(doc.ref, { escalated: true }));
+    await batch.commit();
+    return true;
+}
 
 /**
  * Trigger: When a report document is created or updated.

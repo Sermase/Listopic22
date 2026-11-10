@@ -39,6 +39,8 @@ vi.mock('../../services/reportModeration', async (importOriginal) => {
         updateReportStatus: mocks.updateReportStatus,
         markGroupItemUnavailable: mocks.markGroupItemUnavailable,
         syncPlaceStatusFromGoogle: mocks.syncPlaceStatusFromGoogle,
+        // Cuentas en revisión: su propia consulta, fuera de la cola de reportes.
+        listSuspendedUsers: async () => [],
     };
 });
 
@@ -132,7 +134,7 @@ describe('ReportsTab', () => {
         expect(statusesOf(listQuery)).toEqual(['pending']);
         // Contadores con getCountFromServer, no leyendo 500 documentos.
         await waitFor(() => expect(firestoreMock.getCountFromServer).toHaveBeenCalledTimes(3));
-        expect(screen.getByText('🚨 Hay 1 reporte urgente (seguridad infantil, acoso o suplantación).')).toBeInTheDocument();
+        expect(screen.getByText('🚨 Hay 1 reporte urgente (seguridad infantil, acoso, suplantación o alguien denunciado por 3 personas).')).toBeInTheDocument();
     });
 
     it('resolver pide confirmación con la nota, avisa en la fila e invalida los contadores', async () => {
