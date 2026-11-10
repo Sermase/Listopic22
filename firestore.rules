@@ -1207,6 +1207,13 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Resumen de puestos de una Lista pública (lo escriben las Functions).
+    // Un documento que no existe se puede pedir (la app cae entonces a leer la Lista).
+    match /listRankings/{listId} {
+      allow read: if resource == null || resource.data.isPublic == true;
+      allow write: if false;
+    }
+
     match /config/serverSecrets {
       allow read, write: if isUser() && isJefe(request.auth.uid);
     }
