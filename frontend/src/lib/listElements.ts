@@ -20,6 +20,8 @@ export interface ListReviewForRanking extends ReviewLike {
     placeRegion?: string;
     placeCountry?: string;
     placeClosedStatus?: string | null;
+    /** El sitio ya no sirve este plato (places.unavailableItems). */
+    itemUnavailable?: boolean;
     userId?: string;
     authorId?: string;
 }
@@ -57,6 +59,8 @@ export interface PlaceDocLike {
     closedStatus?: unknown;
     googleBusinessStatus?: unknown;
     businessStatus?: unknown;
+    /** Platos que el sitio ya no sirve (nombres tal cual se reportaron). */
+    unavailableItems?: unknown;
 }
 
 const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
@@ -76,6 +80,19 @@ export function placeGeoFields(place: PlaceDocLike | null | undefined): { city: 
 export function placeClosedStatus(place: PlaceDocLike | null | undefined): string | null {
     const text = (value: unknown) => (typeof value === 'string' ? value : null);
     return resolveClosedStatus(text(place?.closedStatus), text(place?.googleBusinessStatus), text(place?.businessStatus));
+}
+
+/** El sitio ya no sirve este plato: se compara por nombre normalizado («Pincho» = «pincho»). */
+export function isItemUnavailable(place: PlaceDocLike | null | undefined, itemName: unknown): boolean {
+    const list = place?.unavailableItems;
+    if (!Array.isArray(list) || list.length === 0) return false;
+    const key = normalizeItemName(itemName);
+    return Boolean(key) && list.some((name) => normalizeItemName(name) === key);
+}
+
+/** Fuera de la vista por defecto: sitio cerrado o plato que ya no sirven. */
+export function isUnavailableEntry(entry: { placeClosedStatus?: string | null; itemUnavailable?: boolean } | null | undefined): boolean {
+    return Boolean(entry && (entry.itemUnavailable === true || isClosedPlaceStatus(entry.placeClosedStatus)));
 }
 
 export interface RankedElement extends GeoFields {
@@ -106,7 +123,7 @@ export function rankListElements(
     reviews.forEach((review) => {
         const author = review.userId || review.authorId;
         if (author && options.excludeAuthorIds?.has(author)) return;
-        if (!options.includeClosed && isClosedPlaceStatus(review.placeClosedStatus)) return;
+        if (!options.includeClosed && isUnavailableEntry(review)) return;
         // Sin nota no puntúa ni cuenta (antes contaba como un 0).
         const score = reviewScoreForList(review, list).score;
         if (score === null) return;

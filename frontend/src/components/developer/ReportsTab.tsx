@@ -301,9 +301,9 @@ export const ReportsTab: React.FC<DeveloperTabProps> = ({ focusId, view: viewPar
         const element = text(item.data.targetName) || item.title;
         const note = (notes[item.id] || '').trim();
         const ok = await confirm({
-            title: `¿Marcar «${element}» como no disponible?`,
-            message: `Se añade a los elementos no disponibles del lugar y el reporte queda resuelto.${noteLine(note)}`,
-            confirmLabel: 'Marcar no disponible',
+            title: `¿Ya no sirven «${element}»?`,
+            message: `Deja de salir en listas, mapa, Buscar e Inicio (las valoraciones se quedan) y el reporte queda resuelto. Se puede deshacer en la página del plato con «Vuelve a estar».${noteLine(note)}`,
+            confirmLabel: 'Ya no lo sirven',
         });
         if (!ok) return;
         await runDecision(item, 'resolved', undefined, (finalNote) => markGroupItemUnavailable({
@@ -510,9 +510,11 @@ const ReportRow: React.FC<ReportRowProps> = ({
     const closedStatus = text(data.resolvedClosedStatus);
     const targetHref = targetId && TARGET_LINKS[targetType] ? TARGET_LINKS[targetType](targetId) : null;
     const groupPlaceId = targetType === 'group' && targetId ? groupReportPlaceId(targetId) : null;
-    const canMarkUnavailable = targetType === 'group' && isPending
-        && (issueType === 'item_not_available' || issueType === 'incorrect_info');
-    const isPlaceClosure = targetType === 'place' && issueType === 'place_closed';
+    // Plato que ya no sirven: también los reportes antiguos hechos desde una reseña.
+    const isDishGone = (targetType === 'group' && (issueType === 'item_not_available' || issueType === 'incorrect_info'))
+        || (targetType === 'review' && (issueType === 'item_missing' || issueType === 'item_not_available'));
+    const canMarkUnavailable = isPending && isDishGone;
+    const isPlaceClosure = (targetType === 'place' || targetType === 'review') && issueType === 'place_closed';
 
     return (
         <div
@@ -669,11 +671,7 @@ const ReportRow: React.FC<ReportRowProps> = ({
                                 >
                                     <ExternalLink className="h-3.5 w-3.5" /> Ver lugar
                                 </a>
-                                {canMarkUnavailable && (
-                                    <Button variant="secondary" size="sm" onClick={onMarkUnavailable} loading={busy}>
-                                        🍽️ Marcar «{text(data.targetName) || item.title}» no disponible
-                                    </Button>
-                                )}
+
                                 {issueType === 'place_closed' && (
                                     <Button
                                         variant="secondary"
@@ -701,7 +699,12 @@ const ReportRow: React.FC<ReportRowProps> = ({
                                 </Button>
                             </>
                         )}
-                        {isPending && !isPlaceClosure && (
+                        {canMarkUnavailable && (
+                            <Button variant="success" size="sm" onClick={onMarkUnavailable} loading={busy} leftIcon={<CheckCircle className="h-4 w-4" />}>
+                                🚫 Ya no lo sirven
+                            </Button>
+                        )}
+                        {isPending && !isPlaceClosure && !isDishGone && (
                             <Button variant="success" size="sm" onClick={() => onDecide('resolved')} loading={busy} leftIcon={<CheckCircle className="h-4 w-4" />}>
                                 Resolver
                             </Button>

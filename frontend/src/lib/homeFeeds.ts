@@ -53,6 +53,7 @@ export interface HomeFeedReview {
     placeAverageRating?: unknown;
     placeReviewsCount?: unknown;
     placeClosedStatus?: string | null;
+    itemUnavailable?: boolean;
 }
 
 export interface HomeFeedPlace {
@@ -332,7 +333,7 @@ function cleanReviews(reviews: ReadonlyArray<HomeFeedReview>, bots: Set<string>,
         const placeId = str(review.placeId);
         if (!id || !placeId || seen.has(id)) return;
         if (!allowPrivate && review.visibility && review.visibility !== 'public') return;
-        if (isPermanentlyClosed(review.placeClosedStatus)) return;
+        if (isPermanentlyClosed(review.placeClosedStatus) || review.itemUnavailable === true) return;
         const authorId = str(review.userId) || str(review.authorId);
         if (authorId && bots.has(authorId)) return;
         const rating = typeof review.overallRating === 'number' ? review.overallRating : Number(review.overallRating);

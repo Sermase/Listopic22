@@ -25,6 +25,10 @@ import { itemNameKey, resolvePlaceItemByName, reviewItemId, type PlaceItemLike }
 
 import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
 import { HelpTip } from '../components/HelpTip';
+import { isItemUnavailable } from '../lib/listElements';
+import { setItemAvailability } from '../services/reportModeration';
+import { useConfirm } from '../context/ConfirmContext';
+import { useToast } from '../context/ToastContext';
 
 
 // react-router ya entrega el parámetro decodificado: un segundo decode rompe
@@ -47,8 +51,11 @@ const toMillis = (value: any): number => {
 
 export const GroupPage: React.FC = () => {
     const { placeId, itemName } = useParams<{ placeId: string; itemName: string }>();
-    const { user } = useAuth();
+    const { user, isJefe } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
+    const confirm = useConfirm();
+    const { showToast } = useToast();
+    const [savingAvailability, setSavingAvailability] = useState(false);
     const navigate = useNavigate();
     const decodedName = safeDecode(itemName || '');
 
@@ -451,6 +458,29 @@ export const GroupPage: React.FC = () => {
         setIsSaveModalOpen(true);
     };
 
+    // Plato retirado: la marca del sitio, por nombre normalizado (lib/listElements).
+    const itemGone = isItemUnavailable({ unavailableItems }, decodedName);
+    const toggleAvailability = async () => {
+        if (!placeId) return;
+        const ok = await confirm(itemGone
+            ? { title: `¿«${decodedName}» vuelve a estar?`, message: 'Vuelve a salir en listas, mapa, Buscar e Inicio con su puesto.', confirmLabel: 'Vuelve a estar' }
+            : { title: `¿Ya no sirven «${decodedName}»?`, message: 'Se oculta de listas, mapa, Buscar e Inicio. Las valoraciones se quedan y se ve atenuado en la ficha.', confirmLabel: 'Ya no lo sirven' });
+        if (!ok) return;
+        setSavingAvailability(true);
+        try {
+            await setItemAvailability({ placeId, itemName: decodedName, unavailable: !itemGone });
+            setUnavailableItems((prev) => itemGone
+                ? prev.filter((name) => !isItemUnavailable({ unavailableItems: [name] }, decodedName))
+                : [...prev, decodedName]);
+            showToast({ variant: 'success', message: itemGone ? '↩️ Vuelve a estar disponible.' : '🚫 Marcado como que ya no lo sirven.' });
+        } catch (error) {
+            console.error('GroupPage: no se pudo cambiar la disponibilidad', error);
+            showToast({ variant: 'error', message: 'No se pudo guardar.' });
+        } finally {
+            setSavingAvailability(false);
+        }
+    };
+
     const openReportModal = () => {
         if (!user) {
             openAuthPrompt('reportar este elemento');
@@ -681,9 +711,9 @@ export const GroupPage: React.FC = () => {
                                     ⚠ {placeClosedStatus === 'permanently_closed' ? 'Cerrado permanentemente' : 'Cerrado temporalmente'}
                                 </div>
                             )}
-                            {unavailableItems.includes(decodedName) && (
+                            {itemGone && (
                                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold mb-2 border backdrop-blur-md bg-[var(--lt-glass)] border-[var(--lt-border-strong)] text-[var(--lt-text-muted)]">
-                                    ✕ No disponible actualmente
+                                    🚫 Ya no lo sirven
                                 </div>
                             )}
                             <Link to={`/place/${placeId}`} className="group/place inline-flex max-w-full items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1 bg-[var(--lt-glass)] border border-[var(--lt-border-strong)] backdrop-blur-md text-sm md:text-base text-[var(--lt-text)] font-semibold hover:border-[var(--lt-accent-border)] transition-colors">
@@ -761,6 +791,11 @@ export const GroupPage: React.FC = () => {
                         {placeCoords && (
                             <button type="button" onClick={() => setIsMapOpen(true)} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
                                 <MapPin className="h-4 w-4 text-[var(--lt-accent)]" /> Mapa
+                            </button>
+                        )}
+                        {isJefe && placeId && (
+                            <button type="button" onClick={() => void toggleAvailability()} disabled={savingAvailability} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text-muted)] transition-colors hover:border-[var(--lt-accent-border)] disabled:opacity-50">
+                                {itemGone ? '↩️ Vuelve a estar' : '🚫 Ya no lo sirven'}
                             </button>
                         )}
                         <button type="button" onClick={openReportModal} aria-label="Reportar" title="Reportar" className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--lt-text-muted)] transition-colors hover:bg-[var(--lt-danger-soft)] hover:text-[var(--lt-danger)]">

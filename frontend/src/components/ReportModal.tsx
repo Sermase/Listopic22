@@ -18,9 +18,11 @@ interface ReportModalProps {
     targetType: ReportTargetType;
     targetOwnerId?: string;
     itemName?: string;
+    /** Reseñas: el sitio, para que «ha cerrado» y «ya no lo sirven» vayan al sitio o al plato. */
+    placeId?: string;
 }
 
-export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targetId, targetName, targetType, targetOwnerId, itemName }) => {
+export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targetId, targetName, targetType, targetOwnerId, itemName, placeId }) => {
     const { user } = useAuth();
     const { openAuthPrompt } = useAuthPrompt();
     const { showToast } = useToast();
@@ -34,7 +36,16 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
     if (!isOpen) return null;
 
     // Anti-self-report: user cannot report their own content
-    const isSelfReport = !!user?.uid && !!targetOwnerId && user.uid === targetOwnerId;
+    // Desde una reseña, «ha cerrado» y «ya no lo sirven» hablan del sitio o del plato,
+    // no de la reseña: se reportan ahí (y así Developer puede marcarlo con un toque).
+    const redirect = targetType === 'review' && placeId
+        ? (issueType === 'place_closed'
+            ? { targetId: placeId, targetName: itemName || targetName, targetType: 'place' as const, targetOwnerId: null, itemName: null }
+            : issueType === 'item_not_available' || issueType === 'item_missing'
+                ? { targetId: `${placeId}_${targetName}`, targetName, targetType: 'group' as const, targetOwnerId: null, itemName: itemName || null, issueType: 'item_not_available' }
+                : null)
+        : null;
+    const isSelfReport = !redirect && !!user?.uid && !!targetOwnerId && user.uid === targetOwnerId;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -56,7 +67,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
         setSubmitting(true);
         try {
             const submitReport = httpsCallable(functions, 'submitReport');
-            await submitReport({
+            const base = {
                 targetId,
                 targetName,
                 targetType,
@@ -64,7 +75,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
                 itemName: itemName || null,
                 issueType,
                 description,
-            });
+            };
+            await submitReport({ ...base, ...(redirect || {}) });
             showToast({
                 title: '✓ Reporte enviado',
                 message: 'Gracias por ayudar a mejorar la comunidad. Lo revisaremos pronto.',
@@ -173,13 +185,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({ isOpen, onClose, targe
                             {(targetType === 'place' || targetType === 'review') && (
                                 <>
                                     <option value="place_closed">El sitio ha cerrado</option>
-                                    <option value="item_missing">El item ya no existe</option>
+                                    <option value="item_missing">{targetType === 'review' ? 'Ya no sirven este plato' : 'El item ya no existe'}</option>
                                     <option value="duplicate">Sitio duplicado</option>
                                 </>
                             )}
                             {targetType === 'group' && (
                                 <>
-                                    <option value="item_not_available">El elemento ya no está disponible</option>
+                                    <option value="item_not_available">Ya no sirven este plato</option>
                                     <option value="place_closed">El sitio ha cerrado</option>
                                     <option value="incorrect_info">Información incorrecta sobre el elemento</option>
                                     <option value="wrong_place">Elemento asociado al sitio incorrecto</option>

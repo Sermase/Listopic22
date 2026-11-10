@@ -9,6 +9,7 @@ export const OPEN_ITEMS_FILTER = [
     'NOT placeClosedStatus:CLOSED_TEMPORARILY',
     'NOT placeGoogleBusinessStatus:CLOSED_PERMANENTLY',
     'NOT placeGoogleBusinessStatus:CLOSED_TEMPORARILY',
+    'NOT itemUnavailable:true',
     HIDE_BOT_ONLY,
 ].join(' AND ');
 

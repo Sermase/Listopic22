@@ -489,7 +489,9 @@ function getDefaultClosedFilter(tab: string) {
         return 'NOT closedStatus:permanently_closed AND NOT closedStatus:temporarily_closed AND NOT closedStatus:CLOSED_PERMANENTLY AND NOT closedStatus:CLOSED_TEMPORARILY AND NOT googleBusinessStatus:CLOSED_PERMANENTLY AND NOT googleBusinessStatus:CLOSED_TEMPORARILY AND NOT businessStatus:CLOSED_PERMANENTLY AND NOT businessStatus:CLOSED_TEMPORARILY';
     }
     if (tab === 'items' || tab === 'grouped_items') {
-        return 'NOT placeClosedStatus:permanently_closed AND NOT placeClosedStatus:temporarily_closed AND NOT placeClosedStatus:CLOSED_PERMANENTLY AND NOT placeClosedStatus:CLOSED_TEMPORARILY AND NOT placeGoogleBusinessStatus:CLOSED_PERMANENTLY AND NOT placeGoogleBusinessStatus:CLOSED_TEMPORARILY AND NOT placeBusinessStatus:CLOSED_PERMANENTLY AND NOT placeBusinessStatus:CLOSED_TEMPORARILY';
+        return 'NOT placeClosedStatus:permanently_closed AND NOT placeClosedStatus:temporarily_closed AND NOT placeClosedStatus:CLOSED_PERMANENTLY AND NOT placeClosedStatus:CLOSED_TEMPORARILY AND NOT placeGoogleBusinessStatus:CLOSED_PERMANENTLY AND NOT placeGoogleBusinessStatus:CLOSED_TEMPORARILY AND NOT placeBusinessStatus:CLOSED_PERMANENTLY AND NOT placeBusinessStatus:CLOSED_TEMPORARILY'
+            // Platos que el sitio ya no sirve (places.unavailableItems).
+            + ' AND NOT itemUnavailable:true';
     }
     return '';
 }
@@ -645,7 +647,7 @@ const ClosedPlacesToggle = ({
                         <EyeOff className="w-3.5 h-3.5 text-[var(--lt-danger)]" />
                     </span>
                     <span className="min-w-0">
-                        <span className="block text-sm font-bold text-[var(--lt-text)] leading-tight">Incluir cerrados</span>
+                        <span className="block text-sm font-bold text-[var(--lt-text)] leading-tight">{activeTab === 'places' ? 'Incluir cerrados' : 'Incluir no disponibles'}</span>
                     </span>
                 </span>
                 <span className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${includeClosed ? 'bg-[var(--lt-danger)]' : 'bg-[var(--lt-border-strong)]'}`}>

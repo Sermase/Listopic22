@@ -458,7 +458,7 @@ export const PlacePage: React.FC = () => {
         // del nombre más escrito (el servidor lo reescribe al canónico al curar).
         const dishMap: Record<string, {
             total: number; count: number; photos: string[]; listId?: string;
-            nameCounts: Record<string, number>;
+            nameCounts: Record<string, number>; unavailable: boolean;
         }> = {};
 
         place.reviews.forEach(r => {
@@ -467,9 +467,10 @@ export const PlacePage: React.FC = () => {
             const key = reviewItemId(r);
 
             if (!dishMap[key]) {
-                dishMap[key] = { total: 0, count: 0, photos: [], listId: r.listId, nameCounts: {} };
+                dishMap[key] = { total: 0, count: 0, photos: [], listId: r.listId, nameCounts: {}, unavailable: false };
             }
             const dish = dishMap[key];
+            if (r.itemUnavailable) dish.unavailable = true;
             dish.total += r.overallRating;
             dish.count += 1;
             dish.nameCounts[name] = (dish.nameCounts[name] || 0) + 1;
@@ -486,8 +487,11 @@ export const PlacePage: React.FC = () => {
                 count: d.count,
                 photo: d.photos[0],
                 listId: d.listId,
+                // Ya no lo sirven: atenuado y al final, sin puesto.
+                unavailable: d.unavailable,
             };
-        }).sort((a, b) => compareByRank({ average: a.avg, count: a.count }, { average: b.avg, count: b.count }));
+        }).sort((a, b) => Number(a.unavailable) - Number(b.unavailable)
+            || compareByRank({ average: a.avg, count: a.count }, { average: b.avg, count: b.count }));
     }, [place?.reviews, officialItemsById]);
 
     // Lista de cada plato (por id canónico y por nombre) para fijarla al valorar desde la carta.
@@ -518,9 +522,11 @@ export const PlacePage: React.FC = () => {
             photoByItemId.set(dish.itemId, dish.photo);
             photoByKey.set(dish.name.trim().toLowerCase(), dish.photo);
         });
+        const goneIds = new Set(dishes.filter((dish) => dish.unavailable).flatMap((dish) => [dish.itemId, dish.name.trim().toLowerCase()]));
         const withPhoto = officialItems.map((item) => ({
             ...item,
             photo: photoByItemId.get(item.id) || item.keys.map((key) => photoByKey.get(key)).find(Boolean),
+            available: item.available !== false && !goneIds.has(item.id) && !item.keys.some((key) => goneIds.has(key)),
         }));
 
         // Primero el orden que eligió el negocio (menuOrder); el resto, por nota y nombre.
@@ -550,7 +556,7 @@ export const PlacePage: React.FC = () => {
                 id: `dish-${dishKey}`,
                 name: dish.name,
                 allergens: [],
-                available: true,
+                available: !dish.unavailable,
                 rating: dish.avg,
                 reviewCount: dish.count,
                 keys: [dishKey],
@@ -2002,7 +2008,7 @@ export const PlacePage: React.FC = () => {
                                     />
                                     <div className="divide-y divide-[var(--lt-border)]">
                                         {dishes.map((dish, idx) => {
-                                            const isTop = dish.avg >= 8.5 && idx < 3;
+                                            const isTop = dish.avg >= 8.5 && idx < 3 && !dish.unavailable;
                                             const official = place.hasBusinessPro
                                                 ? (officialItemsById.get(dish.itemId) ?? place.officialItemData?.[dish.name.trim().toLowerCase()])
                                                 : undefined;
@@ -2020,13 +2026,13 @@ export const PlacePage: React.FC = () => {
                                                         description: official?.description,
                                                         group: official?.group,
                                                         discount: official?.discount,
-                                                        available: official?.available,
+                                                        available: dish.unavailable ? false : official?.available,
                                                         listId: dish.listId,
                                                     })}
-                                                    className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3 sm:py-4 group text-left"
+                                                    className={`flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3 sm:py-4 group text-left ${dish.unavailable ? 'opacity-50' : ''}`}
                                                 >
                                                     {/* Rank */}
-                                                    <span className={`w-5 shrink-0 text-center font-display text-sm font-bold tabular-nums ${idx < 3 ? 'text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)]'}`}>{idx + 1}</span>
+                                                    <span className={`w-5 shrink-0 text-center font-display text-sm font-bold tabular-nums ${idx < 3 ? 'text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)]'}`}>{dish.unavailable ? '·' : idx + 1}</span>
 
                                                     {/* Photo thumbnail */}
                                                     <div className="w-12 h-12 rounded-xl bg-[var(--lt-card)] border border-[var(--lt-border)] overflow-hidden shrink-0">
@@ -2056,7 +2062,9 @@ export const PlacePage: React.FC = () => {
                                                             {isTop && (
                                                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">★ Top</span>
                                                             )}
-                                                            {official && official.available === false && (
+                                                            {dish.unavailable ? (
+                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-[var(--lt-border)] bg-[var(--lt-card-strong)] text-[var(--lt-text-muted)] shrink-0">🚫 Ya no lo sirven</span>
+                                                            ) : official && official.available === false && (
                                                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 border border-red-500/25 shrink-0">No disponible</span>
                                                             )}
                                                         </div>

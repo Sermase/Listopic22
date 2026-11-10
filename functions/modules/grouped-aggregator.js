@@ -3,7 +3,7 @@
 const { getFirestore, FieldPath } = require('firebase-admin/firestore');
 
 const { compareElementsByRank, reviewScoreForList } = require('./lib/scoring');
-const { elementKey, normalizeItemName, placeClosedStatus, placeGeoFields } = require('./lib/list-elements');
+const { elementKey, isItemUnavailable, normalizeItemName, placeClosedStatus, placeGeoFields } = require('./lib/list-elements');
 const { fetchAuthorRoles, authorOf } = require('./lib/author-roles');
 const { filterPublicReviews } = require('./lib/list-visibility');
 const { aptItemKey } = require('./lib/apt-for');
@@ -246,6 +246,8 @@ function aggregateGroups(listId, listData, reviews, placeMap, botAuthorIds = new
             groups.set(key, group);
         }
 
+        // Plato retirado: lo dice el sitio (places.unavailableItems, solo lo escribe un jefe).
+        if (isItemUnavailable(placeInfo, itemName)) group.itemUnavailable = true;
         group.counted[isBot ? 'bot' : 'human'].push({ review, score });
         const at = reviewMillis(review);
         if (at > group.lastReviewAtMs[isBot ? 'bot' : 'human']) group.lastReviewAtMs[isBot ? 'bot' : 'human'] = at;
@@ -302,6 +304,7 @@ function aggregateGroups(listId, listData, reviews, placeMap, botAuthorIds = new
             ...rest,
             key,
             botOnly,
+            itemUnavailable: group.itemUnavailable === true,
             itemCount,
             lastReviewAtMs: (botOnly ? lastReviewAtMs.bot : lastReviewAtMs.human) || null,
             // Sin redondear: con esta se ordena (rankingScore). La que se ve, a 1 decimal.
@@ -316,14 +319,17 @@ function aggregateGroups(listId, listData, reviews, placeMap, botAuthorIds = new
         };
     });
 
-    // Primero los elementos con valoraciones de personas (los que ve la Lista), luego los de solo bots.
+    // Primero los elementos con valoraciones de personas (los que ve la Lista), luego los de solo bots
+    // y al final lo que ya no se sirve (no quita puesto a nadie).
     const byRank = (a, b) => compareElementsByRank(
         { id: a.key, average: a.average, count: a.itemCount },
         { id: b.key, average: b.average, count: b.itemCount }
     );
+    const active = elements.filter((e) => !e.itemUnavailable);
     const ranked = [
-        ...elements.filter((e) => !e.botOnly).sort(byRank),
-        ...elements.filter((e) => e.botOnly).sort(byRank),
+        ...active.filter((e) => !e.botOnly).sort(byRank),
+        ...active.filter((e) => e.botOnly).sort(byRank),
+        ...elements.filter((e) => e.itemUnavailable).sort(byRank),
     ];
     ranked.forEach((element, index) => { element.listRank = index + 1; });
     return ranked;

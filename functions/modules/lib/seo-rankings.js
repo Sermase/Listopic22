@@ -56,7 +56,7 @@ async function loadRankings() {
     const rankings = [];
     for (const [listSlug, { id, data }] of bySlug) {
         const { groupedReviews, reviews } = await buildGroupedItemsForList(id, { publicOnly: true });
-        const humanGroups = groupedReviews.filter((group) => !group.botOnly);
+        const humanGroups = groupedReviews.filter((group) => !group.botOnly && !group.itemUnavailable);
         const { bots } = await fetchAuthorRoles((reviews || []).map(authorOf));
         // Solo frases de personas: las de bots no se citan como «reales».
         const reviewById = new Map((reviews || []).filter((review) => !bots.has(authorOf(review))).map((review) => [review.id, review]));
@@ -73,7 +73,7 @@ async function loadRankings() {
         });
         const byCity = new Map();
         groupedReviews
-            .filter((group) => !group.botOnly && group.placeCity && group.placeId && !/permanent/i.test(group.placeClosedStatus || ''))
+            .filter((group) => !group.botOnly && !group.itemUnavailable && group.placeCity && group.placeId && !/permanent/i.test(group.placeClosedStatus || ''))
             .forEach((group) => {
                 const citySlug = slugify(group.placeCity);
                 if (!citySlug) return;

@@ -9,6 +9,7 @@ import { getCachedDocs } from '../lib/queryCache';
 import { getBusinessPlanFromPlace } from '../utils/businessPlan';
 import type { BusinessHoursInfo, BusinessWeeklyHours, ResolvedBusinessInfo } from '../types/businessInfo';
 import { placeRating, type PlaceRating } from '../lib/placeRating';
+import { isItemUnavailable } from '../lib/listElements';
 import type { BusinessVisualStyle } from '../services/BusinessProService';
 
 const VISUAL_STYLES: BusinessVisualStyle[] = ['editorial', 'clean', 'warm', 'night'];
@@ -473,6 +474,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
             placeName: placeData?.name || r.placeName,
             placeCity: placeData?.city || r.placeCity,
             placeClosedStatus: placeData?.closedStatus || null,
+            itemUnavailable: isItemUnavailable(placeData, r.itemName),
         };
     });
 
