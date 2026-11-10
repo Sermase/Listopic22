@@ -15,7 +15,8 @@ vi.mock('firebase/functions', () => ({ httpsCallable: () => fs.callable }));
 vi.mock('firebase/firestore', () => ({
     doc: (_db: unknown, ...segments: string[]) => ({ path: segments.join('/') }),
     updateDoc: fs.updateDoc,
-    getDoc: fs.getDoc,
+    // La transacción lee con getDoc y escribe con updateDoc (mismos espías).
+    runTransaction: async (_db: unknown, fn: (tx: unknown) => Promise<unknown>) => fn({ get: fs.getDoc, update: fs.updateDoc }),
     deleteField: () => '<deleteField>',
     serverTimestamp: () => '<serverTimestamp>',
     arrayUnion: (...values: unknown[]) => ({ arrayUnion: values }),

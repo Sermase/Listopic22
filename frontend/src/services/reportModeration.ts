@@ -11,11 +11,13 @@
  *       Marca el plato como retirado (setItemAvailability) y resuelve el reporte.
  *   setItemAvailability({ placeId, itemName, unavailable })
  *       Única marca de «ya no lo sirven»: places.unavailableItems (por nombre normalizado).
+ *   setUserSuspension({ uid, suspended, reason?, reportId? })   suspensión cautelar (callable)
+ *   listSuspendedUsers()                                    cuentas en revisión
  *   syncPlaceStatusFromGoogle(placeId): Promise<string>     texto legible del estado en Google
  *   groupReportPlaceId(targetId)                           placeId de «{placeId}_{elemento}»
  *   CLOSED_STATUS_LABELS
  */
-import { deleteField, doc, getDoc, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, deleteField, doc, getDocs, limit, query, runTransaction, serverTimestamp, updateDoc, where, writeBatch } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../firebase';
 import { adminSearchReviews } from './developerAdmin';
@@ -125,13 +127,16 @@ export async function setItemAvailability({ placeId, itemName, unavailable }: {
     const key = normalizeItemName(itemName);
     if (!placeId || !key) throw new Error('Falta el sitio o el plato.');
     const placeRef = doc(db, 'places', placeId);
-    const snap = await getDoc(placeRef);
-    const stored = snap.data()?.unavailableItems;
-    const current: unknown[] = Array.isArray(stored) ? stored : [];
-    const others = current.filter((name) => normalizeItemName(name) !== key);
-    await updateDoc(placeRef, {
-        unavailableItems: unavailable ? [...others, itemName.trim()] : others,
-        unavailableItemsUpdatedAt: serverTimestamp(),
+    // En transacción: dos jefes marcando platos del mismo sitio a la vez no se pisan.
+    await runTransaction(db, async (tx) => {
+        const snap = await tx.get(placeRef);
+        const stored = snap.data()?.unavailableItems;
+        const current: unknown[] = Array.isArray(stored) ? stored : [];
+        const others = current.filter((name) => normalizeItemName(name) !== key);
+        tx.update(placeRef, {
+            unavailableItems: unavailable ? [...others, itemName.trim()] : others,
+            unavailableItemsUpdatedAt: serverTimestamp(),
+        });
     });
 }
 
@@ -182,4 +187,35 @@ export async function syncPlaceStatusFromGoogle(placeId: string): Promise<string
         return CLOSED_STATUS_LABELS[data.closedStatus];
     }
     return `✅ Operativo${data?.businessStatus ? ` (${data.businessStatus})` : ''}`;
+}
+
+/** Suspensión cautelar: no puede valorar, reaccionar, comentar ni chatear (Términos §7). */
+export async function setUserSuspension({ uid, suspended, reason, reportId }: {
+    uid: string;
+    suspended: boolean;
+    reason?: string;
+    reportId?: string;
+}): Promise<void> {
+    const call = httpsCallable<{ uid: string; suspended: boolean; reason?: string; reportId?: string }, { success: boolean }>(functions, 'adminSetUserSuspension');
+    await call({ uid, suspended, ...(reason?.trim() ? { reason: reason.trim() } : {}), ...(reportId ? { reportId } : {}) });
+}
+
+export interface SuspendedUser {
+    uid: string;
+    name: string;
+    reason: string;
+    reportId: string | null;
+}
+
+export async function listSuspendedUsers(): Promise<SuspendedUser[]> {
+    const snap = await getDocs(query(collection(db, 'users'), where('suspension.active', '==', true), limit(50)));
+    return snap.docs.map((docSnap) => {
+        const data = docSnap.data();
+        return {
+            uid: docSnap.id,
+            name: asText(data.username) || asText(data.displayName) || docSnap.id,
+            reason: asText(data.suspension?.reason),
+            reportId: asText(data.suspension?.reportId) || null,
+        };
+    });
 }
