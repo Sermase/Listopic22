@@ -11,7 +11,7 @@ const { rankingIndexScore } = require("./lib/scoring");
 const { normalizeCcaa } = require("./lib/geo-areas");
 const { syncAllObjects } = require("./lib/algolia-sync");
 const { recalculateListReviewMetrics } = require("./lib/list-metrics");
-const { placeClosedStatus } = require("./lib/list-elements");
+const { placeClosedStatus, placeGeoFields } = require("./lib/list-elements");
 const { pickReviewPhoto } = require("./lib/place-review-photo");
 const { defineSecret } = require("firebase-functions/params");
 const { resolveAlgoliaCredentials, resolveAlgoliaHosts } = require("./lib/algolia-credentials");
@@ -1023,10 +1023,12 @@ const syncGroupedItemsOnAptLedger = onDocumentWritten({ document: "aptLedger/{le
 // Plato retirado o que vuelve (places.unavailableItems): se rehacen las listas
 // con reseñas en ese sitio para que Buscar lo oculte o lo enseñe otra vez.
 const syncGroupedItemsOnPlaceItems = onDocumentUpdated({ document: "places/{placeId}", secrets: ALGOLIA_SECRETS }, async (event) => {
-    // Platos retirados o sitio que cierra/reabre: cambian Buscar y los puestos de sus Listas.
+    // Platos retirados, sitio que cierra/reabre o cambia de zona: cambian Buscar y
+    // los puestos (también por zona) de sus Listas.
     const key = (data) => JSON.stringify([
         Array.isArray(data?.unavailableItems) ? [...data.unavailableItems].sort() : [],
-        placeClosedStatus(data) || null
+        placeClosedStatus(data) || null,
+        placeGeoFields(data)
     ]);
     if (key(event.data?.before?.data()) === key(event.data?.after?.data())) {
         return null;
