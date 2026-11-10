@@ -51,7 +51,7 @@ function usable(reviews: ReadonlyArray<HomeFeedReview>, bots: ReadonlySet<string
     return reviews.filter((r) => {
         if (!r.id || seen.has(r.id) || !str(r.placeId)) return false;
         if (r.visibility && r.visibility !== 'public') return false;
-        if (isPermanentlyClosed(r.placeClosedStatus)) return false;
+        if (isPermanentlyClosed(r.placeClosedStatus) || r.itemUnavailable === true) return false;
         const author = authorOf(r);
         if (author && bots.has(author)) return false;
         const rating = num(r.overallRating);

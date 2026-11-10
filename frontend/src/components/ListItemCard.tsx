@@ -38,6 +38,8 @@ interface ListItemCardProps {
         itemCount?: number;
         listId?: string;
         placeClosedStatus?: string | null;
+        /** El sitio ya no sirve este plato. */
+        itemUnavailable?: boolean;
         tags?: string[];
     };
     rank?: number;
@@ -204,7 +206,14 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
     const listModeTitle = groupingMode === 'dish' ? (dishTitle || item.name) : item.name;
     const showSubtitle = Boolean(item.placeName && item.placeName !== item.name && dishSubtitle);
     const cityLabel = item.placeCity || item.placeAddress;
-    const closedChip = closedKind ? (
+    // Plato retirado: chip discreto y tarjeta atenuada (solo se ve con «Incluir no disponibles»).
+    const itemGone = item.itemUnavailable === true && !closedKind;
+    const isFaded = itemGone || isPermanentlyClosed;
+    const closedChip = itemGone ? (
+        <span title="Ya no está en la carta de este sitio" className="inline-flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold border bg-[var(--lt-card-strong)] border-[var(--lt-border)] text-[var(--lt-text-muted)]">
+            🚫 Ya no lo sirven
+        </span>
+    ) : closedKind ? (
         <span title={isPermanentlyClosed ? 'Google lo da por cerrado' : 'Google lo marca como cerrado temporalmente'} className={`inline-flex shrink-0 items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold border ${isPermanentlyClosed
             ? 'bg-[var(--lt-danger-soft)] border-[var(--lt-danger)]/30 text-[var(--lt-danger)]'
             : 'bg-[var(--lt-warning-soft)] border-[var(--lt-warning)]/30 text-[var(--lt-warning)]'
@@ -230,7 +239,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
         <article data-element-key={elementKey} className={`group relative flex flex-row overflow-hidden rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] transition-[border-color,box-shadow,transform] duration-300 hover:border-[var(--lt-accent-border)] active:scale-[0.99] ${disableLift
             ? ''
             : 'md:hover:-translate-y-0.5 hover:shadow-[0_14px_32px_-14px_var(--lt-accent-shadow)]'}
-            ${isGrid ? 'min-h-[120px] md:min-h-[148px]' : 'min-h-[112px]'}`}>
+            ${isGrid ? 'min-h-[120px] md:min-h-[148px]' : 'min-h-[112px]'} ${isFaded ? 'opacity-60' : ''}`}>
 
             {/* --- GRID MODE (Horizontal compact — same on mobile and desktop) --- */}
             {isGrid ? (

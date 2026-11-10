@@ -501,6 +501,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                 itemName={review.placeName}
                 targetType="review"
                 targetOwnerId={review.userId || review.authorId}
+                placeId={review.placeId}
             />
         </>
     );

@@ -4,6 +4,7 @@ import { ToastProvider } from './context/ToastContext';
 import { ConfirmProvider } from './context/ConfirmContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LegalAcceptanceGate } from './components/legal/LegalAcceptanceGate';
+import { SuspensionBanner } from './components/moderation/SuspensionBanner';
 import { Navbar } from './components/Navbar';
 import { BottomNav } from './components/BottomNav';
 import { WelcomeCards } from './components/WelcomeCards';
@@ -309,6 +310,7 @@ function App() {
               }}>
               <NavbarWrapper />
               <NotificationBanner />
+              <SuspensionBanner />
               <AppRoutes />
               <BottomNav />
               <Suspense fallback={null}><SurpriseHost /></Suspense>

@@ -196,7 +196,7 @@ const fileFromExistingPhoto = async (url: string, index: number, storagePath?: s
 export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChange, prefillPlaceId, prefillItemName, editReviewId: editReviewIdProp, lockList = false, closeOnBack = true, onClose, onSuccess, suggestedListIds }) => {
     useBodyScrollLock(true);
     useBackToClose(closeOnBack, onClose);
-    const { user } = useAuth();
+    const { user, suspension } = useAuth();
     // Editable aquí: si ya tienes reseña de ese plato, «Editar la mía» la abre en este mismo formulario.
     const [editReviewId, setEditReviewId] = useState<string | undefined>(editReviewIdProp);
     useEffect(() => { setEditReviewId(editReviewIdProp); }, [editReviewIdProp]);
@@ -682,6 +682,10 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             // If listId IS present, we respect it. But we must also check if we are fulfilling a "Quiero ir" item.
         }
         if (!user) return; // Safety
+        if (suspension) {
+            setError('Tu cuenta está en revisión: de momento no puedes publicar valoraciones.');
+            return;
+        }
 
         if (!itemName.trim()) {
             setError("El nombre del item es obligatorio");

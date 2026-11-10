@@ -108,7 +108,7 @@ const INDEX_SETTINGS = {
     },
     grouped_items: {
         searchableAttributes: ["unordered(itemName)", "unordered(establishmentName)", "unordered(listName)", "unordered(listCategoryName)", "unordered(groupTags)", "unordered(itemTags)"],
-        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "listCategoryName", "filterOnly(listAvailableTags)", "groupTags", "itemTags", "searchable(placeCity)", "searchable(placeProvince)", "placeRegion", "placeCountry", "authorUserType", "accessibilityOptions", "petOptions", "placeClosedStatus", "placeGoogleBusinessStatus", "placeBusinessStatus", "hasPhoto", "isGlutenFree", "filterOnly(botOnly)"],
+        attributesForFaceting: ["filterOnly(listId)", "listName", "listCategoryId", "listCategoryName", "filterOnly(listAvailableTags)", "groupTags", "itemTags", "searchable(placeCity)", "searchable(placeProvince)", "placeRegion", "placeCountry", "authorUserType", "accessibilityOptions", "petOptions", "placeClosedStatus", "placeGoogleBusinessStatus", "placeBusinessStatus", "hasPhoto", "isGlutenFree", "filterOnly(botOnly)", "filterOnly(itemUnavailable)"],
         replicas: ["grouped_items_by_score", "grouped_items_by_reviews"],
         // Mismo orden que la Lista (compareElementsByRank): listRank deshace los
         // empates de nota y nº de valoraciones con la clave del elemento.
@@ -761,6 +761,8 @@ function mapGroupToAlgoliaRecord(listId, listData, group, category = null) {
         lastReviewAtTimestamp: typeof group.lastReviewAtMs === "number" && group.lastReviewAtMs > 0 ? Math.floor(group.lastReviewAtMs / 1000) : 0,
         // Solo valoraciones de bots: Buscar lo oculta por defecto, como la Lista.
         botOnly: group.botOnly === true,
+        // Plato que el sitio ya no sirve: Buscar lo oculta por defecto, como la Lista.
+        itemUnavailable: group.itemUnavailable === true,
         groupTags: Array.isArray(group.groupTags) ? group.groupTags : [],
         itemTags,
         isGlutenFree: hasGlutenFreeTag(itemTags) || group.glutenFreeSeal === true,
@@ -1003,6 +1005,19 @@ const syncGroupedItemsOnAptLedger = onDocumentWritten({ document: "aptLedger/{le
     return await rebuildGroupedItemsForListIds([...listIds]);
 });
 
+// Plato retirado o que vuelve (places.unavailableItems): se rehacen las listas
+// con reseñas en ese sitio para que Buscar lo oculte o lo enseñe otra vez.
+const syncGroupedItemsOnPlaceItems = onDocumentUpdated({ document: "places/{placeId}", secrets: ALGOLIA_SECRETS }, async (event) => {
+    const key = (data) => JSON.stringify(Array.isArray(data?.unavailableItems) ? [...data.unavailableItems].sort() : []);
+    if (key(event.data?.before?.data()) === key(event.data?.after?.data())) {
+        return null;
+    }
+    const snapshot = await getFirestore().collectionGroup("reviews").where("placeId", "==", event.params.placeId).select("listId", "parentListId", "sublistId").get();
+    const listIds = new Set();
+    snapshot.docs.forEach((doc) => collectReviewListIds(doc.data()).forEach((listId) => listIds.add(listId)));
+    return await rebuildGroupedItemsForListIds([...listIds]);
+});
+
 const syncGroupedItemsOnListDelete = onDocumentDeleted({ document: "lists/{listId}", secrets: ALGOLIA_SECRETS }, async (event) => {
     const listId = event.params.listId;
     return await clearGroupedItemsForList(listId);
@@ -1136,6 +1151,7 @@ module.exports = {
     syncGroupedItemsOnListUpdate,
     syncGroupedItemsOnListDelete,
     syncGroupedItemsOnAptLedger,
+    syncGroupedItemsOnPlaceItems,
     adminBackfillAlgolia
 };
 

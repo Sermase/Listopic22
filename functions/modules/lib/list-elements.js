@@ -49,10 +49,18 @@ function placeClosedStatus(place) {
   return status || null;
 }
 
+/** El sitio ya no sirve este plato (places.unavailableItems), por nombre normalizado, como la web. */
+function isItemUnavailable(place, itemName) {
+  const list = place && place.unavailableItems;
+  if (!Array.isArray(list) || list.length === 0) return false;
+  const key = normalizeItemName(itemName);
+  return Boolean(key) && list.some((name) => normalizeItemName(name) === key);
+}
+
 /** userType de un perfil (texto o lista) incluye «bot». */
 function isBotUserType(userType) {
   const types = Array.isArray(userType) ? userType : [userType];
   return types.some((type) => typeof type === 'string' && type.trim() === 'bot');
 }
 
-module.exports = { normalizeItemName, elementKey, placeGeoFields, placeClosedStatus, isBotUserType };
+module.exports = { normalizeItemName, elementKey, placeGeoFields, placeClosedStatus, isItemUnavailable, isBotUserType };

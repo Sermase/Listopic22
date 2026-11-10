@@ -8,6 +8,13 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.get('firebase', {}).get('sign_in_provider', '') != 'anonymous';
     }
 
+    // Cuenta en revisión (suspensión cautelar de un jefe, claim «suspended»):
+    // puede leer, editar su perfil, borrar lo suyo y su cuenta, pero no
+    // valorar, reaccionar, comentar ni chatear.
+    function canPost() {
+      return isUser() && request.auth.token.get('suspended', false) != true;
+    }
+
     // --- Función de ayuda para roles (UNIFICADA) ---
     function isJefe(userId) {
       return isUser() &&
@@ -712,7 +719,7 @@ service cloud.firestore {
           ));
         // CREATE: Validar que tenga permiso de ESCRITURA en la lista,
         // o que tenga acceso de escritura en una sublista de esta lista
-        allow create: if isUser()
+        allow create: if canPost()
                          && request.resource.data.userId == request.auth.uid
                          && request.resource.data.listId == listId
                          && reviewCreateHasOnlyAllowedFields()
@@ -720,7 +727,7 @@ service cloud.firestore {
                          && (canWriteToList(listId) || canWriteToSublistOf(listId));
         
         // UPDATE/DELETE: El autor o un jefe puede hacerlo.
-        allow update: if isUser()
+        allow update: if canPost()
                       && reviewUpdateChangesOnlyAllowedFields()
                       && request.resource.data.listId == listId
                       && (
@@ -742,7 +749,7 @@ service cloud.firestore {
 
         match /reactions/{reactionUserId} {
           allow read: if canReadListById(listId);
-          allow create, update: if isUser()
+          allow create, update: if canPost()
                                  && request.auth.uid == reactionUserId
                                  && request.resource.data.userId == request.auth.uid
                                  && reactionHasOnlyAllowedFields()
@@ -754,11 +761,11 @@ service cloud.firestore {
 
         match /comments/{commentId} {
           allow read: if canReadListById(listId);
-          allow create: if isUser()
+          allow create: if canPost()
                           && canReadListById(listId)
                           && request.resource.data.userId == request.auth.uid
                           && commentCreateHasOnlyAllowedFields();
-          allow update: if isUser()
+          allow update: if canPost()
                          && canReadListById(listId)
                          && (
                               resource.data.userId == request.auth.uid
@@ -782,13 +789,13 @@ service cloud.firestore {
     // collectionGroup('reviews') fallen por documentos antiguos.
     match /reviews/{reviewId} {
       allow read: if resource.data.listId is string && canReadReviewByListId(resource.data.listId);
-      allow create: if isUser()
+      allow create: if canPost()
                     && request.resource.data.userId == request.auth.uid
                     && request.resource.data.listId is string
                     && reviewCreateHasOnlyAllowedFields()
                     && reviewVisibilityMatchesList(request.resource.data, request.resource.data.listId)
                     && canWriteToList(request.resource.data.listId);
-      allow update: if isUser()
+      allow update: if canPost()
                     && request.resource.data.listId is string
                     && reviewUpdateChangesOnlyAllowedFields()
                     && (
@@ -814,7 +821,7 @@ service cloud.firestore {
     // ===============================================
     match /list_likes/{likeId} {
       allow read: if isUser();
-      allow create: if isUser() && request.resource.data.userId == request.auth.uid;
+      allow create: if canPost() && request.resource.data.userId == request.auth.uid;
       allow delete: if isUser() && resource.data.userId == request.auth.uid;
     }
 
@@ -1030,7 +1037,7 @@ service cloud.firestore {
         allow read, list: if canAccessList();
         // Crear mensajes requiere además que el remitente sea el propio usuario
         // autenticado (evita suplantaciones dentro del foro).
-        allow create: if isUser()
+        allow create: if canPost()
                        && canAccessList()
                        && request.resource.data.userId == request.auth.uid;
         allow update, delete: if isUser() && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid));
@@ -1043,7 +1050,7 @@ service cloud.firestore {
     match /chatInvites/{code} {
       allow get: if true;
       allow list: if false;
-      allow create, update: if isUser()
+      allow create, update: if canPost()
                              && request.resource.data.keys().hasOnly(['chatId', 'groupName', 'byName', 'approval', 'createdAt', 'events'])
                              && request.resource.data.get('approval', false) is bool
                              && request.resource.data.get('events', {}) is map
@@ -1060,7 +1067,7 @@ service cloud.firestore {
     match /chats/{chatId} {
       allow list, get: if isUser()
                   && request.auth.uid in resource.data.participants;
-      allow create: if isUser()
+      allow create: if canPost()
                      && request.auth.uid in request.resource.data.participants;
       // Se puede añadir gente (un chat privado pasa a grupo), pero nadie puede
       // expulsar a otros participantes ni reescribir la lista.
@@ -1071,7 +1078,7 @@ service cloud.firestore {
                      && request.resource.data.participants.size() <= 50;
       // Enlace de invitación (/g/{código}): quien no está entra él solo en un
       // grupo con el código vigente, sin tocar nada más.
-      allow update: if isUser()
+      allow update: if canPost()
                      && !(request.auth.uid in resource.data.participants)
                      && resource.data.type == 'group'
                      && resource.data.get('joinApproval', false) != true
@@ -1092,7 +1099,7 @@ service cloud.firestore {
         }
         allow get: if (isUser() && request.auth.uid == uid) || isChatMember();
         allow list: if isChatMember();
-        allow create: if isUser()
+        allow create: if canPost()
                        && request.auth.uid == uid
                        && !isChatMember()
                        && get(/databases/$(database)/documents/chats/$(chatId)).data.type == 'group'
@@ -1108,13 +1115,13 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow list, get: if isUser()
                      && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
-        allow create: if isUser()
+        allow create: if canPost()
                        && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
                        && request.resource.data.senderId == request.auth.uid;
         // Un mensaje no se reescribe. Solo cambia lo «vivo»: la reacción propia,
         // la respuesta propia a una invitación, el voto propio en una encuesta y,
         // si invitas tú, la fecha de tu invitación o cancelarla.
-        allow update: if isUser()
+        allow update: if canPost()
                        && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions', 'invite', 'poll', 'datePoll'])
                        && chatReactionUpdateOk()

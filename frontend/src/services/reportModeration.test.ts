@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const fs = vi.hoisted(() => ({
     updateDoc: vi.fn(),
+    getDoc: vi.fn(),
     batchUpdate: vi.fn(),
     batchCommit: vi.fn(),
     callable: vi.fn(),
@@ -14,13 +15,15 @@ vi.mock('firebase/functions', () => ({ httpsCallable: () => fs.callable }));
 vi.mock('firebase/firestore', () => ({
     doc: (_db: unknown, ...segments: string[]) => ({ path: segments.join('/') }),
     updateDoc: fs.updateDoc,
+    // La transacción lee con getDoc y escribe con updateDoc (mismos espías).
+    runTransaction: async (_db: unknown, fn: (tx: unknown) => Promise<unknown>) => fn({ get: fs.getDoc, update: fs.updateDoc }),
     deleteField: () => '<deleteField>',
     serverTimestamp: () => '<serverTimestamp>',
     arrayUnion: (...values: unknown[]) => ({ arrayUnion: values }),
     writeBatch: () => ({ update: fs.batchUpdate, commit: fs.batchCommit }),
 }));
 
-import { groupReportPlaceId, markGroupItemUnavailable, syncPlaceStatusFromGoogle, updateReportStatus } from './reportModeration';
+import { groupReportPlaceId, markGroupItemUnavailable, setItemAvailability, syncPlaceStatusFromGoogle, updateReportStatus } from './reportModeration';
 
 beforeEach(() => {
     Object.values(fs).forEach((mock) => mock.mockReset());
@@ -71,10 +74,25 @@ describe('updateReportStatus', () => {
 });
 
 describe('markGroupItemUnavailable', () => {
-    it('añade el elemento al lugar y resuelve el reporte', async () => {
+    it('añade el elemento al lugar (sin repetir variantes del nombre) y resuelve el reporte', async () => {
+        fs.getDoc.mockResolvedValue({ data: () => ({ unavailableItems: ['bravás', 'Tomate'] }) });
         await markGroupItemUnavailable({ reportId: 'r3', report: { targetType: 'group', targetId: 'p9_Bravas', targetName: 'Bravas' }, actorUid: 'jefe' });
-        expect(fs.updateDoc).toHaveBeenNthCalledWith(1, { path: 'places/p9' }, { unavailableItems: { arrayUnion: ['Bravas'] } });
+        expect(fs.updateDoc).toHaveBeenNthCalledWith(1, { path: 'places/p9' }, { unavailableItems: ['Tomate', 'Bravas'], unavailableItemsUpdatedAt: '<serverTimestamp>' });
         expect(fs.updateDoc).toHaveBeenNthCalledWith(2, { path: 'reports/r3' }, expect.objectContaining({ status: 'resolved' }));
+    });
+
+    it('un reporte antiguo desde una reseña busca su sitio y su plato', async () => {
+        fs.searchReviews.mockResolvedValue({ reviews: [{ id: 'rv1', placeId: 'p7', itemName: 'Pincho de feria' }] });
+        fs.getDoc.mockResolvedValue({ data: () => ({}) });
+        await markGroupItemUnavailable({ reportId: 'r4', report: { targetType: 'review', targetId: 'rv1', targetOwnerId: 'u1' } });
+        expect(fs.searchReviews).toHaveBeenCalledWith({ userId: 'u1', limit: 5000 });
+        expect(fs.updateDoc).toHaveBeenNthCalledWith(1, { path: 'places/p7' }, expect.objectContaining({ unavailableItems: ['Pincho de feria'] }));
+    });
+
+    it('«Vuelve a estar» quita el plato por nombre normalizado', async () => {
+        fs.getDoc.mockResolvedValue({ data: () => ({ unavailableItems: ['Tomate ', 'Bravas'] }) });
+        await setItemAvailability({ placeId: 'p9', itemName: 'tomate', unavailable: false });
+        expect(fs.updateDoc).toHaveBeenCalledWith({ path: 'places/p9' }, { unavailableItems: ['Bravas'], unavailableItemsUpdatedAt: '<serverTimestamp>' });
     });
 
     it('sin elemento no escribe nada', async () => {

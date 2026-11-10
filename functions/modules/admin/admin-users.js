@@ -10,6 +10,7 @@ const { tallyReviewsByUser } = require('../lib/review-tally');
 const { userReviewDocs } = require('../lib/user-reviews');
 const { cleanupUserFootprint } = require('./admin-gdpr');
 const { GDPR_AUDIT_RETAIN_DAYS } = require('../lib/gdpr');
+const { sendNotification } = require('../notifications');
 
 const db = getFirestore();
 const BATCH_LIMIT = 450;
@@ -252,6 +253,46 @@ const adminProvisionJefeClaim = onCall(async (request) => {
   return { success: true };
 });
 
+// Suspensión cautelar (Términos §7): mientras se revisa una denuncia, la
+// persona puede leer, editar su perfil, exportar sus datos y borrar su cuenta,
+// pero no valorar, reaccionar, comentar ni chatear (reglas: canPost()).
+// Claim «suspended» en el token + users/{uid}.suspension para el aviso en la app
+// (que refresca el token al verlo). Siempre la pone y la quita un jefe, a mano.
+const adminSetUserSuspension = onCall(async (request) => {
+  const contextAuth = request.auth;
+  if (!contextAuth) throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
+  await assertJefeAccess(contextAuth.uid, 'Solo los jefes pueden suspender cuentas.');
+
+  const uid = typeof request.data?.uid === 'string' ? request.data.uid.trim() : '';
+  const suspended = request.data?.suspended === true;
+  const reason = typeof request.data?.reason === 'string' ? request.data.reason.trim().slice(0, 500) : '';
+  const reportId = typeof request.data?.reportId === 'string' ? request.data.reportId.trim().slice(0, 128) : null;
+  if (!uid) throw new HttpsError('invalid-argument', 'Falta la cuenta.');
+  if (uid === contextAuth.uid) throw new HttpsError('failed-precondition', 'No puedes suspender tu propia cuenta.');
+
+  const userRecord = await getAuth().getUser(uid);
+  if (suspended && userRecord.customClaims?.admin === true) {
+    throw new HttpsError('failed-precondition', 'No se puede suspender a un jefe.');
+  }
+  const { suspended: _old, ...otherClaims } = userRecord.customClaims || {};
+  await getAuth().setCustomUserClaims(uid, suspended ? { ...otherClaims, suspended: true } : otherClaims);
+
+  await db.collection('users').doc(uid).set({
+    suspension: suspended
+      ? { active: true, reason, reportId, since: FieldValue.serverTimestamp(), by: contextAuth.uid }
+      : FieldValue.delete(),
+  }, { merge: true });
+  await writeAuditLog(contextAuth.uid, suspended ? 'adminSuspendUser' : 'adminLiftSuspension', { uid, reason, reportId });
+
+  await sendNotification(uid, 'account_suspension', {
+    message: suspended
+      ? `Tu cuenta está en revisión por una denuncia${reason ? ` (${reason})` : ''}. Mientras tanto no puedes valorar, reaccionar ni chatear. Si crees que es un error, escríbenos a istaricore@gmail.com.`
+      : 'Hemos revisado tu cuenta: ya puedes volver a valorar, reaccionar y chatear.',
+    link: '/preferencias',
+  });
+  return { success: true, suspended };
+});
+
 const adminBackfillPublicProfiles = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (request) => {
   const contextAuth = request.auth;
   if (!contextAuth) throw new HttpsError('unauthenticated', 'Debes estar autenticado.');
@@ -372,6 +413,7 @@ const deleteOwnAccount = onCall({ timeoutSeconds: 540, memory: '1GiB' }, async (
 module.exports = {
   adminRecalculateAllUsers,
   adminProvisionJefeClaim,
+  adminSetUserSuspension,
   adminBackfillPublicProfiles,
   propagateAuthorFieldsToReviews,
   deleteOwnAccount,

@@ -59,7 +59,7 @@ export const TermsPage: React.FC = () => (
 
         <LegalSection title="7. Denuncias y moderación">
             <p>Si ves contenido ilegal o que incumple estas normas, denúncialo con la opción «Reportar» o escribiéndonos a <LegalMail />, indicando el contenido y el motivo. Revisaremos cada aviso.</p>
-            <p>Podemos retirar contenido o suspender cuentas que incumplan estos términos. Si lo hacemos, te explicaremos el motivo y podrás responder a ese mismo correo para pedir que lo revisemos.</p>
+            <p>Podemos retirar contenido o suspender cuentas que incumplan estos términos. Mientras revisamos una denuncia, podemos suspender una cuenta de forma cautelar: podrás seguir leyendo, editar tu perfil, descargar tus datos o borrar tu cuenta, pero no valorar, reaccionar, comentar ni chatear. Si lo hacemos, te explicaremos el motivo y podrás responder a ese mismo correo para pedir que lo revisemos.</p>
         </LegalSection>
 
         <LegalSection title="8. Dar de baja tu cuenta">

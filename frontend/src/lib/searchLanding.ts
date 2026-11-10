@@ -224,7 +224,7 @@ export function pickNearby(
         const placeId = str(review.placeId);
         if (!reviewId || !placeId || seen.has(reviewId)) return;
         if (review.visibility && review.visibility !== 'public') return;
-        if (isPermanentlyClosed(review.placeClosedStatus)) return;
+        if (isPermanentlyClosed(review.placeClosedStatus) || review.itemUnavailable === true) return;
         const author = reviewAuthor(review);
         if ((author && botUserIds?.has(author)) || isBotType(review.authorUserType)) return;
         const rating = num(review.overallRating);

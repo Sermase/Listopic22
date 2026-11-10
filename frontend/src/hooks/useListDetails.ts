@@ -4,7 +4,7 @@ import { doc, getDoc, query, where, getDocs, Timestamp, collection } from 'fireb
 import { db } from '../firebase';
 import { firstUsablePlaceImage } from '../utils/placeImages';
 import { type ListEntity } from './useLists';
-import { placeClosedStatus, placeGeoFields } from '../lib/listElements';
+import { isItemUnavailable, placeClosedStatus, placeGeoFields } from '../lib/listElements';
 import { crowdPlaceSignals, itemAptOk, type AptKey } from '../lib/aptFor';
 import { reviewItemId } from '../lib/placeItems';
 
@@ -55,6 +55,8 @@ export interface ReviewEntity {
     placeCountry?: string;
     placeMainImage?: string;
     placeClosedStatus?: string | null;
+    /** El sitio ya no sirve este plato. */
+    itemUnavailable?: boolean;
     accessibilityOptions?: Record<string, unknown> | string[];
     accessibility?: Record<string, unknown> | string[];
     placeAccessibilityOptions?: Record<string, unknown> | string[];
@@ -213,6 +215,7 @@ export async function fetchListDetails(listId: string): Promise<{ list: ListEnti
             placeMainImage: firstUsablePlaceImage(place?.userPhotoUrl, place?.mainImageUrl, place?.photos),
             placeAverageRating: place?.averageRating ?? place?.rating ?? place?.avgScore,
             placeClosedStatus: placeClosedStatus(place),
+            itemUnavailable: isItemUnavailable(place, review.itemName),
             placePetOptions: officialPets || (Object.keys(crowd.pets).length ? crowd.pets : undefined),
             // Lo que dice la gente; encima, Google y, encima de todo, el propio local.
             placeAccessibility: place?.accessibility || place?.businessAccessibility || Object.keys(crowd.accessibility).length

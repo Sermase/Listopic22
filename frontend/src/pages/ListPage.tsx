@@ -414,6 +414,8 @@ export const ListPage: React.FC = () => {
             criteriaSums: Record<string, number>;
             criteriaCounts: Record<string, number>;
             placeClosedStatus?: string | null;
+            /** Reseñas de platos que el sitio ya no sirve (todas = elemento no disponible). */
+            unavailableCount: number;
             accessibilityOptions: string[];
             petOptions: string[];
             lat?: number;
@@ -462,6 +464,7 @@ export const ListPage: React.FC = () => {
                     aptOk: [],
                     tags: [],
                     placeClosedStatus: review.placeClosedStatus || null,
+                    unavailableCount: 0,
                     accessibilityOptions: extractAccessibilityKeys(
                         review.accessibilityOptions,
                         review.accessibility,
@@ -480,6 +483,7 @@ export const ListPage: React.FC = () => {
             const g = groups[key];
             g.totalRating += reviewScore;
             g.count += 1;
+            if (review.itemUnavailable) g.unavailableCount += 1;
 
             if (reviewScore > g.maxScore) {
                 g.maxScore = reviewScore;
@@ -591,6 +595,7 @@ export const ListPage: React.FC = () => {
                 photoUrl: g.photoUrl || g.placeMainImage,
                 avgRating: g.totalRating / g.count,
                 reviewCount: g.count,
+                itemUnavailable: g.unavailableCount > 0 && g.unavailableCount === g.count,
                 items: g.items.sort((a, b) => b.score - a.score),
                 criteriaAverages,
                 criteriaDefinition: list?.criteriaDefinition,
@@ -751,6 +756,7 @@ export const ListPage: React.FC = () => {
             petOptions: string[];
             reviewsCount: number;
             placeClosedStatus?: string | null;
+            unavailableCount: number;
             geo: GeoFields;
         }> = {};
 
@@ -784,6 +790,7 @@ export const ListPage: React.FC = () => {
                     ),
                     reviewsCount: 0,
                     placeClosedStatus: review.placeClosedStatus || null,
+                    unavailableCount: 0,
                     geo: { city: review.placeCity, province: review.placeProvince, region: review.placeRegion, country: review.placeCountry },
                 };
             }
@@ -792,6 +799,7 @@ export const ListPage: React.FC = () => {
             // Accumulate Items
             g.items.push({ name: review.itemName, score: reviewScore });
             g.reviewsCount++;
+            if (review.itemUnavailable) g.unavailableCount += 1;
             if (Array.isArray(review.tags)) g.allTags.push(...review.tags);
             if (Array.isArray(review.userTags)) g.allTags.push(...review.userTags);
             (review.aptOk || []).forEach((key) => { if (!g.aptOk.includes(key)) g.aptOk.push(key); });
@@ -832,6 +840,8 @@ export const ListPage: React.FC = () => {
         return Object.values(placeGroups).map(g => ({
             ...g,
             rating: g.maxScore, // Override rating for Pin Color with Max Score
+            // Sitio en el mapa solo con platos que ya no sirven: fuera por defecto, como en la lista.
+            itemUnavailable: g.unavailableCount > 0 && g.unavailableCount === g.reviewsCount,
             items: g.items.sort((a, b) => b.score - a.score) // Sort items descending
         }));
     }, [visibleReviews, list]);
@@ -886,9 +896,14 @@ export const ListPage: React.FC = () => {
             });
         }
 
-        // Filter permanently closed places (unless toggle enabled)
+        // Sitios cerrados y platos que ya no sirven: fuera por defecto; con el
+        // filtro «Incluir no disponibles», al final (sin quitar sitio a nadie).
+        const isGone = (item: { placeClosedStatus?: string | null; itemUnavailable?: boolean }) =>
+            item.itemUnavailable === true || isClosedPlaceStatus(item.placeClosedStatus);
         if (!showUnavailable) {
-            result = result.filter(item => !isClosedPlaceStatus(item.placeClosedStatus));
+            result = result.filter(item => !isGone(item));
+        } else {
+            result = [...result.filter(item => !isGone(item)), ...result.filter(isGone)];
         }
 
         // 2. Apply Search
@@ -928,9 +943,9 @@ export const ListPage: React.FC = () => {
 
         let result = mapItems;
 
-        // Hide permanently closed places from map
+        // Sin sitios cerrados ni sitios donde ya no sirven nada de la lista (salvo con el filtro)
         if (!showUnavailable) {
-            result = result.filter(item => !isClosedPlaceStatus(item.placeClosedStatus));
+            result = result.filter(item => !item.itemUnavailable && !isClosedPlaceStatus(item.placeClosedStatus));
         }
 
         if (filters.minRating > 0) {
@@ -1634,7 +1649,7 @@ export const ListPage: React.FC = () => {
                                     >
                                         <ListItemCard
                                             item={filteredItems[virtualRow.index]}
-                                            rank={sortMode === 'rating' ? virtualRow.index + 1 : undefined}
+                                            rank={sortMode === 'rating' && !filteredItems[virtualRow.index].itemUnavailable && !isClosedPlaceStatus(filteredItems[virtualRow.index].placeClosedStatus) ? virtualRow.index + 1 : undefined}
                                             elementKey={filteredItems[virtualRow.index].id}
                                             contextRankLabel={primaryContextRank(contextRanksById.get(filteredItems[virtualRow.index].id), effectiveArea, filteredItemsAll.length)?.label}
                                             isGrid={false}

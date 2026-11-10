@@ -42,6 +42,9 @@ vi.mock('firebase/firestore', () => ({
     },
 }));
 vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
+vi.mock('../context/ConfirmContext', () => ({ useConfirm: () => vi.fn() }));
+vi.mock('../context/ToastContext', () => ({ useToast: () => ({ showToast: vi.fn() }) }));
+vi.mock('../services/reportModeration', () => ({ setItemAvailability: vi.fn() }));
 vi.mock('../context/AuthPromptContext', () => ({ useAuthPrompt: () => ({ openAuthPrompt: vi.fn() }) }));
 vi.mock('../components/ElementRanks', () => ({ ElementRanks: () => null }));
 vi.mock('../components/lazy', () => ({ LazyAddReviewForm: () => null, LazyShareModal: () => null }));
