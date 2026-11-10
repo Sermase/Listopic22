@@ -10,6 +10,8 @@ const { buildGroupedItemsForList } = require("./grouped-aggregator");
 const { rankingIndexScore } = require("./lib/scoring");
 const { normalizeCcaa } = require("./lib/geo-areas");
 const { syncAllObjects } = require("./lib/algolia-sync");
+const { recalculateListReviewMetrics } = require("./lib/list-metrics");
+const { placeClosedStatus } = require("./lib/list-elements");
 const { pickReviewPhoto } = require("./lib/place-review-photo");
 const { defineSecret } = require("firebase-functions/params");
 const { resolveAlgoliaCredentials, resolveAlgoliaHosts } = require("./lib/algolia-credentials");
@@ -823,25 +825,37 @@ async function clearGroupedItemsForList(listId, indexOverride) {
     return null;
 }
 
+/** Resumen de puestos fuera: la Lista pasa a privada o se borra (lo lee cualquiera). */
+async function deleteListRanking(listId) {
+    try {
+        await getFirestore().collection("listRankings").doc(listId).delete();
+    } catch (error) {
+        logger.error(`listRankings: no se pudo borrar el resumen de ${listId}`, error);
+    }
+}
+
 async function rebuildGroupedItemsForList(listId) {
     if (!listId) {
         return null;
     }
+    // Una sola lectura de la Lista para todo: métricas, resumen de puestos y Buscar.
+    // Sin Algolia configurado, lo demás se rehace igual.
     const index = await getIndexWithSettings("grouped_items");
-    if (!index) {
-        return null;
-    }
     try {
-        const { listData, groupedReviews } = await buildGroupedItemsForList(listId, { publicOnly: true });
-        if (!listData || listData.isPublic === false) {
-            await clearGroupedItemsForList(listId, index);
-            return null;
-        }
-        const category = await resolveCategoryMetadata(listData.categoryId || null, listData);
-        const records = (groupedReviews || []).map((group) => mapGroupToAlgoliaRecord(listId, listData, group, category));
-        // Sin vaciar antes (Buscar se quedaba sin resultados de la Lista un momento
-        // en cada valoración): se guardan los nuevos y se borran los que sobran.
-        await syncAllObjects(index, records, { filters: buildFilterEquality("listId", listId) });
+        await recalculateListReviewMetrics(listId, {
+            onGrouped: async ({ listData, groupedReviews, isPublic }) => {
+                if (!index) return;
+                if (!listData || !isPublic || listData.isPublic === false) {
+                    await clearGroupedItemsForList(listId, index);
+                    return;
+                }
+                const category = await resolveCategoryMetadata(listData.categoryId || null, listData);
+                const records = (groupedReviews || []).map((group) => mapGroupToAlgoliaRecord(listId, listData, group, category));
+                // Sin vaciar antes (Buscar se quedaba sin resultados de la Lista un momento
+                // en cada valoración): se guardan los nuevos y se borran los que sobran.
+                await syncAllObjects(index, records, { filters: buildFilterEquality("listId", listId) });
+            }
+        });
     } catch (error) {
         logger.error(`Algolia: failed syncing grouped items for list ${listId}`, error);
     }
@@ -993,6 +1007,7 @@ const syncGroupedItemsOnListUpdate = onDocumentUpdated({ document: "lists/{listI
     }
     const listId = event.params.listId;
     if (afterData && afterData.isPublic === false) {
+        await deleteListRanking(listId);
         return await clearGroupedItemsForList(listId);
     }
     return await rebuildGroupedItemsForList(listId);
@@ -1008,7 +1023,11 @@ const syncGroupedItemsOnAptLedger = onDocumentWritten({ document: "aptLedger/{le
 // Plato retirado o que vuelve (places.unavailableItems): se rehacen las listas
 // con reseñas en ese sitio para que Buscar lo oculte o lo enseñe otra vez.
 const syncGroupedItemsOnPlaceItems = onDocumentUpdated({ document: "places/{placeId}", secrets: ALGOLIA_SECRETS }, async (event) => {
-    const key = (data) => JSON.stringify(Array.isArray(data?.unavailableItems) ? [...data.unavailableItems].sort() : []);
+    // Platos retirados o sitio que cierra/reabre: cambian Buscar y los puestos de sus Listas.
+    const key = (data) => JSON.stringify([
+        Array.isArray(data?.unavailableItems) ? [...data.unavailableItems].sort() : [],
+        placeClosedStatus(data) || null
+    ]);
     if (key(event.data?.before?.data()) === key(event.data?.after?.data())) {
         return null;
     }
@@ -1020,6 +1039,7 @@ const syncGroupedItemsOnPlaceItems = onDocumentUpdated({ document: "places/{plac
 
 const syncGroupedItemsOnListDelete = onDocumentDeleted({ document: "lists/{listId}", secrets: ALGOLIA_SECRETS }, async (event) => {
     const listId = event.params.listId;
+    await deleteListRanking(listId);
     return await clearGroupedItemsForList(listId);
 });
 
