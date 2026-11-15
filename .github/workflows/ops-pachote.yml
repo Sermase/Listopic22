@@ -1,0 +1,25 @@
+# Diagnóstico puntual de Pachote, solo lectura. Se ejecuta al empujar a una rama ops/pachote-*.
+name: Diagnóstico Pachote
+on:
+  push:
+    branches: ['ops/pachote-*']
+permissions:
+  contents: read
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: 20}
+      - name: Ejecutar
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LISTOPIC }}
+        run: |
+          echo "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          cd .github/ops-pachote && npm init -y >/dev/null && npm i --silent firebase-admin@12 >/dev/null 2>&1
+          node diag.js > "$RUNNER_TEMP/out.txt" 2>&1; code=$?
+          rm -f "$RUNNER_TEMP/sa.json"
+          echo "::notice title=Resultado::$(sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' "$RUNNER_TEMP/out.txt")"
+          exit $code
