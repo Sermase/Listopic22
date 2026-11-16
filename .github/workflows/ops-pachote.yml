@@ -19,7 +19,7 @@ jobs:
           echo "$SA" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
           cd .github/ops-pachote && npm init -y >/dev/null && npm i --silent firebase-admin@12 >/dev/null 2>&1
-          (node fix.js && echo "--- después:" && node diag.js) > "$RUNNER_TEMP/out.txt" 2>&1; code=$?
+          (node diag.js) > "$RUNNER_TEMP/out.txt" 2>&1; code=$?
           rm -f "$RUNNER_TEMP/sa.json"
           echo "::notice title=Resultado::$(sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' "$RUNNER_TEMP/out.txt")"
           exit $code
