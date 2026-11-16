@@ -13,6 +13,7 @@ import {
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
 import {
+  arrayRemove,
   arrayUnion,
   collection,
   collectionGroup,
@@ -657,24 +658,22 @@ describe('V6c · Enlace de invitación a un grupo', () => {
 });
 
 // ---------------------------------------------------------------------------
-describe('V7 · Contadores de reseña: solo ±1 y sin tocar el contenido ajeno', () => {
-  it('❌ bob pone 9999 me gusta o suma +5 comentarios', async () => {
+describe('V7 · Contadores de reseña: solo los escribe el servidor', () => {
+  it('❌ bob pone 9999 me gusta, suma comentarios o +1 me gusta a mano', async () => {
     const db = as('bob');
     await assertFails(updateDoc(doc(db, 'lists/pub/reviews/rPub'), { reactionCounts: { like: 9999, dislike: 0 } }));
     await assertFails(updateDoc(doc(db, 'lists/pub/reviews/rPub'), { commentsCount: 5 }));
+    await assertFails(updateDoc(doc(db, 'lists/pub/reviews/rPub'), { commentsCount: increment(1) }));
+    await assertFails(updateDoc(doc(db, 'lists/pub/reviews/rPub'), { 'reactionCounts.like': increment(1) }));
   });
 
-  it('✅ bob suma +1 al contador de comentarios de una reseña pública', async () => {
-    await assertSucceeds(updateDoc(doc(as('bob'), 'lists/pub/reviews/rPub'), { commentsCount: increment(1) }));
+  it('❌ alice se pone 5000 me gusta en su propia reseña', async () => {
+    await assertFails(updateDoc(doc(as('alice'), 'lists/pub/reviews/rPub'), { reactionCounts: { like: 5000, dislike: 0 } }));
+    await assertFails(updateDoc(doc(as('alice'), 'lists/pub/reviews/rPub'), { placeClosedStatus: 'open', moderationStatus: 'ok' }));
   });
 
-  it('✅ al borrar un comentario se resta 1', async () => {
-    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'lists/pub/reviews/rPub'), { commentsCount: 2 }));
-    await assertSucceeds(updateDoc(doc(as('bob'), 'lists/pub/reviews/rPub'), { commentsCount: increment(-1) }));
-  });
-
-  it('✅ bob suma +1 me gusta', async () => {
-    await assertSucceeds(updateDoc(doc(as('bob'), 'lists/pub/reviews/rPub'), { 'reactionCounts.like': increment(1) }));
+  it('✅ el jefe sí puede corregir contadores', async () => {
+    await assertSucceeds(updateDoc(doc(jefe(), 'lists/pub/reviews/rPub'), { reactionCounts: { like: 3, dislike: 0 } }));
   });
 
   it('❌ bob edita el comentario o la nota de la reseña de alice', async () => {
@@ -1076,5 +1075,88 @@ describe('V20 · Cuenta en revisión (claim «suspended»)', () => {
   it('❌ nadie se quita la suspensión desde la app', async () => {
     await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'users/bob'), { username: 'bob', suspension: { active: true, reason: 'x' } }, { merge: true }));
     await assertFails(updateDoc(doc(suspendedBob(), 'users/bob'), { suspension: deleteField() }));
+  });
+});
+
+// ---------------------------------------------------------------------------
+describe('V30 · Auditoría 13/11: datos trucados', () => {
+  const nueva = (extra = {}) => ({
+    listId: 'pub', visibility: 'public', userId: 'bob', authorId: 'bob', itemName: 'Smash', placeId: 'p1',
+    overallRating: 8, scores: { carne: 8, pan: 8 }, comment: 'Rica', reactionCounts: { like: 0, dislike: 0 },
+    commentsCount: 0, createdAt: serverTimestamp(), ...extra,
+  });
+
+  it('✅ reseña normal', async () => {
+    await assertSucceeds(setDoc(doc(as('bob'), 'lists/pub/reviews/b1'), nueva()));
+  });
+
+  it('❌ nota 999, nota negativa o texto como nota', async () => {
+    await assertFails(setDoc(doc(as('bob'), 'lists/pub/reviews/b1'), nueva({ overallRating: 999 })));
+    await assertFails(setDoc(doc(as('bob'), 'lists/pub/reviews/b2'), nueva({ overallRating: -5 })));
+    await assertFails(setDoc(doc(as('bob'), 'lists/pub/reviews/b3'), nueva({ overallRating: '10' })));
+    await assertFails(updateDoc(doc(as('alice'), 'lists/pub/reviews/rPub'), { overallRating: 50 }));
+  });
+
+  it('✅ alice edita su nota dentro de 0–10', async () => {
+    await assertSucceeds(updateDoc(doc(as('alice'), 'lists/pub/reviews/rPub'), { overallRating: 9.5, comment: 'Mejor aún' }));
+  });
+
+  it('❌ nace con 5000 me gusta, comentarios o fecha futura', async () => {
+    await assertFails(setDoc(doc(as('bob'), 'lists/pub/reviews/b1'), nueva({ reactionCounts: { like: 5000, dislike: 0 } })));
+    await assertFails(setDoc(doc(as('bob'), 'lists/pub/reviews/b2'), nueva({ commentsCount: 40 })));
+    await assertFails(setDoc(doc(as('bob'), 'lists/pub/reviews/b3'), nueva({ createdAt: new Date(Date.now() + 86400000) })));
+  });
+
+  it('❌ comentario de 900 KB', async () => {
+    await assertFails(setDoc(doc(as('bob'), 'lists/pub/reviews/b1'), nueva({ comment: 'a'.repeat(900000) })));
+    await assertFails(setDoc(doc(as('bob'), 'lists/pub/reviews/rPub/comments/x'), { userId: 'bob', userName: 'Bob', userPhoto: '', text: 'a'.repeat(5000), createdAt: serverTimestamp() }));
+  });
+
+  it('❌ foto de sitio con URL de fuera o cambiada después', async () => {
+    const own = 'https://firebasestorage.googleapis.com/v0/b/listopic.firebasestorage.app/o/places%2Fp1%2Fbob%2F1.jpg?alt=media';
+    const foto = { url: own, caption: '', storagePath: 'places/p1/bob/1.jpg', placeId: 'p1', placeName: 'Bar Manolo', userId: 'bob', userName: 'Bob', userPhoto: '', source: 'user_upload', createdAt: serverTimestamp() };
+    await assertFails(setDoc(doc(as('bob'), 'places/p1/photos/f0'), { ...foto, url: 'https://evil.example/x.jpg' }));
+    await assertFails(setDoc(doc(as('bob'), 'places/p1/photos/f9'), { ...foto, storagePath: 'places/p1/alice/1.jpg' }));
+    await assertSucceeds(setDoc(doc(as('bob'), 'places/p1/photos/f1'), foto));
+    await assertSucceeds(updateDoc(doc(as('bob'), 'places/p1/photos/f1'), { caption: 'La barra' }));
+    await assertFails(updateDoc(doc(as('bob'), 'places/p1/photos/f1'), { url: 'https://evil.example/y.jpg' }));
+    await assertFails(updateDoc(doc(as('bob'), 'places/p1/photos/f1'), { placeId: 'p2' }));
+  });
+
+  it('❌ chat con 60 personas o «privado» de 3; ✅ grupo normal', async () => {
+    const many = ['bob', ...Array.from({ length: 59 }, (_, i) => `u${i}`)];
+    await assertFails(setDoc(doc(as('bob'), 'chats/x1'), { participants: many, type: 'group', groupName: 'Spam' }));
+    await assertFails(setDoc(doc(as('bob'), 'chats/x2'), { participants: ['bob', 'alice', 'carol'], type: 'private' }));
+    await assertFails(setDoc(doc(as('bob'), 'chats/x3'), { participants: ['bob', 'alice'], type: 'private', joinCode: 'abcdefgh12', joinApproval: false }));
+    await assertSucceeds(setDoc(doc(as('bob'), 'chats/x4'), {
+      participants: ['bob', 'alice', 'carol'], type: 'group', groupName: 'Cena', groupPhoto: '',
+      createdAt: serverTimestamp(), updatedAt: serverTimestamp(), unreadCount: { bob: 0, alice: 0, carol: 0 },
+    }));
+  });
+
+  it('✅ bob sale del grupo; ❌ no echa a alice al salir', async () => {
+    await assertFails(updateDoc(doc(as('bob'), 'chats/g1'), { participants: [] }));
+    await assertSucceeds(updateDoc(doc(as('bob'), 'chats/g1'), { participants: arrayRemove('bob'), 'unreadCount.bob': deleteField(), updatedAt: serverTimestamp() }));
+    await assertFails(getDoc(doc(as('bob'), 'chats/g1')));
+    await assertFails(updateDoc(doc(as('bob'), 'chats/c1'), { participants: ['alice'] })); // en un privado no hay «salir»
+  });
+
+  it('❌ mensaje «de sistema», con campos raros o gigante; ✅ aviso normal', async () => {
+    const msg = (extra) => ({ text: 'Hola', senderId: 'bob', createdAt: serverTimestamp(), type: 'text', readBy: ['bob'], ...extra });
+    await assertFails(setDoc(doc(as('bob'), 'chats/c1/messages/m1'), msg({ type: 'system' })));
+    await assertFails(setDoc(doc(as('bob'), 'chats/c1/messages/m2'), msg({ senderName: 'Alice' })));
+    await assertFails(setDoc(doc(as('bob'), 'chats/c1/messages/m3'), msg({ text: 'a'.repeat(5000) })));
+    await assertFails(setDoc(doc(as('bob'), 'chats/c1/messages/m4'), msg({ readBy: ['bob', 'alice'] })));
+    await assertSucceeds(setDoc(doc(as('bob'), 'chats/c1/messages/m5'), msg({ type: 'event', text: '🚪 bob ha salido del grupo', event: { kind: 'left' } })));
+    await assertSucceeds(setDoc(doc(as('bob'), 'chats/c1/messages/m6'), msg({ replyTo: { id: 'hola', text: 'Hola', senderId: 'alice' } })));
+  });
+
+  it('❌ anónimo guarda basura en pachoteUsers; ✅ sus grupos y su perfil', async () => {
+    const db = anonUser('anonX');
+    await assertFails(setDoc(doc(db, 'pachoteUsers/anonX'), { junk: 'a'.repeat(1000) }));
+    await assertFails(setDoc(doc(db, 'pachoteUsers/anonX'), { profile: { name: 'Yo', photo: 'a'.repeat(100000) } }));
+    await assertSucceeds(setDoc(doc(db, 'pachoteUsers/anonX'), { groups: { riano: { joined: 1 } } }, { merge: true }));
+    await assertSucceeds(setDoc(doc(db, 'pachoteUsers/anonX'), { profile: { name: 'Yo', photo: 'data:image/jpeg;base64,' + 'a'.repeat(8000) } }, { merge: true }));
+    await assertSucceeds(updateDoc(doc(db, 'pachoteUsers/anonX'), { 'groups.riano': deleteField() }));
   });
 });

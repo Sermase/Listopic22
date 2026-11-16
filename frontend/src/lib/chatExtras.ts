@@ -87,7 +87,7 @@ export interface ChatDatePoll {
 }
 
 /** Aviso en gris dentro del chat: lo que le pasa a una quedada o al grupo. */
-export type ChatEventKind = 'yes' | 'maybe' | 'other' | 'no' | 'date' | 'cancel' | 'added' | 'joined' | 'pachote' | 'pachote-link';
+export type ChatEventKind = 'yes' | 'maybe' | 'other' | 'no' | 'date' | 'cancel' | 'added' | 'joined' | 'left' | 'pachote' | 'pachote-link';
 
 export interface ChatEventNote {
     kind: ChatEventKind;
@@ -408,6 +408,7 @@ export function eventNoteText(note: ChatEventNote, who: string, target?: string)
         case 'cancel': return `🚫 ${who} ${me ? 'has cancelado' : 'ha cancelado'} la quedada${note.title ? ` (${note.title})` : ''}`;
         case 'added': return `👋 ${who} ${me ? 'has añadido' : 'ha añadido'} a ${target || 'alguien'}`;
         case 'joined': return `👋 ${who} ${me ? 'te has unido' : 'se ha unido'} con el enlace`;
+        case 'left': return `🚪 ${who} ${me ? 'has salido' : 'ha salido'} del grupo`;
         case 'pachote': return `💸 ${who} ${me ? 'has creado' : 'ha creado'} las cuentas «${note.title || 'del grupo'}» en Pachote`;
         case 'pachote-link': return `💸 ${who} ${me ? 'has enlazado' : 'ha enlazado'} las cuentas «${note.title || 'del grupo'}» de Pachote`;
         default: return who;
