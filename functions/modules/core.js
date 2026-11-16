@@ -98,6 +98,7 @@ const { fetchAuthorRoles, authorOf } = require("./lib/author-roles");
 const { computePlaceRating } = require("./lib/place-rating");
 const { reviewSlotKey, keeperId } = require("./lib/review-uniqueness");
 const { reviewSanitizePatch } = require("./lib/review-sanitize");
+const { isCounterOnlyChange } = require("./lib/review-counter-change");
 
 const db = getFirestore();
 
@@ -1745,6 +1746,9 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
   const listId = event.params.listId;
   const reviewId = event.params.reviewId;
   let recalculateList = false;
+
+  // Un «ñam» o un comentario: la Lista no cambia.
+  if (isCounterOnlyChange(event.data.before.data(), event.data.after.data())) return null;
 
   // Notas fuera de 0–10 y autoría falsa (nombre, foto, insignia) escritas a mano:
   // se corrigen con el perfil real. Si es una edición, la corrección vuelve a

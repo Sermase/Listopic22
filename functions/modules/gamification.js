@@ -7,6 +7,7 @@ const { userReviewDocs } = require("./lib/user-reviews");
 const { writeAuditLog } = require("./lib/auth");
 const { tallyUserStats, counterUpdates, changedCounters, SHADOW_COUNTERS } = require("./lib/user-stats");
 const { syncCheckableBadges } = require("./surprises");
+const { isCounterOnlyChange } = require("./lib/review-counter-change");
 
 const db = getFirestore();
 const DEFAULT_BADGE_XP_REWARD = 50;
@@ -425,7 +426,7 @@ const onReviewWritten = onDocumentWritten("lists/{listId}/reviews/{reviewId}", a
     const beforeData = event.data?.before?.data();
     const userId = normalizeString(afterData?.userId || beforeData?.userId);
 
-    if (!userId) return null;
+    if (!userId || isCounterOnlyChange(beforeData, afterData)) return null;
 
     const photosChange = countReviewPhotos(afterData) - countReviewPhotos(beforeData);
     if (photosChange !== 0) {
