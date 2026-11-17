@@ -16,6 +16,11 @@ export interface ContestCandidate {
     /** Coordenadas del sitio, para el mapa aunque nadie lo haya valorado. */
     lat?: number;
     lng?: number;
+    /** Zona del sitio, para los filtros de ciudad/provincia del mapa. */
+    city?: string;
+    province?: string;
+    region?: string;
+    country?: string;
 }
 
 export interface ContestSettings {

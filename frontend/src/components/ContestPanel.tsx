@@ -220,7 +220,12 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
         setAdding(true);
         try {
             // Deja el sitio guardado en Listopic para que «Valorar» lo encuentre relleno.
-            await PlaceService.ensurePlaceSyncedWithBackend(place.id, await user.getIdToken()).catch(() => null);
+            const synced = await PlaceService.ensurePlaceSyncedWithBackend(place.id, await user.getIdToken()).catch(() => null) as Record<string, unknown> | null;
+            const zone = Object.fromEntries(
+                (['city', 'province', 'region', 'country'] as const)
+                    .map((k) => [k, synced?.[k]])
+                    .filter(([, v]) => typeof v === 'string' && v),
+            ) as Pick<ContestCandidate, 'city' | 'province' | 'region' | 'country'>;
             let photoUrl: string | undefined;
             if (photo) {
                 try {
@@ -230,7 +235,7 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                     showToast({ variant: 'error', message: 'No se pudo subir la foto; el aspirante se añade sin ella.' });
                 }
             }
-            await save([...candidates, { key, placeId: place.id, placeName: place.name, placeAddress: place.address || '', itemName: name, ...(Number.isFinite(place.lat) && Number.isFinite(place.lng) ? { lat: place.lat, lng: place.lng } : {}), ...(photoUrl ? { photoUrl } : {}) }]);
+            await save([...candidates, { key, placeId: place.id, placeName: place.name, placeAddress: place.address || '', itemName: name, ...(Number.isFinite(place.lat) && Number.isFinite(place.lng) ? { lat: place.lat, lng: place.lng } : {}), ...zone, ...(photoUrl ? { photoUrl } : {}) }]);
             setItemName('');
             setPhoto(null);
             setPlace(null);

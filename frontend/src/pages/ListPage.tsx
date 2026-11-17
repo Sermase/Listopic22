@@ -8,7 +8,7 @@ import { MarqueeText } from '../components/ui/MarqueeText';
 import { listDetailsQueryKey, useListDetails } from '../hooks/useListDetails';
 import { useQueryClient } from '@tanstack/react-query';
 import { ContestPanel } from '../components/ContestPanel';
-import { isClosedContest, type ContestCandidate } from '../lib/contest';
+import { candidateMatchKey, isClosedContest, type ContestCandidate } from '../lib/contest';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { ListItemCard } from '../components/ListItemCard';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -868,10 +868,15 @@ export const ListPage: React.FC = () => {
         });
 
         // Aspirantes sin probar: también en el mapa, con la copa en gris.
-        const pending = contestCandidates
+        const reviewedKeys = new Set(visibleReviews.map((r) => candidateMatchKey(r.placeId, r.itemName)));
+        const untried = contestCandidates.filter((c) => !reviewedKeys.has(candidateMatchKey(c.placeId, c.itemName)));
+        // Sitio ya en el mapa: su ficha dice también qué aspirantes faltan por probar.
+        const untriedAt: Record<string, string[]> = {};
+        untried.forEach((c) => { if (placeGroups[c.placeId]) (untriedAt[c.placeId] ??= []).push(c.itemName); });
+        const pending = untried
             .filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number' && !placeGroups[c.placeId])
-            .reduce<Record<string, { id: string; placeId: string; name: string; lat: number; lng: number; photoUrl?: string; dishes: string[] }>>((acc, c) => {
-                const entry = acc[c.placeId] ?? { id: c.placeId, placeId: c.placeId, name: c.placeName, lat: c.lat!, lng: c.lng!, photoUrl: c.photoUrl, dishes: [] };
+            .reduce<Record<string, { id: string; placeId: string; name: string; lat: number; lng: number; photoUrl?: string; dishes: string[]; geo: GeoFields }>>((acc, c) => {
+                const entry = acc[c.placeId] ?? { id: c.placeId, placeId: c.placeId, name: c.placeName, lat: c.lat!, lng: c.lng!, photoUrl: c.photoUrl, dishes: [], geo: { city: c.city, province: c.province, region: c.region, country: c.country } };
                 entry.dishes.push(c.itemName);
                 acc[c.placeId] = entry;
                 return acc;
@@ -891,7 +896,6 @@ export const ListPage: React.FC = () => {
             reviewsCount: 0,
             placeClosedStatus: null,
             itemUnavailable: false,
-            geo: {} as GeoFields,
         }));
 
         // Format for MapView
@@ -900,6 +904,7 @@ export const ListPage: React.FC = () => {
             rating: g.maxScore, // Override rating for Pin Color with Max Score
             // Sitio en el mapa solo con platos que ya no sirven: fuera por defecto, como en la lista.
             itemUnavailable: g.unavailableCount > 0 && g.unavailableCount === g.reviewsCount,
+            ...(untriedAt[g.placeId] ? { subtitle: `${g.reviewsCount} ${g.reviewsCount === 1 ? 'reseña' : 'reseñas'} · sin probar: ${untriedAt[g.placeId].join(', ')}` } : {}),
             items: g.items.sort((a, b) => b.score - a.score) // Sort items descending
         })), ...pendingItems];
     }, [visibleReviews, list, contestCandidates]);

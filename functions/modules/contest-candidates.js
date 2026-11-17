@@ -108,7 +108,13 @@ async function closeOutContest(listDoc) {
 
 const closeOutEndedContests = onSchedule({ schedule: 'every day 04:10', timeZone: 'Europe/Madrid' }, async () => {
   const now = Timestamp.now();
-  const snap = await db.collection('lists').where('contest.endsAt', '<', now).limit(200).get();
+  // Solo los acabados en las últimas 2 semanas: los ya cerrados no se acumulan en la consulta.
+  const since = Timestamp.fromMillis(now.toMillis() - 14 * 24 * 3600 * 1000);
+  const snap = await db.collection('lists')
+    .where('contest.endsAt', '>=', since)
+    .where('contest.endsAt', '<', now)
+    .limit(500)
+    .get();
   for (const listDoc of snap.docs) {
     if (!needsCloseOut(listDoc.data(), now.toMillis())) continue;
     try {
