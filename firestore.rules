@@ -701,6 +701,7 @@ service cloud.firestore {
         (c.get('startsAt', null) == null || request.time >= c.startsAt) &&
         (c.get('endsAt', null) == null || request.time <= c.endsAt) &&
         data.get('contestEntry', false) == true &&
+        data.get('itemName', '').lower() == data.get('itemNameLower', '') &&
         (data.get('placeId', '') + '|' + data.get('itemNameLower', '')) in sub.get('candidateKeys', [])
       );
     }

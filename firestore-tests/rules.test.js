@@ -1196,6 +1196,8 @@ describe('V23 · Minilista en modo concurso: solo aspirantes y entre fechas', ()
   it('❌ valorar algo que no es aspirante', async () => {
     await assertFails(setDoc(doc(as('alice'), 'lists/pub/reviews/cNo'), entry({ itemName: 'Otra', itemNameLower: 'otra' })));
     await assertFails(setDoc(doc(as('alice'), 'lists/pub/reviews/cNo2'), entry({ placeId: 'p2' })));
+    // itemNameLower de un aspirante con otro itemName visible.
+    await assertFails(setDoc(doc(as('alice'), 'lists/pub/reviews/cNo3'), entry({ itemName: 'Otra tarta' })));
   });
 
   it('❌ sin marcar contestEntry (se saltaría el hueco aparte)', async () => {
