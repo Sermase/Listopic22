@@ -874,7 +874,7 @@ export const ListPage: React.FC = () => {
         const untriedAt: Record<string, string[]> = {};
         untried.forEach((c) => { if (placeGroups[c.placeId]) (untriedAt[c.placeId] ??= []).push(c.itemName); });
         const pending = untried
-            .filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number' && !placeGroups[c.placeId])
+            .filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number' && !(c.lat === 0 && c.lng === 0) && !placeGroups[c.placeId])
             .reduce<Record<string, { id: string; placeId: string; name: string; lat: number; lng: number; photoUrl?: string; dishes: string[]; geo: GeoFields }>>((acc, c) => {
                 const entry = acc[c.placeId] ?? { id: c.placeId, placeId: c.placeId, name: c.placeName, lat: c.lat!, lng: c.lng!, photoUrl: c.photoUrl, dishes: [], geo: { city: c.city, province: c.province, region: c.region, country: c.country } };
                 entry.dishes.push(c.itemName);

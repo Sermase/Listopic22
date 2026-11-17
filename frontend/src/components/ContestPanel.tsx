@@ -215,9 +215,11 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
     // Aspirantes sin sitio en Listopic o sin coordenadas (apuntados antes, o falló el alta):
     // se reparan al abrir, y al guardarlos el servidor los mete en la carta.
     const repairedRef = useRef(false);
+    const candidatesRef = useRef(candidates);
+    useEffect(() => { candidatesRef.current = candidates; }, [candidates]);
     useEffect(() => {
         if (repairedRef.current || !user) return;
-        const broken = candidates.filter((c) => typeof c.lat !== 'number');
+        const broken = candidates.filter((c) => typeof c.lat !== 'number' || (c.lat === 0 && c.lng === 0));
         if (broken.length === 0) return;
         repairedRef.current = true;
         void (async () => {
@@ -233,7 +235,8 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                 if (Object.keys(fields).length > 0) fixes.set(placeId, fields);
             }
             if (fixes.size === 0) return;
-            const next = candidates.map((c) => (fixes.has(c.placeId) ? { ...c, ...fixes.get(c.placeId) } : c));
+            // Sobre los aspirantes de ahora: mientras se reparaba se pudo añadir o quitar alguno.
+            const next = candidatesRef.current.map((c) => (fixes.has(c.placeId) ? { ...c, ...fixes.get(c.placeId) } : c));
             await save(next).catch((e) => console.error('No se pudieron reparar los aspirantes', e));
         })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
