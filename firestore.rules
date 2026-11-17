@@ -329,6 +329,45 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(reviewAllowedUpdateKeys());
     }
 
+    // Notas de 0 a 10 (antes se aceptaba 999 o -50 y el sitio subía al n.º 1).
+    // Las notas por criterio (`scores`) las recorta el servidor, porque las reglas
+    // no pueden recorrer un mapa.
+    function ratingOk(data, key) {
+      return !(key in data) || data[key] == null ||
+             (data[key] is number && data[key] >= 0 && data[key] <= 10);
+    }
+
+    function optText(data, key, max) {
+      return !(key in data) || data[key] == null || (data[key] is string && data[key].size() <= max);
+    }
+
+    function reviewContentOk(data) {
+      return ratingOk(data, 'overallRating') && ratingOk(data, 'rating')
+             && (!('scores' in data) || (data.scores is map && data.scores.size() <= 40))
+             && optText(data, 'comment', 4000)
+             && optText(data, 'itemName', 200) && optText(data, 'itemNameLower', 200)
+             && optText(data, 'authorName', 120) && optText(data, 'authorUsername', 120)
+             && (!('tags' in data) || (data.tags is list && data.tags.size() <= 40))
+             && (!('userTags' in data) || (data.userTags is list && data.userTags.size() <= 40))
+             && (!('photoUrls' in data) || (data.photoUrls is list && data.photoUrls.size() <= 10));
+    }
+
+    // Al crear: contadores a cero (los «ñam» los cuenta el servidor desde
+    // reactions/) y sin fecha en el futuro. Al mover una reseña a otra Minilista
+    // la app conserva su fecha original, por eso no se exige request.time.
+    function reviewCreateCountersOk(data) {
+      return (!('reactionCounts' in data) || (hasReactionCounts(data) && data.reactionCounts.like == 0 && data.reactionCounts.dislike == 0))
+             && (!('commentsCount' in data) || data.commentsCount == 0)
+             && (!('createdAt' in data) || (data.createdAt is timestamp && data.createdAt <= request.time + duration.value(10, 'm')));
+    }
+
+    // Lo que solo escribe el servidor (o un jefe): contadores y estado.
+    function reviewUpdateKeepsServerFields() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'reactionCounts', 'commentsCount', 'moderationStatus', 'placeClosedStatus'
+      ]);
+    }
+
     function businessClaimAllowedCreateKeys() {
       return [
         'userId', 'userEmail', 'userName', 'placeId', 'placeName', 'placeAddress',
@@ -463,39 +502,20 @@ service cloud.firestore {
              isNonNegativeWholeNumber(data.reactionCounts.dislike);
     }
 
-    // Los contadores que puede tocar cualquier lector solo cambian de uno en
-    // uno (un me gusta / un comentario). `request.writeFields` está obsoleto,
-    // así que se compara el documento antes y después.
-    function changesByAtMostOne(before, after) {
-      return after - before <= 1 && before - after <= 1;
-    }
-
-    function isReactionCountUpdate() {
-      let before = resource.data.get('reactionCounts', {});
-      let after = request.resource.data.reactionCounts;
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactionCounts']) &&
-             hasReactionCounts(request.resource.data) &&
-             changesByAtMostOne(before.get('like', 0), after.like) &&
-             changesByAtMostOne(before.get('dislike', 0), after.dislike);
-    }
-
-    function isCommentsCountUpdate() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['commentsCount']) &&
-             isNonNegativeWholeNumber(request.resource.data.commentsCount) &&
-             changesByAtMostOne(resource.data.get('commentsCount', 0), request.resource.data.commentsCount);
-    }
-
     function reactionHasOnlyAllowedFields() {
       return request.resource.data.keys().hasOnly(['reaction', 'userId', 'createdAt', 'updatedAt']) &&
              request.resource.data.reaction == 'like';
     }
 
     function commentCreateHasOnlyAllowedFields() {
-      return request.resource.data.keys().hasOnly(['userId', 'userName', 'userPhoto', 'text', 'createdAt']);
+      return request.resource.data.keys().hasOnly(['userId', 'userName', 'userPhoto', 'text', 'createdAt'])
+             && request.resource.data.get('text', '') is string && request.resource.data.get('text', '').size() <= 2000
+             && optText(request.resource.data, 'userName', 120);
     }
 
     function commentUpdateChangesOnlyAllowedFields() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'updatedAt']);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text', 'updatedAt'])
+             && request.resource.data.get('text', '') is string && request.resource.data.get('text', '').size() <= 2000;
     }
 
     // ===============================================
@@ -723,6 +743,8 @@ service cloud.firestore {
                          && request.resource.data.userId == request.auth.uid
                          && request.resource.data.listId == listId
                          && reviewCreateHasOnlyAllowedFields()
+                         && reviewContentOk(request.resource.data)
+                         && reviewCreateCountersOk(request.resource.data)
                          && reviewVisibilityMatchesList(request.resource.data, listId)
                          && (canWriteToList(listId) || canWriteToSublistOf(listId));
         
@@ -733,9 +755,10 @@ service cloud.firestore {
                       && (
                         (
                           (
-                            resource.data.userId == request.auth.uid ||
                             isJefe(request.auth.uid) ||
-                            (canReadListById(listId) && (isReactionCountUpdate() || isCommentsCountUpdate()))
+                            (resource.data.userId == request.auth.uid
+                              && reviewContentOk(request.resource.data)
+                              && reviewUpdateKeepsServerFields())
                           )
                           && reviewIdentityAndTargetDidNotChange()
                         ) ||
@@ -793,6 +816,8 @@ service cloud.firestore {
                     && request.resource.data.userId == request.auth.uid
                     && request.resource.data.listId is string
                     && reviewCreateHasOnlyAllowedFields()
+                    && reviewContentOk(request.resource.data)
+                    && reviewCreateCountersOk(request.resource.data)
                     && reviewVisibilityMatchesList(request.resource.data, request.resource.data.listId)
                     && canWriteToList(request.resource.data.listId);
       allow update: if canPost()
@@ -801,9 +826,10 @@ service cloud.firestore {
                     && (
                       (
                         (
-                          resource.data.userId == request.auth.uid ||
-                          resource.data.authorId == request.auth.uid ||
-                          isJefe(request.auth.uid)
+                          isJefe(request.auth.uid) ||
+                          ((resource.data.userId == request.auth.uid || resource.data.authorId == request.auth.uid)
+                            && reviewContentOk(request.resource.data)
+                            && reviewUpdateKeepsServerFields())
                         )
                         && reviewIdentityAndTargetDidNotChange()
                       ) ||
@@ -881,14 +907,25 @@ service cloud.firestore {
           allow read: if true;
           allow create: if isUser()
                         && request.resource.data.userId == request.auth.uid
-                        && request.resource.data.url is string
+                        && isOwnStorageImageUrl(request.resource.data.url)
                         && request.resource.data.storagePath is string
+                        && request.resource.data.storagePath.matches('places/' + placeId + '/' + request.auth.uid + '/.*')
                         && request.resource.data.placeId == placeId
+                        && request.resource.data.get('caption', '') is string && request.resource.data.get('caption', '').size() <= 300
+                        && request.resource.data.get('userName', '') is string && request.resource.data.get('userName', '').size() <= 120
                         && request.resource.data.keys().hasOnly([
                           'url', 'caption', 'storagePath', 'placeId', 'placeName',
                           'userId', 'userName', 'userPhoto', 'source', 'createdAt'
                         ]);
-          allow update, delete: if isUser() && (
+          // Su autor solo cambia el pie de foto (antes podía cambiar la URL o el sitio).
+          allow update: if isUser() && (
+            isJefe(request.auth.uid) || (
+              resource.data.userId == request.auth.uid
+              && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caption'])
+              && request.resource.data.caption is string && request.resource.data.caption.size() <= 300
+            )
+          );
+          allow delete: if isUser() && (
             resource.data.userId == request.auth.uid || isJefe(request.auth.uid)
           );
         }
@@ -1039,7 +1076,9 @@ service cloud.firestore {
         // autenticado (evita suplantaciones dentro del foro).
         allow create: if canPost()
                        && canAccessList()
-                       && request.resource.data.userId == request.auth.uid;
+                       && request.resource.data.userId == request.auth.uid
+                       && request.resource.data.keys().size() <= 12
+                       && request.resource.data.get('text', '') is string && request.resource.data.get('text', '').size() <= 4000;
         allow update, delete: if isUser() && (resource.data.userId == request.auth.uid || isJefe(request.auth.uid));
       }
     }
@@ -1068,7 +1107,21 @@ service cloud.firestore {
       allow list, get: if isUser()
                   && request.auth.uid in resource.data.participants;
       allow create: if canPost()
-                     && request.auth.uid in request.resource.data.participants;
+                     && request.resource.data.participants is list
+                     && request.auth.uid in request.resource.data.participants
+                     && request.resource.data.participants.size() <= 50
+                     && (request.resource.data.get('type', 'private') == 'group' || request.resource.data.participants.size() == 2)
+                     && request.resource.data.keys().hasOnly(['participants', 'type', 'groupName', 'groupPhoto', 'createdAt', 'updatedAt', 'unreadCount'])
+                     && request.resource.data.get('groupName', '') is string && request.resource.data.get('groupName', '').size() <= 60;
+      // Salir de un grupo: uno solo se quita a sí mismo (antes no se podía y
+      // quien te metía en un grupo te dejaba dentro para siempre).
+      allow update: if isUser()
+                     && resource.data.get('type', 'private') == 'group'
+                     && request.auth.uid in resource.data.participants
+                     && request.resource.data.participants is list
+                     && request.resource.data.participants.toSet() == resource.data.participants.toSet().difference([request.auth.uid].toSet())
+                     && request.resource.data.participants.size() == resource.data.participants.size() - 1
+                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants', 'unreadCount', 'updatedAt']);
       // Se puede añadir gente (un chat privado pasa a grupo), pero nadie puede
       // expulsar a otros participantes ni reescribir la lista.
       allow update: if isUser()
@@ -1117,7 +1170,8 @@ service cloud.firestore {
                      && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
         allow create: if canPost()
                        && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants
-                       && request.resource.data.senderId == request.auth.uid;
+                       && request.resource.data.senderId == request.auth.uid
+                       && chatMessageShapeOk(request.resource.data);
         // Un mensaje no se reescribe. Solo cambia lo «vivo»: la reacción propia,
         // la respuesta propia a una invitación, el voto propio en una encuesta y,
         // si invitas tú, la fecha de tu invitación o cancelarla.
@@ -1129,6 +1183,15 @@ service cloud.firestore {
                        && chatPollUpdateOk()
                        && chatDatePollUpdateOk();
         allow delete: if false;
+
+        // Forma de un mensaje nuevo: los campos que manda la app, sin tipos
+        // inventados (p. ej. «system») ni textos gigantes.
+        function chatMessageShapeOk(d) {
+          return d.keys().hasOnly(['text', 'senderId', 'createdAt', 'type', 'readBy', 'metadata', 'replyTo', 'invite', 'poll', 'datePoll', 'event', 'pachote'])
+            && d.get('text', '') is string && d.get('text', '').size() <= 4000
+            && d.get('type', 'text') in ['text', 'image', 'share', 'review-share', 'invite', 'poll', 'datepoll', 'event', 'pachote']
+            && d.get('readBy', [request.auth.uid]) == [request.auth.uid];
+        }
 
         function onlyOwnKeyChanged(after, before) {
           return after is map && after.diff(before).affectedKeys().hasOnly([request.auth.uid]);
@@ -1344,8 +1407,18 @@ service cloud.firestore {
     function pLogOk(d) { return d.txt is string && d.txt.size() <= 4000 && pOptStr(d, 'who', 120); }
 
     // Mis grupos y mi perfil de Pachote: solo yo.
+    // Solo «mis grupos» y un perfil pequeño (la foto es una miniatura de 128 px, ~6 KB):
+    // antes un anónimo podía guardar aquí lo que quisiera, de cualquier tamaño.
+    function pUserDocOk(d) {
+      return d.keys().hasOnly(['groups', 'profile'])
+        && (!('groups' in d) || (d.groups is map && d.groups.size() <= 1000))
+        && (!('profile' in d) || (d.profile is map && d.profile.size() <= 6
+            && pOptStr(d.profile, 'name', 120) && pOptStr(d.profile, 'photo', 60000)));
+    }
+
     match /pachoteUsers/{uid} {
-      allow read, write: if pSignedIn() && request.auth.uid == uid;
+      allow read, delete: if pSignedIn() && request.auth.uid == uid;
+      allow create, update: if pSignedIn() && request.auth.uid == uid && pUserDocOk(request.resource.data);
     }
 
     match /pachoteGroups/{gid} {

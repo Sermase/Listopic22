@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppConfig } from '../context/AppConfigContext';
 import { isLabAppEnabled } from '../lib/labApps';
 import { ChatService, type Chat, type Message } from '../services/ChatService';
-import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, X, Users, User, ExternalLink, SquarePen, ChevronDown } from 'lucide-react';
+import { Send, MoreVertical, Search, MessageSquare, ArrowLeft, X, Users, User, ExternalLink, SquarePen, ChevronDown, LogOut } from 'lucide-react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { doc, onSnapshot, deleteDoc } from 'firebase/firestore';
@@ -96,6 +96,8 @@ export const ChatsPage: React.FC = () => {
     const [newChatOpen, setNewChatOpen] = useState(false);
 
     const [isInfoModalOpen, setIsInfoModalOpen] = useState(false);
+    const [leaveArmed, setLeaveArmed] = useState(false);
+    useEffect(() => { if (!isInfoModalOpen) setLeaveArmed(false); }, [isInfoModalOpen]);
     const infoRef = useSheetDismiss(() => setIsInfoModalOpen(false), isInfoModalOpen);
     const [participantInput, setParticipantInput] = useState('');
     const [addingParticipant, setAddingParticipant] = useState(false);
@@ -1082,6 +1084,25 @@ export const ChatsPage: React.FC = () => {
                             </div>
                             {activeChatObj.type === 'private' && (
                                 <p className="text-[10px] text-gray-500 mt-2">Añadir a alguien convierte este chat en un grupo.</p>
+                            )}
+                            {activeChatObj.type === 'group' && (
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (!leaveArmed) { setLeaveArmed(true); return; }
+                                        const chatToLeave = activeChatObj.id;
+                                        void runChatAction(async () => {
+                                            await ChatService.leaveGroup(chatToLeave, me());
+                                            setIsInfoModalOpen(false);
+                                            setLeaveArmed(false);
+                                            navigate('/chats');
+                                        }, 'No se pudo salir del grupo.');
+                                    }}
+                                    className={`mt-5 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border text-sm font-bold transition-colors ${leaveArmed ? 'border-red-500 bg-red-500/15 text-red-300' : 'border-white/10 text-gray-400 hover:text-red-300'}`}
+                                >
+                                    <LogOut className="w-4 h-4" />
+                                    {leaveArmed ? 'Toca otra vez para salir' : 'Salir del grupo'}
+                                </button>
                             )}
                         </div>
                     </div>

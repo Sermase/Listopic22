@@ -11,6 +11,7 @@ import {
     getDocs,
     limit,
     getDoc,
+    arrayRemove,
     arrayUnion,
     deleteField,
     writeBatch,
@@ -328,6 +329,17 @@ export const ChatService = {
             const event: ChatEventNote = { kind: 'added', targetId: newUserId };
             await ChatService.sendMessage(chatId, by.uid, eventNoteText(event, by.name, by.targetName), 'event', undefined, { event });
         }
+    },
+
+    // Salir de un grupo: primero el aviso (aún dentro, para poder escribir) y luego fuera.
+    leaveGroup: async (chatId: string, user: { uid: string; name: string }) => {
+        const event: ChatEventNote = { kind: 'left' };
+        await ChatService.sendMessage(chatId, user.uid, eventNoteText(event, user.name), 'event', undefined, { event });
+        await updateDoc(doc(db, 'chats', chatId), {
+            participants: arrayRemove(user.uid),
+            [`unreadCount.${user.uid}`]: deleteField(),
+            updatedAt: serverTimestamp()
+        });
     },
 
     renameGroup: async (chatId: string, groupName: string, joinCode?: string) => {

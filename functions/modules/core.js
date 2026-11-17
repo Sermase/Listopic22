@@ -96,6 +96,7 @@ const { googleRefreshSkipReason, latLngOf } = require("./lib/place-refresh");
 const { fetchAuthorRoles, authorOf } = require("./lib/author-roles");
 const { computePlaceRating } = require("./lib/place-rating");
 const { reviewSlotKey, keeperId } = require("./lib/review-uniqueness");
+const { reviewSanitizePatch } = require("./lib/review-sanitize");
 
 const db = getFirestore();
 
@@ -1743,6 +1744,24 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
   const listId = event.params.listId;
   const reviewId = event.params.reviewId;
   let recalculateList = false;
+
+  // Notas fuera de 0–10 y autoría falsa (nombre, foto, insignia) escritas a mano:
+  // se corrigen con el perfil real. Si es una edición, la corrección vuelve a
+  // pasar por aquí y recalcula ya con los datos buenos.
+  if (event.data.after.exists) {
+    try {
+      const data = event.data.after.data() || {};
+      const userSnap = data.userId ? await db.collection('users').doc(data.userId).get() : null;
+      const patch = reviewSanitizePatch(data, userSnap && userSnap.exists ? userSnap.data() : null);
+      if (Object.keys(patch).length > 0) {
+        logger.warn(`Reseña ${listId}/${reviewId} corregida`, { fields: Object.keys(patch) });
+        await event.data.after.ref.update(patch);
+        if (event.data.before.exists) return null;
+      }
+    } catch (error) {
+      logger.error(`No se pudo revisar la reseña ${reviewId}:`, error);
+    }
+  }
 
   // Caso 1: CREACIÓN de reseña
   if (!event.data.before.exists && event.data.after.exists) {

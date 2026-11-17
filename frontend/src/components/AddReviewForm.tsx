@@ -957,7 +957,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 } else {
                     await setDoc(targetSubRef, {
                         ...reviewData,
-                        reactionCounts: existingData?.reactionCounts ?? reviewData.reactionCounts,
+                        // Las reglas exigen contadores a cero al crear (antes se podían inventar).
+                        reactionCounts: reviewData.reactionCounts,
                         createdAt: createdAtToKeep || serverTimestamp(),
                         updatedAt: serverTimestamp()
                     });

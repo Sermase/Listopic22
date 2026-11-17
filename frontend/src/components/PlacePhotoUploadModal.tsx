@@ -133,7 +133,7 @@ export const PlacePhotoUploadModal: React.FC<PlacePhotoUploadModalProps> = ({
                     placeId,
                     placeName,
                     userId: user.uid,
-                    userName: user.displayName || user.email || 'Usuario',
+                    userName: user.displayName || 'Usuario', // nunca el email: este documento es público
                     userPhoto: user.photoURL || '',
                     source: 'user_upload',
                     createdAt: serverTimestamp(),
