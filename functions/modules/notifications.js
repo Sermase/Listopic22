@@ -222,6 +222,22 @@ const onFollowUser = onDocumentWritten("users/{uid}/followers/{followerId}", asy
 });
 
 const onReviewReaction = onDocumentWritten("lists/{listId}/reviews/{reviewId}/reactions/{userId}", async (event) => {
+    // El contador de «ñam» de la reseña se cuenta aquí (antes nadie lo
+    // actualizaba y el Inicio ordenaba por un 0). Contar, en vez de sumar ±1,
+    // corrige también los valores viejos o inventados.
+    if (event.data.before.exists !== event.data.after.exists) {
+        const { listId, reviewId } = event.params;
+        try {
+            const reviewRef = db.doc(`lists/${listId}/reviews/${reviewId}`);
+            const likes = (await reviewRef.collection("reactions").where("reaction", "==", "like").count().get()).data().count;
+            const snap = await reviewRef.get();
+            if (snap.exists && (snap.data().reactionCounts?.like ?? null) !== likes) {
+                await reviewRef.set({ reactionCounts: { like: likes, dislike: snap.data().reactionCounts?.dislike || 0 } }, { merge: true });
+            }
+        } catch (error) {
+            logger.error(`No se pudo contar los «ñam» de ${listId}/${reviewId}:`, error);
+        }
+    }
     if (!event.data.before.exists && event.data.after.exists) {
         const { listId, reviewId, userId: reactorId } = event.params;
         const reactionData = event.data.after.data();

@@ -11,6 +11,7 @@ const { rankingIndexScore } = require("./lib/scoring");
 const { normalizeCcaa } = require("./lib/geo-areas");
 const { syncAllObjects } = require("./lib/algolia-sync");
 const { pickReviewPhoto } = require("./lib/place-review-photo");
+const { isCounterOnlyChange } = require("./lib/review-counter-change");
 const { defineSecret } = require("firebase-functions/params");
 const { resolveAlgoliaCredentials, resolveAlgoliaHosts } = require("./lib/algolia-credentials");
 
@@ -974,6 +975,10 @@ const { onCreated: onUserCreated, onUpdated: onUserUpdated, onDeleted: onUserDel
 const syncGroupedItemsIndex = onDocumentWritten({ document: "lists/{listId}/reviews/{reviewId}", secrets: ALGOLIA_SECRETS }, async (event) => {
     const beforeData = event.data?.before?.data();
     const afterData = event.data?.after?.data();
+    // Un «ñam» solo puede cambiar el grupo si la reseña tiene foto: la miniatura
+    // del plato es la foto con más «ñam». Sin foto, no hay nada que rehacer.
+    const hasPhoto = Boolean(afterData?.photoUrl);
+    if (isCounterOnlyChange(beforeData, afterData) && !hasPhoto) return null;
     const listIds = collectChangedReviewListIds(beforeData, afterData, event.params.listId);
     return await rebuildGroupedItemsForListIds(listIds);
 });
