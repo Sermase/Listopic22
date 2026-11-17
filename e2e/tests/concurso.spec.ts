@@ -55,6 +55,7 @@ test('crear Minilista desde la lista en modo concurso: va a ella con los aspiran
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/5-crear-con-concurso.png` });
   await page.getByRole('button', { name: /^Crear Minilista$/ }).last().click();
   await expect(page).toHaveURL(/\/list\/(?!bravas)[^/?]+/);
+  const newListId = new URL(page.url()).pathname.split('/').pop();
   await expect(page.getByRole('heading', { name: '🏆 Aspirantes y concurso' })).toBeVisible();
   await expect(page.getByPlaceholder('Busca el sitio')).toBeVisible();
   await page.waitForTimeout(800);
@@ -65,4 +66,7 @@ test('crear Minilista desde la lista en modo concurso: va a ella con los aspiran
   await page.getByRole('button', { name: /Minilistas/ }).click();
   await expect(page.getByText('Concurso de ana')).toBeVisible();
   expect(errors).toEqual([]);
+  // Limpieza: que la Minilista nueva no cambie lo que ven las pruebas siguientes.
+  const FIRESTORE = `http://${process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'}/v1/projects/demo-listopic/databases/(default)/documents`;
+  await fetch(`${FIRESTORE}/lists/${newListId}`, { method: 'DELETE', headers: { authorization: 'Bearer owner' } });
 });
