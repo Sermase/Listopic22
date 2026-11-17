@@ -11,6 +11,8 @@ export interface ContestCandidate {
     placeName: string;
     placeAddress?: string;
     itemName: string;
+    /** Foto opcional del plato (list-images/{lista}/…). */
+    photoUrl?: string;
 }
 
 export interface ContestSettings {

@@ -1499,7 +1499,7 @@ export const ListPage: React.FC = () => {
                         list={list}
                         reviews={reviews}
                         canManage={Boolean(user && list.userId === user.uid)}
-                        canEditCandidates={Boolean(user && (list.userId === user.uid || list.editors?.includes(user.uid)))}
+                        canEditCandidates={Boolean(user && (isJefe || list.userId === user.uid || list.editors?.includes(user.uid)))}
                         canRate={canAddReview}
                         isJefe={isJefe}
                         open={contestOpen}

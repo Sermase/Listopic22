@@ -37,7 +37,6 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
 
     // Fetch Sublists
     const fetchSublists = async () => {
-        setLoading(true);
         try {
             // Las reglas solo dejan consultar las públicas o las propias: dos consultas
             // (antes una sin filtro fallaba y la Minilista recién creada no aparecía).
@@ -59,12 +58,12 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
 
     useEffect(() => {
         if (isOpen) {
+            // Se pinta lo precargado (públicas) y se completa con las propias, también privadas.
             if (initialSublists && initialSublists.length > 0) {
                 setSublists(initialSublists);
                 setLoading(false);
-            } else {
-                fetchSublists();
             }
+            fetchSublists();
             setView('list'); // Reset view on open
         }
     }, [isOpen, listId, initialSublists]);

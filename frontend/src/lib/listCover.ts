@@ -48,4 +48,16 @@ export async function uploadListCover(listId: string, file: File): Promise<strin
     return url;
 }
 
+/** Foto suelta de la lista (p. ej. de un aspirante del concurso): misma carpeta y reglas que la portada. */
+export async function uploadListImage(listId: string, file: File, label: string): Promise<{ url: string; path: string }> {
+    const blob = await resizeToJpeg(file);
+    const isJpeg = blob.type === 'image/jpeg';
+    const path = `list-images/${listId}/${Date.now()}_${label}.${isJpeg ? 'jpg' : (file.name.split('.').pop() || 'img')}`;
+    const snapshot = await uploadBytes(ref(storage, path), blob, {
+        contentType: isJpeg ? 'image/jpeg' : (file.type || 'image/jpeg'),
+        cacheControl: IMMUTABLE_UPLOAD_CACHE_CONTROL,
+    });
+    return { url: await getDownloadURL(snapshot.ref), path };
+}
+
 export const isInlineImage = (value: string | null | undefined): boolean => Boolean(value && value.startsWith('data:'));
