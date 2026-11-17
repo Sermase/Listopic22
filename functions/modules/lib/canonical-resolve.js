@@ -158,6 +158,17 @@ function hasMeaningfulBusinessData(businessData) {
   });
 }
 
+/** Listas de los concursos en los que el plato es aspirante (minilista y su madre). */
+function contestLinkedListIds(item) {
+  const map = item && typeof item.contestLists === 'object' && item.contestLists ? item.contestLists : {};
+  const ids = new Set();
+  Object.entries(map).forEach(([minilistId, parentId]) => {
+    if (minilistId) ids.add(minilistId);
+    if (typeof parentId === 'string' && parentId) ids.add(parentId);
+  });
+  return Array.from(ids);
+}
+
 function isBusinessCurated(item) {
   if (!item) return false;
   return item.source === 'business'
@@ -700,10 +711,14 @@ function planPlaceRebuild({ reviews = [], itemsById } = {}) {
     let deactivate = false;
     let mergedInto = null;
 
-    if (isBusinessCurated(existing)) {
-      // Carta oficial: sigue visible sin reseñas, con stats a cero y solo la
-      // lista que eligió el negocio (si eligió alguna).
-      const linked = sortedStrings(Array.isArray(existing.businessListIds) ? existing.businessListIds : []);
+    const contestIds = contestLinkedListIds(existing);
+    if (isBusinessCurated(existing) || contestIds.length > 0) {
+      // Carta oficial o aspirante de un concurso: sigue visible sin reseñas,
+      // con stats a cero y solo las listas que eligió el negocio o el concurso.
+      const linked = sortedStrings([
+        ...(Array.isArray(existing.businessListIds) ? existing.businessListIds : []),
+        ...contestIds,
+      ].filter((id, i, all) => all.indexOf(id) === i));
       if (!statsAreZero(existing.stats)) data.stats = zeroStats();
       if (!sameStringSet(existing.linkedListIds, linked) || !Array.isArray(existing.linkedListIds)) data.linkedListIds = linked;
     } else {
@@ -942,6 +957,8 @@ module.exports = {
   splitCuratedNames,
   sameItemName,
   isBusinessCurated,
+  contestLinkedListIds,
+  zeroStats,
   buildAliasIndex,
   followMerged,
   createResolveContext,
