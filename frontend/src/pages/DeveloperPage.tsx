@@ -49,6 +49,7 @@ const BusinessManagersTab = React.lazy(() => import('../components/developer/Bus
 const PlansManagerTab = React.lazy(() => import('../components/developer/PlansManagerTab').then(module => ({ default: module.PlansManagerTab })));
 const ProProposalsTab = React.lazy(() => import('../components/developer/ProProposalsTab').then(module => ({ default: module.ProProposalsTab })));
 const BackupsTab = React.lazy(() => import('../components/developer/BackupsTab').then(module => ({ default: module.BackupsTab })));
+const ContestsCard = React.lazy(() => import('../components/developer/ContestsCard').then(module => ({ default: module.ContestsCard })));
 const DuplicateReviewsCard = React.lazy(() => import('../components/developer/DuplicateReviewsCard').then(module => ({ default: module.DuplicateReviewsCard })));
 const ReviewsConsolidationCard = React.lazy(() => import('../components/developer/ReviewsConsolidationCard').then(module => ({ default: module.ReviewsConsolidationCard })));
 
@@ -1030,6 +1031,10 @@ export const DeveloperPage: React.FC = () => {
 
                                     <React.Suspense fallback={null}>
                                         <DuplicateReviewsCard />
+                                    </React.Suspense>
+
+                                    <React.Suspense fallback={null}>
+                                        <ContestsCard />
                                     </React.Suspense>
 
                                     <div className="bg-[var(--lt-card-strong)] border border-white/10 rounded-xl p-6">

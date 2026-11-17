@@ -13,12 +13,19 @@ export interface ContestCandidate {
     itemName: string;
     /** Foto opcional del plato (list-images/{lista}/…). */
     photoUrl?: string;
+    /** Coordenadas del sitio, para el mapa aunque nadie lo haya valorado. */
+    lat?: number;
+    lng?: number;
 }
 
 export interface ContestSettings {
     closed?: boolean;
     startsAt?: { toMillis(): number } | null;
     endsAt?: { toMillis(): number } | null;
+    /** Los platos siguen en la carta al acabar (si no, pasan a «ya no lo sirven»). */
+    keepAvailable?: boolean;
+    /** Lo pone el servidor al marcar los platos como no disponibles. */
+    closedOutAt?: unknown;
 }
 
 export interface ContestListLike {

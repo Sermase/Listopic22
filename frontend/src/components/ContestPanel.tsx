@@ -162,6 +162,7 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
     const [startDay, setStartDay] = useState(dateToDay(list.contest?.startsAt));
     const [endDay, setEndDay] = useState(dateToDay(list.contest?.endsAt));
     const [official, setOfficial] = useState(list.official === true);
+    const [keepAvailable, setKeepAvailable] = useState(list.contest?.keepAvailable === true);
     const [place, setPlace] = useState<PlaceResult | null>(null);
     const [itemName, setItemName] = useState('');
     const [photo, setPhoto] = useState<File | null>(null);
@@ -229,7 +230,7 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                     showToast({ variant: 'error', message: 'No se pudo subir la foto; el aspirante se añade sin ella.' });
                 }
             }
-            await save([...candidates, { key, placeId: place.id, placeName: place.name, placeAddress: place.address || '', itemName: name, ...(photoUrl ? { photoUrl } : {}) }]);
+            await save([...candidates, { key, placeId: place.id, placeName: place.name, placeAddress: place.address || '', itemName: name, ...(Number.isFinite(place.lat) && Number.isFinite(place.lng) ? { lat: place.lat, lng: place.lng } : {}), ...(photoUrl ? { photoUrl } : {}) }]);
             setItemName('');
             setPhoto(null);
             setPlace(null);
@@ -261,8 +262,18 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
         try {
             const update: Record<string, unknown> = {};
             if (canManage) {
+                const endsTs = endsAt ? Timestamp.fromDate(endsAt) : null;
+                // Ya cerrado por el servidor y con el mismo final: no se vuelve a cerrar.
+                const prev = list.contest;
+                const keepCloseOut = prev?.closedOutAt && endsTs && prev.endsAt?.toMillis() === endsTs.toMillis() && !keepAvailable;
                 update.contest = closed
-                    ? { closed: true, startsAt: startsAt ? Timestamp.fromDate(startsAt) : null, endsAt: endsAt ? Timestamp.fromDate(endsAt) : null }
+                    ? {
+                        closed: true,
+                        startsAt: startsAt ? Timestamp.fromDate(startsAt) : null,
+                        endsAt: endsTs,
+                        keepAvailable,
+                        ...(keepCloseOut ? { closedOutAt: prev.closedOutAt } : {}),
+                    }
                     : deleteField();
             }
             if (isJefe && official !== (list.official === true)) update.official = official;
@@ -377,6 +388,12 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                                         <input type="date" value={endDay} onChange={(e) => setEndDay(e.target.value)} className="mt-1 w-full rounded-lg bg-[var(--lt-glass)] border border-[var(--lt-border)] px-2 py-2 text-sm text-[var(--lt-text)]" />
                                     </label>
                                     <p className="col-span-2 text-[11px] text-[var(--lt-text-muted)]">Sin fechas, se puede valorar siempre. Fuera de ellas no se crean ni se cambian valoraciones.</p>
+                                    <label className="col-span-2 flex items-start gap-2 cursor-pointer mt-1">
+                                        <input type="checkbox" checked={keepAvailable} onChange={(e) => setKeepAvailable(e.target.checked)} className="mt-0.5 accent-[var(--lt-accent)]" />
+                                        <span className="text-xs text-[var(--lt-text)]">Los platos siguen en la carta al acabar
+                                            <span className="block text-[11px] text-[var(--lt-text-muted)]">Si no, al día siguiente del final pasan a «ya no lo sirven» (en este concurso se siguen viendo). Se pueden reactivar.</span>
+                                        </span>
+                                    </label>
                                 </div>
                             )}
                         </section>

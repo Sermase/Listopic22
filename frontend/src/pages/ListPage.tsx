@@ -318,7 +318,11 @@ export const ListPage: React.FC = () => {
 
 
     // Range State from Context
-    const { range, setRange } = useFilters();
+    const { range: filterRange, setRange } = useFilters();
+    // Concurso (lista de aspirantes): se ven todos, estés donde estés; la distancia no filtra.
+    const contestCandidates = useMemo<ContestCandidate[]>(() => (Array.isArray(list?.candidates) ? (list.candidates as ContestCandidate[]) : []), [list?.candidates]);
+    const isContestList = contestCandidates.length > 0;
+    const range = isContestList ? null : filterRange;
 
     // Zona: «cerca» (radio de distancia, lo de siempre) o ciudad/provincia/CCAA/España.
     // Se recuerda en este navegador; filtra por igual Ranking, Mosaico y Mapa.
@@ -767,7 +771,7 @@ export const ListPage: React.FC = () => {
 
     // Map Specific Data - Always grouped by Place, always has Items list
     const mapItems = useMemo(() => {
-        if (!visibleReviews.length) return [];
+        if (!visibleReviews.length && !contestCandidates.length) return [];
         const placeGroups: Record<string, {
             id: string;
             placeId: string;
@@ -863,18 +867,47 @@ export const ListPage: React.FC = () => {
             }
         });
 
+        // Aspirantes sin probar: también en el mapa, con la copa en gris.
+        const pending = contestCandidates
+            .filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number' && !placeGroups[c.placeId])
+            .reduce<Record<string, { id: string; placeId: string; name: string; lat: number; lng: number; photoUrl?: string; dishes: string[] }>>((acc, c) => {
+                const entry = acc[c.placeId] ?? { id: c.placeId, placeId: c.placeId, name: c.placeName, lat: c.lat!, lng: c.lng!, photoUrl: c.photoUrl, dishes: [] };
+                entry.dishes.push(c.itemName);
+                acc[c.placeId] = entry;
+                return acc;
+            }, {});
+        const pendingItems = Object.values(pending).map(({ dishes, ...p }) => ({
+            ...p,
+            rating: 0,
+            maxScore: 0,
+            emoji: '🏆',
+            color: '#9ca3af',
+            subtitle: `Sin probar · ${dishes.join(', ')}`,
+            items: [] as { name: string; score: number }[],
+            allTags: [] as string[],
+            aptOk: [] as string[],
+            accessibilityOptions: [] as string[],
+            petOptions: [] as string[],
+            reviewsCount: 0,
+            placeClosedStatus: null,
+            itemUnavailable: false,
+            geo: {} as GeoFields,
+        }));
+
         // Format for MapView
-        return Object.values(placeGroups).map(g => ({
+        return [...Object.values(placeGroups).map(g => ({
             ...g,
             rating: g.maxScore, // Override rating for Pin Color with Max Score
             // Sitio en el mapa solo con platos que ya no sirven: fuera por defecto, como en la lista.
             itemUnavailable: g.unavailableCount > 0 && g.unavailableCount === g.reviewsCount,
             items: g.items.sort((a, b) => b.score - a.score) // Sort items descending
-        }));
-    }, [visibleReviews, list]);
+        })), ...pendingItems];
+    }, [visibleReviews, list, contestCandidates]);
 
     // --- Filtering Logic ---
     // --- Filtering Logic ---
+    // En un concurso los resultados siguen a la vista aunque los platos ya no se sirvan.
+    const showGone = showUnavailable || isContestList;
     const filteredItemsAll = useMemo(() => {
         let result = filteredByTagItems;
 
@@ -927,7 +960,7 @@ export const ListPage: React.FC = () => {
         // filtro «Incluir no disponibles», al final (sin quitar sitio a nadie).
         const isGone = (item: { placeClosedStatus?: string | null; itemUnavailable?: boolean }) =>
             item.itemUnavailable === true || isClosedPlaceStatus(item.placeClosedStatus);
-        if (!showUnavailable) {
+        if (!showGone) {
             result = result.filter(item => !isGone(item));
         } else {
             result = [...result.filter(item => !isGone(item)), ...result.filter(isGone)];
@@ -960,7 +993,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [filteredByTagItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault]);
+    }, [filteredByTagItems, searchQuery, filters, range, location, showGone, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault]);
 
     const filteredMapItems = useMemo(() => {
         // Filter mapItems based on the SAME criteria as the list (or at least search/range)
@@ -971,7 +1004,7 @@ export const ListPage: React.FC = () => {
         let result = mapItems;
 
         // Sin sitios cerrados ni sitios donde ya no sirven nada de la lista (salvo con el filtro)
-        if (!showUnavailable) {
+        if (!showGone) {
             result = result.filter(item => !item.itemUnavailable && !isClosedPlaceStatus(item.placeClosedStatus));
         }
 
@@ -1028,7 +1061,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [mapItems, searchQuery, filters, range, location, showUnavailable, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault]);
+    }, [mapItems, searchQuery, filters, range, location, showGone, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault]);
 
     const hasListMapCandidates = useMemo(() => {
         return mapItems.some((item: any) => !!item?.lat && !!item?.lng);
@@ -1478,7 +1511,7 @@ export const ListPage: React.FC = () => {
                     <div className={`transition-all duration-500 ease-in-out ${isMapOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
                         <div className="h-[400px] w-full relative z-0">
                             {/* Con una zona (ciudad, comunidad, país) el mapa encuadra sus sitios, no el radio. */}
-                            {isMapOpen && <MapView items={filteredMapItems} mode="list" range={effectiveArea.kind === 'near' ? range : null} />}
+                            {isMapOpen && <MapView items={filteredMapItems} mode="list" range={effectiveArea.kind === 'near' ? range : null} smartFocus />}
                         </div>
                     </div>
                 </div>

@@ -9,6 +9,7 @@ import { useLocation } from '../hooks/useLocation';
 import type { Location as UserLocation } from '../hooks/useLocation';
 import { Locate, Layers, Check } from 'lucide-react';
 import L from 'leaflet';
+import { focusPoints } from '../lib/mapFocus';
 import { useAuth } from '../context/AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -116,6 +117,8 @@ interface MapViewProps {
     focusId?: string | null;
     /** Cambia con cada toque en la lista, para volver al mismo sitio dos veces. */
     focusNonce?: number;
+    /** Sin radio: encuadra donde están la mayoría, o a tu alrededor si tienes alguno cerca. */
+    smartFocus?: boolean;
 }
 
 // Vuela hasta el sitio elegido y abre su ficha cuando su chincheta ya está suelta.
@@ -179,7 +182,7 @@ function LayerSelectorControl({ currentLayer, onLayerChange }: { currentLayer: M
     );
 }
 
-function MapUpdater({ center, items, range, location }: { center: [number, number], items: MapItem[], range: number | null, location: UserLocation | null }) {
+function MapUpdater({ center, items, range, location, smartFocus = false }: { center: [number, number], items: MapItem[], range: number | null, location: UserLocation | null, smartFocus?: boolean }) {
     const map = useMap();
     // La ubicación solo cuenta con radio: sin él, «Centrar en mi ubicación» (que la
     // refresca) no debe volver a encuadrar todos los sitios. Redondeada (~100 m).
@@ -187,6 +190,11 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
     const nearKey = near ? `${near.latitude.toFixed(3)},${near.longitude.toFixed(3)}` : '';
     const nearRef = useRef(near);
     useLayoutEffect(() => { nearRef.current = near; });
+    // Encuadre inteligente (lista sin radio): tu posición solo decide si tienes algo cerca.
+    const me = smartFocus && range === null && location ? location : null;
+    const meKey = me ? `${me.latitude.toFixed(2)},${me.longitude.toFixed(2)}` : '';
+    const meRef = useRef(me);
+    useLayoutEffect(() => { meRef.current = me; });
 
     useEffect(() => whenMapSized(map, () => {
         const location = nearRef.current;
@@ -204,7 +212,14 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
             if (items.length === 1 && items[0].lat && items[0].lng) {
                 map.flyTo([items[0].lat, items[0].lng], 14, { animate, duration });
             } else {
-                const bounds = L.latLngBounds(items.map(i => [i.lat!, i.lng!] as [number, number]));
+                const user = meRef.current;
+                const all = items.map(i => ({ lat: i.lat!, lng: i.lng! }));
+                const shown = smartFocus ? focusPoints(all, user ? { lat: user.latitude, lng: user.longitude } : null) : all;
+                if (shown.length === 1) {
+                    map.flyTo([shown[0].lat, shown[0].lng], 14, { animate, duration });
+                    return;
+                }
+                const bounds = L.latLngBounds(shown.map(p => [p.lat, p.lng] as [number, number]));
                 if (bounds.isValid()) {
                     map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15, animate, duration });
                 }
@@ -212,7 +227,7 @@ function MapUpdater({ center, items, range, location }: { center: [number, numbe
         } else {
             map.flyTo(center, 10, { animate, duration });
         }
-    }), [range, items, center, nearKey, map]);
+    }), [range, items, center, nearKey, meKey, smartFocus, map]);
 
     return null;
 }
@@ -221,7 +236,7 @@ const DEFAULT_CENTER: [number, number] = [40.416, -3.703];
 
 // Memorizado: el mapa a pantalla completa se vuelve a pintar al abrir filtros o la lista,
 // y el mapa no tiene que rehacerse por eso.
-export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ items, mode = 'global', center = DEFAULT_CENTER, range = null, showLayerControl = true, scrollWheelZoom = false, focusId = null, focusNonce }) {
+export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ items, mode = 'global', center = DEFAULT_CENTER, range = null, showLayerControl = true, scrollWheelZoom = false, focusId = null, focusNonce, smartFocus = false }) {
 
     const { location } = useLocation();
     const { user, isJefe } = useAuth();
@@ -314,7 +329,7 @@ export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ ite
                 />
                 <TileFilterApplier filter={activeLayer.tileFilter} />
 
-                <MapUpdater center={stableCenter} items={validItems} range={range} location={location} />
+                <MapUpdater center={stableCenter} items={validItems} range={range} location={location} smartFocus={smartFocus} />
 
                 {/* User Location Features */}
                 <UserLocationFeatures range={range} />
