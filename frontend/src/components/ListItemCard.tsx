@@ -53,6 +53,10 @@ interface ListItemCardProps {
     elementKey?: string;
     /** Elementos (groupingMode 'dish'): sitio como título y el elemento en la segunda línea. */
     placeFirst?: boolean;
+    /** Aspirante de un concurso que nadie ha valorado: sin nota ni puesto. */
+    pending?: boolean;
+    /** «Valorar» en la tarjeta del aspirante (si se puede valorar ahora). */
+    onRate?: () => void;
 }
 
 // Sin nota pública: se dice, en vez de enseñar un 0.
@@ -106,11 +110,27 @@ const RankPill: React.FC<{ rank: number; small?: boolean }> = ({ rank, small }) 
     </span>
 );
 
+// Aspirante sin probar: en lugar de la nota, el aviso y (si se puede) «Valorar», encima del enlace.
+const PendingSlot: React.FC<{ onRate?: () => void; size: 'sm' | 'lg' }> = ({ onRate, size }) => (
+    <div className="relative z-10 flex shrink-0 flex-col items-end gap-1">
+        <span className="whitespace-nowrap rounded-full border border-[var(--lt-border)] bg-[var(--lt-card-strong)] px-2 py-0.5 text-[10px] font-bold text-[var(--lt-text-muted)]">🏆 Sin probar</span>
+        {onRate && (
+            <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRate(); }}
+                className={`rounded-full bg-[var(--lt-accent)] lt-on-accent font-bold ${size === 'lg' ? 'px-3 py-1 text-xs' : 'px-2 py-0.5 text-[11px]'}`}
+            >
+                Valorar
+            </button>
+        )}
+    </div>
+);
+
 const CHIP = 'inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-bold border';
 const CHIP_ACCENT = `${CHIP} bg-[var(--lt-accent-soft)] text-[var(--lt-accent)] border-[var(--lt-accent-border)]`;
 const CHIP_NEUTRAL = `${CHIP} bg-[var(--lt-card)] text-[var(--lt-text-muted)] border-[var(--lt-border)]`;
 
-export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextRankLabel, isGrid, groupingMode = 'place', listId, disableLift = false, elementKey, placeFirst = false }) => {
+export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextRankLabel, isGrid, groupingMode = 'place', listId, disableLift = false, elementKey, placeFirst = false, pending = false, onRate }) => {
     // Una misma etiqueta puede llegar repetida (varias reseñas del elemento).
     const tags = Array.from(new Set(item.tags || []));
     const closedKind = closedStatusKind(item.placeClosedStatus);
@@ -198,7 +218,10 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
     }, [item.criteriaAverages, item.criteriaDefinition]);
 
     // --- Render Content ---
-    const titleHref = item.placeId
+    // Sin reseñas, la ficha del plato está vacía: se va al sitio (allí está en la carta).
+    const titleHref = item.placeId && pending
+        ? `/place/${item.placeId}`
+        : item.placeId
         ? (groupingMode === 'dish'
             ? `/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`
             : `/place/${item.placeId}`)
@@ -344,8 +367,9 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                     </span>
                                 )}
                             </div>
-                            {groupingMode !== 'list' && (
-                                <ScoreBadge value={item.avgRating} kind={item.scoreKind} size="sm" />
+                            {groupingMode !== 'list' && (pending
+                                ? <PendingSlot onRate={onRate} size="sm" />
+                                : <ScoreBadge value={item.avgRating} kind={item.scoreKind} size="sm" />
                             )}
                         </div>
                     </div>
@@ -413,8 +437,9 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                 {renderStats()}
                             </div>
 
-                            {groupingMode !== 'list' && (
-                                <ScoreBadge value={item.avgRating} kind={item.scoreKind} size="lg" />
+                            {groupingMode !== 'list' && (pending
+                                ? <PendingSlot onRate={onRate} size="lg" />
+                                : <ScoreBadge value={item.avgRating} kind={item.scoreKind} size="lg" />
                             )}
                         </div>
 

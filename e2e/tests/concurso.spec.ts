@@ -12,14 +12,29 @@ test('concurso: aspirantes sin probar y Valorar con sitio y plato ya puestos', a
   await expect(panel.getByText(/3 aspirantes · 2 sin probar/)).toBeVisible();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/1-minilista-concurso.png` });
 
-  // «Valorar» de arriba no abre un formulario libre: despliega los aspirantes.
+  // Los aspirantes sin probar están en el ranking, al final, sin puesto y con «Valorar».
+  const ahumada = page.locator('article', { hasText: 'Brava ahumada' });
+  await expect(ahumada.getByText('🏆 Sin probar')).toBeVisible();
+  await expect(ahumada.locator('[aria-label^="Puesto"]')).toHaveCount(0);
+
+  // Filtro del concurso: con nota, solo los valorados; sin probar, solo los que faltan.
+  await panel.getByRole('radio', { name: 'Con nota' }).click();
+  await expect(page.locator('article', { hasText: 'Brava ahumada' })).toHaveCount(0);
+  await expect(page.getByText('🏆 Sin probar')).toHaveCount(0);
+  await expect(page.locator('article [aria-label^="Puesto"]').first()).toBeVisible();
+  await panel.getByRole('radio', { name: 'Todos' }).click();
+
+  // «Valorar» de arriba no abre un formulario libre: deja a la vista los que faltan por probar.
   await page.getByRole('button', { name: 'Valorar' }).first().click();
-  await expect(panel.getByText('Brava ahumada')).toBeVisible();
-  await expect(panel.getByText('Bravas', { exact: true })).toHaveCount(0);
-  await panel.scrollIntoViewIfNeeded();
+  await expect(panel.getByRole('radio', { name: /Sin probar/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('article', { hasText: 'Brava ahumada' })).toBeVisible();
+  await expect(page.locator('article [aria-label^="Puesto"]')).toHaveCount(0);
+  await page.locator('article', { hasText: 'Brava ahumada' }).scrollIntoViewIfNeeded();
+  await page.mouse.wheel(0, 200);
+  await page.waitForTimeout(400);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/2-sin-probar.png` });
 
-  await panel.getByRole('button', { name: /Brava ahumada/ }).click();
+  await page.locator('article', { hasText: 'Brava ahumada' }).getByRole('button', { name: 'Valorar' }).click();
   await expect(page.locator('input[value="Brava ahumada"]')).toBeVisible();
   await page.waitForTimeout(800);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/3-valorar-relleno.png` });

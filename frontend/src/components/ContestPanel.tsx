@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { deleteField, doc, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
-import { Camera, ChevronDown, ClipboardPaste, Loader, Plus, Settings2, Trash2, X } from 'lucide-react';
+import { Camera, ClipboardPaste, Loader, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { uploadListImage } from '../lib/listCover';
 import { canReadClipboardImage, imageFromPaste, readClipboardImage } from '../lib/clipboardImage';
 import { db } from '../firebase';
@@ -23,18 +23,22 @@ interface ContestPanelProps {
     reviews: ReviewLite[];
     canManage: boolean;
     canEditCandidates: boolean;
-    canRate: boolean;
     isJefe: boolean;
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    onRate: (candidate: ContestCandidate) => void;
+    /** Qué aspirantes se ven en el ranking y el mapa. */
+    show: ContestShow;
+    onShowChange: (value: ContestShow) => void;
     onChanged: () => void;
     /** Abre la ventana de aspirantes al cargar (recién creada en modo concurso). */
     autoOpenSettings?: boolean;
 }
 
-/** Aspirantes y modo concurso de una Minilista: un desplegable que no ocupa nada si no hace falta. */
-export const ContestPanel: React.FC<ContestPanelProps> = ({ list, reviews, canManage, canEditCandidates, canRate, isJefe, open, onOpenChange, onRate, onChanged, autoOpenSettings = false }) => {
+export type ContestShow = 'all' | 'rated' | 'pending';
+
+/**
+ * Cabecera del concurso de una Minilista: estado, fechas y cuántos faltan por probar,
+ * con el filtro «Todos · Con nota · Sin probar». Los aspirantes van en el ranking.
+ */
+export const ContestPanel: React.FC<ContestPanelProps> = ({ list, reviews, canManage, canEditCandidates, isJefe, show, onShowChange, onChanged, autoOpenSettings = false }) => {
     const [settingsOpen, setSettingsOpenState] = useState(() => autoOpenSettings && canEditCandidates);
     const setSettingsOpen = (value: boolean) => {
         setSettingsOpenState(value);
@@ -46,15 +50,8 @@ export const ContestPanel: React.FC<ContestPanelProps> = ({ list, reviews, canMa
     const phase = contestPhase(list.contest);
     const dates = contestDatesLabel(list.contest);
 
-    const reviewCount = useMemo(() => {
-        const counts = new Map<string, number>();
-        reviews.forEach((r) => {
-            const key = candidateMatchKey(r.placeId, r.itemName);
-            counts.set(key, (counts.get(key) ?? 0) + 1);
-        });
-        return counts;
-    }, [reviews]);
-    const untasted = candidates.filter((c) => !reviewCount.get(candidateMatchKey(c.placeId, c.itemName)));
+    const tasted = useMemo(() => new Set(reviews.map((r) => candidateMatchKey(r.placeId, r.itemName))), [reviews]);
+    const untastedCount = candidates.filter((c) => !tasted.has(candidateMatchKey(c.placeId, c.itemName))).length;
 
     if (!closed && candidates.length === 0) {
         if (!canEditCandidates) return null;
@@ -75,68 +72,45 @@ export const ContestPanel: React.FC<ContestPanelProps> = ({ list, reviews, canMa
     }
 
     const phaseLabel = !closed ? null : phase === 'before' ? 'Aún no empieza' : phase === 'after' ? 'Terminado' : 'Abierto';
+    const options: { value: ContestShow; label: string }[] = [
+        { value: 'all', label: 'Todos' },
+        { value: 'rated', label: 'Con nota' },
+        { value: 'pending', label: `Sin probar${untastedCount ? ` (${untastedCount})` : ''}` },
+    ];
 
     return (
-        <section id="contest-panel" className="mb-6 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] overflow-hidden">
-            <div className="flex items-center gap-2 pr-2">
-                <button
-                    type="button"
-                    onClick={() => onOpenChange(!open)}
-                    aria-expanded={open}
-                    className="flex-1 min-w-0 flex items-center gap-2 px-4 py-3 text-left"
-                >
-                    <span aria-hidden className="text-lg">🏆</span>
-                    <span className="min-w-0">
-                        <span className="block font-display font-bold text-sm text-[var(--lt-text)]">
-                            {closed ? 'Concurso' : 'Aspirantes'}
-                            {phaseLabel && <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${phase === 'open' ? 'bg-[var(--lt-success-soft)] text-[var(--lt-success)]' : 'bg-[var(--lt-glass)] text-[var(--lt-text-muted)]'}`}>{phaseLabel}</span>}
-                        </span>
-                        <span className="block text-xs text-[var(--lt-text-muted)]">
-                            {[dates, `${candidates.length} aspirante${candidates.length === 1 ? '' : 's'}`, untasted.length ? `${untasted.length} sin probar` : 'todos probados'].filter(Boolean).join(' · ')}
-                        </span>
-                    </span>
-                    <ChevronDown className={`ml-auto w-4 h-4 shrink-0 text-[var(--lt-text-muted)] transition-transform ${open ? 'rotate-180' : ''}`} />
-                </button>
+        <section id="contest-panel" className="mb-6 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] px-4 py-3">
+            <div className="flex items-center gap-2">
+                <span aria-hidden className="text-lg">🏆</span>
+                <div className="min-w-0 flex-1">
+                    <p className="font-display font-bold text-sm text-[var(--lt-text)]">
+                        {closed ? 'Concurso' : 'Aspirantes'}
+                        {phaseLabel && <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${phase === 'open' ? 'bg-[var(--lt-success-soft)] text-[var(--lt-success)]' : 'bg-[var(--lt-glass)] text-[var(--lt-text-muted)]'}`}>{phaseLabel}</span>}
+                    </p>
+                    <p className="text-xs text-[var(--lt-text-muted)] truncate">
+                        {[dates, `${candidates.length} aspirante${candidates.length === 1 ? '' : 's'}`, untastedCount ? `${untastedCount} sin probar` : 'todos probados'].filter(Boolean).join(' · ')}
+                    </p>
+                </div>
                 {canEditCandidates && (
                     <button type="button" onClick={() => setSettingsOpen(true)} aria-label="Ajustes del concurso" className="p-2 rounded-lg text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-[var(--lt-glass)]">
                         <Settings2 className="w-4 h-4" />
                     </button>
                 )}
             </div>
-
-            {open && (
-                <div className="border-t border-[var(--lt-border)] px-2 py-2">
-                    {untasted.length === 0 ? (
-                        <p className="px-2 py-3 text-xs text-[var(--lt-text-muted)]">Todos los aspirantes tienen ya nota: están en el ranking de abajo.</p>
-                    ) : (
-                        <>
-                            <p className="px-2 pt-1 pb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--lt-text-muted)]">Sin probar</p>
-                            <ul>
-                                {untasted.map((c) => (
-                                    <li key={c.key}>
-                                        <button
-                                            type="button"
-                                            disabled={!canRate || (closed && phase !== 'open')}
-                                            onClick={() => onRate(c)}
-                                            className="w-full flex items-center gap-3 px-2 py-2.5 rounded-xl text-left hover:bg-[var(--lt-glass)] disabled:hover:bg-transparent disabled:cursor-default"
-                                        >
-                                            {c.photoUrl ? <img src={c.photoUrl} alt="" loading="lazy" className="w-11 h-11 rounded-lg object-cover shrink-0" /> : null}
-                                            <span className="min-w-0 flex-1">
-                                                <span className="block text-sm font-bold text-[var(--lt-text)] opacity-80 truncate">{c.itemName}</span>
-                                                <span className="block text-xs text-[var(--lt-text-muted)] truncate">{c.placeName}</span>
-                                            </span>
-                                            {canRate && (!closed || phase === 'open') && (
-                                                <span className="shrink-0 text-xs font-bold text-[var(--lt-accent)]">Valorar</span>
-                                            )}
-                                        </button>
-                                    </li>
-                                ))}
-                            </ul>
-                        </>
-                    )}
-                    {candidates.length > untasted.length && untasted.length > 0 && (
-                        <p className="px-2 pt-1 pb-2 text-xs text-[var(--lt-text-muted)]">{candidates.length - untasted.length} ya en el ranking de abajo.</p>
-                    )}
+            {candidates.length > 0 && (
+                <div id="contest-filter" role="radiogroup" aria-label="Qué aspirantes ver" className="mt-3 flex gap-1 rounded-xl bg-[var(--lt-glass)] p-0.5 border border-[var(--lt-border)]">
+                    {options.map((o) => (
+                        <button
+                            key={o.value}
+                            type="button"
+                            role="radio"
+                            aria-checked={show === o.value}
+                            onClick={() => onShowChange(o.value)}
+                            className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-bold transition-colors ${show === o.value ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+                        >
+                            {o.label}
+                        </button>
+                    ))}
                 </div>
             )}
             {settingsOpen && <ContestSettingsModal list={list} canManage={canManage} isJefe={isJefe} onClose={() => setSettingsOpen(false)} onChanged={onChanged} />}

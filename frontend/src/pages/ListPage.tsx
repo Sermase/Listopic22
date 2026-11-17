@@ -7,8 +7,8 @@ import { Map as MapIcon, List as ListIcon, Plus, Heart, SlidersHorizontal, Clock
 import { MarqueeText } from '../components/ui/MarqueeText';
 import { listDetailsQueryKey, useListDetails } from '../hooks/useListDetails';
 import { useQueryClient } from '@tanstack/react-query';
-import { ContestPanel } from '../components/ContestPanel';
-import { candidateMatchKey, isClosedContest, type ContestCandidate } from '../lib/contest';
+import { ContestPanel, type ContestShow } from '../components/ContestPanel';
+import { candidateMatchKey, contestPhase, isClosedContest, type ContestCandidate } from '../lib/contest';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { ListItemCard } from '../components/ListItemCard';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -258,7 +258,6 @@ export const ListPage: React.FC = () => {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     // Aspirante elegido en el panel del concurso: abre «Valorar» ya relleno.
     const [rateCandidate, setRateCandidate] = useState<ContestCandidate | null>(null);
-    const [contestOpen, setContestOpen] = useState(false);
     // Recién creada en modo concurso (SublistsModal): abre la ventana de aspirantes.
     const openCandidatesOnLoad = new URLSearchParams(routerLocation.search).get('aspirantes') === '1';
     const queryClient = useQueryClient();
@@ -286,12 +285,22 @@ export const ListPage: React.FC = () => {
         }
         // En un concurso solo se valoran aspirantes: se elige en su panel.
         if (closedContest) {
-            setContestOpen(true);
-            requestAnimationFrame(() => document.getElementById('contest-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+            setContestShow('pending');
+            requestAnimationFrame(() => document.getElementById('contest-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
             return;
         }
         setRateCandidate(null);
         setIsAddModalOpen(true);
+    };
+
+    const isPendingElement = (item: unknown): boolean => Boolean(item && (item as { pending?: unknown }).pending === true);
+    // «Valorar» en la tarjeta del aspirante: solo si se puede valorar ahora (en un concurso cerrado, entre fechas).
+    const contestOpenNow = !closedContest || contestPhase(list?.contest) === 'open';
+    const rateActionFor = (item: unknown): (() => void) | undefined => {
+        const candidate = (item as { candidate?: ContestCandidate } | null)?.candidate;
+        if (!candidate || !isPendingElement(item) || !contestOpenNow) return undefined;
+        if (!canAddReview) return undefined;
+        return () => handleRateCandidate(candidate);
     };
 
     const handleRateCandidate = (candidate: ContestCandidate) => {
@@ -322,6 +331,8 @@ export const ListPage: React.FC = () => {
     // Concurso (lista de aspirantes): se ven todos, estés donde estés; la distancia no filtra.
     const contestCandidates = useMemo<ContestCandidate[]>(() => (Array.isArray(list?.candidates) ? (list.candidates as ContestCandidate[]) : []), [list?.candidates]);
     const isContestList = contestCandidates.length > 0;
+    // Concurso: ver todos los aspirantes (por defecto), solo los que tienen nota o solo los sin probar.
+    const [contestShow, setContestShow] = useState<ContestShow>('all');
     const range = isContestList ? null : filterRange;
 
     // Zona: «cerca» (radio de distancia, lo de siempre) o ciudad/provincia/CCAA/España.
@@ -649,6 +660,54 @@ export const ListPage: React.FC = () => {
         });
     }, [visibleReviews, list, groupingMode, sortMode, user]);
 
+    // Aspirantes que nadie ha valorado: entran en el ranking, al final y sin puesto.
+    // Misma clave que los elementos con nota, para no repetir ninguno.
+    const pendingElements = useMemo(() => {
+        if (!isContestList) return [];
+        const grouping = groupingMode === 'dish' ? 'dish' : 'place';
+        const rated = new Set(groupedItems.map((g) => g.id));
+        const byKey = new Map<string, (typeof groupedItems)[number] & { pending: true; candidate: ContestCandidate }>();
+        contestCandidates.forEach((c) => {
+            const key = elementKey({ placeId: c.placeId, itemName: c.itemName }, grouping);
+            if (rated.has(key)) return;
+            const existing = byKey.get(key);
+            if (existing) {
+                existing.items.push({ name: c.itemName, score: 0 });
+                return;
+            }
+            const hasCoords = typeof c.lat === 'number' && typeof c.lng === 'number' && !(c.lat === 0 && c.lng === 0);
+            byKey.set(key, {
+                id: key,
+                name: grouping === 'dish' ? c.itemName : c.placeName,
+                placeId: c.placeId,
+                placeName: c.placeName,
+                placeCity: c.city,
+                placeAddress: c.placeAddress,
+                geo: { city: c.city, province: c.province, region: c.region, country: c.country },
+                photoUrl: c.photoUrl,
+                lat: hasCoords ? c.lat : undefined,
+                lng: hasCoords ? c.lng : undefined,
+                avgRating: 0,
+                reviewCount: 0,
+                items: [{ name: c.itemName, score: 0 }],
+                criteriaAverages: {},
+                criteriaDefinition: list?.criteriaDefinition,
+                tags: [],
+                allTags: [],
+                aptOk: [],
+                accessibilityOptions: [],
+                petOptions: [],
+                itemUnavailable: false,
+                placeClosedStatus: null,
+                userHasReviewed: false,
+                latestReviewAt: 0,
+                pending: true,
+                candidate: c,
+            } as unknown as (typeof groupedItems)[number] & { pending: true; candidate: ContestCandidate });
+        });
+        return [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    }, [isContestList, contestCandidates, groupedItems, groupingMode, list?.criteriaDefinition]);
+
     // Unique Tags for Filter UI
     const availableGroupTags = useMemo(() => {
         const set = new Set<string>();
@@ -887,6 +946,7 @@ export const ListPage: React.FC = () => {
             maxScore: 0,
             emoji: '🏆',
             color: '#9ca3af',
+            pending: true,
             subtitle: `Sin probar · ${dishes.join(', ')}`,
             items: [] as { name: string; score: number }[],
             allTags: [] as string[],
@@ -997,8 +1057,21 @@ export const ListPage: React.FC = () => {
             // Let's filter nothing until location is found (user should see prompt).
         }
 
+        // 4. Concurso: los aspirantes sin probar, al final (un filtro de nota, foto o etiquetas los deja fuera).
+        if (isContestList) {
+            const qualityFilter = filters.minRating > 0 || filters.hasPhoto || filters.visited || selectedTags.length > 0
+                || Object.values(filters.accessibility || {}).some(Boolean) || Object.values(filters.criteriaMin || {}).some((v) => v > 0)
+                || dietGluten || dietVeg || dietVegan || dietLactose || petsWanted || mobilityNeeds.length > 0;
+            const lowerQ = searchQuery.toLowerCase();
+            const pending = qualityFilter ? [] : pendingElements.filter((item) =>
+                (!lowerQ || item.name.toLowerCase().includes(lowerQ) || (item.placeName || '').toLowerCase().includes(lowerQ))
+                && (effectiveArea.kind === 'near' || matchesArea(item.geo, effectiveArea)));
+            if (contestShow === 'pending') return pending;
+            if (contestShow === 'all') return [...result, ...pending];
+        }
+
         return result;
-    }, [filteredByTagItems, searchQuery, filters, range, location, showGone, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault]);
+    }, [filteredByTagItems, searchQuery, filters, range, location, showGone, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault, isContestList, pendingElements, contestShow, selectedTags]);
 
     const filteredMapItems = useMemo(() => {
         // Filter mapItems based on the SAME criteria as the list (or at least search/range)
@@ -1007,6 +1080,11 @@ export const ListPage: React.FC = () => {
         // Or re-apply filters (Search, Range, Rating).
 
         let result = mapItems;
+
+        // Concurso: con nota, sin probar o todos (como el ranking).
+        if (isContestList && contestShow !== 'all') {
+            result = result.filter((item) => (contestShow === 'pending') === ('pending' in item && item.pending === true));
+        }
 
         // Sin sitios cerrados ni sitios donde ya no sirven nada de la lista (salvo con el filtro)
         if (!showGone) {
@@ -1066,7 +1144,7 @@ export const ListPage: React.FC = () => {
         }
 
         return result;
-    }, [mapItems, searchQuery, filters, range, location, showGone, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault]);
+    }, [mapItems, searchQuery, filters, range, location, showGone, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault, isContestList, contestShow]);
 
     const hasListMapCandidates = useMemo(() => {
         return mapItems.some((item: any) => !!item?.lat && !!item?.lng);
@@ -1538,11 +1616,9 @@ export const ListPage: React.FC = () => {
                         reviews={reviews}
                         canManage={Boolean(user && list.userId === user.uid)}
                         canEditCandidates={Boolean(user && (isJefe || list.userId === user.uid || list.editors?.includes(user.uid)))}
-                        canRate={canAddReview}
                         isJefe={isJefe}
-                        open={contestOpen}
-                        onOpenChange={setContestOpen}
-                        onRate={handleRateCandidate}
+                        show={contestShow}
+                        onShowChange={setContestShow}
                         autoOpenSettings={openCandidatesOnLoad}
                         onChanged={() => { void queryClient.invalidateQueries({ queryKey: listDetailsQueryKey(listId || '') }); }}
                     />
@@ -1656,16 +1732,17 @@ export const ListPage: React.FC = () => {
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
                                     {filteredItems.map((item, idx) => {
                                         // El puesto solo tiene sentido ordenando por nota.
-                                        const rank = sortMode === 'rating' ? idx + 1 : undefined;
+                                        const isPending = isPendingElement(item);
+                                        const rank = sortMode === 'rating' && !isPending ? idx + 1 : undefined;
                                         const score = item.avgRating;
                                         const primaryName = groupingMode === 'dish' ? (item.placeName || item.name) : item.name;
                                         const secondaryName = groupingMode === 'dish' ? item.name : undefined;
                                         const reviewPhoto = (item as any).reviewPhotoUrl;
                                         const placeImg = (item as any).placeMainImage;
-                                        const photoSrc = reviewPhoto || placeImg || null;
+                                        const photoSrc = reviewPhoto || placeImg || (isPending ? item.photoUrl : null) || null;
                                         const isPlaceImg = !reviewPhoto && !!placeImg;
                                         const href = item.placeId
-                                            ? groupingMode === 'dish'
+                                            ? groupingMode === 'dish' && !isPending
                                                 ? `/group/${item.placeId}/${encodeURIComponent(item.name)}?listId=${listId}`
                                                 : `/place/${item.placeId}`
                                             : null;
@@ -1696,9 +1773,13 @@ export const ListPage: React.FC = () => {
                                                     )}
                                                 </div>
                                                 {/* Score bubble top-right */}
-                                                <div className="absolute top-2 right-2 h-7 min-w-[2.25rem] px-1.5 rounded-full flex items-center justify-center shadow-lg" style={scoreBadgeStyle(score)}>
-                                                    <span className="text-[11px] font-bold tabular-nums">{score.toFixed(1)}</span>
-                                                </div>
+                                                {isPending ? (
+                                                    <div className="absolute top-2 right-2 h-7 px-2 rounded-full flex items-center justify-center shadow-lg bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold">🏆 Sin probar</div>
+                                                ) : (
+                                                    <div className="absolute top-2 right-2 h-7 min-w-[2.25rem] px-1.5 rounded-full flex items-center justify-center shadow-lg" style={scoreBadgeStyle(score)}>
+                                                        <span className="text-[11px] font-bold tabular-nums">{score.toFixed(1)}</span>
+                                                    </div>
+                                                )}
                                                 {/* Rank badge top-left */}
                                                 {rank !== undefined && (
                                                     <div className={`absolute top-2 left-2 h-6 min-w-6 px-1.5 rounded-full flex items-center justify-center shadow-lg text-[10px] font-bold ${rank === 1 ? 'bg-amber-400 text-black' : rank === 2 ? 'bg-gray-300 text-black' : rank === 3 ? 'bg-amber-700 lt-on-accent' : 'bg-black/55 backdrop-blur-sm border border-white/15 lt-on-accent'}`}>
@@ -1737,7 +1818,9 @@ export const ListPage: React.FC = () => {
                                     >
                                         <ListItemCard
                                             item={filteredItems[virtualRow.index]}
-                                            rank={sortMode === 'rating' && !filteredItems[virtualRow.index].itemUnavailable && !isClosedPlaceStatus(filteredItems[virtualRow.index].placeClosedStatus) ? virtualRow.index + 1 : undefined}
+                                            rank={sortMode === 'rating' && !isPendingElement(filteredItems[virtualRow.index]) && !filteredItems[virtualRow.index].itemUnavailable && !isClosedPlaceStatus(filteredItems[virtualRow.index].placeClosedStatus) ? virtualRow.index + 1 : undefined}
+                                            pending={isPendingElement(filteredItems[virtualRow.index])}
+                                            onRate={rateActionFor(filteredItems[virtualRow.index])}
                                             elementKey={filteredItems[virtualRow.index].id}
                                             contextRankLabel={primaryContextRank(contextRanksById.get(filteredItems[virtualRow.index].id), effectiveArea, filteredItemsAll.length)?.label}
                                             isGrid={false}
