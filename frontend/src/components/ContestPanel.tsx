@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { deleteField, doc, Timestamp, updateDoc } from 'firebase/firestore';
-import { Camera, ChevronDown, Loader, Plus, Settings2, Trash2, X } from 'lucide-react';
+import { Camera, ChevronDown, ClipboardPaste, Loader, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { uploadListImage } from '../lib/listCover';
+import { canReadClipboardImage, imageFromPaste, readClipboardImage } from '../lib/clipboardImage';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -168,6 +169,28 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
     useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
     // La foto se sube a list-images/{lista}: las reglas de Storage solo dejan al dueño (o un jefe).
     const canUploadPhoto = canManage || isJefe;
+    const photoStep = Boolean(place) && canUploadPhoto;
+    // Ctrl+V con una imagen copiada la pone como foto (el texto pegado sigue yendo a su campo).
+    useEffect(() => {
+        if (!photoStep) return undefined;
+        const onPaste = (event: ClipboardEvent) => {
+            const image = imageFromPaste(event.clipboardData);
+            if (!image) return;
+            event.preventDefault();
+            setPhoto(image);
+        };
+        document.addEventListener('paste', onPaste);
+        return () => document.removeEventListener('paste', onPaste);
+    }, [photoStep]);
+    const pastePhoto = async () => {
+        try {
+            const image = await readClipboardImage();
+            if (image) setPhoto(image);
+            else showToast({ variant: 'error', message: 'No hay ninguna imagen copiada.' });
+        } catch {
+            showToast({ variant: 'error', message: 'No se pudo leer el portapapeles. Prueba con Ctrl+V o elige la foto.' });
+        }
+    };
     const [adding, setAdding] = useState(false);
     const [saving, setSaving] = useState(false);
 
@@ -306,8 +329,9 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                                     className="w-full rounded-lg bg-[var(--lt-glass)] border border-[var(--lt-border)] px-3 py-2 text-sm text-[var(--lt-text)] placeholder:text-[var(--lt-text-muted)] focus:outline-none focus:border-[var(--lt-accent-border)]"
                                 />
                             )}
-                            {place && canUploadPhoto && (
-                                <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--lt-border)] bg-[var(--lt-glass)] text-sm text-[var(--lt-text-muted)] cursor-pointer hover:text-[var(--lt-text)]">
+                            {photoStep && (
+                                <div className="flex gap-2">
+                                <label className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--lt-border)] bg-[var(--lt-glass)] text-sm text-[var(--lt-text-muted)] cursor-pointer hover:text-[var(--lt-text)]">
                                     {photoPreview ? <img src={photoPreview} alt="" className="w-8 h-8 rounded object-cover" /> : <Camera className="w-4 h-4" />}
                                     <span className="flex-1 truncate">{photo ? photo.name : 'Foto del plato (opcional)'}</span>
                                     {photo && (
@@ -315,6 +339,12 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                                     )}
                                     <input type="file" accept="image/*" className="hidden" onChange={(e) => { setPhoto(e.target.files?.[0] ?? null); e.target.value = ''; }} />
                                 </label>
+                                {canReadClipboardImage() && (
+                                    <button type="button" onClick={pastePhoto} title="Pegar la imagen copiada (o Ctrl+V)" className="shrink-0 flex items-center gap-1 px-3 rounded-lg border border-[var(--lt-border)] bg-[var(--lt-glass)] text-sm text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">
+                                        <ClipboardPaste className="w-4 h-4" /> Pegar
+                                    </button>
+                                )}
+                                </div>
                             )}
                             <button
                                 type="button"
