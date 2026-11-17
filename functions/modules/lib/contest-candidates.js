@@ -19,8 +19,11 @@ function candidatesOf(list) {
 function diffCandidates(before, after) {
   const prev = new Map(candidatesOf(before).map((c) => [c.key, c]));
   const next = new Map(candidatesOf(after).map((c) => [c.key, c]));
+  const changed = JSON.stringify(before?.candidates ?? null) !== JSON.stringify(after?.candidates ?? null);
   return {
-    added: [...next.values()].filter((c) => !prev.has(c.key)),
+    // Cualquier cambio en los aspirantes vuelve a enganchar todos (es idempotente):
+    // así se reparan los apuntados antes de existir esta Function.
+    added: changed ? [...next.values()] : [],
     removed: [...prev.values()].filter((c) => !next.has(c.key)),
   };
 }

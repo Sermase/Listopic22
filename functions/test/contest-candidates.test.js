@@ -10,8 +10,9 @@ test('diffCandidates: entran y salen aspirantes', () => {
   const before = { candidates: [cand('p1', 'Tarta de queso'), cand('p2', 'Tarta')] };
   const after = { candidates: [cand('p1', 'Tarta de queso'), cand('p3', 'La Vasca')] };
   const { added, removed } = diffCandidates(before, after);
-  assert.deepEqual(added.map((c) => c.placeId), ['p3']);
-  assert.equal(added[0].itemId, 'la-vasca');
+  assert.deepEqual(added.map((c) => c.placeId), ['p1', 'p3']);
+  assert.equal(added[1].itemId, 'la-vasca');
+  assert.deepEqual(diffCandidates(after, after).added, []);
   assert.deepEqual(removed.map((c) => c.placeId), ['p2']);
   assert.deepEqual(diffCandidates(null, null), { added: [], removed: [] });
 });
