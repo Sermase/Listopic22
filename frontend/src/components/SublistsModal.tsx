@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, ChevronRight, Layers } from 'lucide-react';
-import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { listDetailsQueryKey } from '../hooks/useListDetails';
 import { CreateListForm } from './CreateListForm';
 import { type ListEntity } from '../hooks/useLists';
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
@@ -19,9 +22,13 @@ interface SublistsModalProps {
     /** Si la madre es privada, la Minilista solo puede ser privada. */
     parentIsPublic?: boolean;
     parentTags?: string[]; // Tags from parent list
+    parentCategoryId?: string;
 }
 
-export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, isOpen, onClose, sublists: initialSublists, parentCriteria, parentScoringWeights, parentTags, parentIsPublic = true }) => {
+export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, isOpen, onClose, sublists: initialSublists, parentCriteria, parentScoringWeights, parentTags, parentCategoryId, parentIsPublic = true }) => {
+    const { user } = useAuth();
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const [view, setView] = useState<'list' | 'create'>('list');
     const [sublists, setSublists] = useState<ListEntity[]>([]);
     const [loading, setLoading] = useState(true);
@@ -32,14 +39,17 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
     const fetchSublists = async () => {
         setLoading(true);
         try {
-            const q = query(
-                collection(db, 'lists'),
-                where('parentListId', '==', listId),
-                orderBy('createdAt', 'desc')
-            );
-            const snapshot = await getDocs(q);
-            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as ListEntity[];
-            setSublists(data);
+            // Las reglas solo dejan consultar las públicas o las propias: dos consultas
+            // (antes una sin filtro fallaba y la Minilista recién creada no aparecía).
+            const lists = collection(db, 'lists');
+            const snaps = await Promise.all([
+                getDocs(query(lists, where('parentListId', '==', listId), where('isPublic', '==', true))),
+                user ? getDocs(query(lists, where('parentListId', '==', listId), where('userId', '==', user.uid))) : null,
+            ]);
+            const byId = new Map<string, ListEntity>();
+            snaps.forEach((snap) => snap?.docs.forEach((d) => byId.set(d.id, { id: d.id, ...d.data() } as ListEntity)));
+            const millis = (l: ListEntity) => (l.createdAt && typeof l.createdAt.toMillis === 'function' ? l.createdAt.toMillis() : 0);
+            setSublists([...byId.values()].sort((a, b) => millis(b) - millis(a)));
         } catch (error) {
             console.error("Error fetching sublists:", error);
         } finally {
@@ -59,10 +69,11 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
         }
     }, [isOpen, listId, initialSublists]);
 
-    const handleCreateSuccess = (newListId: string) => {
-        // Refresh list and go back to list view
-        fetchSublists();
-        setView('list');
+    // Al crearla se va directa a la Minilista; en modo concurso, con la ventana de aspirantes abierta.
+    const handleCreateSuccess = (newListId: string, options?: { contest: boolean }) => {
+        void queryClient.invalidateQueries({ queryKey: listDetailsQueryKey(listId) });
+        onClose();
+        navigate(`/list/${newListId}${options?.contest ? '?aspirantes=1' : ''}`);
     };
 
     if (!isOpen) return null;
@@ -154,6 +165,7 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
                             parentScoringWeights={parentScoringWeights}
                             parentIsPublic={parentIsPublic}
                             parentTags={parentTags}
+                            parentCategoryId={parentCategoryId}
                             onSuccess={handleCreateSuccess}
                             onCancel={() => setView('list')}
                             initialData={{

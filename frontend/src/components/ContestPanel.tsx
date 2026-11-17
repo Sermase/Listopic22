@@ -27,11 +27,18 @@ interface ContestPanelProps {
     onOpenChange: (open: boolean) => void;
     onRate: (candidate: ContestCandidate) => void;
     onChanged: () => void;
+    /** Abre la ventana de aspirantes al cargar (recién creada en modo concurso). */
+    autoOpenSettings?: boolean;
 }
 
 /** Aspirantes y modo concurso de una Minilista: un desplegable que no ocupa nada si no hace falta. */
-export const ContestPanel: React.FC<ContestPanelProps> = ({ list, reviews, canManage, canEditCandidates, canRate, isJefe, open, onOpenChange, onRate, onChanged }) => {
-    const [settingsOpen, setSettingsOpen] = useState(false);
+export const ContestPanel: React.FC<ContestPanelProps> = ({ list, reviews, canManage, canEditCandidates, canRate, isJefe, open, onOpenChange, onRate, onChanged, autoOpenSettings = false }) => {
+    const [settingsOpen, setSettingsOpenState] = useState(() => autoOpenSettings && canEditCandidates);
+    const setSettingsOpen = (value: boolean) => {
+        setSettingsOpenState(value);
+        // Quita ?aspirantes=1 para que no se vuelva a abrir al recargar.
+        if (!value && window.location.search.includes('aspirantes=')) window.history.replaceState({}, '', window.location.pathname);
+    };
     const candidates = useMemo(() => list.candidates ?? [], [list.candidates]);
     const closed = isClosedContest(list);
     const phase = contestPhase(list.contest);
@@ -299,7 +306,7 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                             <label className="flex items-start gap-3 cursor-pointer">
                                 <input type="checkbox" checked={closed} onChange={(e) => setClosed(e.target.checked)} className="mt-1 accent-[var(--lt-accent)]" />
                                 <span>
-                                    <span className="block text-sm font-bold text-[var(--lt-text)]">Cerrar la minilista (modo concurso)</span>
+                                    <span className="block text-sm font-bold text-[var(--lt-text)]">🏆 Modo concurso</span>
                                     <span className="block text-xs text-[var(--lt-text-muted)]">Solo se pueden valorar los aspirantes, y solo entre las fechas.</span>
                                 </span>
                             </label>

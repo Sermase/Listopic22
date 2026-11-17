@@ -259,6 +259,8 @@ export const ListPage: React.FC = () => {
     // Aspirante elegido en el panel del concurso: abre «Valorar» ya relleno.
     const [rateCandidate, setRateCandidate] = useState<ContestCandidate | null>(null);
     const [contestOpen, setContestOpen] = useState(false);
+    // Recién creada en modo concurso (SublistsModal): abre la ventana de aspirantes.
+    const openCandidatesOnLoad = new URLSearchParams(routerLocation.search).get('aspirantes') === '1';
     const queryClient = useQueryClient();
     const closedContest = isClosedContest(list);
     const [editingReviewId, setEditingReviewId] = useState<string | undefined>(editId || undefined);
@@ -1503,6 +1505,7 @@ export const ListPage: React.FC = () => {
                         open={contestOpen}
                         onOpenChange={setContestOpen}
                         onRate={handleRateCandidate}
+                        autoOpenSettings={openCandidatesOnLoad}
                         onChanged={() => { void queryClient.invalidateQueries({ queryKey: listDetailsQueryKey(listId || '') }); }}
                     />
                 )}
@@ -1837,6 +1840,7 @@ export const ListPage: React.FC = () => {
                         parentScoringWeights={list.scoringWeights}
                         parentIsPublic={list.isPublic === true || list.visibility === 'public'}
                         parentTags={list.availableTags}
+                        parentCategoryId={listCategoryId}
                     />
                 )
             }
