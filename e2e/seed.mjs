@@ -135,6 +135,23 @@ async function seed() {
     });
   }
 
+  // concurso.spec.ts: Minilista cerrada en modo concurso con tres aspirantes, uno ya valorado.
+  const DAY = 24 * 3600 * 1000;
+  const aspirantes = [['p_vll1', 'Brava del concurso'], ['p_vll2', 'Brava ahumada'], ['p_vll3', 'Bravas']]
+    .map(([placeId, itemName]) => ({ key: `${placeId}|${itemName.toLowerCase()}`, placeId, placeName: vectors.places[placeId].name, placeAddress: '', itemName }));
+  await db.doc('lists/concurso').set({
+    ...base, name: 'Concurso de bravas', isPublic: true, visibility: 'public', parentListId: 'bravas', isSublist: true,
+    criteriaDefinition: list.criteriaDefinition, scoringWeights: list.scoringWeights,
+    contest: { closed: true, startsAt: Timestamp.fromMillis(Date.now() - DAY), endsAt: Timestamp.fromMillis(Date.now() + 6 * DAY) },
+    candidates: aspirantes, candidateKeys: aspirantes.map((a) => a.key), official: true,
+  });
+  await db.doc('lists/bravas/reviews/conc_ana').set({
+    listId: 'bravas', parentListId: 'bravas', sublistId: 'concurso', visibility: 'public', userId: 'ana', authorName: 'ana',
+    itemName: 'Bravas', itemNameLower: 'bravas', placeId: 'p_vll3', placeName: vectors.places.p_vll3.name,
+    overallRating: 8.2, scores: Object.fromEntries(Object.keys(list.criteriaDefinition).map((k) => [k, 8])), contestEntry: true,
+    comment: '', reactionCounts: { like: 0, dislike: 0 }, createdAt: Timestamp.now(),
+  });
+
   // Tarjetas de premios.spec.ts: una lista con fotos (fondo de la tarjeta y foto de la reseña) en
   // su propio sitio. Las fotos las sirve el test (page.route), así que no hace falta subirlas.
   await db.doc('places/p_tarjeta').set({ name: 'Bar Tarjeta', city: 'Teruel', province: 'Teruel', region: 'Aragón', country: 'España', location: new GeoPoint(40.3456, -1.1065), address: 'Bar Tarjeta, Teruel' });

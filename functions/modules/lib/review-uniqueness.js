@@ -14,7 +14,10 @@ function reviewSlotKey(review) {
   const placeId = text(review && review.placeId);
   const item = normalizeItemName(review && review.itemName);
   if (!userId || !listId || !placeId || placeId === 'unknown' || !item) return null;
-  const scope = review.visibility === 'private' ? `private:${text(review.sublistId) || listId}` : 'public';
+  // Un concurso (Minilista cerrada) es una cata aparte: su propio hueco.
+  const scope = review.contestEntry === true && text(review.sublistId)
+    ? `contest:${text(review.sublistId)}`
+    : review.visibility === 'private' ? `private:${text(review.sublistId) || listId}` : 'public';
   return `${userId}|${listId}|${scope}|${placeId}|${item}`;
 }
 

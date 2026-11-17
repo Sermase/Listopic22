@@ -1175,3 +1175,78 @@ describe('V30 · Auditoría 13/11: datos trucados', () => {
     await assertSucceeds(updateDoc(doc(db, 'pachoteUsers/anonX'), { 'groups.riano': deleteField() }));
   });
 });
+
+// ---------------------------------------------------------------------------
+describe('V23 · Minilista en modo concurso: solo aspirantes y entre fechas', () => {
+  const DAY = 24 * 3600 * 1000;
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      const base = {
+        userId: 'bob', isPublic: true, visibility: 'public', publicAccess: 'writer', parentListId: 'pub', isSublist: true,
+        editors: ['carol'], guests: [], criteriaDefinition: criteria, reviewCount: 0,
+        candidates: [{ key: 'p1|tarta de la viña', placeId: 'p1', placeName: 'Bar Manolo', itemName: 'Tarta de la Viña' }],
+        candidateKeys: ['p1|tarta de la viña'],
+      };
+      await setDoc(doc(db, 'lists/concurso'), { ...base, name: 'Concurso', contest: { closed: true, startsAt: new Date(Date.now() - DAY), endsAt: new Date(Date.now() + DAY) } });
+      await setDoc(doc(db, 'lists/concursoFin'), { ...base, name: 'Concurso pasado', contest: { closed: true, startsAt: new Date(Date.now() - 3 * DAY), endsAt: new Date(Date.now() - DAY) } });
+      await setDoc(doc(db, 'lists/pub/reviews/rConcurso'), {
+        listId: 'pub', parentListId: 'pub', sublistId: 'concursoFin', visibility: 'public', userId: 'alice', authorId: 'alice',
+        itemName: 'Tarta de la Viña', itemNameLower: 'tarta de la viña', placeId: 'p1', overallRating: 8, scores: { carne: 8, pan: 8 },
+        contestEntry: true, comment: '', reactionCounts: { like: 0, dislike: 0 }, commentsCount: 0, createdAt: new Date(),
+      });
+    });
+  });
+
+  const entry = (extra) => ({
+    listId: 'pub', parentListId: 'pub', sublistId: 'concurso', userId: 'alice', authorId: 'alice', visibility: 'public',
+    itemName: 'Tarta de la Viña', itemNameLower: 'tarta de la viña', placeId: 'p1', overallRating: 8, scores: { carne: 8, pan: 8 },
+    contestEntry: true, comment: '', reactionCounts: { like: 0, dislike: 0 }, commentsCount: 0, createdAt: serverTimestamp(), ...extra,
+  });
+
+  it('✅ valorar un aspirante dentro de fechas', async () => {
+    await assertSucceeds(setDoc(doc(as('alice'), 'lists/pub/reviews/cOk'), entry()));
+  });
+
+  it('❌ valorar algo que no es aspirante', async () => {
+    await assertFails(setDoc(doc(as('alice'), 'lists/pub/reviews/cNo'), entry({ itemName: 'Otra', itemNameLower: 'otra' })));
+    await assertFails(setDoc(doc(as('alice'), 'lists/pub/reviews/cNo2'), entry({ placeId: 'p2' })));
+    // itemNameLower de un aspirante con otro itemName visible.
+    await assertFails(setDoc(doc(as('alice'), 'lists/pub/reviews/cNo3'), entry({ itemName: 'Otra tarta' })));
+  });
+
+  it('❌ sin marcar contestEntry (se saltaría el hueco aparte)', async () => {
+    const data = entry();
+    delete data.contestEntry;
+    await assertFails(setDoc(doc(as('alice'), 'lists/pub/reviews/cNoFlag'), data));
+  });
+
+  it('❌ valorar fuera de fechas; ❌ editar la nota fuera de fechas; ✅ borrarla', async () => {
+    await assertFails(setDoc(doc(as('alice'), 'lists/pub/reviews/cFin'), entry({ sublistId: 'concursoFin' })));
+    await assertFails(updateDoc(doc(as('alice'), 'lists/pub/reviews/rConcurso'), { overallRating: 10 }));
+    await assertSucceeds(deleteDoc(doc(as('alice'), 'lists/pub/reviews/rConcurso')));
+  });
+
+  it('✅ fuera del concurso, la Lista madre sigue igual', async () => {
+    const { sublistId, contestEntry, ...rest } = entry({ userId: 'bob', authorId: 'bob', itemName: 'Libre', itemNameLower: 'libre' });
+    void sublistId; void contestEntry;
+    await assertSucceeds(setDoc(doc(as('bob'), 'lists/pub/reviews/libre'), rest));
+  });
+
+  it('✅ la editora añade aspirantes; ❌ pero no cierra ni abre el concurso', async () => {
+    await assertSucceeds(updateDoc(doc(as('carol'), 'lists/concurso'), {
+      candidates: [], candidateKeys: [],
+    }));
+    await assertFails(updateDoc(doc(as('carol'), 'lists/concurso'), { contest: { closed: false } }));
+    await assertSucceeds(updateDoc(doc(as('bob'), 'lists/concurso'), { contest: { closed: false } }));
+  });
+
+  it('❌ el dueño no se pone el sello oficial; ✅ un jefe sí', async () => {
+    await assertFails(updateDoc(doc(as('bob'), 'lists/concurso'), { official: true }));
+    await assertSucceeds(updateDoc(doc(jefe(), 'lists/concurso'), { official: true }));
+  });
+
+  it('❌ modo concurso en una Lista principal', async () => {
+    await assertFails(updateDoc(doc(as('alice'), 'lists/pub'), { contest: { closed: true } }));
+  });
+});
