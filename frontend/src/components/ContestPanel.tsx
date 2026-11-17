@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { deleteField, doc, Timestamp, updateDoc } from 'firebase/firestore';
+import { deleteField, doc, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
 import { Camera, ChevronDown, ClipboardPaste, Loader, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { uploadListImage } from '../lib/listCover';
 import { canReadClipboardImage, imageFromPaste, readClipboardImage } from '../lib/clipboardImage';
@@ -152,6 +152,23 @@ interface SettingsProps {
     onChanged: () => void;
 }
 
+type CandidatePlaceFields = Pick<ContestCandidate, 'lat' | 'lng' | 'city' | 'province' | 'region' | 'country'>;
+
+/** Coordenadas y zona de un sitio de Listopic, para guardarlas en el aspirante. */
+function candidatePlaceFields(place: Record<string, unknown> | null | undefined): CandidatePlaceFields {
+    const loc = (place?.location || place?.coordinates) as { latitude?: unknown; longitude?: unknown } | undefined;
+    const out: CandidatePlaceFields = {};
+    if (typeof loc?.latitude === 'number' && typeof loc?.longitude === 'number') {
+        out.lat = loc.latitude;
+        out.lng = loc.longitude;
+    }
+    (['city', 'province', 'region', 'country'] as const).forEach((k) => {
+        const v = place?.[k];
+        if (typeof v === 'string' && v) out[k] = v;
+    });
+    return out;
+}
+
 /** Una sola ventana: aspirantes (añadir/quitar) y, para el dueño, cerrar y fechas. */
 const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe, onClose, onChanged }) => {
     const { user } = useAuth();
@@ -195,6 +212,33 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
     const [adding, setAdding] = useState(false);
     const [saving, setSaving] = useState(false);
 
+    // Aspirantes sin sitio en Listopic o sin coordenadas (apuntados antes, o falló el alta):
+    // se reparan al abrir, y al guardarlos el servidor los mete en la carta.
+    const repairedRef = useRef(false);
+    useEffect(() => {
+        if (repairedRef.current || !user) return;
+        const broken = candidates.filter((c) => typeof c.lat !== 'number');
+        if (broken.length === 0) return;
+        repairedRef.current = true;
+        void (async () => {
+            const fixes = new Map<string, CandidatePlaceFields>();
+            for (const placeId of new Set(broken.map((c) => c.placeId))) {
+                let data = (await getDoc(doc(db, 'places', placeId)).catch(() => null))?.data() as Record<string, unknown> | undefined;
+                if (!data) {
+                    data = await PlaceService.ensurePlaceSyncedWithBackend(placeId, await user.getIdToken())
+                        .then((p) => p as unknown as Record<string, unknown>)
+                        .catch((e) => { console.error('No se pudo guardar el sitio del aspirante', e); return undefined; });
+                }
+                const fields = candidatePlaceFields(data);
+                if (Object.keys(fields).length > 0) fixes.set(placeId, fields);
+            }
+            if (fixes.size === 0) return;
+            const next = candidates.map((c) => (fixes.has(c.placeId) ? { ...c, ...fixes.get(c.placeId) } : c));
+            await save(next).catch((e) => console.error('No se pudieron reparar los aspirantes', e));
+        })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user]);
+
     const save = async (next: ContestCandidate[], extra: Record<string, unknown> = {}) => {
         await updateDoc(doc(db, 'lists', list.id), {
             candidates: next,
@@ -220,12 +264,12 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
         setAdding(true);
         try {
             // Deja el sitio guardado en Listopic para que «Valorar» lo encuentre relleno.
-            const synced = await PlaceService.ensurePlaceSyncedWithBackend(place.id, await user.getIdToken()).catch(() => null) as Record<string, unknown> | null;
-            const zone = Object.fromEntries(
-                (['city', 'province', 'region', 'country'] as const)
-                    .map((k) => [k, synced?.[k]])
-                    .filter(([, v]) => typeof v === 'string' && v),
-            ) as Pick<ContestCandidate, 'city' | 'province' | 'region' | 'country'>;
+            const synced = await PlaceService.ensurePlaceSyncedWithBackend(place.id, await user.getIdToken()).catch((syncError) => {
+                console.error('No se pudo guardar el sitio del aspirante', syncError);
+                showToast({ variant: 'error', message: 'No se pudo guardar el sitio en Listopic; se reintentará al abrir esta ventana.' });
+                return null;
+            }) as Record<string, unknown> | null;
+            const { lat: _lat, lng: _lng, ...zone } = candidatePlaceFields(synced);
             let photoUrl: string | undefined;
             if (photo) {
                 try {
@@ -235,7 +279,7 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                     showToast({ variant: 'error', message: 'No se pudo subir la foto; el aspirante se añade sin ella.' });
                 }
             }
-            await save([...candidates, { key, placeId: place.id, placeName: place.name, placeAddress: place.address || '', itemName: name, ...(Number.isFinite(place.lat) && Number.isFinite(place.lng) ? { lat: place.lat, lng: place.lng } : {}), ...zone, ...(photoUrl ? { photoUrl } : {}) }]);
+            await save([...candidates, { key, placeId: place.id, placeName: place.name, placeAddress: place.address || '', itemName: name, ...(Number.isFinite(place.lat) && place.lat !== 0 ? { lat: place.lat, lng: place.lng } : _lat !== undefined ? { lat: _lat, lng: _lng } : {}), ...zone, ...(photoUrl ? { photoUrl } : {}) }]);
             setItemName('');
             setPhoto(null);
             setPlace(null);
