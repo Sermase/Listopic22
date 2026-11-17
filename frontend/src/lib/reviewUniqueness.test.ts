@@ -19,6 +19,10 @@ describe('reviewSlotKey', () => {
         expect(a).not.toBe(reviewSlotKey(base));
     });
 
+    it('una cata de concurso es un hueco aparte', () => {
+        expect(reviewSlotKey({ ...base, sublistId: 'S', contestEntry: true })).not.toBe(reviewSlotKey(base));
+    });
+
     it('sin sitio o sin plato no hay clave', () => {
         expect(reviewSlotKey({ ...base, placeId: 'unknown' })).toBeNull();
         expect(reviewSlotKey({ ...base, itemName: '  ' })).toBeNull();

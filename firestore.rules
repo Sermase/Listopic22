@@ -166,7 +166,8 @@ service cloud.firestore {
         'updatedAt', 'itemCount', 'groupedItemsCount', 'viewCount', 'likes',
         'followersCount', 'commentsCount', 'reviewCount', 'averageRating',
         'criteriaAverages', 'criteriaAveragesUpdatedAt', 'reactions',
-        'lastActivityAt', 'lastReviewAt', 'scoringWeights', 'defaultDiet'
+        'lastActivityAt', 'lastReviewAt', 'scoringWeights', 'defaultDiet',
+        'contest', 'candidates', 'candidateKeys'
       ];
     }
 
@@ -181,7 +182,8 @@ service cloud.firestore {
         'followersCount', 'commentsCount', 'reviewCount', 'averageRating',
         'criteriaAverages', 'criteriaAveragesUpdatedAt', 'reactions',
         'lastActivityAt', 'lastReviewAt', 'ownerId', 'mainImagePath', 'slug',
-        'deletedAt', 'scoringWeights', 'defaultDiet'
+        'deletedAt', 'scoringWeights', 'defaultDiet',
+        'contest', 'candidates', 'candidateKeys', 'official'
       ];
     }
 
@@ -191,11 +193,21 @@ service cloud.firestore {
     }
 
     function listCreateHasOnlyAllowedFields() {
-      return request.resource.data.keys().hasOnly(listAllowedCreateKeys()) && listDefaultDietOk();
+      return request.resource.data.keys().hasOnly(listAllowedCreateKeys()) && listDefaultDietOk() && listContestShapeOk();
+    }
+
+    // Modo concurso (solo Minilistas): `contest` {closed, startsAt, endsAt},
+    // aspirantes en `candidates` y sus claves «placeId|nombre en minúsculas»
+    // en `candidateKeys` (lo que miran las reglas de reseñas).
+    function listContestShapeOk() {
+      let d = request.resource.data;
+      return (!('contest' in d) || (d.contest is map && d.get('parentListId', null) is string))
+        && (!('candidateKeys' in d) || (d.candidateKeys is list && d.candidateKeys.size() <= 100))
+        && (!('candidates' in d) || (d.candidates is list && d.candidates.size() <= 100));
     }
 
     function listUpdateChangesOnlyAllowedFields() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(listAllowedUpdateKeys()) && listDefaultDietOk();
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(listAllowedUpdateKeys()) && listDefaultDietOk() && listContestShapeOk();
     }
 
     // Métricas de una lista: las mantienen Cloud Functions a partir de las
@@ -230,7 +242,7 @@ service cloud.firestore {
 
     // Permisos y visibilidad: solo los decide el dueño (o un jefe), no un editor.
     function listOwnerOnlyKeys() {
-      return ['editors', 'guests', 'isPublic', 'visibility', 'publicAccess', 'deletedAt'];
+      return ['editors', 'guests', 'isPublic', 'visibility', 'publicAccess', 'deletedAt', 'contest'];
     }
 
     // Una Minilista contiene SIEMPRE todos los criterios de su Lista madre.
@@ -287,6 +299,7 @@ service cloud.firestore {
         (
           !changed.hasAny(listServerKeys()) &&
           !changed.hasAny(listIdentityKeys()) &&
+          !changed.hasAny(['official']) &&
           (isOwner || (isEditor && !changed.hasAny(listOwnerOnlyKeys()))) &&
           listScoringLockRespected() &&
           (!changed.hasAny(['criteriaDefinition']) || minilistKeepsParentCriteria(request.resource.data))
@@ -303,7 +316,7 @@ service cloud.firestore {
         'userTags', 'reactionCounts', 'commentsCount', 'photoUrl',
         'photoUrls', 'photoStoragePaths', 'photos', 'placeId',
         'placeName', 'placeAddress', 'placeLat', 'placeLng',
-        'criteriaDefinition', 'createdAt', 'updatedAt'
+        'criteriaDefinition', 'createdAt', 'updatedAt', 'contestEntry'
       ];
     }
 
@@ -676,6 +689,22 @@ service cloud.firestore {
 
     // Helper: permite escribir en una lista padre si el usuario tiene acceso de escritura
     // en una de sus sublistas (identificada por sublistId en el documento a crear)
+    // Minilista en modo concurso: solo se valoran sus aspirantes y entre sus fechas.
+    function reviewContestOk(data) {
+      return !(data.get('sublistId', null) is string)
+        || sublistContestOk(data, get(/databases/$(database)/documents/lists/$(data.sublistId)).data);
+    }
+
+    function sublistContestOk(data, sub) {
+      let c = sub.get('contest', {});
+      return c.get('closed', false) != true || (
+        (c.get('startsAt', null) == null || request.time >= c.startsAt) &&
+        (c.get('endsAt', null) == null || request.time <= c.endsAt) &&
+        data.get('contestEntry', false) == true &&
+        (data.get('placeId', '') + '|' + data.get('itemNameLower', '')) in sub.get('candidateKeys', [])
+      );
+    }
+
     function canWriteToSublistOf(parentListId) {
       let sid = request.resource.data.sublistId;
       return sid is string &&
@@ -746,6 +775,7 @@ service cloud.firestore {
                          && reviewContentOk(request.resource.data)
                          && reviewCreateCountersOk(request.resource.data)
                          && reviewVisibilityMatchesList(request.resource.data, listId)
+                         && reviewContestOk(request.resource.data)
                          && (canWriteToList(listId) || canWriteToSublistOf(listId));
         
         // UPDATE/DELETE: El autor o un jefe puede hacerlo.
@@ -758,7 +788,8 @@ service cloud.firestore {
                             isJefe(request.auth.uid) ||
                             (resource.data.userId == request.auth.uid
                               && reviewContentOk(request.resource.data)
-                              && reviewUpdateKeepsServerFields())
+                              && reviewUpdateKeepsServerFields()
+                              && reviewContestOk(request.resource.data))
                           )
                           && reviewIdentityAndTargetDidNotChange()
                         ) ||

@@ -30,6 +30,7 @@ import { parseReviewDraft, reviewDraftKey, REVIEW_DRAFT_VERSION, shouldRestoreRe
 import { usePlaceElementsInList } from '../hooks/usePlaceElementsInList';
 import { itemNameKey } from '../lib/placeItems';
 import { findSameElementReview } from '../lib/reviewUniqueness';
+import { contestBlockReason, isClosedContest, type ContestListLike } from '../lib/contest';
 import { useAppConfig } from '../context/AppConfigContext';
 import { useTheme } from '../context/ThemeContext';
 import { celebrateReview } from './surprises/celebrateReview';
@@ -90,7 +91,7 @@ interface ReviewCriterion {
     type?: string;
 }
 
-interface ListMetadata {
+interface ListMetadata extends ContestListLike {
     name?: string;
     parentListId?: string | null;
     visibility?: string;
@@ -328,6 +329,8 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
     const reviewListId = listData?.parentListId || internalListId;
     const reviewVisibility = listData?.visibility === 'private' ? 'private' : 'public';
     const reviewSublistId = listData?.parentListId ? internalListId : null;
+    // Minilista cerrada (concurso): la reseña es una cata aparte (lib/contest).
+    const contestEntry = isClosedContest(listData);
     const { data: ownReviewsHere = [] } = useQuery({
         queryKey: ['ownReviewsAtPlace', reviewListId, selectedPlaceId, user?.uid],
         enabled: Boolean(user?.uid && reviewListId && selectedPlaceId && listData),
@@ -335,7 +338,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
         queryFn: () => fetchOwnReviewsAtPlace(reviewListId!, selectedPlaceId!, user!.uid),
     });
     const sameElementReview = findSameElementReview(
-        { userId: user?.uid, listId: reviewListId, sublistId: reviewSublistId, visibility: reviewVisibility, placeId: selectedPlaceId, itemName },
+        { userId: user?.uid, listId: reviewListId, sublistId: reviewSublistId, visibility: reviewVisibility, placeId: selectedPlaceId, itemName, contestEntry },
         ownReviewsHere,
         editReviewId,
     );
@@ -712,11 +715,17 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
             return;
         }
 
+        const contestBlock = contestBlockReason(listData, { placeId: selectedPlaceId || prefillPlaceId, itemName });
+        if (contestBlock) {
+            setError(contestBlock);
+            return;
+        }
+
         // Una reseña por persona y plato: se comprueba otra vez contra el servidor.
         if (selectedPlaceId && reviewListId) {
             const fresh = await fetchOwnReviewsAtPlace(reviewListId, selectedPlaceId, user.uid).catch(() => []);
             const duplicate = findSameElementReview(
-                { userId: user.uid, listId: reviewListId, sublistId: reviewSublistId, visibility: reviewVisibility, placeId: selectedPlaceId, itemName },
+                { userId: user.uid, listId: reviewListId, sublistId: reviewSublistId, visibility: reviewVisibility, placeId: selectedPlaceId, itemName, contestEntry },
                 fresh,
                 editReviewId,
             );
@@ -899,6 +908,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                 placeAddress: finalPlaceAddress,
                 placeLat: finalPlaceLat,
                 placeLng: finalPlaceLng,
+                ...(contestEntry ? { contestEntry: true } : {}),
             };
 
             let newReviewId: string | undefined;
@@ -947,7 +957,7 @@ export const AddReviewForm: React.FC<AddReviewFormProps> = ({ listId, onListChan
                     // Destino, autoría, visibilidad y contadores se conservan (las
                     // reglas no dejan cambiarlos y reactionCounts se reiniciaba).
                     const contentData: Record<string, unknown> = { ...reviewData };
-                    for (const key of ['listId', 'parentListId', 'sublistId', 'visibility', 'userId', 'reactionCounts']) {
+                    for (const key of ['listId', 'parentListId', 'sublistId', 'visibility', 'userId', 'reactionCounts', 'contestEntry']) {
                         delete contentData[key];
                     }
                     await updateDoc(targetSubRef, {

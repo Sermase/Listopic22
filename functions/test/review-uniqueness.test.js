@@ -14,6 +14,10 @@ test('Minilista privada es otro hueco', () => {
   assert.notEqual(reviewSlotKey(base), reviewSlotKey({ ...base, visibility: 'private', sublistId: 'S' }));
 });
 
+test('una cata de concurso es otro hueco', () => {
+  assert.notEqual(reviewSlotKey(base), reviewSlotKey({ ...base, sublistId: 'S', contestEntry: true }));
+});
+
 test('sin plato no hay clave', () => {
   assert.equal(reviewSlotKey({ ...base, itemName: '' }), null);
 });

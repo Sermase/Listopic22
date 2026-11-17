@@ -13,6 +13,7 @@ export interface ReviewForUniqueness {
     visibility?: unknown;
     placeId?: unknown;
     itemName?: unknown;
+    contestEntry?: unknown;
 }
 
 const text = (value: unknown): string => (typeof value === 'string' ? value.trim() : '');
@@ -24,7 +25,10 @@ export function reviewSlotKey(review: ReviewForUniqueness): string | null {
     const placeId = text(review.placeId);
     const item = normalizeItemName(review.itemName);
     if (!userId || !listId || !placeId || placeId === 'unknown' || !item) return null;
-    const scope = review.visibility === 'private' ? `private:${text(review.sublistId) || listId}` : 'public';
+    // Un concurso (Minilista cerrada) es una cata aparte: su propio hueco.
+    const scope = review.contestEntry === true && text(review.sublistId)
+        ? `contest:${text(review.sublistId)}`
+        : review.visibility === 'private' ? `private:${text(review.sublistId) || listId}` : 'public';
     return `${userId}|${listId}|${scope}|${placeId}|${item}`;
 }
 

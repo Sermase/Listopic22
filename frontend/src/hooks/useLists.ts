@@ -27,6 +27,12 @@ export interface ListEntity {
     guests?: string[];
     editors?: string[];
     parentListName?: string;
+    /** Modo concurso y aspirantes (solo Minilistas, lib/contest). */
+    contest?: import('../lib/contest').ContestSettings | null;
+    candidates?: import('../lib/contest').ContestCandidate[];
+    candidateKeys?: string[];
+    /** Sello «Oficial de Listopic»: solo lo ponen los jefes. */
+    official?: boolean;
 
     itemCount?: number;
     groupedItemsCount: number;

@@ -5,7 +5,10 @@ import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useParams, Link, useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
 import { Map as MapIcon, List as ListIcon, Plus, Heart, SlidersHorizontal, Clock, Search, ChevronDown, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid, Trophy, SearchX } from 'lucide-react';
 import { MarqueeText } from '../components/ui/MarqueeText';
-import { useListDetails } from '../hooks/useListDetails';
+import { listDetailsQueryKey, useListDetails } from '../hooks/useListDetails';
+import { useQueryClient } from '@tanstack/react-query';
+import { ContestPanel } from '../components/ContestPanel';
+import { isClosedContest, type ContestCandidate } from '../lib/contest';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { ListItemCard } from '../components/ListItemCard';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -253,6 +256,11 @@ export const ListPage: React.FC = () => {
     const editId = queryParams.get('editId');
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    // Aspirante elegido en el panel del concurso: abre «Valorar» ya relleno.
+    const [rateCandidate, setRateCandidate] = useState<ContestCandidate | null>(null);
+    const [contestOpen, setContestOpen] = useState(false);
+    const queryClient = useQueryClient();
+    const closedContest = isClosedContest(list);
     const [editingReviewId, setEditingReviewId] = useState<string | undefined>(editId || undefined);
 
     // Update state if URL changes (e.g. navigation back/forward)
@@ -274,6 +282,23 @@ export const ListPage: React.FC = () => {
             openAuthPrompt('añadir una reseña');
             return;
         }
+        // En un concurso solo se valoran aspirantes: se elige en su panel.
+        if (closedContest) {
+            setContestOpen(true);
+            requestAnimationFrame(() => document.getElementById('contest-panel')?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+            return;
+        }
+        setRateCandidate(null);
+        setIsAddModalOpen(true);
+    };
+
+    const handleRateCandidate = (candidate: ContestCandidate) => {
+        if (!user) {
+            openAuthPrompt('añadir una reseña');
+            return;
+        }
+        setEditingReviewId(undefined);
+        setRateCandidate(candidate);
         setIsAddModalOpen(true);
     };
 
@@ -1224,6 +1249,12 @@ export const ListPage: React.FC = () => {
                         <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm ${list.parentListId ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent-2)]' : 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'}`}>
                             {list.parentListId ? 'Minilista' : 'Lista'}
                         </span>
+                        {list.official === true && (
+                            <span className="px-2 py-0.5 rounded-md bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-accent)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">✔️ Oficial de Listopic</span>
+                        )}
+                        {closedContest && (
+                            <span className="px-2 py-0.5 rounded-md bg-[var(--lt-warning-soft)] border border-[var(--lt-warning)]/30 text-[var(--lt-warning)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">🏆 Concurso</span>
+                        )}
                         {groupedItems.length > 0 && (
                             <span className="px-2 py-0.5 rounded-md bg-[var(--lt-card-strong-alpha)] border border-[var(--lt-border)] text-[var(--lt-text-muted)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" title="En toda la Lista">
                                 {groupedItems.length} {listItemNoun(listCategoryId, groupedItems.length, groupingMode)}
@@ -1459,6 +1490,22 @@ export const ListPage: React.FC = () => {
 
                 {/* Platos destacados de esta lista (Business Pro, sorteo por unidades) */}
                 <SponsoredItemsCarousel listId={listId} className="mb-6" />
+
+                {/* Aspirantes y modo concurso (solo Minilistas) */}
+                {list.parentListId && (
+                    <ContestPanel
+                        list={list}
+                        reviews={reviews}
+                        canManage={Boolean(user && list.userId === user.uid)}
+                        canEditCandidates={Boolean(user && (list.userId === user.uid || list.editors?.includes(user.uid)))}
+                        canRate={canAddReview}
+                        isJefe={isJefe}
+                        open={contestOpen}
+                        onOpenChange={setContestOpen}
+                        onRate={handleRateCandidate}
+                        onChanged={() => { void queryClient.invalidateQueries({ queryKey: listDetailsQueryKey(listId || '') }); }}
+                    />
+                )}
 
                 {/* Modern Toolbar */}
                 <div className="sticky top-20 z-30 mb-8 mx-auto max-w-4xl">
@@ -1715,14 +1762,17 @@ export const ListPage: React.FC = () => {
                     <AddReviewForm
                         listId={listId}
                         editReviewId={editingReviewId}
+                        prefillPlaceId={rateCandidate?.placeId}
+                        prefillItemName={rateCandidate?.itemName}
                         lockList={true} // Always lock list on ListPage
                         onClose={() => {
                             setIsAddModalOpen(false);
+                            setRateCandidate(null);
                             setEditingReviewId(undefined);
                             // Clear param without reload
                             window.history.replaceState({}, '', `/list/${listId}`);
                         }}
-                        onSuccess={() => { setIsAddModalOpen(false); setEditingReviewId(undefined); }}
+                        onSuccess={() => { setIsAddModalOpen(false); setRateCandidate(null); setEditingReviewId(undefined); }}
                     />
                 )
             }
