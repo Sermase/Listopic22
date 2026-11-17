@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { collection, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, Timestamp } from 'firebase/firestore';
+import { dayToDate } from '../lib/contest';
 import { db } from '../firebase';
 import { useQueryClient } from '@tanstack/react-query';
 import { Save, Loader, Image as ImageIcon, X, Smile } from 'lucide-react';
@@ -47,12 +48,14 @@ interface CreateListFormProps {
     parentScoringWeights?: Record<string, number>; // Pesos de la madre (se heredan tal cual)
     parentIsPublic?: boolean; // Madre privada → la Minilista solo puede ser privada
     parentTags?: string[]; // Tags from parent list
+    /** La Minilista hereda la categoría de su madre (sin elegirla otra vez). */
+    parentCategoryId?: string;
     initialData?: Partial<ListEntity>; // For editing in the future
-    onSuccess: (newListId: string) => void;
+    onSuccess: (newListId: string, options?: { contest: boolean }) => void;
     onCancel: () => void;
 }
 
-export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, parentListName, parentListImage, parentCriteria, parentScoringWeights, parentIsPublic = true, parentTags, initialData, onSuccess, onCancel }) => {
+export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, parentListName, parentListImage, parentCriteria, parentScoringWeights, parentIsPublic = true, parentTags, parentCategoryId, initialData, onSuccess, onCancel }) => {
     const { user } = useAuth();
     const { showToast } = useToast();
     const queryClient = useQueryClient();
@@ -68,6 +71,10 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
     // NOTE: In the original page, categoryId helps prefill tags/criteria.
     const [categoryId, setCategoryId] = useState('');
     const [categories, setCategories] = useState<CategoryDoc[]>([]);
+    // Modo concurso (solo Minilistas): se despliegan las fechas; los aspirantes van después en su ventana.
+    const [contestOn, setContestOn] = useState(false);
+    const [contestStart, setContestStart] = useState('');
+    const [contestEnd, setContestEnd] = useState('');
 
     // Image
     const [imagePreview, setImagePreview] = useState<string | null>(initialData?.photoUrl || initialData?.mainImageUrl || null);
@@ -210,6 +217,12 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user) return;
+        const contestStartsAt = parentListId && contestOn && contestStart ? dayToDate(contestStart, 'start') : null;
+        const contestEndsAt = parentListId && contestOn && contestEnd ? dayToDate(contestEnd, 'end') : null;
+        if (contestStartsAt && contestEndsAt && contestStartsAt > contestEndsAt) {
+            showToast({ variant: 'error', message: 'La fecha de fin del concurso va antes que la de inicio.' });
+            return;
+        }
         setLoading(true);
 
         try {
@@ -239,7 +252,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
             const newListData = {
                 name,
                 description,
-                categoryId, // "comida_hmm" etc
+                categoryId: categoryId || (parentListId ? parentCategoryId || '' : ''), // "comida_hmm" etc
                 userId: user.uid,
                 isPublic,
                 visibility: isPublic ? 'public' : 'private',
@@ -272,6 +285,15 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 criteriaAverages: {},
                 criteriaAveragesUpdatedAt: serverTimestamp(),
                 reactions: {},
+                ...(parentListId && contestOn ? {
+                    contest: {
+                        closed: true,
+                        startsAt: contestStartsAt ? Timestamp.fromDate(contestStartsAt) : null,
+                        endsAt: contestEndsAt ? Timestamp.fromDate(contestEndsAt) : null,
+                    },
+                    candidates: [],
+                    candidateKeys: [],
+                } : {}),
             };
 
             // scoringWeights: el peso elegido (×0–×3); los heredados, iguales que en la madre.
@@ -304,7 +326,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                     ? 'Tu minilista ya está lista para recibir comparaciones finas.'
                     : 'Lista publicada. El orden acaba de ganar otra batalla.',
             });
-            onSuccess(docRef.id);
+            onSuccess(docRef.id, { contest: Boolean(parentListId && contestOn) });
         } catch (error) {
             console.error("Error creating list:", error);
             showToast({
@@ -353,6 +375,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                     />
                 </div>
 
+                {!parentListId && (
                 <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">Categoría</label>
                     <select
@@ -367,6 +390,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                         ))}
                     </select>
                 </div>
+                )}
 
                 <div>
                     <label className="block text-sm font-medium text-gray-400 mb-2">Descripción</label>
@@ -546,6 +570,29 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                             </div>
                         </label>
                     </div>
+                </div>
+            )}
+
+            {parentListId && (
+                <div className="glass-card p-5">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" checked={contestOn} onChange={(e) => setContestOn(e.target.checked)} className="mt-1 w-4 h-4 accent-[var(--lt-accent)]" />
+                        <span>
+                            <span className="block text-sm font-bold text-white">🏆 Modo concurso</span>
+                            <span className="block text-xs text-gray-400">Solo se valoran los aspirantes que apuntes, y solo entre las fechas.</span>
+                        </span>
+                    </label>
+                    {contestOn && (
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                            <label className="text-xs text-gray-400">Desde
+                                <input type="date" value={contestStart} onChange={(e) => setContestStart(e.target.value)} className="mt-1 w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-2 py-2 text-sm text-white" />
+                            </label>
+                            <label className="text-xs text-gray-400">Hasta (incluido)
+                                <input type="date" value={contestEnd} onChange={(e) => setContestEnd(e.target.value)} className="mt-1 w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-2 py-2 text-sm text-white" />
+                            </label>
+                            <p className="col-span-2 text-[11px] text-gray-500">Al crearla se abre la ventana para apuntar los aspirantes (sitio + plato).</p>
+                        </div>
+                    )}
                 </div>
             )}
 
