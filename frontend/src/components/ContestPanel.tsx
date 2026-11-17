@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { deleteField, doc, Timestamp, updateDoc } from 'firebase/firestore';
-import { ChevronDown, Loader, Plus, Settings2, Trash2, X } from 'lucide-react';
+import { Camera, ChevronDown, Loader, Plus, Settings2, Trash2, X } from 'lucide-react';
+import { uploadListImage } from '../lib/listCover';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -118,6 +119,7 @@ export const ContestPanel: React.FC<ContestPanelProps> = ({ list, reviews, canMa
                                             onClick={() => onRate(c)}
                                             className="w-full flex items-center gap-3 px-2 py-2.5 rounded-xl text-left hover:bg-[var(--lt-glass)] disabled:hover:bg-transparent disabled:cursor-default"
                                         >
+                                            {c.photoUrl ? <img src={c.photoUrl} alt="" loading="lazy" className="w-11 h-11 rounded-lg object-cover shrink-0" /> : null}
                                             <span className="min-w-0 flex-1">
                                                 <span className="block text-sm font-bold text-[var(--lt-text)] opacity-80 truncate">{c.itemName}</span>
                                                 <span className="block text-xs text-[var(--lt-text-muted)] truncate">{c.placeName}</span>
@@ -161,6 +163,11 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
     const [official, setOfficial] = useState(list.official === true);
     const [place, setPlace] = useState<PlaceResult | null>(null);
     const [itemName, setItemName] = useState('');
+    const [photo, setPhoto] = useState<File | null>(null);
+    const photoPreview = useMemo(() => (photo ? URL.createObjectURL(photo) : null), [photo]);
+    useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
+    // La foto se sube a list-images/{lista}: las reglas de Storage solo dejan al dueño (o un jefe).
+    const canUploadPhoto = canManage || isJefe;
     const [adding, setAdding] = useState(false);
     const [saving, setSaving] = useState(false);
 
@@ -190,8 +197,18 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
         try {
             // Deja el sitio guardado en Listopic para que «Valorar» lo encuentre relleno.
             await PlaceService.ensurePlaceSyncedWithBackend(place.id, await user.getIdToken()).catch(() => null);
-            await save([...candidates, { key, placeId: place.id, placeName: place.name, placeAddress: place.address || '', itemName: name }]);
+            let photoUrl: string | undefined;
+            if (photo) {
+                try {
+                    photoUrl = (await uploadListImage(list.id, photo, 'aspirante')).url;
+                } catch (photoError) {
+                    console.error('No se pudo subir la foto del aspirante', photoError);
+                    showToast({ variant: 'error', message: 'No se pudo subir la foto; el aspirante se añade sin ella.' });
+                }
+            }
+            await save([...candidates, { key, placeId: place.id, placeName: place.name, placeAddress: place.address || '', itemName: name, ...(photoUrl ? { photoUrl } : {}) }]);
             setItemName('');
+            setPhoto(null);
             setPlace(null);
         } catch (e) {
             console.error('No se pudo añadir el aspirante', e);
@@ -258,6 +275,7 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                             <ul className="mb-3 divide-y divide-[var(--lt-border)] rounded-xl border border-[var(--lt-border)]">
                                 {candidates.map((c) => (
                                     <li key={c.key} className="flex items-center gap-2 px-3 py-2">
+                                        {c.photoUrl ? <img src={c.photoUrl} alt="" loading="lazy" className="w-10 h-10 rounded-lg object-cover shrink-0" /> : null}
                                         <span className="min-w-0 flex-1">
                                             <span className="block text-sm font-bold text-[var(--lt-text)] truncate">{c.itemName}</span>
                                             <span className="block text-xs text-[var(--lt-text-muted)] truncate">{c.placeName}</span>
@@ -287,6 +305,16 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                                     maxLength={120}
                                     className="w-full rounded-lg bg-[var(--lt-glass)] border border-[var(--lt-border)] px-3 py-2 text-sm text-[var(--lt-text)] placeholder:text-[var(--lt-text-muted)] focus:outline-none focus:border-[var(--lt-accent-border)]"
                                 />
+                            )}
+                            {place && canUploadPhoto && (
+                                <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--lt-border)] bg-[var(--lt-glass)] text-sm text-[var(--lt-text-muted)] cursor-pointer hover:text-[var(--lt-text)]">
+                                    {photoPreview ? <img src={photoPreview} alt="" className="w-8 h-8 rounded object-cover" /> : <Camera className="w-4 h-4" />}
+                                    <span className="flex-1 truncate">{photo ? photo.name : 'Foto del plato (opcional)'}</span>
+                                    {photo && (
+                                        <button type="button" aria-label="Quitar foto" onClick={(e) => { e.preventDefault(); setPhoto(null); }} className="p-1 rounded hover:bg-white/10"><X className="w-3.5 h-3.5" /></button>
+                                    )}
+                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => { setPhoto(e.target.files?.[0] ?? null); e.target.value = ''; }} />
+                                </label>
                             )}
                             <button
                                 type="button"
