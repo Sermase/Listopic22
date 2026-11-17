@@ -89,7 +89,6 @@ const {
   normalizeHttpsErrorCode,
   buildHttpsErrorFrom,
 } = require("./lib/https-errors");
-const { recalculateListReviewMetrics } = require("./lib/list-metrics");
 const { normalizeCcaa, pickCity } = require("./lib/geo-areas");
 const { logApiUsage } = require("./lib/apiLogger");
 const { ACTION_SKUS, refreshStamp } = require("./lib/google-usage");
@@ -98,6 +97,7 @@ const { fetchAuthorRoles, authorOf } = require("./lib/author-roles");
 const { computePlaceRating } = require("./lib/place-rating");
 const { reviewSlotKey, keeperId } = require("./lib/review-uniqueness");
 const { reviewSanitizePatch } = require("./lib/review-sanitize");
+const { isCounterOnlyChange } = require("./lib/review-counter-change");
 
 const db = getFirestore();
 
@@ -1746,6 +1746,9 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
   const reviewId = event.params.reviewId;
   let recalculateList = false;
 
+  // Un «ñam» o un comentario: la Lista no cambia.
+  if (isCounterOnlyChange(event.data.before.data(), event.data.after.data())) return null;
+
   // Notas fuera de 0–10 y autoría falsa (nombre, foto, insignia) escritas a mano:
   // se corrigen con el perfil real. Si es una edición, la corrección vuelve a
   // pasar por aquí y recalcula ya con los datos buenos.
@@ -1776,11 +1779,8 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
 
     const batch = db.batch();
 
-    // Actualizar contadores (+1)
-    const listRef = db.collection('lists').doc(listId);
-    batch.update(listRef, { reviewCount: FieldValue.increment(1) });
-    logger.info(`Programando incremento de 'reviewCount' en lista ${listId}.`);
-
+    // Contador del usuario (+1). El de la Lista lo pone, ya contado, la
+    // reconstrucción de syncGroupedItemsIndex (un incremento aquí la descuadraba).
     const userRef = db.collection('users').doc(userId);
     batch.update(userRef, { reviewsCount: FieldValue.increment(1) });
     logger.info(`Programando incremento de 'reviewsCount' en usuario ${userId}.`);
@@ -1830,11 +1830,7 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
 
     const batch = db.batch();
 
-    // Actualizar contadores (-1)
-    const listRef = db.collection('lists').doc(listId);
-    batch.update(listRef, { reviewCount: FieldValue.increment(-1) });
-    logger.info(`Programando decremento de 'reviewCount' en lista ${listId}.`);
-
+    // Contador del usuario (-1). El de la Lista, como arriba.
     const userRef = db.collection('users').doc(userId);
     batch.update(userRef, { reviewsCount: FieldValue.increment(-1) });
     logger.info(`Programando decremento de 'reviewsCount' en usuario ${userId}.`);
@@ -1868,25 +1864,8 @@ const updateAggregatesOnReviewChange = onDocumentWritten("lists/{listId}/reviews
   }
 
   if (recalculateList) {
-    try {
-      await recalculateListReviewMetrics(listId);
-    } catch (error) {
-      logger.error(`updateAggregatesOnReviewChange: error al recalcular métricas de lista ${listId}`, error);
-    }
-    // Las valoraciones de una Minilista se guardan en su Lista madre: hay que
-    // recalcular también la Minilista (antes nadie mantenía sus métricas).
-    const sublistIds = new Set(
-      [event.data.before.exists ? event.data.before.data()?.sublistId : null,
-        event.data.after.exists ? event.data.after.data()?.sublistId : null]
-        .filter((id) => typeof id === 'string' && id && id !== listId)
-    );
-    for (const sublistId of sublistIds) {
-      try {
-        await recalculateListReviewMetrics(sublistId);
-      } catch (error) {
-        logger.error(`updateAggregatesOnReviewChange: error al recalcular métricas de la Minilista ${sublistId}`, error);
-      }
-    }
+    // Métricas, puestos y Buscar de la Lista (y de su Minilista) los rehace
+    // syncGroupedItemsIndex (algolia.js) con una sola lectura de la Lista.
     return null;
   }
 

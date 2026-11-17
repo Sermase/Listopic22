@@ -1078,6 +1078,21 @@ describe('V20 · Cuenta en revisión (claim «suspended»)', () => {
   });
 });
 
+describe('Resumen de puestos (listRankings)', () => {
+  it('✅ cualquiera lee el de una Lista pública o pide uno que no existe', async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'listRankings/pub'), { listId: 'pub', isPublic: true, elements: [] }));
+    await assertSucceeds(getDoc(doc(anon(), 'listRankings/pub')));
+    await assertSucceeds(getDoc(doc(anon(), 'listRankings/no-existe')));
+  });
+
+  it('❌ nadie lo escribe desde la app y no se lee si no es público', async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'listRankings/priv'), { listId: 'priv', isPublic: false, elements: [] }));
+    await assertFails(getDoc(doc(as('bob'), 'listRankings/priv')));
+    await assertFails(setDoc(doc(as('alice'), 'listRankings/pub'), { listId: 'pub', isPublic: true, elements: [] }));
+    await assertFails(setDoc(doc(as('jefe', { jefe: true }), 'listRankings/pub'), { listId: 'pub', isPublic: true, elements: [] }));
+  });
+});
+
 // ---------------------------------------------------------------------------
 describe('V30 · Auditoría 13/11: datos trucados', () => {
   const nueva = (extra = {}) => ({

@@ -339,14 +339,17 @@ function aggregateGroups(listId, listData, reviews, placeMap, botAuthorIds = new
  * @param {string} listId
  * @param {{ publicOnly?: boolean }} [options] publicOnly: para Algolia (índice público).
  */
-async function buildGroupedItemsForList(listId, { publicOnly = false } = {}) {
+async function buildGroupedItemsForList(listId, { publicOnly = false, listData: preloaded } = {}) {
     if (!listId) {
         throw new Error('listId is required');
     }
 
     const listRef = db.collection('lists').doc(listId);
-    const listSnap = await listRef.get();
-    const listData = listSnap.exists ? { id: listSnap.id, ...listSnap.data() } : null;
+    let listData = preloaded ? { id: listId, ...preloaded } : null;
+    if (!preloaded) {
+        const listSnap = await listRef.get();
+        listData = listSnap.exists ? { id: listSnap.id, ...listSnap.data() } : null;
+    }
     const fetched = await fetchReviewsForList(listId, listData, listRef);
     const reviews = publicOnly ? filterPublicReviews(fetched) : fetched;
 
@@ -355,7 +358,8 @@ async function buildGroupedItemsForList(listId, { publicOnly = false } = {}) {
             listId,
             listData,
             groupedReviews: [],
-            reviews
+            reviews,
+            allReviews: fetched
         };
     }
 
@@ -370,7 +374,9 @@ async function buildGroupedItemsForList(listId, { publicOnly = false } = {}) {
         listId,
         listData,
         groupedReviews,
-        reviews
+        reviews,
+        // Todas (también privadas): las métricas filtran por la visibilidad de la Lista.
+        allReviews: fetched
     };
 }
 

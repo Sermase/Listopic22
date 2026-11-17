@@ -156,3 +156,36 @@ export function rankListElements(
         contextRanks: contexts.get(element.id) ?? [],
     }));
 }
+
+/** Un elemento del resumen de puestos que guardan las Functions (listRankings/{listId}). */
+export interface StoredRankingElement {
+    id: string;
+    placeId?: string;
+    itemName?: string;
+    average: number;
+    count: number;
+    city?: string;
+    province?: string;
+    region?: string;
+    country?: string;
+}
+
+/**
+ * Puestos a partir del resumen ya ordenado (functions/modules/lib/list-ranking.js):
+ * mismo resultado que rankListElements con la Lista entera, leyendo 1 documento.
+ */
+export function rankedElementsFromRanking(elements: ReadonlyArray<StoredRankingElement>): RankedElement[] {
+    const base = elements.map((e) => ({
+        id: e.id,
+        placeId: e.placeId,
+        itemName: e.itemName ?? '',
+        average: e.average,
+        count: e.count,
+        city: e.city,
+        province: e.province,
+        region: e.region,
+        country: e.country,
+    }));
+    const contexts = contextualRanks(base);
+    return base.map((element, index) => ({ ...element, rank: index + 1, contextRanks: contexts.get(element.id) ?? [] }));
+}
