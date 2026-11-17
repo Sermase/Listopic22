@@ -2,7 +2,7 @@
 // si la Lista y Buscar dejan de coincidir, falla uno de los dos.
 import { describe, expect, it } from 'vitest';
 import vectors from './listElements.vectors.json';
-import { normalizeItemName, placeGeoFields, rankListElements, type ListForRanking } from './listElements';
+import { normalizeItemName, placeGeoFields, rankListElements, rankedElementsFromRanking, type ListForRanking } from './listElements';
 
 const places = vectors.places as Record<string, Record<string, unknown>>;
 
@@ -53,5 +53,17 @@ describe('Lista: puestos del caso compartido con Buscar', () => {
                 expect(e.contextRanks.find((r) => r.level === level)?.rank, `${zone} ${e.id}`).toBe(i + 1);
             });
         }
+    });
+});
+
+describe('Resumen guardado (listRankings): mismos puestos que leyendo la Lista', () => {
+    // Lo que escribe functions/modules/lib/list-ranking.js (su test usa este mismo caso).
+    const stored = vectors.expected.elements.map((e) => ({
+        id: e.key, average: e.average, count: e.count, city: e.city, province: e.province, region: e.region, country: e.country,
+    }));
+
+    it('puesto general y por zona', () => {
+        const fromStored = rankedElementsFromRanking(stored);
+        expect(fromStored.map((e) => [e.id, e.rank, e.contextRanks])).toEqual(ranked.map((e) => [e.id, e.rank, e.contextRanks]));
     });
 });
