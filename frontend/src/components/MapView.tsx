@@ -58,6 +58,24 @@ const UserLocationFeatures = ({ range }: { range: number | null }) => {
     );
 };
 
+// Leaflet solo se vuelve a medir al girar o cambiar la ventana. Si cambia el tamaño de su caja
+// (un panel que se despliega, la lista lateral del mapa grande, un hueco que aparece), se quedaba
+// con el tamaño viejo: teselas y chinchetas descolocadas o «más ancho» que su sitio.
+const SizeWatcher = () => {
+    const map = useMap();
+    useEffect(() => {
+        if (typeof ResizeObserver === 'undefined') return;
+        let frame = 0;
+        const observer = new ResizeObserver(() => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => map.invalidateSize({ pan: false }));
+        });
+        observer.observe(map.getContainer());
+        return () => { cancelAnimationFrame(frame); observer.disconnect(); };
+    }, [map]);
+    return null;
+};
+
 // Component to handle "Center on Me" button - Custom Overlay
 const CustomLocateControl = () => {
     const map = useMap();
@@ -331,6 +349,7 @@ export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ ite
                     updateWhenZooming={false}
                 />
                 <TileFilterApplier filter={activeLayer.tileFilter} />
+                <SizeWatcher />
 
                 <MapUpdater center={stableCenter} items={validItems} range={range} location={location} smartFocus={smartFocus} />
 
