@@ -281,7 +281,7 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     // Sin Pro, la carta sale de las reseñas; los aspirantes de concursos (sin reseñas aún) se piden aparte.
     const contestItemsPromise = businessPlan.isPro
         ? null
-        : getDocs(query(collection(db, 'places', placeId, 'items'), or(where('source', '==', 'contest'), where('inContest', '==', true)), limit(50)))
+        : getDocs(query(collection(db, 'places', placeId, 'items'), or(where('source', '==', 'contest'), where('inContest', '==', true)), limit(100)))
             .catch(() => null);
     const placePhotosSnapPromise = getDocs(
         query(collection(db, 'places', placeId, 'photos'), orderBy('createdAt', 'desc'), limit(40))
