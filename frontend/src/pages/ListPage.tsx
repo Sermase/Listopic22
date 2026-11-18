@@ -3,7 +3,8 @@ import { openRankingsPage, rankingSlug } from '../lib/seoLinks';
 import { createPortal } from 'react-dom';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useParams, Link, useLocation as useRouterLocation, useNavigate } from 'react-router-dom';
-import { Map as MapIcon, List as ListIcon, Plus, Heart, SlidersHorizontal, Clock, Search, ChevronDown, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid, Trophy, SearchX } from 'lucide-react';
+import { Map as MapIcon, List as ListIcon, Plus, Heart, SlidersHorizontal, Clock, Search, ChevronDown, Store, Lock, Share2, ChevronRight, Edit3, ArrowLeft, MoreVertical, X, LayoutGrid, Trophy, SearchX, Maximize2 } from 'lucide-react';
+import { FullMapModal } from '../components/map/FullMapModal';
 import { MarqueeText } from '../components/ui/MarqueeText';
 import { listDetailsQueryKey, useListDetails } from '../hooks/useListDetails';
 import { useQueryClient } from '@tanstack/react-query';
@@ -315,6 +316,7 @@ export const ListPage: React.FC = () => {
 
     const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
     const [isMapOpen, setIsMapOpen] = useState(false);
+    const [isFullMapOpen, setIsFullMapOpen] = useState(false);
     const [isShareModalOpen, setIsShareModalOpen] = useState(false);
     const [isPublicShareModalOpen, setIsPublicShareModalOpen] = useState(false);
     const [isSublistsModalOpen, setIsSublistsModalOpen] = useState(false);
@@ -1606,6 +1608,13 @@ export const ListPage: React.FC = () => {
                                 <span className="hidden sm:inline">{isMapOpen ? 'Ocultar' : 'Ver mapa'}</span>
                                 <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${isMapOpen ? 'rotate-180' : ''}`} />
                             </button>
+                            <button
+                                aria-label="Ampliar mapa"
+                                onClick={() => setIsFullMapOpen(true)}
+                                className="flex items-center justify-center h-8 w-8 rounded-full text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-[var(--lt-glass)] transition-colors shrink-0"
+                            >
+                                <Maximize2 className="w-4 h-4" />
+                            </button>
                         </div>
                     </div>
 
@@ -1617,6 +1626,27 @@ export const ListPage: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Mapa a pantalla completa, como el de Inicio: solo se monta al abrirlo. */}
+            <FullMapModal
+                isOpen={isFullMapOpen}
+                onClose={() => setIsFullMapOpen(false)}
+                title={list?.name ? `Mapa de ${list.name}` : 'Mapa de la Lista'}
+                subtitle={`${filteredMapItems.length} ${filteredMapItems.length === 1 ? 'sitio' : 'sitios'}${effectiveArea.kind === 'near' && range ? ` a menos de ${range} km` : ''}`}
+                items={filteredMapItems}
+                mode="list"
+                range={effectiveArea.kind === 'near' ? range : null}
+                smartFocus
+                areaControl={(
+                    <AreaSelect
+                        value={effectiveArea.kind === 'near' ? `r:${range ?? 'all'}` : encodeArea(effectiveArea)}
+                        range={range}
+                        options={areaOptions}
+                        onChange={handleAreaSelect}
+                        onExplore={exploreInSearch}
+                    />
+                )}
+            />
 
             {/* Sublists Viewer - Moved to Header */}
 
