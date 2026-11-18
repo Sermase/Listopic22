@@ -1399,7 +1399,7 @@ export const ListPage: React.FC = () => {
                         {list.name}
                     </h1>
                     {list.description && (
-                        <ExpandableText text={list.description} className="text-[var(--lt-hero-text)] text-sm sm:text-base max-w-2xl leading-relaxed mb-3" />
+                        <ExpandableText text={list.description} title={list.name} className="text-[var(--lt-hero-text)] text-sm sm:text-base max-w-2xl leading-relaxed mb-3" />
                     )}
 
                     {/* Status pills */}

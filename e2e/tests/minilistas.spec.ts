@@ -65,8 +65,10 @@ test('descripción larga: «Leer más» y enlaces que se pulsan', async ({ page,
   await expect(more).toBeVisible();
   await expect(page.getByRole('link', { name: 'ejemplo.es/bases' })).toHaveAttribute('href', 'https://ejemplo.es/bases');
   await more.click();
-  await expect(page.getByText('Fin.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Leer menos' })).toBeVisible();
+  const sheet = page.getByRole('dialog', { name: 'Bravas picantes' });
+  await expect(sheet.getByText(/Fin\.$/)).toBeVisible();
+  await expect(sheet.getByRole('link', { name: 'ejemplo.es/bases' })).toBeVisible();
+  await page.waitForTimeout(600);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/minilistas-leer-mas.png` });
   expect(errors).toEqual([]);
 });
