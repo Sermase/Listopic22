@@ -225,8 +225,8 @@ export const ShareModal: React.FC<ShareModalProps> = ({
 
     // Premios de medallas: marco de la foto y firma (solo en la tarjeta, no en lo que se manda al chat).
     const abilities = useMyAbilities();
-    const canFrame = abilities.has('photoFrames') && availableImageUrls.length > 0
-        && cardEntity.type !== 'profile' && !((cardEntity.type === 'list' || cardEntity.type === 'sublist') && cardEntity.rankItems?.length);
+    // Listas: el estudio solo deja marco con el diseño «Portada».
+    const canFrame = abilities.has('photoFrames') && availableImageUrls.length > 0 && cardEntity.type !== 'profile';
     // Firma: la de siempre como punto de partida; en el estudio se cambia solo para esa tarjeta.
     const signing = React.useMemo(() => {
         if (!abilities.has('cardSignature')) return undefined;
@@ -236,11 +236,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             badges: signatureBadgeOptions(abilities.earnedBadgeIds, presetBadge),
         };
     }, [abilities]);
-    // Listas con ranking: para el fondo, las fotos de lo que sale en el ranking (las da la Lista).
+    // Listas con ranking: la portada (si tiene) y las fotos de lo que sale en el ranking (las da la Lista).
     const isRankedList = (cardEntity.type === 'list' || cardEntity.type === 'sublist') && Boolean(cardEntity.rankItems?.length);
+    const listCover = isRankedList ? resolvedShareEntity.imageUrl?.trim() || undefined : undefined;
     const studioImages = React.useMemo(() => (isRankedList
-        ? Array.from(new Set((resolvedShareEntity.imageUrls || []).filter(Boolean)))
-        : availableImageUrls), [isRankedList, resolvedShareEntity.imageUrls, availableImageUrls]);
+        ? Array.from(new Set([listCover, ...(resolvedShareEntity.imageUrls || [])].filter((url): url is string => Boolean(url))))
+        : availableImageUrls), [isRankedList, listCover, resolvedShareEntity.imageUrls, availableImageUrls]);
 
     const privateChatByUserId = React.useMemo<Record<string, string>>(() => {
         if (!user) return {};
@@ -769,6 +770,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
             <ShareCardStudio
                 entity={cardEntity}
                 images={studioImages}
+                coverUrl={listCover}
                 palette={cardPalette}
                 onPaletteChange={setCardPalette}
                 canFrame={canFrame}
