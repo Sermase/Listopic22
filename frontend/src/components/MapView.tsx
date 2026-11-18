@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-le
 import 'leaflet/dist/leaflet.css';
 import { createMapPinIcon, createUserLocationIcon, MAP_LAYERS, DEFAULT_MAP_LAYER, MAP_LAYER_STORAGE_KEY } from '../utils/mapUtils';
 import { MapPopupCard } from './map/MapPopupCard';
+import { Link } from 'react-router-dom';
 import { getSponsoredSearchCampaigns, recordSponsoredEvent } from '../services/BusinessProService';
 import type { MapLayerId } from '../utils/mapUtils';
 import { useLocation } from '../hooks/useLocation';
@@ -16,7 +17,7 @@ import { db } from '../firebase';
 import { animateMap, whenMapSized } from '../lib/mapMotion';
 import { formatScore, scoreTextColor } from '../lib/scoreScale';
 import { ClusteredPins, CLUSTER_MAX_ZOOM } from './map/ClusteredPins';
-import { useStableMapItems } from './map/mapItems';
+import { listPopupView, useStableMapItems } from './map/mapItems';
 import { haptic } from '../utils/haptics';
 import type { MapItem, MapInputItem } from './map/mapItems';
 
@@ -356,36 +357,47 @@ export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ ite
                         }}
                     >
                         <Popup className="listopic-popup" closeButton={false} maxWidth={270} minWidth={250}>
-                            <MapPopupCard
-                                title={item.name}
-                                to={`/place/${item.placeId || item.id}`}
-                                photoUrl={item.photoUrl}
-                                score={item.rating}
-                                sponsored={isSponsored}
-                                subtitle={item.subtitle || (!item.rating && item.botRating ? `🤖 ${formatScore(item.botRating)} de bots · aún sin nota de personas` : null) || (item.reviewsCount ? `${item.reviewsCount} ${item.reviewsCount === 1 ? 'reseña' : 'reseñas'}` : null)}
-                                onNavigate={() => {
+                            {(() => {
+                                // Mapa de una Lista: la ficha es del elemento (o elige entre los del sitio).
+                                const view = mode === 'list' ? listPopupView(item) : null;
+                                const trackClick = () => {
                                     if (!isJefe) campaignIds.forEach((campaignId) => {
                                         void Promise.all([
                                             recordSponsoredEvent('placement', campaignId, 'impression'),
                                             recordSponsoredEvent('placement', campaignId, 'click'),
                                         ]).catch(() => undefined);
                                     });
-                                }}
+                                };
+                                return (
+                            <MapPopupCard
+                                title={view ? view.title : item.name}
+                                to={view ? view.to : `/place/${item.placeId || item.id}`}
+                                photoUrl={view ? view.photoUrl : item.photoUrl}
+                                score={view ? view.score : item.rating}
+                                sponsored={isSponsored}
+                                subtitle={view && view.to !== `/place/${item.placeId || item.id}` ? view.subtitle : (item.subtitle || (!item.rating && item.botRating ? `🤖 ${formatScore(item.botRating)} de bots · aún sin nota de personas` : null) || (item.reviewsCount ? `${item.reviewsCount} ${item.reviewsCount === 1 ? 'reseña' : 'reseñas'}` : null))}
+                                onNavigate={trackClick}
                             >
-                                {mode === 'list' && item.items && item.items.length > 0 && (
-                                    <ul className="mt-2 space-y-1">
-                                        {item.items.slice(0, 3).map((subItem, idx) => (
-                                            <li key={idx} className="flex items-center justify-between gap-2 rounded-lg bg-[var(--lt-card)] px-2 py-1 text-xs">
-                                                <span className="min-w-0 flex-1 truncate text-[var(--lt-text)]">{subItem.name}</span>
-                                                <span className="font-bold" style={{ color: scoreTextColor(subItem.score) }}>{formatScore(subItem.score)}</span>
+                                {view && view.dishes.length > 0 && (
+                                    <ul className="mt-2 max-h-[176px] space-y-1 overflow-y-auto overscroll-contain pr-0.5" aria-label="Elementos de este sitio">
+                                        {view.dishes.map((dish) => (
+                                            <li key={dish.to}>
+                                                <Link to={dish.to!} onClick={trackClick} className="flex items-center gap-2 rounded-lg bg-[var(--lt-card)] p-1 pr-2 text-xs hover:bg-[var(--lt-accent-soft)]">
+                                                    {dish.photo
+                                                        ? <img src={dish.photo} alt="" loading="lazy" className="h-8 w-8 shrink-0 rounded-md object-cover" />
+                                                        : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--lt-card-strong)]" aria-hidden="true">{dish.pending ? '🏆' : '🍽️'}</span>}
+                                                    <span className="min-w-0 flex-1 truncate font-semibold !text-[var(--lt-text)]">{dish.name}</span>
+                                                    {dish.pending
+                                                        ? <span className="shrink-0 text-[10px] text-[var(--lt-text-muted)]">Sin probar</span>
+                                                        : <span className="shrink-0 font-bold" style={{ color: scoreTextColor(dish.score) }}>{dish.score > 0 ? formatScore(dish.score) : '—'}</span>}
+                                                </Link>
                                             </li>
                                         ))}
-                                        {item.items.length > 3 && (
-                                            <li className="text-center text-[10px] text-[var(--lt-text-muted)]">+{item.items.length - 3} más</li>
-                                        )}
                                     </ul>
                                 )}
                             </MapPopupCard>
+                                );
+                            })()}
                         </Popup>
                     </Marker>
                     );

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useStableMapItems, type MapInputItem } from './mapItems';
+import { dishesForPlace, listPopupView } from './mapItems';
 import { createClusterIcon, createMapPinIcon } from '../../utils/mapUtils';
 
 const place = (id: string, rating = 8): MapInputItem => ({ id, name: id, lat: 40.4, lng: -3.7, rating });
@@ -43,5 +44,30 @@ describe('iconos del mapa', () => {
             if (i % 100 === 0) expect(createMapPinIcon({ score: 7.5 })).toBe(kept);
         }
         expect(createMapPinIcon({ score: 7.5 })).toBe(kept);
+    });
+});
+
+describe('ficha del mapa de una Lista', () => {
+    it('junta las valoraciones del mismo elemento y deja los sin probar al final', () => {
+        const dishes = dishesForPlace('p1', [
+            { name: 'Tarta', score: 8 }, { name: 'tarta ', score: 9, photo: 'https://x/t.jpg' }, { name: 'Flan', score: 9.5 },
+        ], [{ name: 'Tarta', photo: 'https://x/c.jpg' }, { name: 'Tarta de queso azul', photo: 'https://x/a.jpg' }]);
+        expect(dishes.map((d) => [d.name, d.score, d.pending ?? false])).toEqual([['Flan', 9.5, false], ['Tarta', 8.5, false], ['Tarta de queso azul', 0, true]]);
+        expect(dishes[1]).toMatchObject({ photo: 'https://x/t.jpg', to: '/group/p1/Tarta' });
+    });
+
+    it('sin nota no cuenta en la media y los nombres se comparan sin tildes', () => {
+        const dishes = dishesForPlace('p1', [{ name: 'Brava', score: 8 }, { name: 'Bravá!', score: null }, { name: 'Sola', score: null }]);
+        expect(dishes.map((d) => [d.name, d.score])).toEqual([['Brava', 8], ['Sola', 0]]);
+    });
+
+    it('un elemento: su página; varios: elegir; ninguno: el sitio', () => {
+        const base = { id: 'p1', placeId: 'p1', name: 'Bar Uno', lat: 1, lng: 1, photoUrl: 'https://x/sitio.jpg', rating: 9 };
+        const one = listPopupView({ ...base, items: dishesForPlace('p1', [], [{ name: 'Bely', photo: 'https://x/b.jpg' }]) });
+        expect(one).toMatchObject({ title: 'Bely', to: '/group/p1/Bely', photoUrl: 'https://x/b.jpg', score: null, subtitle: '🏆 Sin probar · Bar Uno' });
+        const many = listPopupView({ ...base, items: dishesForPlace('p1', [{ name: 'A', score: 7 }, { name: 'B', score: 8, photo: 'https://x/b.jpg' }]) });
+        expect(many).toMatchObject({ title: 'Bar Uno', to: null, photoUrl: 'https://x/b.jpg' });
+        expect(many.dishes).toHaveLength(2);
+        expect(listPopupView({ ...base, items: [{ name: 'Sin enlace', score: 5 }] })).toMatchObject({ title: 'Bar Uno', to: '/place/p1' });
     });
 });
