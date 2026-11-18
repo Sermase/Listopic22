@@ -281,6 +281,11 @@
         min-height: clamp(360px, 42vh, 520px);
     }
 
+    /* Sin foto (o si no carga): más baja, sin un hueco oscuro de media pantalla encima del título. */
+    .lt-entity-hero.lt-entity-hero--bare {
+        min-height: clamp(220px, 26vh, 300px);
+    }
+
     .lt-entity-hero-title,
     .lt-entity-hero-title > h1 {
         background: transparent !important;
