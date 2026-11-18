@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { diffCandidates, needsCloseOut } = require('../modules/lib/contest-candidates');
+const { candidatesOf, diffCandidates, needsCloseOut } = require('../modules/lib/contest-candidates');
 const { planPlaceRebuild } = require('../modules/lib/canonical-resolve');
 
 const ts = (ms) => ({ toMillis: () => ms });
@@ -36,4 +36,13 @@ test('planPlaceRebuild: un aspirante sin reseñas sigue activo en la carta', () 
   const plan = planPlaceRebuild({ reviews: [], itemsById: items });
   const write = plan.emptyItemWrites?.find((w) => w.itemId === 'tarta-de-queso');
   assert.ok(!write || (write.data.status !== 'inactive' && !write.deactivate));
+});
+
+test('candidatesOf limpia los detalles declarados', () => {
+  const [c] = candidatesOf({ candidates: [{ placeId: 'p1', itemName: 'Tarta', diet: ['vegan', 'raro', 'glutenFree'], description: '  Con queso azul  ' }] });
+  assert.deepEqual(c.diet, ['glutenFree', 'vegan']);
+  assert.equal(c.description, 'Con queso azul');
+  const [bare] = candidatesOf({ candidates: [{ placeId: 'p1', itemName: 'Tarta' }] });
+  assert.deepEqual(bare.diet, []);
+  assert.equal(bare.description, '');
 });

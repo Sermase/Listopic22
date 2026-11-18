@@ -8,7 +8,7 @@ import { MarqueeText } from '../components/ui/MarqueeText';
 import { listDetailsQueryKey, useListDetails } from '../hooks/useListDetails';
 import { useQueryClient } from '@tanstack/react-query';
 import { ContestPanel, type ContestShow } from '../components/ContestPanel';
-import { candidateMatchKey, contestPhase, isClosedContest, type ContestCandidate } from '../lib/contest';
+import { candidateMatchKey, cleanDiet, contestPhase, dietBadges, isClosedContest, type ContestCandidate, type ContestDiet } from '../lib/contest';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { ListItemCard } from '../components/ListItemCard';
 import { ProgressiveImage } from '../components/ProgressiveImage';
@@ -708,6 +708,20 @@ export const ListPage: React.FC = () => {
         return [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name, 'es'));
     }, [isContestList, contestCandidates, groupedItems, groupingMode, list?.criteriaDefinition]);
 
+    // Dieta que declaró quien apuntó cada aspirante, por elemento (en un sitio con varios, la suma).
+    const declaredDietByKey = useMemo(() => {
+        const map = new Map<string, ContestDiet[]>();
+        if (!isContestList) return map;
+        const grouping = groupingMode === 'dish' ? 'dish' : 'place';
+        contestCandidates.forEach((c) => {
+            const diet = cleanDiet(c.diet);
+            if (diet.length === 0) return;
+            const key = elementKey({ placeId: c.placeId, itemName: c.itemName }, grouping);
+            map.set(key, cleanDiet([...(map.get(key) ?? []), ...diet]));
+        });
+        return map;
+    }, [isContestList, contestCandidates, groupingMode]);
+
     // Unique Tags for Filter UI
     const availableGroupTags = useMemo(() => {
         const set = new Set<string>();
@@ -983,20 +997,24 @@ export const ListPage: React.FC = () => {
         if (filters.hasPhoto) {
             result = result.filter(item => !!item.photoUrl);
         }
-        if (dietGluten) {
-            result = result.filter(item => hasGlutenFreeTag(item.allTags || item.tags) || item.aptOk.includes('glutenFree'));
-        }
-        if (dietVeg) {
-            result = result.filter(item => vegByDefault
-                ? !(item.allTags || item.tags || []).some(isMeatTag)
-                : hasVegetarianTag(item.allTags || item.tags) || item.aptOk.includes('vegetarian') || item.aptOk.includes('vegan'));
-        }
-        if (dietVegan) {
-            result = result.filter(item => hasVeganTag(item.allTags || item.tags) || item.aptOk.includes('vegan'));
-        }
-        if (dietLactose) {
-            result = result.filter(item => hasLactoseFreeTag(item.allTags || item.tags) || item.aptOk.includes('lactoseFree'));
-        }
+        // Dieta: etiquetas, sellos de «Apto para» y lo que declaró el concurso.
+        const passesDiet = (item: (typeof result)[number]): boolean => {
+            const itemTags = item.allTags || item.tags;
+            if (dietGluten && !(hasGlutenFreeTag(itemTags) || item.aptOk.includes('glutenFree'))) return false;
+            if (dietVeg && !(vegByDefault
+                ? !(itemTags || []).some(isMeatTag)
+                : hasVegetarianTag(itemTags) || item.aptOk.includes('vegetarian') || item.aptOk.includes('vegan'))) return false;
+            if (dietVegan && !(hasVeganTag(itemTags) || item.aptOk.includes('vegan'))) return false;
+            if (dietLactose && !(hasLactoseFreeTag(itemTags) || item.aptOk.includes('lactoseFree'))) return false;
+            return true;
+        };
+        const withDeclared = <T extends (typeof result)[number]>(item: T): T => {
+            const declared = declaredDietByKey.get(item.id);
+            if (!declared) return item;
+            return { ...item, aptOk: Array.from(new Set([...(item.aptOk || []), ...declared])), tags: [...dietBadges(declared), ...(item.tags || [])] };
+        };
+        if (declaredDietByKey.size > 0) result = result.map(withDeclared);
+        if (dietGluten || dietVeg || dietVegan || dietLactose) result = result.filter(passesDiet);
         if (mobilityNeeds.length > 0) {
             result = result.filter(item => !lacksAccessibility(item.accessibilityOptions, mobilityNeeds));
         }
@@ -1061,17 +1079,17 @@ export const ListPage: React.FC = () => {
         if (isContestList) {
             const qualityFilter = filters.minRating > 0 || filters.hasPhoto || filters.visited || selectedTags.length > 0
                 || Object.values(filters.accessibility || {}).some(Boolean) || Object.values(filters.criteriaMin || {}).some((v) => v > 0)
-                || dietGluten || dietVeg || dietVegan || dietLactose || petsWanted || mobilityNeeds.length > 0;
+                || petsWanted || mobilityNeeds.length > 0;
             const lowerQ = searchQuery.toLowerCase();
-            const pending = qualityFilter ? [] : pendingElements.filter((item) =>
-                (!lowerQ || item.name.toLowerCase().includes(lowerQ) || (item.placeName || '').toLowerCase().includes(lowerQ))
+            const pending = qualityFilter ? [] : pendingElements.map(withDeclared).filter((item) => passesDiet(item)
+                && (!lowerQ || item.name.toLowerCase().includes(lowerQ) || (item.placeName || '').toLowerCase().includes(lowerQ))
                 && (effectiveArea.kind === 'near' || matchesArea(item.geo, effectiveArea)));
             if (contestShow === 'pending') return pending;
             if (contestShow === 'all') return [...result, ...pending];
         }
 
         return result;
-    }, [filteredByTagItems, searchQuery, filters, range, location, showGone, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault, isContestList, pendingElements, contestShow, selectedTags]);
+    }, [filteredByTagItems, searchQuery, filters, range, location, showGone, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault, isContestList, pendingElements, contestShow, selectedTags, declaredDietByKey]);
 
     const filteredMapItems = useMemo(() => {
         // Filter mapItems based on the SAME criteria as the list (or at least search/range)
@@ -1742,7 +1760,7 @@ export const ListPage: React.FC = () => {
                                         const photoSrc = reviewPhoto || placeImg || (isPending ? item.photoUrl : null) || null;
                                         const isPlaceImg = !reviewPhoto && !!placeImg;
                                         const href = item.placeId
-                                            ? groupingMode === 'dish' && !isPending
+                                            ? groupingMode === 'dish'
                                                 ? `/group/${item.placeId}/${encodeURIComponent(item.name)}?listId=${listId}`
                                                 : `/place/${item.placeId}`
                                             : null;

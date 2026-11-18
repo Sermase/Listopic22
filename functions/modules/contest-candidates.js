@@ -31,10 +31,13 @@ async function attachCandidate(listId, parentListId, candidate) {
       canonicalName: candidate.itemName,
       aliasesNormalized: [normalizeItemName(candidate.itemName)].filter(Boolean),
       source: 'contest',
+      inContest: true,
       status: 'active',
       contestLists: { [listId]: parentListId || '' },
       linkedListIds: [listId, parentListId].filter(Boolean),
       ...(candidate.photoUrl ? { photoUrl: candidate.photoUrl } : {}),
+      ...(candidate.diet.length > 0 ? { contestDiet: candidate.diet } : {}),
+      ...(candidate.description ? { contestDescription: candidate.description } : {}),
       businessData: {},
       stats: zeroStats(),
       createdAt: FieldValue.serverTimestamp(),
@@ -47,9 +50,14 @@ async function attachCandidate(listId, parentListId, candidate) {
   [listId, parentListId].filter(Boolean).forEach((id) => linked.add(id));
   await itemRef.update({
     ...contestEntry,
+    inContest: true,
     linkedListIds: [...linked].sort(),
     ...(item.status === 'inactive' && !item.mergedInto ? { status: 'active' } : {}),
-    ...(!item.photoUrl && candidate.photoUrl ? { photoUrl: candidate.photoUrl } : {}),
+    // La foto del aspirante manda en los platos que creó el concurso (se puede cambiar).
+    ...(candidate.photoUrl && (!item.photoUrl || item.source === 'contest') ? { photoUrl: candidate.photoUrl } : {}),
+    // Detalles declarados por quien lo apuntó: el último concurso que lo toca manda.
+    contestDiet: candidate.diet.length > 0 ? candidate.diet : FieldValue.delete(),
+    contestDescription: candidate.description || FieldValue.delete(),
     updatedAt: FieldValue.serverTimestamp(),
   });
 }
@@ -64,6 +72,7 @@ async function detachCandidate(listId, candidate) {
   const unreviewed = !(Number(item.stats?.reviewCount) > 0);
   await itemRef.update({
     [`contestLists.${listId}`]: FieldValue.delete(),
+    ...(rest.length === 0 ? { inContest: false } : {}),
     ...(item.source === 'contest' && unreviewed && rest.length === 0 ? { status: 'inactive', linkedListIds: [] } : {}),
     updatedAt: FieldValue.serverTimestamp(),
   });
