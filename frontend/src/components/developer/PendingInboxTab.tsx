@@ -32,6 +32,7 @@ import type { InboxBadge, InboxBadgeTone, InboxItem, QueueTarget } from '../../s
 import { ageLevel, formatAge } from '../../utils/adminTime';
 import { Button, Card } from '../ui';
 import { AgeChip } from './queue';
+import { ContestFeatureRequests } from './ContestFeatureRequests';
 import type { GoToTab } from './developerTabs';
 
 export interface PendingInboxTabProps {
@@ -393,6 +394,8 @@ export const PendingInboxTab: React.FC<PendingInboxTabProps> = ({ goToTab, enabl
                     tone={!summary.oldestMs ? 'neutral' : oldestLevel === 'old' ? 'danger' : oldestLevel === 'warning' ? 'warning' : 'neutral'}
                 />
             </div>
+
+            <ContestFeatureRequests hideWhenEmpty />
 
             {(data.degraded || data.errors.length > 0) && (
                 <div className="flex flex-wrap gap-2 text-xs">

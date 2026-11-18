@@ -29,6 +29,8 @@ interface FullMapModalProps {
      * Sin él, el mapa trae su propio radio desde tu ubicación sobre los sitios que recibe.
      */
     areaControl?: React.ReactNode;
+    /** Encuadre por donde están los sitios (p. ej. una Lista de otra ciudad), no por tu ubicación. */
+    smartFocus?: boolean;
 }
 
 const NO_AREAS: Record<GeoLevel, AreaOption[]> = { city: [], province: [], region: [], country: [] };
@@ -79,7 +81,7 @@ export const FullMapModal: React.FC<FullMapModalProps> = (props) => {
     return props.isOpen ? <FullMapContent {...props} /> : null;
 };
 
-const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, subtitle, items, mode = 'global', range = null, directionsUrl, areaControl }) => {
+const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, subtitle, items, mode = 'global', range = null, directionsUrl, areaControl, smartFocus = false }) => {
     const isDesktop = useIsDesktop();
     const { location, requestLocation } = useLocation();
 
@@ -357,7 +359,7 @@ const FullMapContent: React.FC<FullMapModalProps> = ({ isOpen, onClose, title, s
                 )}
                 {/* En el móvil el mapa acaba donde asoma la hoja, para que no tape «Centrar en mi ubicación». */}
                 <div className="relative min-w-0 flex-1" style={hasPanel && !isDesktop ? { paddingBottom: 76 } : undefined}>
-                    <MapView items={mapItems} mode={mode} range={effectiveRange} scrollWheelZoom focusId={focus?.id ?? null} focusNonce={focus?.nonce} />
+                    <MapView items={mapItems} mode={mode} range={effectiveRange} scrollWheelZoom focusId={focus?.id ?? null} focusNonce={focus?.nonce} smartFocus={smartFocus} />
                     {/* Zona o radio, a mano sobre el mapa (a la derecha de los botones de zoom). */}
                     {zoneControl && (
                         <div className="absolute left-14 right-16 top-2.5 z-[1000] flex">{zoneControl}</div>

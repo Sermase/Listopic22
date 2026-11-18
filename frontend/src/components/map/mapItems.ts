@@ -16,6 +16,8 @@ export interface MapItem {
     color?: string;
     /** Emoji pequeño sobre la chincheta (premio «Chincheta propia» del dueño del mapa). */
     pinMark?: string;
+    /** Miniatura del plato como chincheta (concursos): foto en un aro del color de su nota. */
+    pinPhoto?: string;
     /** Línea bajo el nombre en la ficha (si no, el nº de reseñas). */
     subtitle?: string;
     /** Listas o categorías del sitio, para el filtro del mapa grande. */
@@ -62,6 +64,7 @@ export const normalizeMapItems = (items: MapInputItem[]): MapItem[] => items.fla
         emoji: item.emoji,
         color: item.color,
         pinMark: item.pinMark,
+        pinPhoto: item.pinPhoto,
         subtitle: item.subtitle,
         // Solo listas: el campo «tags» de una reseña son sus etiquetas (Vegetariano…), no su lista.
         lists: item.lists ?? (item.listName ? [item.listName] : undefined),
@@ -71,7 +74,7 @@ export const normalizeMapItems = (items: MapInputItem[]): MapItem[] => items.fla
 
 
 const signature = (items: MapItem[]) => items.map((i) => [
-    i.id, i.placeId, i.lat, i.lng, i.name, i.photoUrl, i.rating, i.botRating, i.reviewsCount, i.emoji, i.color, i.pinMark, i.subtitle,
+    i.id, i.placeId, i.lat, i.lng, i.name, i.photoUrl, i.rating, i.botRating, i.reviewsCount, i.emoji, i.color, i.pinMark, i.pinPhoto, i.subtitle,
     i.lists?.join(','), i.items?.map((sub) => `${sub.name}:${sub.score}`).join(','),
 ].join('~')).join('|');
 

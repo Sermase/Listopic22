@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { deleteField, doc, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
+import { deleteField, doc, getDoc, serverTimestamp, Timestamp, updateDoc } from 'firebase/firestore';
 import { Camera, ClipboardPaste, Loader, Pencil, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { uploadListImage } from '../lib/listCover';
 import { canReadClipboardImage, imageFromPaste, readClipboardImage } from '../lib/clipboardImage';
@@ -12,8 +12,8 @@ import { PlaceService, type PlaceResult } from '../services/PlaceService';
 import { PlaceSearch } from './PlaceSearch';
 import {
     candidateKey, candidateMatchKey, cleanDiet, CONTEST_DIETS, contestDatesLabel, contestPhase, dateToDay, dayToDate,
-    dietBadges, isClosedContest, MAX_CANDIDATE_DESCRIPTION, MAX_CANDIDATES,
-    type ContestCandidate, type ContestDiet, type ContestListLike,
+    dietBadges, featureScopeLabel, featureScopeOptions, isClosedContest, MAX_CANDIDATE_DESCRIPTION, MAX_CANDIDATES,
+    type ContestCandidate, type ContestDiet, type ContestFeatureRequest, type ContestListLike,
 } from '../lib/contest';
 
 /** Detalles del aspirante (sin valoraciones): dieta declarada y una descripción corta. */
@@ -56,6 +56,75 @@ const CandidateDetailsFields: React.FC<{
 const detailsPatch = (diet: ContestDiet[], description: string): Pick<ContestCandidate, 'diet' | 'description'> => {
     const text = description.trim().slice(0, MAX_CANDIDATE_DESCRIPTION);
     return { ...(diet.length > 0 ? { diet } : {}), ...(text ? { description: text } : {}) };
+};
+
+/** Pedir que el concurso salga destacado en Inicio en una zona; lo acepta un jefe en Developer. */
+const FeatureRequestSection: React.FC<{ listId: string; candidates: ContestCandidate[]; current: ContestFeatureRequest | null | undefined; onChanged: () => void }> = ({ listId, candidates, current, onChanged }) => {
+    const { showToast } = useToast();
+    const options = useMemo(() => featureScopeOptions(candidates), [candidates]);
+    const [request, setRequest] = useState(current ?? null);
+    const [choice, setChoice] = useState(() => (current ? `${current.level}:${current.value}` : options[0] ? `${options[0].level}:${options[0].value}` : ''));
+    const [busy, setBusy] = useState(false);
+    useEffect(() => {
+        if (!choice && options[0]) setChoice(`${options[0].level}:${options[0].value}`);
+    }, [choice, options]);
+
+    const send = async (withdraw: boolean) => {
+        const picked = options.find((o) => `${o.level}:${o.value}` === choice);
+        if (!withdraw && !picked) return;
+        setBusy(true);
+        try {
+            const next = withdraw ? null : { level: picked!.level, value: picked!.value, status: 'pending' as const };
+            await updateDoc(doc(db, 'lists', listId), { featureRequest: next ? { ...next, requestedAt: serverTimestamp() } : deleteField() });
+            setRequest(next);
+            onChanged();
+            showToast({ variant: 'success', message: withdraw ? 'Petición retirada.' : 'Petición enviada. Te avisamos al revisarla.' });
+        } catch (e) {
+            console.error('No se pudo pedir el destacado', e);
+            showToast({ variant: 'error', message: 'No se pudo enviar la petición.' });
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const status = request?.status;
+    return (
+        <section className="rounded-xl border border-[var(--lt-border)] p-3 space-y-2">
+            <div>
+                <span className="block text-sm font-bold text-[var(--lt-text)]">📣 Destacar en Inicio</span>
+                <span className="block text-xs text-[var(--lt-text-muted)]">Mientras esté abierto, sale arriba en Inicio para quien esté en la zona. Lo revisa el equipo de Listopic.</span>
+            </div>
+            {status && (
+                <p className={`text-xs font-bold ${status === 'approved' ? 'text-[var(--lt-success)]' : status === 'rejected' ? 'text-[var(--lt-danger)]' : 'text-[var(--lt-warning)]'}`}>
+                    {status === 'approved' ? '✅ Destacado' : status === 'rejected' ? '✖ No aceptado' : '⏳ Pendiente de revisión'} · {featureScopeLabel(request!)}
+                </p>
+            )}
+            {options.length === 0 ? (
+                <p className="text-xs text-[var(--lt-text-muted)]">Apunta algún aspirante para poder elegir la zona.</p>
+            ) : (
+                <div className="flex gap-2">
+                    <select
+                        value={choice}
+                        onChange={(e) => setChoice(e.target.value)}
+                        aria-label="Zona donde destacar"
+                        className="min-w-0 flex-1 rounded-lg bg-[var(--lt-glass)] border border-[var(--lt-border)] px-2 py-2 text-sm text-[var(--lt-text)]"
+                    >
+                        {options.map((o) => <option key={`${o.level}:${o.value}`} value={`${o.level}:${o.value}`}>{o.label}</option>)}
+                    </select>
+                    <button type="button" onClick={() => send(false)} disabled={busy || (status === 'pending' && choice === `${request!.level}:${request!.value}`) || (status === 'approved' && choice === `${request!.level}:${request!.value}`)}
+                        className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-sm font-bold text-[var(--lt-accent)] disabled:opacity-50">
+                        {busy && <Loader className="w-4 h-4 animate-spin" />}
+                        {status ? 'Volver a pedir' : 'Pedir'}
+                    </button>
+                </div>
+            )}
+            {status && (
+                <button type="button" onClick={() => send(true)} disabled={busy} className="text-xs text-[var(--lt-text-muted)] underline">
+                    {status === 'approved' ? 'Dejar de destacar' : 'Retirar la petición'}
+                </button>
+            )}
+        </section>
+    );
 };
 
 interface ReviewLite { placeId?: string; itemName?: string; sublistId?: string | null }
@@ -548,6 +617,10 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                                 </div>
                             )}
                         </section>
+                    )}
+
+                    {canManage && isClosedContest(list) && (
+                        <FeatureRequestSection listId={list.id} candidates={candidates} current={list.featureRequest} onChanged={onChanged} />
                     )}
 
                     {isJefe && (

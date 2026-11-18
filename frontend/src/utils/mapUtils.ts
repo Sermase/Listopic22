@@ -63,6 +63,8 @@ export interface MapPinOptions {
     highlighted?: boolean;
     /** Emoji pequeño en la esquina (premio «Chincheta propia»). */
     mark?: string | null;
+    /** Foto del plato: miniatura redonda con aro del color de la nota y la nota en pequeño. */
+    photo?: string | null;
 }
 
 /** Lo que asoma el pico por debajo de la chapa (ver .lt-pin::after en index.css). */
@@ -98,7 +100,8 @@ const shownScore = (value: number | null | undefined) => typeof value === 'numbe
     : '';
 
 export const createMapPinIcon = (options: MapPinOptions = {}): L.DivIcon => {
-    const { score, botScore, emoji, color, sponsored = false, highlighted = false, mark } = options;
+    const { score, botScore, emoji, color, sponsored = false, highlighted = false, mark, photo } = options;
+    if (photo) return cachedIcon(`photo|${shownScore(score)}|${highlighted ? 1 : 0}|${photo}`, () => buildPhotoPinIcon(photo, score, highlighted));
     return cachedIcon(`pin|${shownScore(score)}|${shownScore(botScore)}|${emoji ?? ''}|${color ?? ''}|${sponsored ? 1 : 0}|${highlighted ? 1 : 0}|${mark ?? ''}`, () => buildPinIcon(options));
 };
 
@@ -150,6 +153,25 @@ const buildPinIcon = ({ score, botScore, emoji, color, sponsored = false, highli
         className: 'lt-pin-icon',
         iconSize: [width, total],
         iconAnchor: [width / 2, total],
+        popupAnchor: [0, -total],
+    });
+};
+
+const PHOTO_PIN = 40;
+
+/** Chincheta con foto (concursos): aro y pico del color de la nota; sin nota, aro gris y copa. */
+const buildPhotoPinIcon = (photo: string, score: number | null | undefined, highlighted: boolean): L.DivIcon => {
+    const s = typeof score === 'number' && Number.isFinite(score) && score > 0 ? score : null;
+    const { bg, fg } = s === null ? { bg: '#94a3b8', fg: '#0f172a' } : SCORE_BADGE[scoreBand(s)];
+    const badge = s === null ? '🏆' : formatScore(s);
+    const total = PHOTO_PIN + PIN_TIP;
+    return L.divIcon({
+        html: `<div class="lt-pin lt-pin--photo${highlighted ? ' lt-pin--hl' : ''}" style="--pin-bg:${bg};--pin-fg:${fg};--pin-ring:${bg};height:${PHOTO_PIN}px">`
+            + `<img src="${escapeHtml(photo)}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer">`
+            + `<span class="lt-pin__score${s === null ? ' lt-pin__score--none' : ''}">${badge}</span></div>`,
+        className: 'lt-pin-icon',
+        iconSize: [PHOTO_PIN, total],
+        iconAnchor: [PHOTO_PIN / 2, total],
         popupAnchor: [0, -total],
     });
 };
