@@ -388,7 +388,7 @@ export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ ite
                                                         : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--lt-card-strong)]" aria-hidden="true">{dish.pending ? '🏆' : '🍽️'}</span>}
                                                     <span className="min-w-0 flex-1 truncate font-semibold !text-[var(--lt-text)]">{dish.name}</span>
                                                     {dish.pending
-                                                        ? <span className="shrink-0 text-[10px] text-[var(--lt-text-muted)]">Sin probar</span>
+                                                        ? <span className="shrink-0 text-[10px] text-[var(--lt-text-muted)]">Sin valorar</span>
                                                         : <span className="shrink-0 font-bold" style={{ color: scoreTextColor(dish.score) }}>{dish.score > 0 ? formatScore(dish.score) : '—'}</span>}
                                                 </Link>
                                             </li>

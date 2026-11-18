@@ -1,38 +1,49 @@
-// Minilista en modo concurso: aspirantes «Sin probar», «Valorar» relleno y ajustes.
-import { test, expect, login } from './support';
+// Minilista en modo concurso: aspirantes «Sin valorar», «Valorar» relleno y ajustes.
+import { test, expect, login, sheetGone } from './support';
 
 const SHOTS = process.env.SHOTS_DIR;
 
-test('concurso: aspirantes sin probar y Valorar con sitio y plato ya puestos', async ({ page, errors }) => {
+test('concurso: aspirantes sin valorar y Valorar con sitio y plato ya puestos', async ({ page, errors }) => {
   await login(page, 'duena');
   await page.goto('/list/concurso');
-  await expect(page.getByText('🏆 Concurso').first()).toBeVisible();
-  await expect(page.getByText('✔️ Oficial de Listopic')).toBeVisible();
+  // Una sola etiqueta en la cabecera: qué es y que es oficial.
+  await expect(page.getByText('🏆 Concurso oficial')).toBeVisible();
   const panel = page.locator('#contest-panel');
-  await expect(panel.getByText(/3 aspirantes · 2 sin probar/)).toBeVisible();
+  const unrated = panel.getByRole('button', { name: '2 sin valorar' });
+  await expect(unrated).toBeVisible();
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/1-minilista-concurso.png` });
 
-  // Los aspirantes sin probar están en el ranking, al final, sin puesto y con «Valorar».
+  // Los aspirantes sin valorar están en el ranking, al final, sin puesto y con «Valorar».
   const ahumada = page.locator('article', { hasText: 'Brava ahumada' });
-  await expect(ahumada.getByText('🏆 Sin probar')).toBeVisible();
+  await expect(ahumada.getByText('Sin valorar', { exact: true })).toBeVisible();
   await expect(ahumada.locator('[aria-label^="Puesto"]')).toHaveCount(0);
 
-  // Filtro del concurso: con nota, solo los valorados; sin probar, solo los que faltan.
-  await panel.getByRole('radio', { name: 'Con nota' }).click();
+  // Filtro del concurso (en «Filtros»): con nota, solo los valorados.
+  await page.getByRole('button', { name: /^Filtros/ }).click();
+  await page.getByRole('radio', { name: 'Con nota' }).click();
+  await page.getByRole('button', { name: /^Ver \d+ resultados?$/ }).click();
   await expect(page.locator('article', { hasText: 'Brava ahumada' })).toHaveCount(0);
-  await expect(page.getByText('🏆 Sin probar')).toHaveCount(0);
+  await expect(page.getByText('Sin valorar', { exact: true })).toHaveCount(0);
   await expect(page.locator('article [aria-label^="Puesto"]').first()).toBeVisible();
-  await panel.getByRole('radio', { name: 'Todos' }).click();
+  await page.getByRole('button', { name: 'Ver todos' }).click();
+  await expect(ahumada).toBeVisible();
 
-  // «Valorar» de arriba no abre un formulario libre: deja a la vista los que faltan por probar.
+  // Tocar «2 sin valorar» deja solo esos; otra vez, todos.
+  await unrated.click();
+  await expect(page.getByRole('heading', { name: 'Por valorar' })).toBeVisible();
+  await expect(page.locator('article [aria-label^="Puesto"]')).toHaveCount(0);
+  await unrated.click();
+  await expect(unrated).toHaveAttribute('aria-pressed', 'false');
+
+  // «Valorar» de arriba no abre un formulario libre: deja a la vista los que faltan por valorar.
   await page.getByRole('button', { name: 'Valorar' }).first().click();
-  await expect(panel.getByRole('radio', { name: /Sin probar/ })).toHaveAttribute('aria-checked', 'true');
+  await expect(unrated).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('article', { hasText: 'Brava ahumada' })).toBeVisible();
   await expect(page.locator('article [aria-label^="Puesto"]')).toHaveCount(0);
   await page.locator('article', { hasText: 'Brava ahumada' }).scrollIntoViewIfNeeded();
   await page.mouse.wheel(0, 200);
   await page.waitForTimeout(400);
-  if (SHOTS) await page.screenshot({ path: `${SHOTS}/2-sin-probar.png` });
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/2-sin-valorar.png` });
 
   await page.locator('article', { hasText: 'Brava ahumada' }).getByRole('button', { name: 'Valorar' }).click();
   await expect(page.locator('input[value="Brava ahumada"]')).toBeVisible();
@@ -76,6 +87,7 @@ test('crear Minilista desde la lista en modo concurso: va a ella con los aspiran
   await page.waitForTimeout(800);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/6-aspirantes-al-crear.png` });
   await page.getByRole('button', { name: 'Cerrar' }).first().click();
+  await sheetGone(page);
   await page.goto('/list/bravas');
   await page.getByRole('button', { name: /Más acciones/ }).click();
   await page.getByRole('button', { name: /Minilistas/ }).click();
@@ -99,6 +111,7 @@ test('destacar el concurso: el dueño lo pide desde la ventana del concurso', as
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/10-pedir-destacado.png` });
 
   await page.getByRole('button', { name: 'Cerrar' }).first().click();
+  await sheetGone(page);
   await page.goto('/');
   await expect(page.getByText('Concurso abierto')).toHaveCount(0);
   expect(errors).toEqual([]);
@@ -134,9 +147,12 @@ test('mapa del concurso: la ficha lleva a la página del plato, no al sitio', as
   const pin = page.locator('.leaflet-marker-icon').filter({ hasText: /\d/ }).first();
   await expect(pin).toBeVisible();
   await page.waitForTimeout(800); // el mapa termina de encuadrar
-  await pin.click();
   const popup = page.locator('.leaflet-popup');
-  await expect(popup).toBeVisible();
+  // Si el clic llega mientras el mapa aún se mueve, Leaflet lo toma por arrastre: se reintenta.
+  await expect(async () => {
+    await pin.click();
+    await expect(popup).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
   const dishLink = popup.locator('a[href*="/group/"]').first();
   await expect(dishLink).toBeVisible();
   await expect(popup.locator('a[href^="/place/"]')).toHaveCount(0);
@@ -145,4 +161,25 @@ test('mapa del concurso: la ficha lleva a la página del plato, no al sitio', as
   await dishLink.click();
   await expect(page).toHaveURL(/\/group\//);
   expect(errors).toEqual([]);
+});
+
+test.describe('concurso visto desde Madrid', () => {
+  test.use({ geolocation: { latitude: 40.4168, longitude: -3.7038 } });
+
+  test('la distancia no ofrece radios que no lleguen al aspirante más cercano', async ({ page, errors }) => {
+    await login(page, 'ana');
+    await page.goto('/list/concurso');
+    // Por defecto, el concurso entero, estés donde estés.
+    const zone = page.getByLabel('Distancia o zona');
+    await expect(zone).toHaveValue('r:all');
+    await expect(page.locator('article', { hasText: 'Brava ahumada' })).toBeVisible();
+    // Desde Madrid, lo más cercano está a ~160 km: ni 5 km ni 100 km; 200 km sí, y se ve todo.
+    await zone.selectOption('r:200');
+    await expect(zone.locator('option[value="r:5"]')).toHaveCount(0);
+    await expect(zone.locator('option[value="r:100"]')).toHaveCount(0);
+    await expect(zone).toHaveValue('r:200');
+    await expect(page.locator('article', { hasText: 'Brava ahumada' })).toBeVisible();
+    await expect(zone.locator('optgroup').first()).toHaveAttribute('label', /lo más cerca está a 1\d\d km/);
+    expect(errors).toEqual([]);
+  });
 });

@@ -2090,7 +2090,7 @@ export const PlacePage: React.FC = () => {
                                                             )}
                                                         </div>
                                                         <div className="flex items-center gap-2 flex-wrap">
-                                                            <span className="text-xs text-[var(--lt-text-muted)]">{untried ? '🏆 Sin probar' : `${dish.count} ${dish.count === 1 ? 'reseña' : 'reseñas'}`}</span>
+                                                            <span className="text-xs text-[var(--lt-text-muted)]">{untried ? '🏆 Sin valorar' : `${dish.count} ${dish.count === 1 ? 'reseña' : 'reseñas'}`}</span>
                                                             {declared.map((badge) => (
                                                                 <span key={badge} className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)]">{badge}</span>
                                                             ))}

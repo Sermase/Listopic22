@@ -115,6 +115,27 @@ export const AREA_STORAGE_KEY = 'listopic_list_area';
 export const distanceLabel = (km: number): string =>
     km < 1 ? `A menos de ${Math.round(km * 1000)} m` : `A menos de ${km} km`;
 
+/** «a 160 km», «a 800 m»: distancia a lo más cercano, redondeada. */
+export const nearestLabel = (km: number): string =>
+    km < 1 ? `a ${Math.max(100, Math.round(km * 10) * 100)} m` : `a ${km < 10 ? km.toFixed(1).replace('.', ',').replace(',0', '') : Math.round(km)} km`;
+
+/**
+ * Radios que tienen sentido aquí: los que llegan al menos al elemento más
+ * cercano (en Madrid, un concurso de Valladolid no ofrece «5 km»).
+ */
+export function reachableRangeSteps(steps: readonly number[], nearestKm: number | null): number[] {
+    return nearestKm === null ? [...steps] : steps.filter((km) => km >= nearestKm);
+}
+
+/**
+ * El radio elegido, o el primero que llega a lo más cercano si se queda corto
+ * (sin límite si ninguno llega): un radio vacío nunca sirve de nada.
+ */
+export function reachableRange(range: number | null, steps: readonly number[], nearestKm: number | null): number | null {
+    if (range === null || nearestKm === null || range >= nearestKm) return range;
+    return steps.find((km) => km >= nearestKm) ?? null;
+}
+
 export const encodeArea = (area: ListArea): string => (area.kind === 'near' ? 'near' : `${area.kind}:${area.value}`);
 
 export function decodeArea(raw: string | null | undefined): ListArea {

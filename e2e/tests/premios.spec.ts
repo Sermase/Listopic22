@@ -4,7 +4,7 @@
 import { mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
-import { test, expect, login } from './support';
+import { test, expect, login, sheetGone } from './support';
 
 const SHOTS = process.env.PREMIOS_SHOTS_DIR;
 const shot = async (page: Page, name: string) => {
@@ -35,6 +35,7 @@ test('Mis premios, aro en el perfil y Developer apaga el premio', async ({ page,
   await expect(prizes.getByRole('button', { name: '🏆 Dorado' })).toHaveClass(/accent-soft/);
   await shot(page, '1-mis-premios');
   await page.keyboard.press('Escape');
+  await sheetGone(page);
 
   await page.goto('/profile');
   await expect(page.getByTestId('profile-ring')).toHaveClass(/lt-ring--gold/);
@@ -118,6 +119,7 @@ test('crear tarjeta: firma a mano, tema y formato', async ({ page, errors }) => 
   await shot(page, '7-firma');
   await page.keyboard.press('Escape');
   await expect(prizes).toBeHidden();
+  await sheetGone(page);
 
   await page.goto('/place/p_vll1');
   await page.getByRole('button', { name: 'Compartir', exact: true }).click();

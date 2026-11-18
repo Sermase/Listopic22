@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { featureScopeOptions, isFeaturedContestFor } from './contest';
+import { contestStatusLine, featureScopeOptions, isFeaturedContestFor } from './contest';
 
 describe('concursos destacados', () => {
     const ts = (ms: number) => ({ toMillis: () => ms });
@@ -26,5 +26,19 @@ describe('concursos destacados', () => {
         const options = featureScopeOptions([vll, vll, { ...vll, city: 'Laguna de Duero' }]);
         expect(options[0]).toEqual({ level: 'province', value: 'Valladolid', label: 'Valladolid provincia' });
         expect(options.map((o) => o.level)).toContain('region');
+    });
+});
+
+describe('línea del concurso', () => {
+    const ts = (ms: number) => ({ toMillis: () => ms });
+    const start = new Date(2026, 10, 17).getTime();
+    const end = new Date(2026, 10, 29, 23, 59).getTime();
+    const contest = { closed: true, startsAt: ts(start), endsAt: ts(end) };
+
+    it('antes, durante y después', () => {
+        expect(contestStatusLine(contest, start - 1000)).toEqual({ phase: 'before', label: 'Empieza el 17 nov', when: null });
+        expect(contestStatusLine(contest, start + 1000)).toEqual({ phase: 'open', label: 'Abierto', when: 'hasta el 29 nov' });
+        expect(contestStatusLine(contest, end + 1000)).toEqual({ phase: 'after', label: 'Terminado el 29 nov', when: null });
+        expect(contestStatusLine({ closed: true }, start)).toEqual({ phase: 'open', label: 'Abierto', when: null });
     });
 });

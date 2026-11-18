@@ -124,7 +124,7 @@ export function listPopupView(item: MapItem): PopupView {
         const [d] = dishes;
         return {
             title: d.name,
-            subtitle: d.pending ? `🏆 Sin probar · ${item.name}` : item.name,
+            subtitle: d.pending ? `🏆 Sin valorar · ${item.name}` : item.name,
             photoUrl: d.photo || item.photoUrl,
             score: d.pending || d.score <= 0 ? null : d.score,
             to: d.to!,
@@ -150,7 +150,7 @@ export const elementPath = (placeId: string, itemName: string, listId?: string):
 
 /**
  * Elementos de un sitio para la ficha del mapa: las valoraciones del mismo
- * elemento se juntan (nota media, primera foto) y los aspirantes sin probar van al final.
+ * elemento se juntan (nota media, primera foto) y los aspirantes sin valorar van al final.
  */
 export function dishesForPlace(
     placeId: string,

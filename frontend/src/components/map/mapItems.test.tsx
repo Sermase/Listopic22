@@ -48,7 +48,7 @@ describe('iconos del mapa', () => {
 });
 
 describe('ficha del mapa de una Lista', () => {
-    it('junta las valoraciones del mismo elemento y deja los sin probar al final', () => {
+    it('junta las valoraciones del mismo elemento y deja los sin valorar al final', () => {
         const dishes = dishesForPlace('p1', [
             { name: 'Tarta', score: 8 }, { name: 'tarta ', score: 9, photo: 'https://x/t.jpg' }, { name: 'Flan', score: 9.5 },
         ], [{ name: 'Tarta', photo: 'https://x/c.jpg' }, { name: 'Tarta de queso azul', photo: 'https://x/a.jpg' }]);
@@ -64,7 +64,7 @@ describe('ficha del mapa de una Lista', () => {
     it('un elemento: su página; varios: elegir; ninguno: el sitio', () => {
         const base = { id: 'p1', placeId: 'p1', name: 'Bar Uno', lat: 1, lng: 1, photoUrl: 'https://x/sitio.jpg', rating: 9 };
         const one = listPopupView({ ...base, items: dishesForPlace('p1', [], [{ name: 'Bely', photo: 'https://x/b.jpg' }]) });
-        expect(one).toMatchObject({ title: 'Bely', to: '/group/p1/Bely', photoUrl: 'https://x/b.jpg', score: null, subtitle: '🏆 Sin probar · Bar Uno' });
+        expect(one).toMatchObject({ title: 'Bely', to: '/group/p1/Bely', photoUrl: 'https://x/b.jpg', score: null, subtitle: '🏆 Sin valorar · Bar Uno' });
         const many = listPopupView({ ...base, items: dishesForPlace('p1', [{ name: 'A', score: 7 }, { name: 'B', score: 8, photo: 'https://x/b.jpg' }]) });
         expect(many).toMatchObject({ title: 'Bar Uno', to: null, photoUrl: 'https://x/b.jpg' });
         expect(many.dishes).toHaveLength(2);

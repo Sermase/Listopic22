@@ -21,7 +21,7 @@ import { ExpandableText } from '../components/ExpandableText';
 import { dishesForPlace, type MapSubItem } from '../components/map/mapItems';
 import { EditListModal } from '../components/EditListModal';
 import { useAuth } from '../context/AuthContext';
-import { getExpandedRangeValue, useFilters } from '../context/FilterContext';
+import { getExpandedRangeValue, RANGE_STEPS_KM, useFilters } from '../context/FilterContext';
 import { useLike } from '../hooks/useLike';
 import { useLocation } from '../hooks/useLocation';
 import { doc, getDoc, collection, getDocs } from 'firebase/firestore';
@@ -39,7 +39,7 @@ import { elementKey, rankListElements } from '../lib/listElements';
 import { listItemNoun } from '../lib/listNoun';
 import { scoreBadgeStyle } from '../lib/scoreScale';
 import { useStoredChoice } from '../hooks/useStoredChoice';
-import { AREA_STORAGE_KEY, buildAreaOptions, decodeArea, distanceLabel, encodeArea, geoAreaLabel, inferUserGeo, localAreaOptions, matchesArea, primaryContextRank, type GeoFields, type ListArea } from '../lib/geoAreas';
+import { AREA_STORAGE_KEY, buildAreaOptions, decodeArea, distanceLabel, encodeArea, geoAreaLabel, inferUserGeo, localAreaOptions, matchesArea, primaryContextRank, reachableRange, type GeoFields, type ListArea } from '../lib/geoAreas';
 import { exploreSearchUrl } from '../lib/searchZones';
 import { AreaSelect } from '../components/AreaSelect';
 import { recordListVisit } from '../lib/searchLandingStorage';
@@ -265,6 +265,24 @@ export const ListPage: React.FC = () => {
     const openCandidatesOnLoad = new URLSearchParams(routerLocation.search).get('aspirantes') === '1';
     const queryClient = useQueryClient();
     const closedContest = isClosedContest(list);
+    const listIsPublic = list?.isPublic === true || list?.visibility === 'public';
+    // La etiqueta de la cabecera: qué es y, si lo es, que es oficial (sin más píldoras).
+    const kindLabel = closedContest
+        ? (list?.official === true ? '🏆 Concurso oficial' : '🏆 Concurso')
+        : list?.parentListId
+            ? (list?.official === true ? '✔️ Minilista oficial' : 'Minilista')
+            : (list?.official === true ? '✔️ Lista oficial' : 'Lista');
+    // Visibilidad y tu papel: en ⋮ (móvil) o en texto discreto (escritorio).
+    // «Privada» ya va en su etiqueta (importa que se vea); aquí, solo «Pública».
+    const accessNote = (() => {
+        if (!list) return null;
+        const visibility = (list.parentListId || isJefe) && listIsPublic ? '🌍 Pública' : null;
+        const role = !list.parentListId ? null
+            : user && list.userId === user.uid ? 'Creada por ti'
+                : user && list.editors?.includes(user.uid) ? 'Puedes editarla'
+                    : (list as { publicAccess?: string }).publicAccess === 'writer' ? 'Abierta a colaborar' : null;
+        return [visibility, role].filter(Boolean).join(' · ') || null;
+    })();
     const [editingReviewId, setEditingReviewId] = useState<string | undefined>(editId || undefined);
 
     // Update state if URL changes (e.g. navigation back/forward)
@@ -332,12 +350,15 @@ export const ListPage: React.FC = () => {
 
     // Range State from Context
     const { range: filterRange, setRange } = useFilters();
-    // Concurso (lista de aspirantes): se ven todos, estés donde estés; la distancia no filtra.
     const contestCandidates = useMemo<ContestCandidate[]>(() => (Array.isArray(list?.candidates) ? (list.candidates as ContestCandidate[]) : []), [list?.candidates]);
     const isContestList = contestCandidates.length > 0;
-    // Concurso: ver todos los aspirantes (por defecto), solo los que tienen nota o solo los sin probar.
+    // Concurso: ver todos los aspirantes (por defecto), solo los que tienen nota o solo los sin valorar.
     const [contestShow, setContestShow] = useState<ContestShow>('all');
-    const range = isContestList ? null : filterRange;
+    // Concurso: por defecto se ven todos los aspirantes, estés donde estés. La distancia
+    // se puede acotar, pero solo aquí: no cambia la de Inicio ni la de otras Listas.
+    const [contestRange, setContestRange] = useState<number | null>(null);
+    const chosenRange = isContestList ? contestRange : filterRange;
+    const setListRange = isContestList ? setContestRange : setRange;
 
     // Zona: «cerca» (radio de distancia, lo de siempre) o ciudad/provincia/CCAA/España.
     // Se recuerda en este navegador; filtra por igual Ranking, Mosaico y Mapa.
@@ -352,7 +373,7 @@ export const ListPage: React.FC = () => {
         if (value.startsWith('r:')) {
             const raw = value.slice(2);
             setArea({ kind: 'near' });
-            setRange(raw === 'all' ? null : Number(raw));
+            setListRange(raw === 'all' ? null : Number(raw));
             if (raw !== 'all' && !location) requestLocation();
             return;
         }
@@ -361,16 +382,20 @@ export const ListPage: React.FC = () => {
 
     // Ensure location is requested if a range is active, to prevent showing ALL items by default
     useEffect(() => {
-        if (area.kind === 'near' && range !== null && !location) {
+        if (area.kind === 'near' && chosenRange !== null && !location) {
             requestLocation();
         }
-    }, [range, location, area.kind]);
+    }, [chosenRange, location, area.kind]);
 
     // list.likes might be undefined initially, defaulting to 0
     const { isLiked, likeCount, toggleLike } = useLike(listId || '', list?.likes || 0);
 
     // Filter & Search State
     const [searchQuery, setSearchQuery] = useState('');
+    // La lupa se abre al tocarla (y sigue abierta mientras haya texto).
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const searchOpen = isSearchOpen || searchQuery !== '';
+    const closeSearch = () => { setSearchQuery(''); setIsSearchOpen(false); };
     const [showUnavailable, setShowUnavailable] = useState(false);
 
     // User role filters
@@ -712,6 +737,20 @@ export const ListPage: React.FC = () => {
         return [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name, 'es'));
     }, [isContestList, contestCandidates, groupedItems, groupingMode, list?.criteriaDefinition]);
 
+    // Lo más cercano de la Lista (valorado o aspirante): no se ofrecen radios que no lleguen
+    // a ello, y un radio guardado que se quede corto se amplía al primero que llegue.
+    const nearestKm = useMemo(() => {
+        if (!location) return null;
+        let min = Infinity;
+        for (const item of [...groupedItems, ...pendingElements]) {
+            if (!item.lat || !item.lng) continue;
+            const km = calculateDistance(item.lat, item.lng);
+            if (km !== null && km < min) min = km;
+        }
+        return Number.isFinite(min) ? min : null;
+    }, [location, groupedItems, pendingElements, calculateDistance]);
+    const range = reachableRange(chosenRange, RANGE_STEPS_KM, nearestKm);
+
     // Dieta que declaró quien apuntó cada aspirante, por elemento (en un sitio con varios, la suma).
     const declaredDietByKey = useMemo(() => {
         const map = new Map<string, ContestDiet[]>();
@@ -775,6 +814,7 @@ export const ListPage: React.FC = () => {
         criticOnly,
         groupingMode === 'place',
         showUnavailable,
+        isContestList && contestShow !== 'all',
     ].filter(Boolean).length;
 
     // Filtros de cada Lista: se recuerdan en este navegador para la próxima vez.
@@ -821,6 +861,7 @@ export const ListPage: React.FC = () => {
         if (area.kind === 'near') return area;
         return areaOptions[area.kind].some(option => option.value === area.value) ? area : { kind: 'near' };
     }, [area, areaOptions]);
+    const areaValue = effectiveArea.kind === 'near' ? `r:${range ?? 'all'}` : encodeArea(effectiveArea);
     // Buscar se abre en esta Lista y con la zona elegida aquí (desde ella se cambia).
     const exploreInSearch = useCallback(() => {
         if (!listId) return;
@@ -948,7 +989,7 @@ export const ListPage: React.FC = () => {
             }
         });
 
-        // Aspirantes sin probar: también en el mapa, con la copa en gris.
+        // Aspirantes sin valorar: también en el mapa, con la copa en gris.
         const reviewedKeys = new Set(visibleReviews.map((r) => candidateMatchKey(r.placeId, r.itemName)));
         const untried = contestCandidates.filter((c) => !reviewedKeys.has(candidateMatchKey(c.placeId, c.itemName)));
         // Sitio ya en el mapa: su ficha dice también qué aspirantes faltan por probar.
@@ -977,7 +1018,7 @@ export const ListPage: React.FC = () => {
             emoji: '🏆',
             color: '#9ca3af',
             pending: true,
-            subtitle: `Sin probar · ${dishes.join(', ')}`,
+            subtitle: `Sin valorar · ${dishes.join(', ')}`,
             items: byDish ? dishesForPlace(p.placeId, [], untriedDishesAt[p.placeId], list?.id) : [] as MapSubItem[],
             allTags: [] as string[],
             aptOk: [] as string[],
@@ -995,7 +1036,7 @@ export const ListPage: React.FC = () => {
             // Sitio en el mapa solo con platos que ya no sirven: fuera por defecto, como en la lista.
             itemUnavailable: g.unavailableCount > 0 && g.unavailableCount === g.reviewsCount,
             ...(isContestList && (candidatePhotoAt[g.placeId] || g.dishPhoto) ? { pinPhoto: candidatePhotoAt[g.placeId] || g.dishPhoto } : {}),
-            ...(untriedAt[g.placeId] ? { subtitle: `${g.reviewsCount} ${g.reviewsCount === 1 ? 'reseña' : 'reseñas'} · sin probar: ${untriedAt[g.placeId].join(', ')}` } : {}),
+            ...(untriedAt[g.placeId] ? { subtitle: `${g.reviewsCount} ${g.reviewsCount === 1 ? 'reseña' : 'reseñas'} · sin valorar: ${untriedAt[g.placeId].join(', ')}` } : {}),
             items: byDish
                 ? dishesForPlace(g.placeId, g.items.map((it) => ({ ...it, score: it.rawScore })), untriedDishesAt[g.placeId], list?.id)
                 : g.items.sort((a, b) => b.score - a.score).map(({ name, score }) => ({ name, score })),
@@ -1094,7 +1135,7 @@ export const ListPage: React.FC = () => {
             // Let's filter nothing until location is found (user should see prompt).
         }
 
-        // 4. Concurso: los aspirantes sin probar, al final (un filtro de nota, foto o etiquetas los deja fuera).
+        // 4. Concurso: los aspirantes sin valorar, al final (un filtro de nota, foto o etiquetas los deja fuera).
         if (isContestList) {
             const qualityFilter = filters.minRating > 0 || filters.hasPhoto || filters.visited || selectedTags.length > 0
                 || Object.values(filters.accessibility || {}).some(Boolean) || Object.values(filters.criteriaMin || {}).some((v) => v > 0)
@@ -1102,13 +1143,15 @@ export const ListPage: React.FC = () => {
             const lowerQ = searchQuery.toLowerCase();
             const pending = qualityFilter ? [] : pendingElements.map(withDeclared).filter((item) => passesDiet(item)
                 && (!lowerQ || item.name.toLowerCase().includes(lowerQ) || (item.placeName || '').toLowerCase().includes(lowerQ))
-                && (effectiveArea.kind === 'near' || matchesArea(item.geo, effectiveArea)));
+                && (effectiveArea.kind !== 'near'
+                    ? matchesArea(item.geo, effectiveArea)
+                    : range === null || !location || (!!item.lat && !!item.lng && (calculateDistance(item.lat, item.lng) ?? Infinity) <= range)));
             if (contestShow === 'pending') return pending;
             if (contestShow === 'all') return [...result, ...pending];
         }
 
         return result;
-    }, [filteredByTagItems, searchQuery, filters, range, location, showGone, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault, isContestList, pendingElements, contestShow, selectedTags, declaredDietByKey]);
+    }, [filteredByTagItems, searchQuery, filters, range, location, calculateDistance, showGone, effectiveArea, dietGluten, dietVeg, dietVegan, dietLactose, petsWanted, mobilityNeeds, vegByDefault, isContestList, pendingElements, contestShow, selectedTags, declaredDietByKey]);
 
     const filteredMapItems = useMemo(() => {
         // Filter mapItems based on the SAME criteria as the list (or at least search/range)
@@ -1118,7 +1161,7 @@ export const ListPage: React.FC = () => {
 
         let result = mapItems;
 
-        // Concurso: con nota, sin probar o todos (como el ranking).
+        // Concurso: con nota, sin valorar o todos (como el ranking).
         if (isContestList && contestShow !== 'all') {
             result = result.filter((item) => (contestShow === 'pending') === ('pending' in item && item.pending === true));
         }
@@ -1196,9 +1239,9 @@ export const ListPage: React.FC = () => {
 
         const nextRange = getExpandedRangeValue(range);
         if (nextRange !== range) {
-            setRange(nextRange);
+            setListRange(nextRange);
         }
-    }, [isMapOpen, loading, range, location, hasListMapCandidates, filteredMapItems.length, setRange, effectiveArea.kind]);
+    }, [isMapOpen, loading, range, location, hasListMapCandidates, filteredMapItems.length, setListRange, effectiveArea.kind]);
 
     // Close actions overflow menu when clicking outside
     useEffect(() => {
@@ -1326,6 +1369,8 @@ export const ListPage: React.FC = () => {
 
     // Por qué no se ve nada: Lista sin reseñas, búsqueda, zona o filtros.
     const areaFiltering = effectiveArea.kind !== 'near' || range !== null;
+    // Todo lo que tiene la Lista: lo valorado y, en un concurso, los aspirantes sin valorar.
+    const totalElements = groupedItems.length + pendingElements.length;
     const emptyReason: 'none' | 'search' | 'area' | 'filters' = reviews.length === 0
         ? 'none'
         : searchQuery ? 'search'
@@ -1410,24 +1455,20 @@ export const ListPage: React.FC = () => {
                         <ExpandableText text={list.description} title={list.name} className="text-[var(--lt-hero-text)] text-sm sm:text-base max-w-2xl leading-relaxed mb-3" />
                     )}
 
-                    {/* Status pills */}
+                    {/* Una sola etiqueta: qué es (y si es oficial). Visibilidad y papel, en ⋮. */}
                     <div className="flex flex-wrap items-center gap-1.5 mb-4">
-                        <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm ${list.parentListId ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent-2)]' : 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'}`}>
-                            {list.parentListId ? 'Minilista' : 'Lista'}
+                        <span className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm ${closedContest
+                            ? 'bg-[var(--lt-warning-soft)] border-[var(--lt-warning)]/30 text-[var(--lt-warning)]'
+                            : 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] ' + (list.parentListId ? 'text-[var(--lt-accent-2)]' : 'text-[var(--lt-accent)]')}`}>
+                            {kindLabel}
                         </span>
-                        {list.official === true && (
-                            <span className="px-2 py-0.5 rounded-md bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-accent)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">✔️ Oficial de Listopic</span>
-                        )}
-                        {closedContest && (
-                            <span className="px-2 py-0.5 rounded-md bg-[var(--lt-warning-soft)] border border-[var(--lt-warning)]/30 text-[var(--lt-warning)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">🏆 Concurso</span>
-                        )}
-                        {groupedItems.length > 0 && (
-                            <span className="px-2 py-0.5 rounded-md bg-[var(--lt-card-strong-alpha)] border border-[var(--lt-border)] text-[var(--lt-text-muted)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm" title="En toda la Lista">
-                                {groupedItems.length} {listItemNoun(listCategoryId, groupedItems.length, groupingMode)}
+                        {!listIsPublic && (list.parentListId || isJefe) && (
+                            <span className="px-2 py-0.5 rounded-md bg-[var(--lt-danger-soft)] border border-[var(--lt-danger)]/30 text-[var(--lt-danger)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm flex items-center gap-1">
+                                <Lock className="w-2.5 h-2.5" /> Privada
                             </span>
                         )}
                         {/* Rankings por ciudad (/mejores): solo listas públicas principales. */}
-                        {!list.parentListId && (list.isPublic === true || list.visibility === 'public') && (
+                        {!list.parentListId && listIsPublic && (
                             <button
                                 type="button"
                                 onClick={() => openRankingsPage(`/mejores/${rankingSlug(list.name)}`)}
@@ -1436,26 +1477,8 @@ export const ListPage: React.FC = () => {
                                 🏆 Lo mejor por ciudad
                             </button>
                         )}
-                        {/* Public/private only shown on sublists (user-owned) or to jefe */}
-                        {(list.parentListId || isJefe) && (
-                            list.isPublic ? (
-                                <span className="px-2 py-0.5 rounded-md bg-[var(--lt-success-soft)] border border-[var(--lt-success)]/30 text-[var(--lt-success)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Pública</span>
-                            ) : (
-                                <span className="px-2 py-0.5 rounded-md bg-[var(--lt-danger-soft)] border border-[var(--lt-danger)]/30 text-[var(--lt-danger)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm flex items-center gap-1">
-                                    <Lock className="w-2.5 h-2.5" /> Privada
-                                </span>
-                            )
-                        )}
-                        {/* Role pill — only on sublists */}
-                        {list.parentListId && (
-                            user?.uid === list.userId ? (
-                                <span className="px-2 py-0.5 rounded-md bg-[var(--lt-warning-soft)] border border-[var(--lt-warning)]/30 text-[var(--lt-warning)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Propietario</span>
-                            ) : user && list.editors?.includes(user.uid) ? (
-                                <span className="px-2 py-0.5 rounded-md bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-accent-2)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Editor</span>
-                            ) : user && (list as any).publicAccess === 'writer' ? (
-                                <span className="px-2 py-0.5 rounded-md bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-[var(--lt-accent)] text-[10px] font-bold uppercase tracking-wider backdrop-blur-sm">Colaborador</span>
-                            ) : null
-                        )}
+                        {/* En escritorio hay sitio: visibilidad y papel en texto discreto (en el móvil, en ⋮). */}
+                        {accessNote && <span className="hidden md:inline text-[11px] font-medium text-[var(--lt-hero-text)] opacity-75">{accessNote}</span>}
                     </div>
 
                     {/* Bottom action bar */}
@@ -1550,6 +1573,9 @@ export const ListPage: React.FC = () => {
                                     <div ref={dropdownPortalRef} className="fixed w-56 bg-[var(--lt-card-strong)] border border-[var(--lt-border-strong)] rounded-2xl shadow-2xl overflow-hidden p-1 z-[9999]"
                                         style={{ top: dropdownPosition.top, right: dropdownPosition.right }}
                                     >
+                                        {accessNote && (
+                                            <p className="px-3.5 pt-2.5 pb-2 mb-1 border-b border-[var(--lt-border)] text-xs font-medium text-[var(--lt-text-muted)]">{accessNote}</p>
+                                        )}
                                         {(!user || list.userId !== user.uid) && (
                                             <button
                                                 onClick={() => { toggleLike(); setIsActionsMenuOpen(false); }}
@@ -1617,17 +1643,12 @@ export const ListPage: React.FC = () => {
                                 <MapIcon className="w-3.5 h-3.5" />
                             </span>
                             <span className="font-display font-bold text-sm whitespace-nowrap">Mapa<span className="hidden sm:inline"> de la Lista</span></span>
+                            {filteredMapItems.length > 0 && (
+                                <span className="text-xs font-medium text-[var(--lt-text-muted)] whitespace-nowrap">· {filteredMapItems.length} {filteredMapItems.length === 1 ? 'sitio' : 'sitios'}</span>
+                            )}
                         </button>
 
-                        <div className="flex items-center justify-end gap-2 sm:gap-3 min-w-0 flex-1 ml-2">
-                            <AreaSelect
-                                value={effectiveArea.kind === 'near' ? `r:${range ?? 'all'}` : encodeArea(effectiveArea)}
-                                range={range}
-                                options={areaOptions}
-                                onChange={handleAreaSelect}
-                                onExplore={exploreInSearch}
-                            />
-
+                        <div className="flex items-center justify-end gap-1 sm:gap-2 min-w-0 flex-1 ml-2">
                             <button
                                 aria-label={isMapOpen ? 'Ocultar mapa' : 'Ver mapa'}
                                 onClick={() => setIsMapOpen(!isMapOpen)}
@@ -1647,6 +1668,19 @@ export const ListPage: React.FC = () => {
                     </div>
 
                     <div className={`transition-all duration-500 ease-in-out ${isMapOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                        {/* La distancia, dentro del mapa: plegado, la fila no lleva nada más. */}
+                        {isMapOpen && (
+                            <div className="flex items-center gap-2 px-3 py-2 border-t border-[var(--lt-border)] bg-[var(--lt-card-strong-alpha)]">
+                                <AreaSelect
+                                    value={areaValue}
+                                    range={range}
+                                    options={areaOptions}
+                                    onChange={handleAreaSelect}
+                                    onExplore={exploreInSearch}
+                                    nearestKm={nearestKm}
+                                />
+                            </div>
+                        )}
                         <div className="h-[400px] w-full relative z-0">
                             {/* Con una zona (ciudad, comunidad, país) el mapa encuadra sus sitios, no el radio. */}
                             {isMapOpen && <MapView items={filteredMapItems} mode="list" range={effectiveArea.kind === 'near' ? range : null} smartFocus />}
@@ -1667,11 +1701,12 @@ export const ListPage: React.FC = () => {
                 smartFocus
                 areaControl={(
                     <AreaSelect
-                        value={effectiveArea.kind === 'near' ? `r:${range ?? 'all'}` : encodeArea(effectiveArea)}
+                        value={areaValue}
                         range={range}
                         options={areaOptions}
                         onChange={handleAreaSelect}
                         onExplore={exploreInSearch}
+                        nearestKm={nearestKm}
                     />
                 )}
             />
@@ -1680,7 +1715,7 @@ export const ListPage: React.FC = () => {
 
 
             {/* Content List */}
-            <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-8">
+            <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-5">
 
                 {/* Platos destacados de esta lista (Business Pro, sorteo por unidades) */}
                 <SponsoredItemsCarousel listId={listId} className="mb-6" />
@@ -1700,60 +1735,72 @@ export const ListPage: React.FC = () => {
                     />
                 )}
 
-                {/* Modern Toolbar */}
-                <div className="sticky top-20 z-30 mb-8 mx-auto max-w-4xl">
-                    <div className="bg-[var(--lt-card-strong-alpha)] backdrop-blur-xl border border-[var(--lt-border)] rounded-2xl shadow-2xl p-2 flex flex-col sm:flex-row items-center justify-between gap-2.5 transition-colors duration-300 hover:border-[var(--lt-border-strong)]">
-
-                        {/* Search & Count */}
-                        <div className="flex items-center flex-1 w-full gap-2 px-1">
-                            <div className="relative flex-1 group/search rounded-xl bg-[var(--lt-glass)] border border-[var(--lt-border)] focus-within:border-[var(--lt-accent-border)] px-3 py-2 transition-colors">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--lt-text-muted)] group-focus-within/search:text-[var(--lt-accent)] transition-colors" />
+                {/* Barra fina: lupa (se abre al tocarla, sin teclado antes), Filtros y la vista.
+                    En el móvil no se queda fija: no tapa las fotos al bajar. */}
+                <div className="sm:sticky sm:top-20 z-30 mb-4 mx-auto max-w-4xl">
+                    <div className="flex items-center gap-2 sm:rounded-2xl sm:bg-[var(--lt-card-strong-alpha)] sm:backdrop-blur-xl sm:border sm:border-[var(--lt-border)] sm:p-1.5 sm:shadow-lg">
+                        {searchOpen ? (
+                            <div className="flex-1 min-w-0 h-9 flex items-center gap-2 rounded-full bg-[var(--lt-glass)] border border-[var(--lt-accent-border)] pl-3 pr-1">
+                                <Search className="w-4 h-4 shrink-0 text-[var(--lt-accent)]" aria-hidden />
                                 <input
                                     type="text"
-                                    placeholder="Buscar en esta lista..."
+                                    enterKeyHint="search"
+                                    autoFocus
+                                    placeholder="Busca un plato o un sitio"
+                                    aria-label="Buscar en esta lista"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full bg-transparent border-none p-0 pl-6 text-sm text-[var(--lt-text)] placeholder:text-[var(--lt-text-muted)] focus:ring-0 focus:outline-none transition-colors"
+                                    onKeyDown={(e) => { if (e.key === 'Escape') closeSearch(); }}
+                                    className="min-w-0 flex-1 bg-transparent border-none p-0 text-base sm:text-sm text-[var(--lt-text)] placeholder:text-[var(--lt-text-muted)] focus:ring-0 focus:outline-none"
                                 />
+                                <button type="button" onClick={closeSearch} aria-label="Cerrar búsqueda" className="h-7 w-7 shrink-0 flex items-center justify-center rounded-full text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-[var(--lt-card)]">
+                                    <X className="w-4 h-4" />
+                                </button>
                             </div>
-                        </div>
-
-                        {/* Barra de herramientas: cada botón dice lo que hace */}
-                        <div className="flex items-center gap-1.5 w-full sm:w-auto">
-                            {/* Un solo botón de filtros: todo lo demás vive en la hoja */}
+                        ) : (
                             <button
                                 type="button"
-                                onClick={() => setIsFilterModalOpen(true)}
-                                aria-label={activeFilterCount > 0 ? `Filtros (${activeFilterCount} activos)` : 'Filtros'}
-                                className={`h-11 flex items-center gap-1.5 px-3 rounded-xl border text-sm font-bold transition-colors active:scale-95 motion-reduce:active:scale-100 ${activeFilterCount > 0
-                                    ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
-                                    : 'bg-[var(--lt-glass)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+                                onClick={() => setIsSearchOpen(true)}
+                                aria-label="Buscar en esta lista"
+                                className="h-9 w-9 shrink-0 flex items-center justify-center rounded-full border border-[var(--lt-border)] bg-[var(--lt-glass)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors"
                             >
-                                <SlidersHorizontal className="w-4 h-4" />
-                                Filtros
-                                {activeFilterCount > 0 && (
-                                    <span className="min-w-[1.25rem] rounded-full bg-[var(--lt-accent)] px-1 text-[11px] leading-5 lt-on-accent">{activeFilterCount}</span>
-                                )}
+                                <Search className="w-4 h-4" />
                             </button>
+                        )}
 
-                            {/* Vista: Ranking o Mosaico (el mapa va en su panel) */}
-                            <div role="group" aria-label="Vista" className="ml-auto flex-shrink-0 flex bg-[var(--lt-glass)] rounded-xl p-0.5 border border-[var(--lt-border)]">
-                                {([
-                                    { mode: 'list' as const, label: 'Ranking', icon: <ListIcon className="w-3.5 h-3.5" /> },
-                                    { mode: 'gallery' as const, label: 'Fotos', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
-                                ]).map(({ mode, label, icon }) => (
-                                    <button
-                                        key={mode}
-                                        type="button"
-                                        onClick={() => setViewMode(mode)}
-                                        aria-pressed={viewMode === mode}
-                                        className={`h-11 min-w-[3.25rem] px-1.5 flex flex-col items-center justify-center gap-0.5 rounded-lg transition-colors ${viewMode === mode ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
-                                    >
-                                        {icon}
-                                        <span className="text-[10px] font-semibold leading-none">{label}</span>
-                                    </button>
-                                ))}
-                            </div>
+                        {/* Un solo botón de filtros: todo lo demás vive en la hoja */}
+                        <button
+                            type="button"
+                            onClick={() => setIsFilterModalOpen(true)}
+                            aria-label={activeFilterCount > 0 ? `Filtros (${activeFilterCount} activos)` : 'Filtros'}
+                            className={`h-9 shrink-0 flex items-center gap-1.5 px-3 rounded-full border text-xs font-bold transition-colors active:scale-95 motion-reduce:active:scale-100 ${activeFilterCount > 0
+                                ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
+                                : 'bg-[var(--lt-glass)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+                        >
+                            <SlidersHorizontal className="w-4 h-4" />
+                            <span className={searchOpen ? 'sr-only sm:not-sr-only' : ''}>Filtros</span>
+                            {activeFilterCount > 0 && (
+                                <span className="min-w-[1.125rem] rounded-full bg-[var(--lt-accent)] px-1 text-[10px] leading-[1.125rem] text-center lt-on-accent">{activeFilterCount}</span>
+                            )}
+                        </button>
+
+                        {/* Vista: Ranking o Fotos (el mapa va en su panel) */}
+                        <div role="group" aria-label="Vista" className="ml-auto shrink-0 flex h-9 items-center rounded-full bg-[var(--lt-glass)] p-0.5 border border-[var(--lt-border)]">
+                            {([
+                                { mode: 'list' as const, label: 'Ranking', icon: <ListIcon className="w-3.5 h-3.5" /> },
+                                { mode: 'gallery' as const, label: 'Fotos', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
+                            ]).map(({ mode, label, icon }) => (
+                                <button
+                                    key={mode}
+                                    type="button"
+                                    onClick={() => setViewMode(mode)}
+                                    aria-pressed={viewMode === mode}
+                                    className={`h-8 px-2.5 flex items-center gap-1 rounded-full text-xs font-bold transition-colors ${viewMode === mode ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+                                >
+                                    {icon}
+                                    <span className={searchOpen ? 'sr-only sm:not-sr-only' : ''}>{label}</span>
+                                </button>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -1772,28 +1819,46 @@ export const ListPage: React.FC = () => {
                     </div>
                 )}
 
-                {filteredItemsAll.length > 0 && (
+                {totalElements > 0 && (
                     <div className="mb-3 px-1 min-w-0">
                         <h2 className="flex items-center gap-2 text-base md:text-xl font-display font-bold leading-tight text-[var(--lt-text)]">
                             <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]">
                                 {sortMode === 'rating' ? <Trophy className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
                             </span>
                             <span className="truncate">
-                                {sortMode === 'rating' ? 'El ranking' : sortMode === 'count' ? 'Los más valorados' : sortMode === 'newest' ? 'Lo último' : 'Los primeros'}
+                                {isContestList && contestShow === 'pending' ? 'Por valorar'
+                                    : sortMode === 'rating' ? 'El ranking' : sortMode === 'count' ? 'Los más valorados' : sortMode === 'newest' ? 'Lo último' : 'Los primeros'}
                             </span>
                             <HelpTip topic="nota" />
                         </h2>
-                        <p className="mt-0.5 truncate text-xs text-[var(--lt-text-muted)] font-medium" aria-live="polite">
-                            {filteredItemsAll.length < groupedItems.length
-                                ? `${filteredItemsAll.length} de ${groupedItems.length} ${listItemNoun(listCategoryId, groupedItems.length, groupingMode)}`
-                                : `${filteredItemsAll.length} ${listItemNoun(listCategoryId, filteredItemsAll.length, groupingMode)}`}
-                            {` · ${effectiveArea.kind !== 'near'
-                                ? `en ${geoAreaLabel(effectiveArea.kind, effectiveArea.value)}`
-                                : range !== null ? distanceLabel(range).toLowerCase() : 'en toda la Lista'}`}
-                            {(effectiveArea.kind !== 'near' || range !== null) && filteredItemsAll.length < groupedItems.length && (
+                        {/* Cuántos y dónde: la zona se cambia aquí mismo, tocando la frase. */}
+                        <p className="mt-0.5 flex flex-wrap items-center gap-x-1 text-xs text-[var(--lt-text-muted)] font-medium" aria-live="polite">
+                            <span>
+                                {filteredItemsAll.length < totalElements
+                                    ? `${filteredItemsAll.length} de ${totalElements} ${listItemNoun(listCategoryId, totalElements, groupingMode)}`
+                                    : `${filteredItemsAll.length} ${listItemNoun(listCategoryId, filteredItemsAll.length, groupingMode)}`}
+                            </span>
+                            <span aria-hidden>·</span>
+                            <AreaSelect
+                                variant="inline"
+                                value={areaValue}
+                                range={range}
+                                options={areaOptions}
+                                onChange={handleAreaSelect}
+                                onExplore={exploreInSearch}
+                                nearestKm={nearestKm}
+                            />
+                            {((areaFiltering && filteredItemsAll.length < totalElements) || (isContestList && contestShow !== 'all')) && (
                                 <>
-                                    {' · '}
-                                    <button type="button" onClick={() => handleAreaSelect('r:all')} className="font-bold text-[var(--lt-accent)] hover:underline">
+                                    <span aria-hidden>·</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (areaFiltering && filteredItemsAll.length < totalElements) handleAreaSelect('r:all');
+                                            setContestShow('all');
+                                        }}
+                                        className="font-bold text-[var(--lt-accent)] hover:underline"
+                                    >
                                         Ver todos
                                     </button>
                                 </>
@@ -1850,7 +1915,7 @@ export const ListPage: React.FC = () => {
                                                 </div>
                                                 {/* Score bubble top-right */}
                                                 {isPending ? (
-                                                    <div className="absolute top-2 right-2 h-7 px-2 rounded-full flex items-center justify-center shadow-lg bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold">🏆 Sin probar</div>
+                                                    <div className="absolute top-2 right-2 h-5 px-1.5 rounded-full flex items-center justify-center bg-black/50 backdrop-blur-sm text-white/90 text-[10px] font-semibold">Sin valorar</div>
                                                 ) : (
                                                     <div className="absolute top-2 right-2 h-7 min-w-[2.25rem] px-1.5 rounded-full flex items-center justify-center shadow-lg" style={scoreBadgeStyle(score)}>
                                                         <span className="text-[11px] font-bold tabular-nums">{score.toFixed(1)}</span>
@@ -2072,6 +2137,7 @@ export const ListPage: React.FC = () => {
                 groupByPlace={groupingMode === 'place'}
                 setGroupByPlace={(v) => setGroupingMode(v ? 'place' : 'dish')}
                 resultCount={filteredItemsAll.length}
+                contest={isContestList ? { show: contestShow, setShow: setContestShow, unratedCount: pendingElements.length } : undefined}
             />
         </div >
     );
