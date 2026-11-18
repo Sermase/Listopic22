@@ -1,6 +1,10 @@
-# Despliegue MANUAL de Functions y reglas (Firestore y Storage) a producción.
-# Nunca se ejecuta solo: GitHub → Actions → «Desplegar Functions y reglas» → Run workflow,
-# elegir la rama (normalmente main) y escribir DESPLEGAR.
+# Despliegue de Functions y reglas (Firestore y Storage) a producción. Dos maneras:
+#  1. A mano: GitHub → Actions → «Desplegar Functions y reglas» → Run workflow, elegir la rama
+#     (normalmente main) y escribir DESPLEGAR.
+#  2. Al fusionar en main una PR con etiqueta «desplegar: functions», «desplegar: reglas»
+#     (Firestore + Storage) o «desplegar: indices». Fusionar es la confirmación (pedido por Ser,
+#     18/11: Claude no puede lanzar el modo 1, GitHub le responde 403). Sin etiqueta no se
+#     despliega nada; las PR de forks nunca despliegan.
 #
 # Credenciales: la cuenta de servicio del secreto FIREBASE_SERVICE_ACCOUNT_LISTOPIC (la del
 # despliegue de Hosting). Si falla por permisos, esa cuenta necesita además:
@@ -32,6 +36,9 @@ on:
           - 'functions'
           - 'firestore:rules,storage'
           - 'firestore:indexes'
+  pull_request:
+    types: [closed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -42,22 +49,52 @@ concurrency:
 
 jobs:
   deploy:
+    # A mano, o PR fusionada (de este repo, no de un fork) con alguna etiqueta «desplegar: …».
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       (contains(github.event.pull_request.labels.*.name, 'desplegar: functions') ||
+        contains(github.event.pull_request.labels.*.name, 'desplegar: reglas') ||
+        contains(github.event.pull_request.labels.*.name, 'desplegar: indices')))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      # Si la confirmación no es DESPLEGAR, el run falla con un mensaje claro
+      # A mano: si la confirmación no es DESPLEGAR, el run falla con un mensaje claro
       # (antes se saltaba en silencio y parecía que no había pasado nada).
       # Se ignoran los espacios al principio y al final y las mayúsculas.
-      - name: Confirmación
+      # Con PR fusionada: lo que se despliega sale de sus etiquetas.
+      - name: Confirmación y qué desplegar
+        id: que
         env:
+          EVENTO: ${{ github.event_name }}
           CONFIRMACION: ${{ inputs.confirmacion }}
+          QUE_A_MANO: ${{ inputs.que }}
+          ETIQUETAS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: |
-          normalizada="$(printf '%s' "$CONFIRMACION" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:lower:]' '[:upper:]')"
-          if [ "$normalizada" != "DESPLEGAR" ]; then
-            echo "::error title=Despliegue cancelado::Escribe DESPLEGAR en el campo de confirmación. No se ha desplegado nada."
+          if [ "$EVENTO" = "workflow_dispatch" ]; then
+            normalizada="$(printf '%s' "$CONFIRMACION" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' | tr '[:lower:]' '[:upper:]')"
+            if [ "$normalizada" != "DESPLEGAR" ]; then
+              echo "::error title=Despliegue cancelado::Escribe DESPLEGAR en el campo de confirmación. No se ha desplegado nada."
+              exit 1
+            fi
+            only="$QUE_A_MANO"
+          else
+            only=""
+            if printf '%s' "$ETIQUETAS" | grep -q '"desplegar: functions"'; then only="functions"; fi
+            if printf '%s' "$ETIQUETAS" | grep -q '"desplegar: reglas"'; then only="${only:+$only,}firestore:rules,storage"; fi
+            if printf '%s' "$ETIQUETAS" | grep -q '"desplegar: indices"'; then only="${only:+$only,}firestore:indexes"; fi
+          fi
+          if [ -z "$only" ]; then
+            echo "::error title=Nada que desplegar::No hay ninguna etiqueta «desplegar: …» reconocida."
             exit 1
           fi
+          echo "Se despliega: $only"
+          echo "only=$only" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
+        with:
+          # PR fusionada: el commit de la fusión en main. A mano: la rama elegida.
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -70,7 +107,7 @@ jobs:
       - name: Desplegar
         env:
           SA_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_LISTOPIC }}
-          ONLY: ${{ inputs.que }}
+          ONLY: ${{ steps.que.outputs.only }}
         run: |
           set -euo pipefail
           umask 077
