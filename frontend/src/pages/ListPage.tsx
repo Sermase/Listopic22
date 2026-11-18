@@ -17,6 +17,7 @@ import { LazyMapView as MapView, LazyAddReviewForm as AddReviewForm, LazyShareMo
 import { FilterModal } from '../components/FilterModal';
 import { ShareListModal } from '../components/ShareListModal';
 import { SublistsModal } from '../components/SublistsModal';
+import { ExpandableText } from '../components/ExpandableText';
 import { EditListModal } from '../components/EditListModal';
 import { useAuth } from '../context/AuthContext';
 import { getExpandedRangeValue, useFilters } from '../context/FilterContext';
@@ -1398,9 +1399,7 @@ export const ListPage: React.FC = () => {
                         {list.name}
                     </h1>
                     {list.description && (
-                        <p className="text-[var(--lt-hero-text)] text-sm sm:text-base max-w-2xl line-clamp-2 leading-relaxed mb-3">
-                            {list.description}
-                        </p>
+                        <ExpandableText text={list.description} title={list.name} className="text-[var(--lt-hero-text)] text-sm sm:text-base max-w-2xl leading-relaxed mb-3" />
                     )}
 
                     {/* Status pills */}

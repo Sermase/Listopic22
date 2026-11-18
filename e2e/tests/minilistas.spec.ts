@@ -52,3 +52,23 @@ test('Editar lista: la portada se puede poner después de crearla', async ({ pag
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/minilistas-portada.png` });
   expect(errors).toEqual([]);
 });
+
+test('descripción larga: «Leer más» y enlaces que se pulsan', async ({ page, errors }) => {
+  const description = `Bases del concurso en https://ejemplo.es/bases. ${'Mucho texto para que no quepa en dos líneas. '.repeat(8)}Fin.`;
+  await fetch(`${FIRESTORE}/lists/picantes?updateMask.fieldPaths=description`, {
+    method: 'PATCH',
+    headers: { authorization: 'Bearer owner', 'content-type': 'application/json' },
+    body: JSON.stringify({ fields: { description: { stringValue: description } } }),
+  });
+  await page.goto('/list/picantes');
+  const more = page.getByRole('button', { name: 'Leer más' });
+  await expect(more).toBeVisible();
+  await expect(page.getByRole('link', { name: 'ejemplo.es/bases' })).toHaveAttribute('href', 'https://ejemplo.es/bases');
+  await more.click();
+  const sheet = page.getByRole('dialog', { name: 'Bravas picantes' });
+  await expect(sheet.getByText(/Fin\.$/)).toBeVisible();
+  await expect(sheet.getByRole('link', { name: 'ejemplo.es/bases' })).toBeVisible();
+  await page.waitForTimeout(600);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/minilistas-leer-mas.png` });
+  expect(errors).toEqual([]);
+});
