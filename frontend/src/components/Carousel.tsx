@@ -42,7 +42,7 @@ export const Carousel: React.FC<CarouselProps> = ({ title, lists, loading }) => 
 
             <div
                 ref={scrollRef}
-                className="flex gap-4 overflow-x-auto pb-4 px-4 sm:px-6 lg:px-8 scrollbar-hide snap-x"
+                className="flex gap-4 overflow-x-auto pb-4 px-4 sm:px-6 lg:px-8 scroll-px-4 sm:scroll-px-6 lg:scroll-px-8 scrollbar-hide snap-x"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
                 {loading ? (

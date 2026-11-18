@@ -120,6 +120,8 @@ interface MapViewProps {
     focusNonce?: number;
     /** Sin radio: encuadra donde están la mayoría, o a tu alrededor si tienes alguno cerca. */
     smartFocus?: boolean;
+    /** Mapa pequeño (p. ej. en la página del sitio): sin zoom, capas ni «mi ubicación»; eso, en el grande. */
+    compact?: boolean;
 }
 
 // Vuela hasta el sitio elegido y abre su ficha cuando su chincheta ya está suelta.
@@ -237,7 +239,7 @@ const DEFAULT_CENTER: [number, number] = [40.416, -3.703];
 
 // Memorizado: el mapa a pantalla completa se vuelve a pintar al abrir filtros o la lista,
 // y el mapa no tiene que rehacerse por eso.
-export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ items, mode = 'global', center = DEFAULT_CENTER, range = null, showLayerControl = true, scrollWheelZoom = false, focusId = null, focusNonce, smartFocus = false }) {
+export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ items, mode = 'global', center = DEFAULT_CENTER, range = null, showLayerControl = true, scrollWheelZoom = false, focusId = null, focusNonce, smartFocus = false, compact = false }) {
 
     const { location } = useLocation();
     const { user, isJefe } = useAuth();
@@ -319,7 +321,7 @@ export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ ite
 
     return (
         <div className="h-full w-full relative z-0">
-            <MapContainer center={initialCenter} zoom={12} scrollWheelZoom={scrollWheelZoom} className="h-full w-full listopic-map">
+            <MapContainer center={initialCenter} zoom={12} scrollWheelZoom={scrollWheelZoom} zoomControl={!compact} className="h-full w-full listopic-map">
                 <TileLayer
                     key={currentLayer}
                     attribution={activeLayer.attribution}
@@ -334,8 +336,8 @@ export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ ite
 
                 {/* User Location Features */}
                 <UserLocationFeatures range={range} />
-                <CustomLocateControl />
-                {showLayerControl && <LayerSelectorControl currentLayer={currentLayer} onLayerChange={handleLayerChange} />}
+                {!compact && <CustomLocateControl />}
+                {showLayerControl && !compact && <LayerSelectorControl currentLayer={currentLayer} onLayerChange={handleLayerChange} />}
 
                 <FocusOnItem item={focusItem} nonce={focusNonce} markers={markerRefs} />
 

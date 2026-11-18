@@ -40,8 +40,10 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
   contentClassName,
   imageClassName,
 }) => (
+  // Alto mínimo fijo, pero crece con lo que lleva: el botón de arriba (topSlot) y el
+  // título van uno debajo del otro, nunca encima (antes un título largo se montaba).
   <section className={cn(
-    'lt-entity-hero relative h-[42vh] w-full overflow-hidden group',
+    'lt-entity-hero relative flex min-h-[42vh] w-full flex-col overflow-hidden group',
     ready || !imageUrl ? 'animate-hero-from-right' : '',
     className,
   )}>
@@ -84,14 +86,14 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
     )}
 
     {topSlot && (
-      <div className="absolute inset-x-0 top-0 z-30 mx-auto max-w-7xl px-4 sm:px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 5rem)' }}>
+      <div className="relative z-30 mx-auto w-full max-w-7xl px-4 sm:px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 5rem)' }}>
         {topSlot}
       </div>
     )}
 
     {children && (
       <div
-        className={cn('absolute inset-x-0 bottom-0 z-20 px-4 pb-12 pt-24 sm:px-8 sm:pb-14', contentClassName)}
+        className={cn('relative z-20 mt-auto px-4 pb-12 sm:px-8 sm:pb-14', topSlot ? 'pt-4' : 'pt-24', contentClassName)}
         // Degradado en línea (no con bg-gradient-to-*): en el tema claro hay reglas
         // que fuerzan texto blanco dentro de cualquier bg-gradient-to-* y aquí el
         // fondo acaba siendo claro.

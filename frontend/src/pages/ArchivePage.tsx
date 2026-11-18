@@ -1232,10 +1232,11 @@ export const ArchivePage: React.FC = () => {
                                 </button>
                             );
                         })}
+                        {/* self-start: un botón centra su contenido y quedaba más bajo que las portadas. */}
                         <button
                             type="button"
                             onClick={openCreate}
-                            className="text-left"
+                            className="self-start text-left"
                         >
                             <div className="flex aspect-square flex-col items-center justify-center gap-1.5 rounded-3xl border-2 border-dashed border-[var(--lt-border)] text-[var(--lt-text-muted)] transition-colors hover:border-[var(--lt-accent-border)] hover:bg-[var(--lt-accent-soft)] hover:text-[var(--lt-accent)]">
                                 <Plus className="h-7 w-7" />

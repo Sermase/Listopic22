@@ -71,8 +71,9 @@ const Row: React.FC<{ emoji: string; label: string; value?: React.ReactNode; onC
     const body = (
         <>
             <span className="w-6 shrink-0 text-center text-lg" aria-hidden="true">{emoji}</span>
-            <span className={`flex-1 text-sm font-semibold ${danger ? 'text-[var(--lt-danger)]' : 'text-[var(--lt-text)]'}`}>{label}</span>
-            {value && <span className="max-w-[45%] truncate text-xs text-[var(--lt-text-muted)]">{value}</span>}
+            {/* La etiqueta no se parte: el valor ocupa lo que sobra y se corta con «…». */}
+            <span className={`shrink-0 whitespace-nowrap text-sm font-semibold ${danger ? 'text-[var(--lt-danger)]' : 'text-[var(--lt-text)]'}`}>{label}</span>
+            <span className="min-w-0 flex-1 truncate text-right text-xs text-[var(--lt-text-muted)]">{value}</span>
             {!danger && <ChevronRight className="h-4 w-4 shrink-0 text-[var(--lt-text-muted)]" aria-hidden="true" />}
         </>
     );

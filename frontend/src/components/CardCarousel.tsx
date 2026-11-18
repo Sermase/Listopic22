@@ -81,7 +81,7 @@ export function CardCarousel<T>({
                 {/* Scroll Container */}
                 <div
                     id={`carousel-${title.replace(/\s+/g, '-')}`}
-                    className="flex overflow-x-auto gap-2 px-4 pb-4 snap-x snap-mandatory hide-scrollbar scroll-smooth"
+                    className="flex overflow-x-auto gap-2 px-4 scroll-px-4 pb-4 snap-x snap-mandatory hide-scrollbar scroll-smooth"
                 >
                     {loading ? (
                         Array.from({ length: 4 }).map((_, i) => (

@@ -30,14 +30,15 @@ interface PersonCardProps {
 
 /** Tarjeta de persona con el tamaño y el aire de las tarjetas de la Home. */
 export const PersonCard: React.FC<PersonCardProps> = ({ uid, name, username, photoUrl, userType, affinity, reason, follow }) => (
-    <div className="lt-media-card group relative flex h-[170px] w-[156px] shrink-0 flex-col items-center overflow-hidden rounded-3xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] px-3 pb-3 pt-4 text-center shadow-lg transition-transform duration-300 hover:scale-[1.03] md:h-[190px] md:w-[176px]">
+    // Con «Seguir» la tarjeta es algo más alta: antes el botón se salía por abajo.
+    <div className={`lt-media-card group relative flex w-[156px] shrink-0 flex-col items-center overflow-hidden rounded-3xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] px-3 pb-3 pt-4 text-center shadow-lg transition-transform duration-300 hover:scale-[1.03] md:w-[176px] ${follow ? 'h-[200px] md:h-[214px]' : 'h-[170px] md:h-[190px]'}`}>
         <div className="pointer-events-none absolute inset-x-0 top-0 h-16 opacity-80" style={{ backgroundImage: 'linear-gradient(180deg, var(--lt-accent-soft), transparent)' }} />
         {typeof affinity === 'number' && (
             <span className="lt-on-accent absolute right-2.5 top-2.5 z-10 rounded-full bg-[var(--lt-accent)] px-2 py-0.5 font-display text-[11px] font-black shadow-md" aria-label={`${affinity}% de afinidad`}>
                 {affinity}%
             </span>
         )}
-        <Link to={`/profile/${uid}`} className="relative flex min-w-0 flex-1 flex-col items-center self-stretch">
+        <Link to={`/profile/${uid}`} className="relative flex min-h-0 min-w-0 flex-1 flex-col items-center self-stretch overflow-hidden">
             <UserAvatar photoUrl={photoUrl ?? undefined} displayName={name} userType={userType as string | string[] | undefined} size="lg" />
             <MarqueeText as="h3" text={name} className="mt-2 w-full text-sm font-bold leading-tight text-[var(--lt-text)]" />
             {username && <p className="w-full truncate text-[11px] text-[var(--lt-text-muted)]">@{username}</p>}

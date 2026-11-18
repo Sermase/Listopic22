@@ -389,7 +389,8 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                     <div className="flex items-center gap-4">
                         <button
                             onClick={handleLike}
-                            className={`relative inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${liked ? 'text-pink-500' : 'text-[var(--lt-text-muted)] hover:text-pink-500'}`}
+                            // Zona de toque de 36 px sin mover nada (márgenes negativos).
+                            className={`relative -m-2 inline-flex min-h-9 min-w-9 items-center justify-center gap-1.5 rounded-full p-2 text-xs font-bold transition-colors ${liked ? 'text-pink-500' : 'text-[var(--lt-text-muted)] hover:text-pink-500'}`}
                         >
                             <ThumbsUp className={`w-4 h-4 ${liked ? 'fill-current' : ''}`} />
                             {likeCount > 0 && <span>{likeCount}</span>}
@@ -401,7 +402,7 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                         </button>
                         <button
                             onClick={handleCommentToggle}
-                            className={`inline-flex items-center gap-1.5 text-xs font-bold transition-colors ${showComments ? 'text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)]'}`}
+                            className={`-m-2 inline-flex min-h-9 items-center gap-1.5 rounded-full p-2 text-xs font-bold transition-colors ${showComments ? 'text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)]'}`}
                         >
                             <MessageCircle className="w-4 h-4" />
                             {commentCount > 0 && <span>{commentCount}</span>}
@@ -412,14 +413,14 @@ export const ReviewCardList: React.FC<ReviewCardListProps> = ({ review, onDelete
                         <button
                             aria-label="Guardar en una colección"
                             onClick={handleSaveClick}
-                            className="text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)] transition-colors p-1"
+                            className="-m-1 p-2 text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)] transition-colors"
                         >
                             <Bookmark className="w-4 h-4" />
                         </button>
                         <button
                             aria-label="Compartir reseña"
                             onClick={handleShareClick}
-                            className="text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors p-1"
+                            className="-m-1 p-2 text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] transition-colors"
                         >
                             <Share2 className="w-4 h-4" />
                         </button>
