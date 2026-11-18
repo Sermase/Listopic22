@@ -31,12 +31,13 @@ export const PageAnalyticsTab: React.FC = () => {
     const [detailLoading, setDetailLoading] = useState(false);
     const [error, setError] = useState('');
     const [search, setSearch] = useState('');
+    const [excludeStaff, setExcludeStaff] = useState(true);
 
     const load = async () => {
         setLoading(true);
         setError('');
         try {
-            setOverview(await getAnalyticsOverview(days));
+            setOverview(await getAnalyticsOverview(days, excludeStaff));
         } catch (loadError) {
             console.error('PageAnalyticsTab: overview failed', loadError);
             setError('No se pudo cargar la analítica. Si acabas de activar el rol Jefe, provisiona o refresca el claim admin.');
@@ -45,13 +46,13 @@ export const PageAnalyticsTab: React.FC = () => {
         }
     };
 
-    useEffect(() => { void load(); }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { void load(); }, [days, excludeStaff]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         if (!selectedPath) { setDetail(null); return; }
         let cancelled = false;
         setDetailLoading(true);
-        getPageAnalytics(selectedPath, days)
+        getPageAnalytics(selectedPath, days, excludeStaff)
             .then((result) => { if (!cancelled) setDetail(result); })
             .catch((loadError) => {
                 console.error('PageAnalyticsTab: detail failed', loadError);
@@ -59,7 +60,7 @@ export const PageAnalyticsTab: React.FC = () => {
             })
             .finally(() => { if (!cancelled) setDetailLoading(false); });
         return () => { cancelled = true; };
-    }, [days, selectedPath]);
+    }, [days, excludeStaff, selectedPath]);
 
     const period = useMemo(() => {
         const daily = overview?.daily || [];
@@ -93,9 +94,10 @@ export const PageAnalyticsTab: React.FC = () => {
             <div className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-[var(--lt-card-strong)] p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h2 className="flex items-center gap-2 text-2xl font-black text-white"><BarChart3 className="h-6 w-6 text-violet-300" /> Analítica de páginas</h2>
-                    <p className="mt-1 text-sm text-gray-400">Datos agregados al instante; pulsa actualizar para releerlos. El entorno local y las visitas de cuentas Jefe no se contabilizan.</p>
+                    <p className="mt-1 text-sm text-gray-400">Datos agregados al instante; pulsa actualizar para releerlos. El entorno local no se contabiliza.</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <StaffToggle checked={excludeStaff} onChange={setExcludeStaff} />
                     <select value={days} onChange={(event) => setDays(Number(event.target.value) as 7 | 30 | 90)} className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white">
                         <option value={7}>7 días</option><option value={30}>30 días</option><option value={90}>90 días</option>
                     </select>
@@ -106,6 +108,7 @@ export const PageAnalyticsTab: React.FC = () => {
             </div>
 
             {error && <div className="rounded-xl border border-red-500/25 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>}
+            {excludeStaff && overview && <StaffNotice sinceMs={overview.staffTrackingSinceMs} fromDate={overview.fromDate} />}
             {overview?.coverageCapped && <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-amber-200">El periodo superó 10.000 filas diarias; el ranking de páginas puede ser parcial.</div>}
 
             {loading && !overview ? (
@@ -181,6 +184,27 @@ export const PageAnalyticsTab: React.FC = () => {
                     </div>
                 </>
             ) : null}
+        </div>
+    );
+};
+
+export const StaffToggle: React.FC<{ checked: boolean; onChange: (value: boolean) => void }> = ({ checked, onChange }) => (
+    <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white" title="Resta lo que hacen las cuentas Jefe (visitas, compartidos, conexiones y reseñas)">
+        <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="accent-violet-400" />
+        Quitar jefes
+    </label>
+);
+
+// Antes de esta fecha la actividad de los jefes no se apuntaba aparte.
+export const StaffNotice: React.FC<{ sinceMs?: number | null; fromDate?: string }> = ({ sinceMs, fromDate }) => {
+    const since = sinceMs ? new Date(sinceMs) : null;
+    const sinceKey = since ? since.toISOString().slice(0, 10) : null;
+    if (sinceKey && fromDate && sinceKey <= fromDate) return null;
+    return (
+        <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-400">
+            {since
+                ? `La actividad de los jefes se separa desde el ${since.toLocaleDateString('es-ES')}. Antes de esa fecha, las visitas y conexiones de jefes no se contaban y sus compartidos y reseñas no se pueden quitar.`
+                : 'La actividad de los jefes empieza a separarse con la próxima visita. Los datos anteriores no se pueden filtrar.'}
         </div>
     );
 };
