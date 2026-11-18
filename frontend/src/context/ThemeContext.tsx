@@ -220,8 +220,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 const next = new Set<string>(Array.isArray(list) ? list : []);
                 const seen = seenBadgesRef.current;
                 if (seen) {
-                    // Después del aviso dorado de la medalla (dura 5,5 s arriba): antes salían a la vez y se pisaban.
-                    const AFTER_ACHIEVEMENT_MS = 5800;
+                    // Después de los avisos dorados de medalla (uno tras otro, 5,5 s cada uno): antes salían
+                    // a la vez y se pisaban. Las medallas ganadas juntas llegan en esta misma lectura.
+                    const newBadges = [...next].filter((badge) => !seen.has(badge)).length;
+                    const AFTER_ACHIEVEMENT_MS = 5800 * Math.max(1, newBadges);
                     // Medalla de tema recién ganada (la de la Abuela ya la avisa su sorpresa).
                     THEMES.filter((t) => t.unlock && !t.secret && next.has(t.unlock.badge) && !seen.has(t.unlock.badge))
                         .forEach((t, i) => window.setTimeout(() => fireSurprise({
