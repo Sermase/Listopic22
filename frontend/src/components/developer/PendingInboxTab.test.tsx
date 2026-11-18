@@ -14,6 +14,9 @@ vi.mock('../../hooks/useDeveloperInbox', () => ({
     useInvalidateDeveloper: () => inboxState.invalidate,
 }));
 
+// Peticiones de concursos destacados: su propia consulta, fuera de esta prueba.
+vi.mock('./ContestFeatureRequests', () => ({ ContestFeatureRequests: () => null }));
+
 vi.mock('../../hooks/useAdminNames', () => ({
     useAdminNames: (uids: string[]) => Object.fromEntries(uids.map((uid) => [uid, uid === 'owner1' ? '@maria' : uid])),
 }));

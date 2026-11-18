@@ -85,3 +85,43 @@ test('crear Minilista desde la lista en modo concurso: va a ella con los aspiran
   const FIRESTORE = `http://${process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'}/v1/projects/demo-listopic/databases/(default)/documents`;
   await fetch(`${FIRESTORE}/lists/${newListId}`, { method: 'DELETE', headers: { authorization: 'Bearer owner' } });
 });
+
+test('destacar el concurso: el dueño lo pide desde la ventana del concurso', async ({ page, errors }) => {
+  await login(page, 'duena');
+  await page.goto('/list/concurso');
+  await page.getByRole('button', { name: 'Ajustes del concurso' }).click();
+  const zone = page.getByRole('combobox', { name: 'Zona donde destacar' });
+  await expect(zone.locator('option', { hasText: 'Valladolid provincia' })).toHaveCount(1, { timeout: 15_000 });
+  await zone.selectOption({ label: 'Valladolid provincia' });
+  await page.getByRole('button', { name: 'Pedir', exact: true }).click();
+  await expect(page.getByText(/Pendiente de revisión · Valladolid provincia/)).toBeVisible();
+  await page.waitForTimeout(500);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/10-pedir-destacado.png` });
+
+  await page.getByRole('button', { name: 'Cerrar' }).first().click();
+  await page.goto('/');
+  await expect(page.getByText('Concurso abierto')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('destacar el concurso: un jefe lo acepta en Developer y sale en Inicio', async ({ page, errors }) => {
+  await login(page, 'jefe');
+  await page.goto('/developer');
+  const requests = page.getByRole('region', { name: 'Concursos destacados' });
+  await expect(requests.getByText('Concurso de bravas')).toBeVisible({ timeout: 15_000 });
+  if (SHOTS) await requests.screenshot({ path: `${SHOTS}/11-developer-destacar.png` });
+  await requests.getByRole('button', { name: 'Aceptar' }).click();
+  await expect(requests).toHaveCount(0);
+
+  await page.goto('/');
+  const card = page.getByRole('link', { name: /Concurso abierto.*Concurso de bravas/ });
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  await card.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(600);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/12-inicio-destacado.png` });
+  expect(errors).toEqual([]);
+
+  // Limpieza: sin destacado para las pruebas siguientes.
+  const FIRESTORE = `http://${process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'}/v1/projects/demo-listopic/databases/(default)/documents`;
+  await fetch(`${FIRESTORE}/lists/concurso?updateMask.fieldPaths=featureRequest`, { method: 'PATCH', headers: { authorization: 'Bearer owner', 'content-type': 'application/json' }, body: JSON.stringify({ fields: {} }) });
+});

@@ -4,6 +4,7 @@
  * Las reglas de Firestore (reviewContestOk) comprueban lo mismo con `candidateKeys`.
  */
 import { normalizeItemName } from './listElements';
+import { buildAreaOptions, geoAreaLabel, geoValue, matchesArea, type GeoFields, type GeoLevel } from './geoAreas';
 
 export interface ContestCandidate {
     key: string;
@@ -66,6 +67,49 @@ export interface ContestListLike {
     candidates?: ContestCandidate[] | null;
     candidateKeys?: string[] | null;
     official?: boolean;
+    featureRequest?: ContestFeatureRequest | null;
+}
+
+/**
+ * Destacar un concurso en Inicio: lo pide el dueño para una zona y lo acepta un jefe
+ * (Developer → Mantenimiento → Concursos). No es patrocinado: es «Concurso destacado».
+ */
+export type FeatureStatus = 'pending' | 'approved' | 'rejected';
+export interface ContestFeatureRequest {
+    level: GeoLevel;
+    value: string;
+    status: FeatureStatus;
+    requestedAt?: unknown;
+    decidedAt?: unknown;
+}
+
+export const featureScopeLabel = (req: Pick<ContestFeatureRequest, 'level' | 'value'>): string =>
+    geoAreaLabel(req.level, req.value);
+
+/** Zonas que puede pedir el dueño, sacadas de sus aspirantes; la primera es la recomendada (provincia más repetida). */
+export function featureScopeOptions(candidates: ReadonlyArray<GeoFields>): { level: GeoLevel; value: string; label: string }[] {
+    const all = buildAreaOptions(candidates);
+    const order: GeoLevel[] = ['province', 'city', 'region', 'country'];
+    return order.flatMap((level) => all[level].map((o) => ({ level, value: o.value, label: geoAreaLabel(level, o.value) })));
+}
+
+/** Concurso aceptado, no terminado y de la zona de quien mira (su ubicación o la zona elegida en Inicio). */
+export function isFeaturedContestFor(
+    list: ContestListLike,
+    viewer: { geo: GeoFields | null; area?: { kind: GeoLevel; value: string } | null },
+    now = Date.now(),
+): boolean {
+    const req = list.featureRequest;
+    if (!req || req.status !== 'approved' || !req.level || !req.value) return false;
+    if (!isClosedContest(list) || contestPhase(list.contest, now) === 'after') return false;
+    const scope = { kind: req.level, value: req.value } as const;
+    if (viewer.geo && matchesArea(viewer.geo, scope)) return true;
+    // Sin provincia/comunidad deducida: vale estar en la ciudad de un aspirante de esa zona.
+    const viewerCity = geoValue(viewer.geo, 'city');
+    if (viewerCity && (list.candidates || []).some((c) => geoValue(c, 'city') === viewerCity && matchesArea(c, scope))) return true;
+    // Zona elegida a mano en Inicio: dentro de la del concurso (o la misma).
+    const area = viewer.area;
+    return Boolean(area && area.kind === req.level && area.value === req.value);
 }
 
 export const MAX_CANDIDATES = 100;

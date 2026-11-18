@@ -7,6 +7,7 @@ import { contestDatesLabel, contestPhase, type ContestCandidate, type ContestSet
 import { isItemUnavailable } from '../../lib/listElements';
 import { setItemAvailability } from '../../services/reportModeration';
 import { useToast } from '../../context/ToastContext';
+import { ContestFeatureRequests } from './ContestFeatureRequests';
 
 interface ContestRow {
     id: string;
@@ -73,6 +74,7 @@ export const ContestsCard: React.FC = () => {
                 <Trophy className="w-5 h-5 text-amber-400" /> Concursos
             </h3>
             <p className="text-gray-400 mb-4 text-sm">Minilistas en modo concurso. Al acabar, si no siguen en la carta, sus platos pasan a «ya no lo sirven» (cada noche). Aquí se reactivan uno a uno.</p>
+            <div className="mb-4"><ContestFeatureRequests /></div>
             <button onClick={load} disabled={busy} className="px-6 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-sm font-bold rounded-lg flex items-center gap-2">
                 <RefreshCw className={`w-4 h-4 ${busy ? 'animate-spin' : ''}`} /> {rows ? 'Volver a cargar' : 'Ver concursos'}
             </button>

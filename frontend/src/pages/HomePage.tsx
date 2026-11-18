@@ -27,6 +27,8 @@ import { useAppConfig } from '../context/AppConfigContext';
 import { Footer } from '../components/Footer';
 import { PlacePhotoPlaceholder } from '../components/PlacePhotoPlaceholder';
 import { FeaturedListCard } from '../components/home/FeaturedListCard';
+import { FeaturedContestCard, type FeaturedContestData } from '../components/home/FeaturedContestCard';
+import { contestDatesLabel, contestPhase, featureScopeLabel, isFeaturedContestFor, type ContestCandidate, type ContestListLike } from '../lib/contest';
 import { HomeRanking, type RankingRow } from '../components/home/HomeRanking';
 import { formatDistance } from '../utils/formatDistance';
 import { HomeFeedCard } from '../components/home/HomeFeedCard';
@@ -771,6 +773,34 @@ export const HomePage: React.FC = () => {
     }, [reviewsInRange]);
 
 
+
+    // Concursos abiertos destacados (aceptados por un jefe) de tu zona: arriba del todo.
+    const featuredContestsQuery = useQuery({
+        queryKey: ['home-featured-contests'],
+        staleTime: 10 * 60 * 1000,
+        queryFn: async () => {
+            const snap = await getDocs(query(collection(db, 'lists'), where('isPublic', '==', true), where('featureRequest.status', '==', 'approved'), limit(20)));
+            return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ContestListLike & { id: string; name?: string; mainImageUrl?: string; photoUrl?: string });
+        },
+    });
+    const featuredContests = useMemo<FeaturedContestData[]>(() => {
+        const viewerArea = areaFilter.kind === 'near' ? null : areaFilter;
+        return (featuredContestsQuery.data || [])
+            .filter((list) => isFeaturedContestFor(list, { geo: userGeo, area: viewerArea }))
+            .slice(0, 2)
+            .map((list) => {
+                const candidates = (list.candidates || []) as ContestCandidate[];
+                return {
+                    id: list.id,
+                    name: list.name || 'Concurso',
+                    photoUrl: list.mainImageUrl || list.photoUrl || candidates.find((c) => c.photoUrl)?.photoUrl,
+                    datesLabel: contestDatesLabel(list.contest),
+                    scopeLabel: featureScopeLabel(list.featureRequest!),
+                    candidates: candidates.length,
+                    upcoming: contestPhase(list.contest) === 'before',
+                };
+            });
+    }, [featuredContestsQuery.data, userGeo, areaFilter]);
 
     // --- MAP DATA ENRICHMENT ---
     // Sitios extra para el mapa, «Sitios» y joyas: una sola lectura de 100 que
@@ -1573,6 +1603,13 @@ export const HomePage: React.FC = () => {
                         <p className="max-w-4xl mx-auto mt-2 px-1 text-xs font-medium text-[var(--lt-text-muted)]">
                             🔭 Poco a {formatRangeKm(chosenRange)}: te enseño hasta {widenedRange === null ? 'cualquier distancia' : formatRangeKm(widenedRange)}.
                         </p>
+                    )}
+
+                    {/* Concursos abiertos destacados de tu zona (no patrocinados: los acepta un jefe) */}
+                    {activeTab === 'explore' && featuredContests.length > 0 && (
+                        <div className="mx-auto mt-6 w-full max-w-4xl space-y-3">
+                            {featuredContests.map((contest) => <FeaturedContestCard key={contest.id} contest={contest} />)}
+                        </div>
                     )}
 
                     {/* Duelo de la semana (flag en Developer → Otros) */}

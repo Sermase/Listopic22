@@ -183,7 +183,7 @@ service cloud.firestore {
         'criteriaAverages', 'criteriaAveragesUpdatedAt', 'reactions',
         'lastActivityAt', 'lastReviewAt', 'ownerId', 'mainImagePath', 'slug',
         'deletedAt', 'scoringWeights', 'defaultDiet',
-        'contest', 'candidates', 'candidateKeys', 'official'
+        'contest', 'candidates', 'candidateKeys', 'official', 'featureRequest'
       ];
     }
 
@@ -204,6 +204,20 @@ service cloud.firestore {
       return (!('contest' in d) || (d.contest is map && d.get('parentListId', null) is string))
         && (!('candidateKeys' in d) || (d.candidateKeys is list && d.candidateKeys.size() <= 100))
         && (!('candidates' in d) || (d.candidates is list && d.candidates.size() <= 100));
+    }
+
+    // Destacar un concurso en Inicio: el dueño solo puede pedirlo (pending) o retirarlo;
+    // aceptarlo o rechazarlo es cosa de un jefe.
+    function listFeatureRequestOk() {
+      let d = request.resource.data;
+      return !('featureRequest' in d) || (
+        d.featureRequest is map
+        && d.featureRequest.keys().hasOnly(['level', 'value', 'status', 'requestedAt'])
+        && d.featureRequest.status == 'pending'
+        && d.featureRequest.level in ['city', 'province', 'region', 'country']
+        && d.featureRequest.value is string && d.featureRequest.value.size() > 0 && d.featureRequest.value.size() <= 80
+        && d.get('contest', null) is map
+      );
     }
 
     function listUpdateChangesOnlyAllowedFields() {
@@ -300,6 +314,7 @@ service cloud.firestore {
           !changed.hasAny(listServerKeys()) &&
           !changed.hasAny(listIdentityKeys()) &&
           !changed.hasAny(['official']) &&
+          (!changed.hasAny(['featureRequest']) || (isOwner && listFeatureRequestOk())) &&
           (isOwner || (isEditor && !changed.hasAny(listOwnerOnlyKeys()))) &&
           listScoringLockRespected() &&
           (!changed.hasAny(['criteriaDefinition']) || minilistKeepsParentCriteria(request.resource.data))
