@@ -11,6 +11,9 @@ import {
     primaryContextRank,
     inferUserGeo,
     localAreaOptions,
+    nearestLabel,
+    reachableRange,
+    reachableRangeSteps,
 } from './geoAreas';
 
 const vll = { city: 'Valladolid', province: 'Valladolid', region: 'Castilla y León', country: 'España' };
@@ -123,5 +126,21 @@ describe('geoAreas: contexto local', () => {
         expect(none.city).toEqual([]);
         expect(none.region).toEqual([]);
         expect(none.country.map((o) => o.label)).toEqual(['España']);
+    });
+
+    it('radios: solo los que llegan a lo más cercano; un radio corto se amplía', () => {
+        const steps = [0.5, 1, 2, 5, 10, 50, 100, 200, 500];
+        expect(reachableRangeSteps(steps, null)).toEqual(steps);
+        expect(reachableRangeSteps(steps, 162)).toEqual([200, 500]);
+        expect(reachableRangeSteps(steps, 900)).toEqual([]);
+        expect(reachableRange(5, steps, 162)).toBe(200);
+        expect(reachableRange(5, steps, 900)).toBeNull();
+        expect(reachableRange(5, steps, 3)).toBe(5);
+        expect(reachableRange(null, steps, 162)).toBeNull();
+        expect(reachableRange(1, steps, null)).toBe(1);
+        expect(nearestLabel(162.4)).toBe('a 162 km');
+        expect(nearestLabel(2.04)).toBe('a 2 km');
+        expect(nearestLabel(2.46)).toBe('a 2,5 km');
+        expect(nearestLabel(0.34)).toBe('a 300 m');
     });
 });

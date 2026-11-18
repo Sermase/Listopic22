@@ -5,6 +5,7 @@ import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { useAuth } from '../context/AuthContext';
 import { HelpTip } from './HelpTip';
+import type { ContestShow } from '../lib/contest';
 
 const ACCESSIBILITY_FILTER_LABELS: Record<string, string> = {
     wheelchairAccessibleEntrance: 'Entrada accesible',
@@ -44,6 +45,8 @@ interface FilterModalProps {
     setGroupByPlace?: (v: boolean) => void;
     /** Resultados con los filtros actuales (para el botón «Ver N»). */
     resultCount?: number;
+    /** Concurso: qué aspirantes ver (todos, con nota o los que nadie ha valorado). */
+    contest?: { show: ContestShow; setShow: (v: ContestShow) => void; unratedCount: number };
 }
 
 const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -92,6 +95,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
     groupByPlace,
     setGroupByPlace,
     resultCount,
+    contest,
 }) => {
     useBodyScrollLock(isOpen);
     const panelRef = useSheetDismiss(onClose, isOpen);
@@ -118,6 +122,7 @@ export const FilterModal: React.FC<FilterModalProps> = ({
         setCriticOnly?.(false);
         setGroupByPlace?.(false);
         setShowUnavailable?.(false);
+        contest?.setShow('all');
     };
 
     const toggleTag = (tag: string) => {
@@ -141,6 +146,23 @@ export const FilterModal: React.FC<FilterModalProps> = ({
                 </div>
 
                 <div className="flex-1 space-y-6 overflow-y-auto p-4">
+                    {contest && (
+                        <div>
+                            <SectionTitle>Aspirantes del concurso</SectionTitle>
+                            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Qué aspirantes ver">
+                                {([
+                                    ['all', 'Todos'],
+                                    ['rated', 'Con nota'],
+                                    ['pending', `Sin valorar${contest.unratedCount ? ` (${contest.unratedCount})` : ''}`],
+                                ] as const).map(([value, label]) => (
+                                    <button key={value} type="button" role="radio" aria-checked={contest.show === value} onClick={() => contest.setShow(value)} className={chipClass(contest.show === value)}>
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div>
                         <SectionTitle>Ordenar</SectionTitle>
                         <div className="flex flex-wrap gap-2">

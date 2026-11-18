@@ -110,10 +110,10 @@ const RankPill: React.FC<{ rank: number; small?: boolean }> = ({ rank, small }) 
     </span>
 );
 
-// Aspirante sin probar: en lugar de la nota, el aviso y (si se puede) «Valorar», encima del enlace.
+// Aspirante sin valorar: en lugar de la nota, el aviso y (si se puede) «Valorar», encima del enlace.
 const PendingSlot: React.FC<{ onRate?: () => void; size: 'sm' | 'lg' }> = ({ onRate, size }) => (
     <div className="relative z-10 flex shrink-0 flex-col items-end gap-1">
-        <span className="whitespace-nowrap rounded-full border border-[var(--lt-border)] bg-[var(--lt-card-strong)] px-2 py-0.5 text-[10px] font-bold text-[var(--lt-text-muted)]">🏆 Sin probar</span>
+        <span className="whitespace-nowrap rounded-full border border-[var(--lt-border)] bg-[var(--lt-card-strong)] px-2 py-0.5 text-[10px] font-bold text-[var(--lt-text-muted)]">Sin valorar</span>
         {onRate && (
             <button
                 type="button"

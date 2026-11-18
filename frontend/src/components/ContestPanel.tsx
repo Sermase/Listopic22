@@ -11,9 +11,9 @@ import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { PlaceService, type PlaceResult } from '../services/PlaceService';
 import { PlaceSearch } from './PlaceSearch';
 import {
-    candidateKey, candidateMatchKey, cleanDiet, CONTEST_DIETS, contestDatesLabel, contestPhase, dateToDay, dayToDate,
+    candidateKey, candidateMatchKey, cleanDiet, CONTEST_DIETS, contestStatusLine, dateToDay, dayToDate,
     dietBadges, featureScopeLabel, featureScopeOptions, isClosedContest, MAX_CANDIDATE_DESCRIPTION, MAX_CANDIDATES,
-    type ContestCandidate, type ContestDiet, type ContestFeatureRequest, type ContestListLike,
+    type ContestCandidate, type ContestDiet, type ContestFeatureRequest, type ContestListLike, type ContestShow,
 } from '../lib/contest';
 
 /** Detalles del aspirante (sin valoraciones): dieta declarada y una descripción corta. */
@@ -131,7 +131,7 @@ interface ReviewLite { placeId?: string; itemName?: string; sublistId?: string |
 
 interface ContestPanelProps {
     list: ContestListLike & { id: string; name: string };
-    /** Reseñas de esta Minilista (para saber qué aspirantes faltan por probar). */
+    /** Reseñas de esta Minilista (para saber qué aspirantes no ha valorado nadie). */
     reviews: ReviewLite[];
     canManage: boolean;
     canEditCandidates: boolean;
@@ -144,11 +144,12 @@ interface ContestPanelProps {
     autoOpenSettings?: boolean;
 }
 
-export type ContestShow = 'all' | 'rated' | 'pending';
+export type { ContestShow } from '../lib/contest';
 
 /**
- * Cabecera del concurso de una Minilista: estado, fechas y cuántos faltan por probar,
- * con el filtro «Todos · Con nota · Sin probar». Los aspirantes van en el ranking.
+ * Línea del concurso de una Minilista: «🏆 Abierto · hasta el 29 nov · 36 sin valorar ⚙».
+ * Tocar «sin valorar» deja solo esos (y otra vez, todos); el filtro completo
+ * (Todos · Con nota · Sin valorar) está en «Filtros». Los aspirantes van en el ranking.
  */
 export const ContestPanel: React.FC<ContestPanelProps> = ({ list, reviews, canManage, canEditCandidates, isJefe, show, onShowChange, onChanged, autoOpenSettings = false }) => {
     const [settingsOpen, setSettingsOpenState] = useState(() => autoOpenSettings && canEditCandidates);
@@ -159,11 +160,9 @@ export const ContestPanel: React.FC<ContestPanelProps> = ({ list, reviews, canMa
     };
     const candidates = useMemo(() => list.candidates ?? [], [list.candidates]);
     const closed = isClosedContest(list);
-    const phase = contestPhase(list.contest);
-    const dates = contestDatesLabel(list.contest);
 
-    const tasted = useMemo(() => new Set(reviews.map((r) => candidateMatchKey(r.placeId, r.itemName))), [reviews]);
-    const untastedCount = candidates.filter((c) => !tasted.has(candidateMatchKey(c.placeId, c.itemName))).length;
+    const rated = useMemo(() => new Set(reviews.map((r) => candidateMatchKey(r.placeId, r.itemName))), [reviews]);
+    const unratedCount = candidates.filter((c) => !rated.has(candidateMatchKey(c.placeId, c.itemName))).length;
 
     if (!closed && candidates.length === 0) {
         if (!canEditCandidates) return null;
@@ -172,58 +171,51 @@ export const ContestPanel: React.FC<ContestPanelProps> = ({ list, reviews, canMa
                 <button
                     type="button"
                     onClick={() => setSettingsOpen(true)}
-                    className="w-full mb-6 flex items-center gap-2 px-4 py-3 rounded-2xl border border-dashed border-[var(--lt-border-strong)] text-sm text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:border-[var(--lt-accent-border)] transition-colors"
+                    className="w-full mb-4 flex items-center gap-2 px-3 py-2 rounded-xl border border-dashed border-[var(--lt-border-strong)] text-[13px] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:border-[var(--lt-accent-border)] transition-colors"
                 >
                     <span aria-hidden>🏆</span>
                     <span className="font-bold">Aspirantes y modo concurso</span>
-                    <span className="ml-auto text-xs">Apunta platos antes de probarlos</span>
+                    <span className="ml-auto text-xs truncate">Apunta platos antes de probarlos</span>
                 </button>
                 {settingsOpen && <ContestSettingsModal list={list} canManage={canManage} isJefe={isJefe} onClose={() => setSettingsOpen(false)} onChanged={onChanged} />}
             </>
         );
     }
 
-    const phaseLabel = !closed ? null : phase === 'before' ? 'Aún no empieza' : phase === 'after' ? 'Terminado' : 'Abierto';
-    const options: { value: ContestShow; label: string }[] = [
-        { value: 'all', label: 'Todos' },
-        { value: 'rated', label: 'Con nota' },
-        { value: 'pending', label: `Sin probar${untastedCount ? ` (${untastedCount})` : ''}` },
-    ];
+    const status = closed ? contestStatusLine(list.contest) : null;
+    const onlyUnrated = show === 'pending';
 
     return (
-        <section id="contest-panel" className="mb-6 rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card)] px-4 py-3">
-            <div className="flex items-center gap-2">
-                <span aria-hidden className="text-lg">🏆</span>
-                <div className="min-w-0 flex-1">
-                    <p className="font-display font-bold text-sm text-[var(--lt-text)]">
-                        {closed ? 'Concurso' : 'Aspirantes'}
-                        {phaseLabel && <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${phase === 'open' ? 'bg-[var(--lt-success-soft)] text-[var(--lt-success)]' : 'bg-[var(--lt-glass)] text-[var(--lt-text-muted)]'}`}>{phaseLabel}</span>}
-                    </p>
-                    <p className="text-xs text-[var(--lt-text-muted)] truncate">
-                        {[dates, `${candidates.length} aspirante${candidates.length === 1 ? '' : 's'}`, untastedCount ? `${untastedCount} sin probar` : 'todos probados'].filter(Boolean).join(' · ')}
-                    </p>
-                </div>
-                {canEditCandidates && (
-                    <button type="button" onClick={() => setSettingsOpen(true)} aria-label="Ajustes del concurso" className="p-2 rounded-lg text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-[var(--lt-glass)]">
-                        <Settings2 className="w-4 h-4" />
-                    </button>
+        <section id="contest-panel" aria-label="Concurso" className="mb-4 flex items-center gap-2 rounded-xl border border-[var(--lt-border)] bg-[var(--lt-card)] pl-3 pr-1 py-1 text-[13px]">
+            <span aria-hidden>🏆</span>
+            <p className="min-w-0 flex-1 truncate text-[var(--lt-text-muted)]">
+                {status ? (
+                    <>
+                        <span className={`font-bold ${status.phase === 'open' ? 'text-[var(--lt-success)]' : 'text-[var(--lt-text)]'}`}>{status.label}</span>
+                        {status.when && ` · ${status.when}`}
+                    </>
+                ) : (
+                    <span className="font-bold text-[var(--lt-text)]">{candidates.length} {candidates.length === 1 ? 'aspirante' : 'aspirantes'}</span>
                 )}
-            </div>
-            {candidates.length > 0 && (
-                <div id="contest-filter" role="radiogroup" aria-label="Qué aspirantes ver" className="mt-3 flex gap-1 rounded-xl bg-[var(--lt-glass)] p-0.5 border border-[var(--lt-border)]">
-                    {options.map((o) => (
-                        <button
-                            key={o.value}
-                            type="button"
-                            role="radio"
-                            aria-checked={show === o.value}
-                            onClick={() => onShowChange(o.value)}
-                            className={`flex-1 rounded-lg px-2 py-1.5 text-xs font-bold transition-colors ${show === o.value ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
-                        >
-                            {o.label}
-                        </button>
-                    ))}
-                </div>
+                {candidates.length > 0 && <span aria-hidden> · </span>}
+                {candidates.length > 0 && (unratedCount > 0 ? (
+                    <button
+                        type="button"
+                        aria-pressed={onlyUnrated}
+                        onClick={() => onShowChange(onlyUnrated ? 'all' : 'pending')}
+                        title={onlyUnrated ? 'Ver todos los aspirantes' : 'Ver solo los que nadie ha valorado'}
+                        className={`rounded-full px-1.5 py-0.5 font-bold transition-colors ${onlyUnrated ? 'bg-[var(--lt-accent-soft)] text-[var(--lt-accent)]' : 'text-[var(--lt-text)] underline decoration-dotted underline-offset-2 hover:text-[var(--lt-accent)]'}`}
+                    >
+                        {unratedCount} sin valorar
+                    </button>
+                ) : (
+                    <span>todos valorados</span>
+                ))}
+            </p>
+            {canEditCandidates && (
+                <button type="button" onClick={() => setSettingsOpen(true)} aria-label="Ajustes del concurso" className="h-8 w-8 shrink-0 flex items-center justify-center rounded-lg text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-[var(--lt-glass)]">
+                    <Settings2 className="w-4 h-4" />
+                </button>
             )}
             {settingsOpen && <ContestSettingsModal list={list} canManage={canManage} isJefe={isJefe} onClose={() => setSettingsOpen(false)} onChanged={onChanged} />}
         </section>

@@ -66,6 +66,14 @@ export const test = base.extend<{ errors: string[] }>({
 export { expect };
 
 /** Claves de los elementos visibles, en orden. */
+/**
+ * Espera a que una ventana recién cerrada quite su entrada del historial: la app
+ * lo hace con un «atrás» un instante después, y navegar antes hace que ese
+ * «atrás» deshaga la navegación (page.goto acaba en ERR_ABORTED o en otra página).
+ */
+export const sheetGone = (page: Page) =>
+  page.waitForFunction(() => !(history.state && (history.state as Record<string, unknown>).__sheet));
+
 export const elementKeys = (page: Page) => page.locator('[data-element-key]').evaluateAll((nodes) => nodes.map((n) => n.getAttribute('data-element-key')));
 
 export async function login(page: Page, uid: string) {

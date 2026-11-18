@@ -133,6 +133,9 @@ const ms = (value: { toMillis(): number } | null | undefined): number | null =>
 
 export type ContestPhase = 'before' | 'open' | 'after';
 
+/** Qué aspirantes se ven en el ranking y el mapa: todos, los que tienen nota o los sin valorar. */
+export type ContestShow = 'all' | 'rated' | 'pending';
+
 export function contestPhase(contest: ContestSettings | null | undefined, now = Date.now()): ContestPhase {
     const start = ms(contest?.startsAt);
     const end = ms(contest?.endsAt);
@@ -151,6 +154,19 @@ export function contestDatesLabel(contest: ContestSettings | null | undefined): 
     if (end !== null) return `hasta el ${dayFmt.format(end)}`;
     if (start !== null) return `desde el ${dayFmt.format(start)}`;
     return null;
+}
+
+/**
+ * Estado del concurso en pocas palabras, para su línea de la Minilista:
+ * «Abierto · hasta el 29 nov», «Empieza el 17 nov», «Terminado el 29 nov».
+ */
+export function contestStatusLine(contest: ContestSettings | null | undefined, now = Date.now()): { phase: ContestPhase; label: string; when: string | null } {
+    const phase = contestPhase(contest, now);
+    const start = ms(contest?.startsAt);
+    const end = ms(contest?.endsAt);
+    if (phase === 'before') return { phase, label: start !== null ? `Empieza el ${dayFmt.format(start)}` : 'Aún no empieza', when: null };
+    if (phase === 'after') return { phase, label: end !== null ? `Terminado el ${dayFmt.format(end)}` : 'Terminado', when: null };
+    return { phase, label: 'Abierto', when: end !== null ? `hasta el ${dayFmt.format(end)}` : null };
 }
 
 /** Por qué no se puede valorar ese plato en esta Minilista, o null si se puede. */
