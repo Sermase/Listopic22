@@ -857,7 +857,7 @@ export const ListPage: React.FC = () => {
             lng?: number;
             photoUrl?: string;
             maxScore: number;
-            items: { name: string; score: number; photo?: string }[];
+            items: { name: string; score: number; rawScore: number | null; photo?: string }[];
             allTags: string[];
             aptOk: string[];
             accessibilityOptions: string[];
@@ -871,7 +871,8 @@ export const ListPage: React.FC = () => {
 
         visibleReviews.forEach(review => {
             if (!review.placeId) return; // Skip items without placeId for map
-            const reviewScore = reviewScoreForList(review, list).score ?? 0;
+            const rawScore = reviewScoreForList(review, list).score;
+            const reviewScore = rawScore ?? 0;
 
             if (!placeGroups[review.placeId]) {
                 placeGroups[review.placeId] = {
@@ -906,7 +907,7 @@ export const ListPage: React.FC = () => {
 
             const g = placeGroups[review.placeId];
             // Accumulate Items
-            g.items.push({ name: review.itemName, score: reviewScore, ...(review.photoUrl ? { photo: review.photoUrl } : {}) });
+            g.items.push({ name: review.itemName, score: reviewScore, rawScore, ...(review.photoUrl ? { photo: review.photoUrl } : {}) });
             g.reviewsCount++;
             if (review.itemUnavailable) g.unavailableCount += 1;
             if (Array.isArray(review.tags)) g.allTags.push(...review.tags);
@@ -996,8 +997,8 @@ export const ListPage: React.FC = () => {
             ...(isContestList && (candidatePhotoAt[g.placeId] || g.dishPhoto) ? { pinPhoto: candidatePhotoAt[g.placeId] || g.dishPhoto } : {}),
             ...(untriedAt[g.placeId] ? { subtitle: `${g.reviewsCount} ${g.reviewsCount === 1 ? 'reseña' : 'reseñas'} · sin probar: ${untriedAt[g.placeId].join(', ')}` } : {}),
             items: byDish
-                ? dishesForPlace(g.placeId, g.items, untriedDishesAt[g.placeId], list?.id)
-                : g.items.sort((a, b) => b.score - a.score) as MapSubItem[],
+                ? dishesForPlace(g.placeId, g.items.map((it) => ({ ...it, score: it.rawScore })), untriedDishesAt[g.placeId], list?.id)
+                : g.items.sort((a, b) => b.score - a.score).map(({ name, score }) => ({ name, score })),
         })), ...pendingItems];
     }, [visibleReviews, list, contestCandidates, isContestList, groupingMode]);
 

@@ -1,5 +1,6 @@
 // Sin Leaflet: lo usan también el mapa grande y otras vistas sin cargar el mapa.
 import { useMemo, useState } from 'react';
+import { normalizeItemName } from '../../lib/listElements';
 
 export interface MapItem {
     id: string;
@@ -125,7 +126,7 @@ export function listPopupView(item: MapItem): PopupView {
             title: d.name,
             subtitle: d.pending ? `🏆 Sin probar · ${item.name}` : item.name,
             photoUrl: d.photo || item.photoUrl,
-            score: d.pending ? null : d.score,
+            score: d.pending || d.score <= 0 ? null : d.score,
             to: d.to!,
             dishes: [],
         };
@@ -153,26 +154,29 @@ export const elementPath = (placeId: string, itemName: string, listId?: string):
  */
 export function dishesForPlace(
     placeId: string,
-    reviewed: { name: string; score: number; photo?: string }[],
+    reviewed: { name: string; score: number | null; photo?: string }[],
     pending: { name: string; photo?: string }[] = [],
     listId?: string,
 ): MapSubItem[] {
+    // Misma clave que el ranking (sin tildes ni signos); la nota media solo con las que tienen nota.
     const byName = new Map<string, { name: string; sum: number; n: number; photo?: string }>();
     reviewed.forEach((r) => {
         const name = (r.name || '').trim();
-        if (!name) return;
-        const key = name.toLowerCase();
+        const key = normalizeItemName(name);
+        if (!key) return;
         const entry = byName.get(key) ?? { name, sum: 0, n: 0 };
-        entry.sum += r.score;
-        entry.n += 1;
+        if (typeof r.score === 'number' && Number.isFinite(r.score)) {
+            entry.sum += r.score;
+            entry.n += 1;
+        }
         if (!entry.photo && r.photo) entry.photo = r.photo;
         byName.set(key, entry);
     });
     const done: MapSubItem[] = [...byName.values()]
-        .map((e) => ({ name: e.name, score: Number((e.sum / e.n).toFixed(2)), to: elementPath(placeId, e.name, listId), ...(e.photo ? { photo: e.photo } : {}) }))
+        .map((e) => ({ name: e.name, score: e.n ? Number((e.sum / e.n).toFixed(2)) : 0, to: elementPath(placeId, e.name, listId), ...(e.photo ? { photo: e.photo } : {}) }))
         .sort((a, b) => b.score - a.score);
     const untried: MapSubItem[] = pending
-        .filter((p) => p.name?.trim() && !byName.has(p.name.trim().toLowerCase()))
+        .filter((p) => normalizeItemName(p.name) && !byName.has(normalizeItemName(p.name)))
         .map((p) => ({ name: p.name.trim(), score: 0, pending: true, to: elementPath(placeId, p.name.trim(), listId), ...(p.photo ? { photo: p.photo } : {}) }));
     return [...done, ...untried];
 }

@@ -56,6 +56,11 @@ describe('ficha del mapa de una Lista', () => {
         expect(dishes[1]).toMatchObject({ photo: 'https://x/t.jpg', to: '/group/p1/Tarta' });
     });
 
+    it('sin nota no cuenta en la media y los nombres se comparan sin tildes', () => {
+        const dishes = dishesForPlace('p1', [{ name: 'Brava', score: 8 }, { name: 'Bravá!', score: null }, { name: 'Sola', score: null }]);
+        expect(dishes.map((d) => [d.name, d.score])).toEqual([['Brava', 8], ['Sola', 0]]);
+    });
+
     it('un elemento: su página; varios: elegir; ninguno: el sitio', () => {
         const base = { id: 'p1', placeId: 'p1', name: 'Bar Uno', lat: 1, lng: 1, photoUrl: 'https://x/sitio.jpg', rating: 9 };
         const one = listPopupView({ ...base, items: dishesForPlace('p1', [], [{ name: 'Bely', photo: 'https://x/b.jpg' }]) });

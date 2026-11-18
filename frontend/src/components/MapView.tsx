@@ -360,6 +360,14 @@ export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ ite
                             {(() => {
                                 // Mapa de una Lista: la ficha es del elemento (o elige entre los del sitio).
                                 const view = mode === 'list' ? listPopupView(item) : null;
+                                const trackClick = () => {
+                                    if (!isJefe) campaignIds.forEach((campaignId) => {
+                                        void Promise.all([
+                                            recordSponsoredEvent('placement', campaignId, 'impression'),
+                                            recordSponsoredEvent('placement', campaignId, 'click'),
+                                        ]).catch(() => undefined);
+                                    });
+                                };
                                 return (
                             <MapPopupCard
                                 title={view ? view.title : item.name}
@@ -368,27 +376,20 @@ export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ ite
                                 score={view ? view.score : item.rating}
                                 sponsored={isSponsored}
                                 subtitle={view && view.to !== `/place/${item.placeId || item.id}` ? view.subtitle : (item.subtitle || (!item.rating && item.botRating ? `🤖 ${formatScore(item.botRating)} de bots · aún sin nota de personas` : null) || (item.reviewsCount ? `${item.reviewsCount} ${item.reviewsCount === 1 ? 'reseña' : 'reseñas'}` : null))}
-                                onNavigate={() => {
-                                    if (!isJefe) campaignIds.forEach((campaignId) => {
-                                        void Promise.all([
-                                            recordSponsoredEvent('placement', campaignId, 'impression'),
-                                            recordSponsoredEvent('placement', campaignId, 'click'),
-                                        ]).catch(() => undefined);
-                                    });
-                                }}
+                                onNavigate={trackClick}
                             >
                                 {view && view.dishes.length > 0 && (
                                     <ul className="mt-2 max-h-[176px] space-y-1 overflow-y-auto overscroll-contain pr-0.5" aria-label="Elementos de este sitio">
                                         {view.dishes.map((dish) => (
                                             <li key={dish.to}>
-                                                <Link to={dish.to!} className="flex items-center gap-2 rounded-lg bg-[var(--lt-card)] p-1 pr-2 text-xs hover:bg-[var(--lt-accent-soft)]">
+                                                <Link to={dish.to!} onClick={trackClick} className="flex items-center gap-2 rounded-lg bg-[var(--lt-card)] p-1 pr-2 text-xs hover:bg-[var(--lt-accent-soft)]">
                                                     {dish.photo
                                                         ? <img src={dish.photo} alt="" loading="lazy" className="h-8 w-8 shrink-0 rounded-md object-cover" />
                                                         : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--lt-card-strong)]" aria-hidden="true">{dish.pending ? '🏆' : '🍽️'}</span>}
                                                     <span className="min-w-0 flex-1 truncate font-semibold !text-[var(--lt-text)]">{dish.name}</span>
                                                     {dish.pending
                                                         ? <span className="shrink-0 text-[10px] text-[var(--lt-text-muted)]">Sin probar</span>
-                                                        : <span className="shrink-0 font-bold" style={{ color: scoreTextColor(dish.score) }}>{formatScore(dish.score)}</span>}
+                                                        : <span className="shrink-0 font-bold" style={{ color: scoreTextColor(dish.score) }}>{dish.score > 0 ? formatScore(dish.score) : '—'}</span>}
                                                 </Link>
                                             </li>
                                         ))}
