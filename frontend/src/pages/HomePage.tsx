@@ -779,7 +779,7 @@ export const HomePage: React.FC = () => {
         queryKey: ['home-featured-contests'],
         staleTime: 10 * 60 * 1000,
         queryFn: async () => {
-            const snap = await getDocs(query(collection(db, 'lists'), where('isPublic', '==', true), where('featureRequest.status', '==', 'approved'), limit(20)));
+            const snap = await getDocs(query(collection(db, 'lists'), where('isPublic', '==', true), where('featureRequest.status', '==', 'approved'), limit(100)));
             return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ContestListLike & { id: string; name?: string; mainImageUrl?: string; photoUrl?: string });
         },
     });
