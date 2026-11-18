@@ -21,6 +21,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Save, Loader, X, Smile, Scale } from 'lucide-react';
 import { CriteriaBuilder, type Criterion } from './CriteriaBuilder';
 import { CriteriaMigrationModal } from './CriteriaMigrationModal';
+import { ListCoverField } from './ListCoverField';
 import { TagEmojiPicker, splitTagEmoji, buildTagString } from './TagEmojiPicker';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
@@ -91,6 +92,7 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [parentListId, setParentListId] = useState<string | null>(null);
+    const [coverUrl, setCoverUrl] = useState<string | null>(null);
 
     const [criteria, setCriteria] = useState<Criterion[]>([]);
     const [customTags, setCustomTags] = useState<string[]>([]);
@@ -148,6 +150,8 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
 
                 setName(data.name || '');
                 setDescription(data.description || '');
+                const raw = data as unknown as Record<string, unknown>;
+                setCoverUrl(['mainImageUrl', 'photoUrl', 'coverUrl', 'imageUrl'].map((k) => raw[k]).find((v): v is string => typeof v === 'string' && v.length > 0) || null);
                 setIsPublic(data.isPublic !== false);
                 setInitiallyPublic(data.isPublic !== false);
                 setPublicAccess(data.publicAccess || 'reader');
@@ -439,6 +443,15 @@ export const EditListForm: React.FC<EditListFormProps> = ({ listId, onSuccess, o
                         className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[var(--lt-accent-border)] transition-all min-h-[100px]"
                     />
                 </div>
+
+                {!loading && (
+                    <ListCoverField
+                        key={coverUrl || 'sin-portada'}
+                        listId={listId}
+                        initialUrl={coverUrl}
+                        onChanged={() => { void queryClient.invalidateQueries({ queryKey: ['listDetails', listId] }); void queryClient.invalidateQueries({ queryKey: ['doc', 'lists', listId] }); }}
+                    />
+                )}
 
                 {/* Visibility */}
                 <div className="flex items-center gap-3 p-4 bg-[var(--lt-bg)] rounded-lg border border-white/5">

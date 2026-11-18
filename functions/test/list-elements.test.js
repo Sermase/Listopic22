@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const vectors = require('../../frontend/src/lib/listElements.vectors.json');
 const { aggregateGroups } = require('../modules/grouped-aggregator');
 const { filterPublicReviews } = require('../modules/lib/list-visibility');
-const { computeListMetrics } = require('../modules/lib/list-metrics');
+const { computeListMetrics, buildListPodium } = require('../modules/lib/list-metrics');
 const { normalizeItemName, placeGeoFields, placeClosedStatus } = require('../modules/lib/list-elements');
 const { rankingIndexScore } = require('../modules/lib/scoring');
 
@@ -79,6 +79,8 @@ test('zona del sitio: «locality» de Google y CCAA normalizada', () => {
 test('contadores de la Lista madre pública: sin la Minilista privada y solo sus criterios', () => {
   const metrics = computeListMetrics(vectors.list, vectors.reviews);
   assert.equal(metrics.reviewCount, vectors.reviews.length - 1);
+  const people = new Set(vectors.reviews.filter((r) => r.visibility === 'public').map((r) => r.userId || r.authorId).filter(Boolean));
+  assert.equal(metrics.participantsCount, people.size);
   assert.deepEqual(Object.keys(metrics.criteriaAverages).sort(), ['sabor', 'salsa']);
 });
 
@@ -93,4 +95,19 @@ test('placeClosedStatus: «OPERATIONAL» de Google no es un cierre', () => {
   assert.equal(placeClosedStatus({ closedStatus: null, googleBusinessStatus: 'OPERATIONAL' }), null);
   assert.equal(placeClosedStatus({ googleBusinessStatus: 'CLOSED_TEMPORARILY' }), 'CLOSED_TEMPORARILY');
   assert.equal(placeClosedStatus({ closedStatus: 'permanently_closed', googleBusinessStatus: 'OPERATIONAL' }), 'permanently_closed');
+});
+
+test('podio de la tarjeta de Minilista: 3 primeros con nota, sin bots ni retirados', () => {
+  const podium = buildListPodium([
+    { itemName: 'Bot', average: 9.9, botOnly: true },
+    { itemName: 'Tarta A', establishmentName: 'Casa A', placeId: 'a', average: 9.234, thumbnailUrl: 'https://x/a.jpg' },
+    { itemName: 'Retirada', average: 9, itemUnavailable: true },
+    { itemName: 'Tarta B', establishmentName: 'Casa B', average: 8.5, placeThumbnailUrl: 'https://x/b.jpg' },
+    { itemName: 'Tarta C', average: 8 },
+    { itemName: 'Tarta D', average: 7 },
+  ]);
+  assert.deepEqual(podium.map((p) => p.name), ['Tarta A', 'Tarta B', 'Tarta C']);
+  assert.equal(podium[0].average, 9.23);
+  assert.equal(podium[1].photo, 'https://x/b.jpg');
+  assert.equal(podium[2].photo, undefined);
 });

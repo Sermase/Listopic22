@@ -27,12 +27,14 @@ import {
     Search, Map as MapIcon, Users, List as ListIcon, MessageCircle,
     X, Clock, ChevronLeft, ChevronRight, Star, LocateFixed, Loader2,
     ArrowUpDown, ChevronDown, SlidersHorizontal, ShieldCheck, Bot, Utensils,
-    Coffee, Wine, EyeOff, AlertTriangle, Sparkles
+    Coffee, Wine, EyeOff, AlertTriangle, Sparkles, Layers
 } from 'lucide-react';
 
 import { algoliaClient, INDEX_NAMES } from '../services/algoliaClient';
 import { SearchQueryParser } from '../services/SearchQueryParser';
 import { ListItemCard } from '../components/ListItemCard';
+import { MinilistCard } from '../components/MinilistCard';
+import { peopleLabel, toMinilistCard } from '../lib/minilists';
 import { SearchMapView } from '../components/SearchMapView';
 import { useLocation } from '../hooks/useLocation';
 import { useSheetDismiss } from '../hooks/useSheetDismiss';
@@ -176,6 +178,9 @@ type SearchHit = {
     level?: number;
     xp?: number;
     hasPhoto?: boolean;
+    /** Minilista (índice de listas): tarjeta propia y su Lista madre. */
+    isSublist?: boolean;
+    parentListName?: string;
 };
 
 // Opciones de ordenación por pestaña
@@ -859,6 +864,10 @@ const UserMiniCard = ({ hit }: { hit: SearchHit }) => {
     );
 };
 
+// Las Minilistas van en el mismo índice que las Listas (isSublist lo pone el servidor).
+const ONLY_MINILIST = 'isSublist:true';
+const NOT_MINILIST = 'NOT isSublist:true';
+
 /** Resultado de Algolia → tarjeta con foto de la Home (carruseles de «Todo»). */
 function hitToFeedCard(activeTab: string, hit: SearchHit, fallbackPhoto?: string | null): HomeFeedCardData {
     const photoUrl = hitPhoto(hit) ?? fallbackPhoto ?? null;
@@ -874,6 +883,17 @@ function hitToFeedCard(activeTab: string, hit: SearchHit, fallbackPhoto?: string
             badge: closed ? 'Cerrado' : undefined,
             photoUrl, rating: score.avgRating, count: score.reviewCount,
             to: `/place/${hit.objectID}`,
+        };
+    }
+    if (activeTab === 'lists' && hit.isSublist) {
+        const mini = toMinilistCard(hit as unknown as Record<string, unknown> & { objectID: string });
+        return {
+            key: `list:${hit.objectID}`, kind: 'list', id: hit.objectID,
+            title: mini.name,
+            subtitle: [mini.parentListName ? `de ${mini.parentListName}` : null, peopleLabel(mini.participantsCount)].filter(Boolean).join(' · '),
+            badge: mini.contest === 'open' ? '🏆 Concurso' : 'Minilista',
+            photoUrl: photoUrl ?? mini.podium[0]?.photo ?? null, rating: null, count: mini.reviewCount,
+            to: `/list/${hit.objectID}`,
         };
     }
     if (activeTab === 'lists') {
@@ -1047,6 +1067,9 @@ const CustomHits: React.FC<HitsProps> = ({ activeTab, onTabChange, selectedHitId
                     const selected = selectedHitId === hit.objectID;
                     if (activeTab === 'users') {
                         return <UserHitCard key={hit.objectID} hit={hit} selected={selected} onHover={hover} />;
+                    }
+                    if (activeTab === 'lists' && hit.isSublist) {
+                        return <MinilistCard key={hit.objectID} card={toMinilistCard(hit as unknown as Record<string, unknown> & { objectID: string })} showParent />;
                     }
                     return (
                         <div
@@ -1317,6 +1340,8 @@ export const SearchPage: React.FC = () => {
     const zones = useMemo(() => parseZones(searchParams.getAll('zone')), [searchParams]);
     // «Ver todo» de un carrusel de Inicio: el mismo criterio, como filtro que se quita con la ✕.
     const presetParam = searchParams.get('preset') || '';
+    // Listas o Minilistas dentro de la pestaña «Listas» (?kind=mini para enlazar).
+    const [listKind, setListKind] = useState<'lists' | 'mini'>(searchParams.get('kind') === 'mini' ? 'mini' : 'lists');
     const activePreset = presetFor(presetParam, typeParam);
     // Ahora, redondeado a la hora: el filtro no cambia en cada render.
     const [presetNow] = useState(() => Math.floor(Date.now() / 3_600_000) * 3_600);
@@ -1499,9 +1524,10 @@ export const SearchPage: React.FC = () => {
             defaultClosedFilter,
             activeTab === 'places' ? PLACES_WITH_REVIEWS_FILTER : '',
             activeTab === 'items' && listIdParam ? `listId:"${listIdParam.replace(/"/g, '')}"` : '',
+            activeTab === 'lists' ? (listKind === 'mini' ? ONLY_MINILIST : NOT_MINILIST) : '',
             activePreset ? activePreset.filter(presetNow) : '',
         ])
-    ), [parsedAlgoliaFilters, defaultClosedFilter, activeTab, listIdParam, activePreset, presetNow]);
+    ), [parsedAlgoliaFilters, defaultClosedFilter, activeTab, listIdParam, activePreset, presetNow, listKind]);
     // «Mis preferencias»: se aplican solas y se pueden quitar mientras dura la búsqueda.
     const { prefs } = usePreferences();
     const [ignoredPrefs, setIgnoredPrefs] = useState<Record<string, boolean>>({});
@@ -1658,7 +1684,8 @@ export const SearchPage: React.FC = () => {
                 ) : activeTab === 'all' ? (
                     <div className="px-4 lg:px-8">
                         <AllTabEmptyState hasQuery={parsedQuery.cleanedQuery.trim().length > 0} />
-                        <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" subtitle="Rankings con opinión propia" type="lists" icon={ListIcon} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('lists')} />
+                        <FederatedSection indexName={INDEX_NAMES.lists} title="Listas" subtitle="Rankings con opinión propia" type="lists" icon={ListIcon} query={parsedQuery.cleanedQuery} filters={NOT_MINILIST} onViewAll={() => { setListKind('lists'); handleTabChange('lists'); }} />
+                        <FederatedSection indexName={INDEX_NAMES.lists} title="Minilistas" subtitle="Concursos, barrios y grupos dentro de una lista" type="lists" icon={Layers} query={parsedQuery.cleanedQuery} filters={ONLY_MINILIST} onViewAll={() => { setListKind('mini'); handleTabChange('lists'); }} />
                         <FederatedSection indexName={INDEX_NAMES.places} title="Sitios" subtitle="Donde ir a comprobarlo" type="places" icon={MapIcon} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('places'), PLACES_WITH_REVIEWS_FILTER])} onViewAll={() => handleTabChange('places')} />
                         <FederatedSection indexName={INDEX_NAMES.users} title="Usuarios" subtitle="Gente que opina (y mucho)" type="users" icon={Users} query={parsedQuery.cleanedQuery} onViewAll={() => handleTabChange('users')} />
                         <FederatedSection indexName={INDEX_NAMES.items} title="Platos" subtitle="Platos y cosas concretas en un sitio" type="grouped_items" icon={MessageCircle} query={parsedQuery.cleanedQuery} filters={joinAlgoliaFilters([getDefaultClosedFilter('items'), HIDE_BOT_ONLY])} onViewAll={() => handleTabChange('items')} />
@@ -1829,6 +1856,22 @@ export const SearchPage: React.FC = () => {
                                     {zoneBar}
                                 </div>
                                 {zoneBar && <div className="hidden lg:block mb-2">{zoneBar}</div>}
+                                {activeTab === 'lists' && (
+                                    <div role="tablist" aria-label="Tipo de lista" className="mb-2 inline-flex rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] p-0.5">
+                                        {([['lists', 'Listas'], ['mini', 'Minilistas']] as const).map(([kind, label]) => (
+                                            <button
+                                                key={kind}
+                                                role="tab"
+                                                aria-selected={listKind === kind}
+                                                onClick={() => setListKind(kind)}
+                                                className={`rounded-full px-3.5 py-1 text-xs font-bold transition-colors ${listKind === kind ? 'lt-on-accent' : 'text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+                                                style={listKind === kind ? { backgroundImage: kind === 'mini' ? 'linear-gradient(135deg, var(--lt-accent-2), var(--lt-accent))' : 'var(--lt-accent-grad)' } : undefined}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                                 <QuickFilters
                                     activeTab={activeTab}
                                     isGeoTab={isGeoTab}

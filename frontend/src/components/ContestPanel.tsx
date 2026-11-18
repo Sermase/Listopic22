@@ -628,7 +628,7 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                             <input type="checkbox" checked={official} onChange={(e) => setOfficial(e.target.checked)} className="mt-1 accent-[var(--lt-accent)]" />
                             <span>
                                 <span className="block text-sm font-bold text-[var(--lt-text)]">✔️ Oficial de Listopic</span>
-                                <span className="block text-xs text-[var(--lt-text-muted)]">Solo lo ven y lo cambian los jefes.</span>
+                                <span className="block text-xs text-[var(--lt-text-muted)]">Solo es un sello en la Minilista: todos lo ven. Lo ponen y lo quitan los jefes.</span>
                             </span>
                         </label>
                     )}

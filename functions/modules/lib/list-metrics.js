@@ -73,11 +73,37 @@ function computeListMetrics(listData, reviews) {
     criteriaAverages[key] = Number((total / criteriaCounts[key]).toFixed(2));
   });
 
+  // Participantes: personas distintas que han valorado (con la visibilidad de la Lista).
+  const people = new Set();
+  visible.forEach((data) => {
+    const uid = data.userId || data.authorId;
+    if (typeof uid === 'string' && uid) people.add(uid);
+  });
+
   return {
     reviewCount: visible.length,
+    participantsCount: people.size,
     averageRating: overallCount > 0 ? Number((totalOverall / overallCount).toFixed(2)) : null,
     criteriaAverages,
   };
+}
+
+/** Hasta 3 elementos del podio (mismo orden que el ranking), con su foto: la tarjeta de Minilista no lee nada más. */
+function buildListPodium(groupedReviews) {
+  return (Array.isArray(groupedReviews) ? groupedReviews : [])
+    .filter((g) => g && !g.botOnly && !g.itemUnavailable && !g.placeClosedStatus && typeof g.average === 'number' && g.average > 0)
+    .slice(0, 3)
+    .map((g) => {
+      const entry = {
+        name: g.itemName || g.establishmentName || '',
+        placeName: g.establishmentName || null,
+        placeId: g.placeId || null,
+        average: Number(Number(g.average).toFixed(2)),
+        photo: g.thumbnailUrl || g.placeThumbnailUrl || null,
+      };
+      Object.keys(entry).forEach((key) => entry[key] === null && delete entry[key]);
+      return entry;
+    });
 }
 
 /**
@@ -125,13 +151,14 @@ async function recalculateListReviewMetrics(listId, { onGrouped } = {}) {
 
   // Las mismas valoraciones que ya se leyeron (antes se volvían a leer todas).
   const reviews = groupedResult ? groupedResult.allReviews : await fetchListReviews(listRef, listData);
-  const { reviewCount, averageRating, criteriaAverages } = computeListMetrics(listData, reviews);
+  const { reviewCount, participantsCount, averageRating, criteriaAverages } = computeListMetrics(listData, reviews);
 
   const existingTags = Array.isArray(listData.availableTags) ? listData.availableTags : [];
   existingTags.forEach(tag => availableTags.add(tag));
 
   const updateData = {
     reviewCount,
+    participantsCount,
     averageRating,
     criteriaAverages,
     criteriaAveragesUpdatedAt: FieldValue.serverTimestamp(),
@@ -141,6 +168,7 @@ async function recalculateListReviewMetrics(listId, { onGrouped } = {}) {
     // update y las métricas se quedaban con los valores anteriores.
     itemCount
   };
+  if (groupedResult) updateData.podium = buildListPodium(groupedResult.groupedReviews);
 
   await listRef.update(updateData);
   logger.info(`recalculateListReviewMetrics: ${listId} => r:${updateData.reviewCount} avg:${averageRating} tags:${updateData.availableTags?.length}`);
@@ -175,4 +203,4 @@ async function writeListRanking(listId, isPublic, groupedReviews) {
   }
 }
 
-module.exports = { recalculateListReviewMetrics, computeListMetrics };
+module.exports = { recalculateListReviewMetrics, computeListMetrics, buildListPodium };

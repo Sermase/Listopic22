@@ -33,6 +33,12 @@ export interface ListEntity {
     candidateKeys?: string[];
     /** Sello «Oficial de Listopic»: solo lo ponen los jefes. */
     official?: boolean;
+    /** Personas distintas que han valorado (lo cuenta el servidor al recalcular). */
+    participantsCount?: number;
+    /** Los 3 primeros con su foto (lo guarda el servidor): la tarjeta de Minilista no lee más. */
+    podium?: import('../lib/minilists').PodiumEntry[];
+    authorPhoto?: string;
+    authorPhotoUrl?: string;
 
     itemCount?: number;
     groupedItemsCount: number;
