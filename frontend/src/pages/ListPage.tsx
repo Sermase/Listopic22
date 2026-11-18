@@ -1215,16 +1215,29 @@ export const ListPage: React.FC = () => {
     }, [filteredItemsAll, visibleCount]);
 
     // Virtual scrolling for list view
+    // Distancia real de la lista al principio de la página. Antes era offsetTop (relativo al
+    // padre posicionado) y se leía un render tarde: al cambiar lo de arriba (cabecera del
+    // concurso, mapa, fotos que cargan) las filas se descolocaban al bajar.
     const listViewRef = useRef<HTMLDivElement>(null);
-    const parentOffsetRef = useRef(0);
-    useLayoutEffect(() => {
-        parentOffsetRef.current = listViewRef.current?.offsetTop ?? 0;
-    });
+    const [scrollMargin, setScrollMargin] = useState(0);
+    const measureScrollMargin = useCallback(() => {
+        const el = listViewRef.current;
+        if (!el) return;
+        const top = Math.round(el.getBoundingClientRect().top + window.scrollY);
+        setScrollMargin((prev) => (Math.abs(prev - top) > 1 ? top : prev));
+    }, []);
+    useLayoutEffect(measureScrollMargin);
+    useEffect(() => {
+        if (typeof ResizeObserver === 'undefined') return undefined;
+        const observer = new ResizeObserver(() => measureScrollMargin());
+        observer.observe(document.body);
+        return () => observer.disconnect();
+    }, [measureScrollMargin]);
     const listVirtualizer = useWindowVirtualizer({
         count: filteredItems.length,
         estimateSize: () => 130,
         overscan: 4,
-        scrollMargin: parentOffsetRef.current,
+        scrollMargin,
     });
 
     const handleLoadMore = () => {
