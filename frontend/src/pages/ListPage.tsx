@@ -864,6 +864,7 @@ export const ListPage: React.FC = () => {
             placeClosedStatus?: string | null;
             unavailableCount: number;
             geo: GeoFields;
+            dishPhoto?: string;
         }> = {};
 
         visibleReviews.forEach(review => {
@@ -929,6 +930,8 @@ export const ListPage: React.FC = () => {
             if (reviewScore > g.maxScore) {
                 g.maxScore = reviewScore;
             }
+            // Foto del plato (no la del sitio) para la chincheta con miniatura de los concursos.
+            if (!g.dishPhoto && review.photoUrl) g.dishPhoto = review.photoUrl;
 
             // Ensure coords
             if ((!g.lat || !g.lng) && review.lat && review.lng) {
@@ -956,8 +959,12 @@ export const ListPage: React.FC = () => {
                 acc[c.placeId] = entry;
                 return acc;
             }, {});
+        // Concurso: la chincheta es la miniatura del plato (foto del aspirante o de una reseña).
+        const candidatePhotoAt: Record<string, string> = {};
+        contestCandidates.forEach((c) => { if (c.photoUrl && !candidatePhotoAt[c.placeId]) candidatePhotoAt[c.placeId] = c.photoUrl; });
         const pendingItems = Object.values(pending).map(({ dishes, ...p }) => ({
             ...p,
+            ...(p.photoUrl ? { pinPhoto: p.photoUrl } : {}),
             rating: 0,
             maxScore: 0,
             emoji: '🏆',
@@ -980,10 +987,11 @@ export const ListPage: React.FC = () => {
             rating: g.maxScore, // Override rating for Pin Color with Max Score
             // Sitio en el mapa solo con platos que ya no sirven: fuera por defecto, como en la lista.
             itemUnavailable: g.unavailableCount > 0 && g.unavailableCount === g.reviewsCount,
+            ...(isContestList && (candidatePhotoAt[g.placeId] || g.dishPhoto) ? { pinPhoto: candidatePhotoAt[g.placeId] || g.dishPhoto } : {}),
             ...(untriedAt[g.placeId] ? { subtitle: `${g.reviewsCount} ${g.reviewsCount === 1 ? 'reseña' : 'reseñas'} · sin probar: ${untriedAt[g.placeId].join(', ')}` } : {}),
             items: g.items.sort((a, b) => b.score - a.score) // Sort items descending
         })), ...pendingItems];
-    }, [visibleReviews, list, contestCandidates]);
+    }, [visibleReviews, list, contestCandidates, isContestList]);
 
     // --- Filtering Logic ---
     // --- Filtering Logic ---
