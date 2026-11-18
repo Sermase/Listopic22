@@ -86,10 +86,11 @@ const COLLECTION_CONFIGS = {
 const INDEX_SETTINGS = {
     lists: {
         searchableAttributes: ["unordered(name)", "unordered(description)", "unordered(availableTags)", "unordered(categoryName)", "unordered(categoryAliases)", "unordered(categoryId)"],
-        attributesForFaceting: ["filterOnly(categoryId)", "categoryName", "availableTags", "ownerId", "hasPhoto"],
+        // isSublist: Buscar separa Listas y Minilistas.
+        attributesForFaceting: ["filterOnly(categoryId)", "categoryName", "availableTags", "ownerId", "hasPhoto", "filterOnly(isSublist)", "filterOnly(parentListId)"],
         replicas: ["lists_by_followers", "lists_by_reviews"],
         customRanking: ["desc(rankingScore)", "desc(reviewCount)", "desc(followersCount)", "desc(updatedAtTimestamp)"],
-        numericAttributesForFiltering: ["rankingScore", "reviewCount", "followersCount", "updatedAtTimestamp"]
+        numericAttributesForFiltering: ["rankingScore", "reviewCount", "followersCount", "participantsCount", "updatedAtTimestamp"]
     },
     places: {
         searchableAttributes: ["unordered(name)", "unordered(address)", "unordered(city)", "unordered(types)", "unordered(itemTags)"],
@@ -652,6 +653,17 @@ async function transformPlaceRecord(data, docId) {
     return compactRecord(record);
 }
 
+async function parentListName(parentListId) {
+    try {
+        const snap = await getFirestore().collection("lists").doc(parentListId).get();
+        const name = snap.exists ? snap.get("name") : null;
+        return isNonEmptyString(name) ? name : null;
+    } catch (error) {
+        logger.warn(`Algolia: no se pudo leer la Lista madre ${parentListId}`, error.message || String(error));
+        return null;
+    }
+}
+
 async function transformListRecord(data, docId) {
     if (!data || data.isPublic === false) {
         return null;
@@ -686,6 +698,21 @@ async function transformListRecord(data, docId) {
         thumbnailUrl: coverImage,
         mainImageUrl: coverImage,
         hasPhoto: Boolean(coverImage),
+        participantsCount: typeof data.participantsCount === "number" ? data.participantsCount : 0,
+        isSublist: Boolean(data.parentListId),
+        official: data.official === true,
+    }
+    if (data.parentListId) {
+        // Minilista: Buscar la enseña con su propia tarjeta y el nombre de su Lista madre.
+        record.parentListId = data.parentListId;
+        record.parentListName = await parentListName(data.parentListId);
+        record.authorPhoto = [data.authorPhotoUrl, data.authorPhoto].find((value) => isNonEmptyString(value)) || null;
+        if (data.contest && data.contest.closed === true) {
+            record.contest = true;
+            record.contestStartsAtTimestamp = toUnixSeconds(data.contest.startsAt) || null;
+            record.contestEndsAtTimestamp = toUnixSeconds(data.contest.endsAt) || null;
+        }
+        if (Array.isArray(data.podium) && data.podium.length) record.podium = data.podium.slice(0, 3);
     }
     if (!record.country) {
         delete record.country;
