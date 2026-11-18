@@ -819,13 +819,13 @@ export const GroupPage: React.FC = () => {
                     )}
 
                     {/* Acciones: lo habitual a la vista y el resto en «⋯», como en la página del sitio */}
-                    <div className="relative flex items-center gap-2">
+                    <div className="relative flex flex-wrap items-center gap-2">
                         <button type="button" onClick={openSaveModal} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3.5 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
                             <Bookmark className="h-4 w-4 text-[var(--lt-accent)]" /> Guardar
                         </button>
                         {/* En pantallas estrechas, solo el icono: así caben todos sin encogerse. */}
                         <button type="button" onClick={() => setIsShareModalOpen(true)} aria-label="Compartir" className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)] min-[390px]:px-3.5">
-                            <Share2 className="h-4 w-4 text-[var(--lt-accent)]" /> <span className="hidden min-[390px]:inline">Compartir</span>
+                            <Share2 className="h-4 w-4 text-[var(--lt-accent)]" /> <span className="hidden min-[390px]:inline lg:hidden xl:inline">Compartir</span>
                         </button>
                         {placeCoords && (
                             <button type="button" onClick={() => setIsMapOpen(true)} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3.5 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">

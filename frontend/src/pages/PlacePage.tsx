@@ -993,8 +993,8 @@ export const PlacePage: React.FC = () => {
                 {/* Order-1 on Mobile -> Renders FIRST. lg:order-last -> Renders RIGHT. */}
                 <div className="order-1 lg:col-span-4 lg:order-last flex flex-col gap-4 sm:gap-6">
 
-                    {/* 1. Acciones: lo habitual a la vista, el resto en «⋯» */}
-                    <div className="relative flex items-center gap-2">
+                    {/* 1. Acciones: lo habitual a la vista, el resto en «⋯». En la columna estrecha de escritorio (lg), Compartir va solo con icono y, si aun así no cabe, la fila salta de línea. */}
+                    <div className="relative flex flex-wrap items-center gap-2">
                         <button type="button" onClick={handleOpenSave} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3.5 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
                             <Bookmark className="h-4 w-4 text-[var(--lt-accent)]" /> Guardar
                         </button>
@@ -1013,7 +1013,7 @@ export const PlacePage: React.FC = () => {
                         </button>
                         {/* En pantallas estrechas, solo el icono: así caben todos sin encogerse. */}
                         <button type="button" onClick={handleShareClick} aria-label="Compartir" className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)] active:scale-95 min-[420px]:px-3.5">
-                            <Share2 className="h-4 w-4 text-[var(--lt-accent)]" /> <span className="hidden min-[420px]:inline">Compartir</span>
+                            <Share2 className="h-4 w-4 text-[var(--lt-accent)]" /> <span className="hidden min-[420px]:inline lg:hidden xl:inline">Compartir</span>
                         </button>
                         <button
                             type="button"
