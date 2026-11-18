@@ -50,6 +50,7 @@ import {
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock';
 import { allergenLabel, itemDocIdFromName } from '../services/BusinessProService';
 import { reviewItemId } from '../lib/placeItems';
+import { dietBadges } from '../lib/contest';
 import { compareByRank } from '../lib/scoring';
 import { PlaceStatsPanel } from '../components/place/PlaceStatsPanel';
 import { PlaceSectionHeader } from '../components/place/PlaceSectionHeader';
@@ -478,7 +479,7 @@ export const PlacePage: React.FC = () => {
             if (!dish.listId && r.listId) dish.listId = r.listId;
         });
 
-        return Object.entries(dishMap).map(([itemId, d]) => {
+        const rated = Object.entries(dishMap).map(([itemId, d]) => {
             const mostFrequentName = Object.entries(d.nameCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
             return {
                 itemId,
@@ -489,10 +490,26 @@ export const PlacePage: React.FC = () => {
                 listId: d.listId,
                 // Ya no lo sirven: atenuado y al final, sin puesto.
                 unavailable: d.unavailable,
+                contestListId: undefined as string | undefined,
             };
         }).sort((a, b) => Number(a.unavailable) - Number(b.unavailable)
             || compareByRank({ average: a.avg, count: a.count }, { average: b.avg, count: b.count }));
-    }, [place?.reviews, officialItemsById]);
+        // Aspirantes de un concurso que nadie ha valorado: también están en la carta, al final.
+        const ratedIds = new Set(rated.map((d) => d.itemId));
+        const pending = (place?.officialItems || [])
+            .filter((item) => item.contestLists && item.reviewCount === 0 && !ratedIds.has(item.id))
+            .map((item) => ({
+                itemId: item.id,
+                name: item.name,
+                avg: 0,
+                count: 0,
+                photo: item.photoUrl,
+                listId: undefined as string | undefined,
+                unavailable: item.retired === true,
+                contestListId: Object.keys(item.contestLists || {})[0],
+            }));
+        return [...rated, ...pending];
+    }, [place, officialItemsById]);
 
     // Lista de cada plato (por id canónico y por nombre) para fijarla al valorar desde la carta.
     const dishListIdByKey = useMemo(() => {
@@ -2009,9 +2026,13 @@ export const PlacePage: React.FC = () => {
                                     <div className="divide-y divide-[var(--lt-border)]">
                                         {dishes.map((dish, idx) => {
                                             const isTop = dish.avg >= 8.5 && idx < 3 && !dish.unavailable;
+                                            const untried = dish.count === 0;
                                             const official = place.hasBusinessPro
                                                 ? (officialItemsById.get(dish.itemId) ?? place.officialItemData?.[dish.name.trim().toLowerCase()])
                                                 : undefined;
+                                            // Aspirante de un concurso: lo que declaró quien lo apuntó.
+                                            const contestItem = officialItemsById.get(dish.itemId);
+                                            const declared = dietBadges(contestItem?.diet);
                                             return (
                                                 <div key={idx} className="flex items-center hover:bg-[var(--lt-card)] transition-colors">
                                                 <button
@@ -2023,7 +2044,7 @@ export const PlacePage: React.FC = () => {
                                                         rating: dish.avg,
                                                         reviewCount: dish.count,
                                                         price: official?.price,
-                                                        description: official?.description,
+                                                        description: official?.description ?? contestItem?.description,
                                                         group: official?.group,
                                                         discount: official?.discount,
                                                         available: dish.unavailable ? false : official?.available,
@@ -2032,7 +2053,7 @@ export const PlacePage: React.FC = () => {
                                                     className={`flex flex-1 min-w-0 items-center gap-3 sm:gap-4 pl-4 sm:pl-5 pr-2 py-3 sm:py-4 group text-left ${dish.unavailable ? 'opacity-50' : ''}`}
                                                 >
                                                     {/* Rank */}
-                                                    <span className={`w-5 shrink-0 text-center font-display text-sm font-bold tabular-nums ${idx < 3 ? 'text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)]'}`}>{dish.unavailable ? '·' : idx + 1}</span>
+                                                    <span className={`w-5 shrink-0 text-center font-display text-sm font-bold tabular-nums ${idx < 3 ? 'text-[var(--lt-accent)]' : 'text-[var(--lt-text-muted)]'}`}>{dish.unavailable || untried ? '·' : idx + 1}</span>
 
                                                     {/* Photo thumbnail */}
                                                     <div className="w-12 h-12 rounded-xl bg-[var(--lt-card)] border border-[var(--lt-border)] overflow-hidden shrink-0">
@@ -2069,7 +2090,10 @@ export const PlacePage: React.FC = () => {
                                                             )}
                                                         </div>
                                                         <div className="flex items-center gap-2 flex-wrap">
-                                                            <span className="text-xs text-[var(--lt-text-muted)]">{dish.count} {dish.count === 1 ? 'reseña' : 'reseñas'}</span>
+                                                            <span className="text-xs text-[var(--lt-text-muted)]">{untried ? '🏆 Sin probar' : `${dish.count} ${dish.count === 1 ? 'reseña' : 'reseñas'}`}</span>
+                                                            {declared.map((badge) => (
+                                                                <span key={badge} className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)]">{badge}</span>
+                                                            ))}
                                                             {official?.discount && (
                                                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">{official.discount}</span>
                                                             )}
@@ -2082,14 +2106,19 @@ export const PlacePage: React.FC = () => {
                                                     )}
 
                                                     {/* Score */}
-                                                    <span
-                                                        className="min-w-[2.6rem] shrink-0 rounded-full px-2 py-1 text-center font-display text-sm font-bold tabular-nums"
-                                                        style={scoreBadgeStyle(dish.avg)}
-                                                    >
-                                                        {dish.avg.toFixed(1)}
-                                                    </span>
+                                                    {untried ? null : (
+                                                        <span
+                                                            className="min-w-[2.6rem] shrink-0 rounded-full px-2 py-1 text-center font-display text-sm font-bold tabular-nums"
+                                                            style={scoreBadgeStyle(dish.avg)}
+                                                        >
+                                                            {dish.avg.toFixed(1)}
+                                                        </span>
+                                                    )}
                                                 </button>
-                                                {placeId && (
+                                                {/* Aspirante: se valora dentro de su concurso (con sus fechas y reglas). */}
+                                                {untried && dish.contestListId ? (
+                                                    <Link to={`/list/${dish.contestListId}`} className="mr-4 sm:mr-5 shrink-0 rounded-full border border-[var(--lt-accent-border)] bg-[var(--lt-accent-soft)] px-2.5 py-1 text-xs font-bold text-[var(--lt-accent)]">Concurso</Link>
+                                                ) : placeId && (
                                                     <DishRateButton placeId={placeId} itemName={dish.name} listId={dish.listId} className="mr-4 sm:mr-5" />
                                                 )}
                                                 </div>

@@ -21,7 +21,34 @@ export interface ContestCandidate {
     province?: string;
     region?: string;
     country?: string;
+    /** Lo que declara quien lo apunta (mismos ids que «Apto para»). */
+    diet?: ContestDiet[];
+    /** Descripción corta del plato. */
+    description?: string;
 }
+
+/** Detalles que se pueden declarar de un aspirante (mismos ids que aptOk / «Mis preferencias»). */
+export const CONTEST_DIETS = [
+    { id: 'glutenFree', label: 'Sin gluten', emoji: '🚫🌾' },
+    { id: 'lactoseFree', label: 'Sin lactosa', emoji: '🚫🥛' },
+    { id: 'vegetarian', label: 'Vegetariano', emoji: '🥦' },
+    { id: 'vegan', label: 'Vegano', emoji: '🌱' },
+] as const;
+export type ContestDiet = (typeof CONTEST_DIETS)[number]['id'];
+export const MAX_CANDIDATE_DESCRIPTION = 240;
+
+/** Ids válidos, en el orden de CONTEST_DIETS (tolera basura). */
+export function cleanDiet(value: unknown): ContestDiet[] {
+    if (!Array.isArray(value)) return [];
+    return CONTEST_DIETS.map((d) => d.id).filter((id) => value.includes(id));
+}
+
+/** «🚫🌾 Sin gluten», … para pintar como chapas. */
+export const dietBadges = (value: unknown): string[] =>
+    cleanDiet(value).map((id) => {
+        const d = CONTEST_DIETS.find((x) => x.id === id)!;
+        return `${d.emoji} ${d.label}`;
+    });
 
 export interface ContestSettings {
     closed?: boolean;

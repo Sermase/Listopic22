@@ -2,6 +2,9 @@
 
 const { itemDocIdFromName } = require('./canonical-resolve');
 
+// Lo que puede declarar quien apunta el aspirante (mismos ids que «Apto para»).
+const DIETS = ['glutenFree', 'lactoseFree', 'vegetarian', 'vegan'];
+
 /** Aspirantes válidos de una lista: { key, placeId, itemName, photoUrl? }. */
 function candidatesOf(list) {
   const raw = Array.isArray(list?.candidates) ? list.candidates : [];
@@ -12,6 +15,8 @@ function candidatesOf(list) {
       itemName: c.itemName.trim(),
       itemId: itemDocIdFromName(c.itemName),
       photoUrl: typeof c.photoUrl === 'string' ? c.photoUrl : null,
+      diet: DIETS.filter((d) => Array.isArray(c.diet) && c.diet.includes(d)),
+      description: typeof c.description === 'string' ? c.description.trim().slice(0, 240) : '',
     }));
 }
 

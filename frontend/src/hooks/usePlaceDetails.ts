@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { AptFor } from '../lib/aptFor';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { collection, collectionGroup, query, where, getDocs, doc, getDoc, getDocFromServer, limit, orderBy } from 'firebase/firestore';
+import { collection, collectionGroup, query, where, getDocs, doc, getDoc, getDocFromServer, limit, or, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { type ReviewEntity } from './useListDetails';
 import { firstUsablePlaceImage } from '../utils/placeImages';
@@ -60,6 +60,14 @@ export interface PlaceOfficialMenuItem {
     reviewCount: number;
     /** Nombres normalizados (canónico, aliases y variantes escritas) para emparejar fotos/reseñas. */
     keys: string[];
+    /** Aspirante de concursos: { minilista: lista madre } (aunque nadie lo haya valorado). */
+    contestLists?: Record<string, string>;
+    /** Foto del aspirante (la que puso quien lo apuntó). */
+    photoUrl?: string;
+    /** El sitio ya no lo sirve (places.unavailableItems). */
+    retired?: boolean;
+    /** Dieta que declaró quien lo apuntó a un concurso (ids de «Apto para»). */
+    diet?: string[];
 }
 
 export interface PlaceDetails {
@@ -270,6 +278,11 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
             getDoc(doc(db, 'places', placeId, 'businessPro', 'menu')).catch(() => null),
         ])
         : null;
+    // Sin Pro, la carta sale de las reseñas; los aspirantes de concursos (sin reseñas aún) se piden aparte.
+    const contestItemsPromise = businessPlan.isPro
+        ? null
+        : getDocs(query(collection(db, 'places', placeId, 'items'), or(where('source', '==', 'contest'), where('inContest', '==', true)), limit(50)))
+            .catch(() => null);
     const placePhotosSnapPromise = getDocs(
         query(collection(db, 'places', placeId, 'photos'), orderBy('createdAt', 'desc'), limit(40))
     ).catch(e => {
@@ -345,7 +358,8 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
     // listado de items oficiales para la carta por secciones.
     const officialItemData: Record<string, PlaceOfficialItemData> = {};
     const officialItems: PlaceOfficialMenuItem[] = [];
-    (itemsSnap?.docs || []).forEach(itemDoc => {
+    const contestItemsSnap = contestItemsPromise ? await contestItemsPromise : null;
+    (itemsSnap?.docs || contestItemsSnap?.docs || []).forEach(itemDoc => {
         const data = itemDoc.data() as Record<string, unknown>;
         if (data.status === 'inactive') return;
         const businessData = (data.businessData || {}) as Record<string, unknown>;
@@ -367,7 +381,9 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
             group: typeof businessData.group === 'string' && businessData.group ? businessData.group : undefined,
             price: typeof businessData.price === 'string' && businessData.price ? businessData.price : undefined,
             discount: typeof businessData.discount === 'string' && businessData.discount ? businessData.discount : undefined,
-            description: typeof businessData.description === 'string' && businessData.description ? businessData.description : undefined,
+            description: typeof businessData.description === 'string' && businessData.description
+                ? businessData.description
+                : typeof data.contestDescription === 'string' && data.contestDescription ? data.contestDescription : undefined,
             allergens: Array.isArray(businessData.allergens)
                 ? businessData.allergens.filter((entry): entry is string => typeof entry === 'string')
                 : [],
@@ -377,6 +393,12 @@ async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
             rating: typeof stats.averageRating === 'number' ? stats.averageRating : null,
             reviewCount: typeof stats.reviewCount === 'number' ? stats.reviewCount : 0,
             keys: Array.from(keys).filter(Boolean),
+            ...(data.contestLists && typeof data.contestLists === 'object' && Object.keys(data.contestLists).length > 0
+                ? { contestLists: data.contestLists as Record<string, string> }
+                : {}),
+            ...(typeof data.photoUrl === 'string' && data.photoUrl ? { photoUrl: data.photoUrl } : {}),
+            ...(isItemUnavailable(placeData, data.canonicalName) ? { retired: true } : {}),
+            ...(Array.isArray(data.contestDiet) && data.contestDiet.length > 0 ? { diet: data.contestDiet.filter((d: unknown): d is string => typeof d === 'string') } : {}),
         });
 
         const entry: PlaceOfficialItemData = {

@@ -21,7 +21,8 @@ import { EntityHero } from '../components/EntityHero';
 import { FullMapModal } from '../components/map/FullMapModal';
 import { ElementRanks } from '../components/ElementRanks';
 import { useAuthPrompt } from '../context/AuthPromptContext';
-import { itemNameKey, resolvePlaceItemByName, reviewItemId, type PlaceItemLike } from '../lib/placeItems';
+import { itemDocIdFromName, itemNameKey, resolvePlaceItemByName, reviewItemId, type PlaceItemLike } from '../lib/placeItems';
+import { dietBadges } from '../lib/contest';
 
 import { scoreBadge, scoreTextColor } from '../lib/scoreScale';
 import { HelpTip } from '../components/HelpTip';
@@ -67,6 +68,26 @@ export const GroupPage: React.FC = () => {
     }, [itemName, placeId, navigate]);
 
     const [heroReady, setHeroReady] = useState(false);
+    // Aspirante de un concurso: foto, dieta y descripción que puso quien lo apuntó.
+    const [contestInfo, setContestInfo] = useState<{ listId?: string; diet: string[]; description?: string; photoUrl?: string } | null>(null);
+    useEffect(() => {
+        setContestInfo(null);
+        if (!placeId || !decodedName) return undefined;
+        let alive = true;
+        getDoc(doc(db, 'places', placeId, 'items', itemDocIdFromName(decodedName))).then((snap) => {
+            const data = snap.data();
+            if (!alive || !data?.contestLists || typeof data.contestLists !== 'object') return;
+            const listIds = Object.keys(data.contestLists);
+            if (listIds.length === 0) return;
+            setContestInfo({
+                listId: listIds[0],
+                diet: Array.isArray(data.contestDiet) ? data.contestDiet : [],
+                description: typeof data.contestDescription === 'string' && data.contestDescription ? data.contestDescription : undefined,
+                photoUrl: typeof data.photoUrl === 'string' && data.photoUrl ? data.photoUrl : undefined,
+            });
+        }).catch(() => undefined);
+        return () => { alive = false; };
+    }, [placeId, decodedName]);
     const [reviews, setReviews] = useState<ReviewEntity[]>([]);
     const [placeName, setPlaceName] = useState('');
     const [placeCity, setPlaceCity] = useState('');
@@ -694,7 +715,7 @@ export const GroupPage: React.FC = () => {
         <div className="min-h-screen bg-[var(--lt-bg)] pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-20">
             {/* Hero */}
             <EntityHero
-                imageUrl={stats?.mainPhoto}
+                imageUrl={stats?.mainPhoto || contestInfo?.photoUrl}
                 alt={decodedName}
                 ready={heroReady}
                 onImageLoad={() => setHeroReady(true)}
@@ -715,6 +736,21 @@ export const GroupPage: React.FC = () => {
                                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold mb-2 border backdrop-blur-md bg-[var(--lt-glass)] border-[var(--lt-border-strong)] text-[var(--lt-text-muted)]">
                                     🚫 Ya no lo sirven
                                 </div>
+                            )}
+                            {contestInfo && (
+                                <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                                    {contestInfo.listId && (
+                                        <Link to={`/list/${contestInfo.listId}`} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold border backdrop-blur-md bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]">
+                                            🏆 Aspirante de un concurso
+                                        </Link>
+                                    )}
+                                    {dietBadges(contestInfo.diet).map((badge) => (
+                                        <span key={badge} className="px-2.5 py-0.5 rounded-full text-xs font-bold border backdrop-blur-md bg-[var(--lt-glass)] border-[var(--lt-border-strong)] text-[var(--lt-text)]">{badge}</span>
+                                    ))}
+                                </div>
+                            )}
+                            {contestInfo?.description && (
+                                <p className="mb-2 max-w-xl text-sm text-[var(--lt-text-muted)]">{contestInfo.description}</p>
                             )}
                             <Link to={`/place/${placeId}`} className="group/place inline-flex max-w-full items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1 bg-[var(--lt-glass)] border border-[var(--lt-border-strong)] backdrop-blur-md text-sm md:text-base text-[var(--lt-text)] font-semibold hover:border-[var(--lt-accent-border)] transition-colors">
                                 <span className="w-6 h-6 rounded-full bg-[var(--lt-accent-soft)] flex items-center justify-center shrink-0">

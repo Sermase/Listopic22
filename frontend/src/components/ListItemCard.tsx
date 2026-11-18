@@ -218,10 +218,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
     }, [item.criteriaAverages, item.criteriaDefinition]);
 
     // --- Render Content ---
-    // Sin reseñas, la ficha del plato está vacía: se va al sitio (allí está en la carta).
-    const titleHref = item.placeId && pending
-        ? `/place/${item.placeId}`
-        : item.placeId
+    const titleHref = item.placeId
         ? (groupingMode === 'dish'
             ? `/group/${item.placeId}/${encodeURIComponent(item.name)}${listId ? `?listId=${listId}` : ''}`
             : `/place/${item.placeId}`)

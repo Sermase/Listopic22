@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { deleteField, doc, getDoc, Timestamp, updateDoc } from 'firebase/firestore';
-import { Camera, ClipboardPaste, Loader, Plus, Settings2, Trash2, X } from 'lucide-react';
+import { Camera, ClipboardPaste, Loader, Pencil, Plus, Settings2, Trash2, X } from 'lucide-react';
 import { uploadListImage } from '../lib/listCover';
 import { canReadClipboardImage, imageFromPaste, readClipboardImage } from '../lib/clipboardImage';
 import { db } from '../firebase';
@@ -11,9 +11,52 @@ import { useSheetDismiss } from '../hooks/useSheetDismiss';
 import { PlaceService, type PlaceResult } from '../services/PlaceService';
 import { PlaceSearch } from './PlaceSearch';
 import {
-    candidateKey, candidateMatchKey, contestDatesLabel, contestPhase, dateToDay, dayToDate,
-    isClosedContest, MAX_CANDIDATES, type ContestCandidate, type ContestListLike,
+    candidateKey, candidateMatchKey, cleanDiet, CONTEST_DIETS, contestDatesLabel, contestPhase, dateToDay, dayToDate,
+    dietBadges, isClosedContest, MAX_CANDIDATE_DESCRIPTION, MAX_CANDIDATES,
+    type ContestCandidate, type ContestDiet, type ContestListLike,
 } from '../lib/contest';
+
+/** Detalles del aspirante (sin valoraciones): dieta declarada y una descripción corta. */
+const CandidateDetailsFields: React.FC<{
+    diet: ContestDiet[];
+    description: string;
+    onDiet: (next: ContestDiet[]) => void;
+    onDescription: (next: string) => void;
+}> = ({ diet, description, onDiet, onDescription }) => (
+    <div className="space-y-2">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Detalles del plato">
+            {CONTEST_DIETS.map((d) => {
+                const on = diet.includes(d.id);
+                return (
+                    <button
+                        key={d.id}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => onDiet(cleanDiet(on ? diet.filter((x) => x !== d.id) : [...diet, d.id]))}
+                        className={`px-2.5 py-1 rounded-full border text-xs font-bold transition-colors ${on
+                            ? 'bg-[var(--lt-accent-soft)] border-[var(--lt-accent-border)] text-[var(--lt-accent)]'
+                            : 'bg-[var(--lt-glass)] border-[var(--lt-border)] text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]'}`}
+                    >
+                        {d.emoji} {d.label}
+                    </button>
+                );
+            })}
+        </div>
+        <textarea
+            value={description}
+            onChange={(e) => onDescription(e.target.value.slice(0, MAX_CANDIDATE_DESCRIPTION))}
+            placeholder="Descripción (opcional): ingredientes, cómo es…"
+            rows={2}
+            className="w-full resize-none rounded-lg bg-[var(--lt-glass)] border border-[var(--lt-border)] px-3 py-2 text-sm text-[var(--lt-text)] placeholder:text-[var(--lt-text-muted)] focus:outline-none focus:border-[var(--lt-accent-border)]"
+        />
+    </div>
+);
+
+/** Campos de detalle listos para guardar en el aspirante (sin claves vacías: Firestore no admite undefined). */
+const detailsPatch = (diet: ContestDiet[], description: string): Pick<ContestCandidate, 'diet' | 'description'> => {
+    const text = description.trim().slice(0, MAX_CANDIDATE_DESCRIPTION);
+    return { ...(diet.length > 0 ? { diet } : {}), ...(text ? { description: text } : {}) };
+};
 
 interface ReviewLite { placeId?: string; itemName?: string; sublistId?: string | null }
 
@@ -157,27 +200,38 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
     const [place, setPlace] = useState<PlaceResult | null>(null);
     const [itemName, setItemName] = useState('');
     const [photo, setPhoto] = useState<File | null>(null);
+    const [diet, setDiet] = useState<ContestDiet[]>([]);
+    const [description, setDescription] = useState('');
+    // Aspirante ya apuntado que se está editando (detalles y foto).
+    const [editing, setEditing] = useState<{ key: string; diet: ContestDiet[]; description: string; photo: File | null } | null>(null);
+    const [savingEdit, setSavingEdit] = useState(false);
+    const editPreview = useMemo(() => (editing?.photo ? URL.createObjectURL(editing.photo) : null), [editing?.photo]);
+    useEffect(() => () => { if (editPreview) URL.revokeObjectURL(editPreview); }, [editPreview]);
     const photoPreview = useMemo(() => (photo ? URL.createObjectURL(photo) : null), [photo]);
     useEffect(() => () => { if (photoPreview) URL.revokeObjectURL(photoPreview); }, [photoPreview]);
     // La foto se sube a list-images/{lista}: las reglas de Storage solo dejan al dueño (o un jefe).
     const canUploadPhoto = canManage || isJefe;
     const photoStep = Boolean(place) && canUploadPhoto;
     // Ctrl+V con una imagen copiada la pone como foto (el texto pegado sigue yendo a su campo).
+    // Editando un aspirante, la imagen pegada va a él.
+    const editingPhoto = Boolean(editing) && canUploadPhoto;
     useEffect(() => {
-        if (!photoStep) return undefined;
+        if (!photoStep && !editingPhoto) return undefined;
         const onPaste = (event: ClipboardEvent) => {
             const image = imageFromPaste(event.clipboardData);
             if (!image) return;
             event.preventDefault();
-            setPhoto(image);
+            if (editingPhoto) setEditing((prev) => (prev ? { ...prev, photo: image } : prev));
+            else setPhoto(image);
         };
         document.addEventListener('paste', onPaste);
         return () => document.removeEventListener('paste', onPaste);
-    }, [photoStep]);
-    const pastePhoto = async () => {
+    }, [photoStep, editingPhoto]);
+    const pastePhoto = async (target: 'new' | 'edit' = 'new') => {
         try {
             const image = await readClipboardImage();
-            if (image) setPhoto(image);
+            if (image && target === 'edit') setEditing((prev) => (prev ? { ...prev, photo: image } : prev));
+            else if (image) setPhoto(image);
             else showToast({ variant: 'error', message: 'No hay ninguna imagen copiada.' });
         } catch {
             showToast({ variant: 'error', message: 'No se pudo leer el portapapeles. Prueba con Ctrl+V o elige la foto.' });
@@ -256,15 +310,47 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                     showToast({ variant: 'error', message: 'No se pudo subir la foto; el aspirante se añade sin ella.' });
                 }
             }
-            await save([...candidates, { key, placeId: place.id, placeName: place.name, placeAddress: place.address || '', itemName: name, ...(Number.isFinite(place.lat) && place.lat !== 0 ? { lat: place.lat, lng: place.lng } : _lat !== undefined ? { lat: _lat, lng: _lng } : {}), ...zone, ...(photoUrl ? { photoUrl } : {}) }]);
+            await save([...candidates, { key, placeId: place.id, placeName: place.name, placeAddress: place.address || '', itemName: name, ...(Number.isFinite(place.lat) && place.lat !== 0 ? { lat: place.lat, lng: place.lng } : _lat !== undefined ? { lat: _lat, lng: _lng } : {}), ...zone, ...(photoUrl ? { photoUrl } : {}), ...detailsPatch(diet, description) }]);
             setItemName('');
             setPhoto(null);
+            setDiet([]);
+            setDescription('');
             setPlace(null);
         } catch (e) {
             console.error('No se pudo añadir el aspirante', e);
             showToast({ variant: 'error', message: 'No se pudo añadir el aspirante.' });
         } finally {
             setAdding(false);
+        }
+    };
+
+    const saveEdit = async () => {
+        if (!editing) return;
+        setSavingEdit(true);
+        try {
+            let photoUrl: string | undefined;
+            if (editing.photo) {
+                try {
+                    photoUrl = (await uploadListImage(list.id, editing.photo, 'aspirante')).url;
+                } catch (photoError) {
+                    console.error('No se pudo subir la foto del aspirante', photoError);
+                    showToast({ variant: 'error', message: 'No se pudo subir la foto; se guarda lo demás.' });
+                }
+            }
+            const next = candidatesRef.current.map((c) => {
+                if (c.key !== editing.key) return c;
+                const rest = { ...c };
+                delete rest.diet;
+                delete rest.description;
+                return { ...rest, ...(photoUrl ? { photoUrl } : {}), ...detailsPatch(editing.diet, editing.description) };
+            });
+            await save(next);
+            setEditing(null);
+        } catch (e) {
+            console.error('No se pudo guardar el aspirante', e);
+            showToast({ variant: 'error', message: 'No se pudo guardar el aspirante.' });
+        } finally {
+            setSavingEdit(false);
         }
     };
 
@@ -334,15 +420,51 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                         {candidates.length > 0 && (
                             <ul className="mb-3 divide-y divide-[var(--lt-border)] rounded-xl border border-[var(--lt-border)]">
                                 {candidates.map((c) => (
-                                    <li key={c.key} className="flex items-center gap-2 px-3 py-2">
-                                        {c.photoUrl ? <img src={c.photoUrl} alt="" loading="lazy" className="w-10 h-10 rounded-lg object-cover shrink-0" /> : null}
+                                    <li key={c.key} className="px-3 py-2">
+                                        <div className="flex items-center gap-2">
+                                        {(editing?.key === c.key && editPreview) || c.photoUrl ? <img src={(editing?.key === c.key && editPreview) || c.photoUrl} alt="" loading="lazy" className="w-10 h-10 rounded-lg object-cover shrink-0" /> : null}
                                         <span className="min-w-0 flex-1">
                                             <span className="block text-sm font-bold text-[var(--lt-text)] truncate">{c.itemName}</span>
-                                            <span className="block text-xs text-[var(--lt-text-muted)] truncate">{c.placeName}</span>
+                                            <span className="block text-xs text-[var(--lt-text-muted)] truncate">{[c.placeName, ...dietBadges(c.diet)].join(' · ')}</span>
                                         </span>
+                                        <button type="button" aria-label={`Editar ${c.itemName}`} aria-expanded={editing?.key === c.key}
+                                            onClick={() => setEditing(editing?.key === c.key ? null : { key: c.key, diet: cleanDiet(c.diet), description: c.description ?? '', photo: null })}
+                                            className="p-1.5 rounded-lg text-[var(--lt-text-muted)] hover:text-[var(--lt-accent)] hover:bg-[var(--lt-glass)]">
+                                            <Pencil className="w-4 h-4" />
+                                        </button>
                                         <button type="button" aria-label={`Quitar ${c.itemName}`} onClick={() => removeCandidate(c.key)} className="p-1.5 rounded-lg text-[var(--lt-text-muted)] hover:text-[var(--lt-danger)] hover:bg-[var(--lt-glass)]">
                                             <Trash2 className="w-4 h-4" />
                                         </button>
+                                        </div>
+                                        {editing?.key === c.key && (
+                                            <div className="mt-2 space-y-2">
+                                                <CandidateDetailsFields
+                                                    diet={editing.diet}
+                                                    description={editing.description}
+                                                    onDiet={(next) => setEditing({ ...editing, diet: next })}
+                                                    onDescription={(next) => setEditing({ ...editing, description: next })}
+                                                />
+                                                <div className="flex gap-2">
+                                                    {canUploadPhoto && (
+                                                        <label className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--lt-border)] bg-[var(--lt-glass)] text-sm text-[var(--lt-text-muted)] cursor-pointer hover:text-[var(--lt-text)]">
+                                                            <Camera className="w-4 h-4 shrink-0" />
+                                                            <span className="flex-1 truncate">{editing.photo ? editing.photo.name : c.photoUrl ? 'Cambiar foto' : 'Añadir foto'}</span>
+                                                            <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; setEditing({ ...editing, photo: f }); e.target.value = ''; }} />
+                                                        </label>
+                                                    )}
+                                                    {canUploadPhoto && canReadClipboardImage() && (
+                                                        <button type="button" onClick={() => pastePhoto('edit')} title="Pegar la imagen copiada (o Ctrl+V)" className="shrink-0 flex items-center gap-1 px-3 rounded-lg border border-[var(--lt-border)] bg-[var(--lt-glass)] text-sm text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">
+                                                            <ClipboardPaste className="w-4 h-4" /> Pegar
+                                                        </button>
+                                                    )}
+                                                    <button type="button" onClick={saveEdit} disabled={savingEdit}
+                                                        className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--lt-accent-soft)] border border-[var(--lt-accent-border)] text-sm font-bold text-[var(--lt-accent)] disabled:opacity-50">
+                                                        {savingEdit && <Loader className="w-4 h-4 animate-spin" />}
+                                                        Guardar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </li>
                                 ))}
                             </ul>
@@ -366,6 +488,9 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                                     className="w-full rounded-lg bg-[var(--lt-glass)] border border-[var(--lt-border)] px-3 py-2 text-sm text-[var(--lt-text)] placeholder:text-[var(--lt-text-muted)] focus:outline-none focus:border-[var(--lt-accent-border)]"
                                 />
                             )}
+                            {place && (
+                                <CandidateDetailsFields diet={diet} description={description} onDiet={setDiet} onDescription={setDescription} />
+                            )}
                             {photoStep && (
                                 <div className="flex gap-2">
                                 <label className="flex-1 min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg border border-[var(--lt-border)] bg-[var(--lt-glass)] text-sm text-[var(--lt-text-muted)] cursor-pointer hover:text-[var(--lt-text)]">
@@ -377,7 +502,7 @@ const ContestSettingsModal: React.FC<SettingsProps> = ({ list, canManage, isJefe
                                     <input type="file" accept="image/*" className="hidden" onChange={(e) => { setPhoto(e.target.files?.[0] ?? null); e.target.value = ''; }} />
                                 </label>
                                 {canReadClipboardImage() && (
-                                    <button type="button" onClick={pastePhoto} title="Pegar la imagen copiada (o Ctrl+V)" className="shrink-0 flex items-center gap-1 px-3 rounded-lg border border-[var(--lt-border)] bg-[var(--lt-glass)] text-sm text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">
+                                    <button type="button" onClick={() => pastePhoto('new')} title="Pegar la imagen copiada (o Ctrl+V)" className="shrink-0 flex items-center gap-1 px-3 rounded-lg border border-[var(--lt-border)] bg-[var(--lt-glass)] text-sm text-[var(--lt-text-muted)] hover:text-[var(--lt-text)]">
                                         <ClipboardPaste className="w-4 h-4" /> Pegar
                                     </button>
                                 )}
