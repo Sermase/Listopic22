@@ -125,3 +125,24 @@ test('destacar el concurso: un jefe lo acepta en Developer y sale en Inicio', as
   const FIRESTORE = `http://${process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'}/v1/projects/demo-listopic/databases/(default)/documents`;
   await fetch(`${FIRESTORE}/lists/concurso?updateMask.fieldPaths=featureRequest`, { method: 'PATCH', headers: { authorization: 'Bearer owner', 'content-type': 'application/json' }, body: JSON.stringify({ fields: {} }) });
 });
+
+test('mapa del concurso: la ficha lleva a la página del plato, no al sitio', async ({ page, errors }) => {
+  await login(page, 'duena');
+  await page.goto('/list/concurso');
+  await page.getByRole('button', { name: 'Ver mapa' }).first().click();
+  // Bar Tres: un solo plato valorado (8.2 de media).
+  const pin = page.locator('.leaflet-marker-icon').filter({ hasText: /\d/ }).first();
+  await expect(pin).toBeVisible();
+  await page.waitForTimeout(800); // el mapa termina de encuadrar
+  await pin.click();
+  const popup = page.locator('.leaflet-popup');
+  await expect(popup).toBeVisible();
+  const dishLink = popup.locator('a[href*="/group/"]').first();
+  await expect(dishLink).toBeVisible();
+  await expect(popup.locator('a[href^="/place/"]')).toHaveCount(0);
+  await page.waitForTimeout(400);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/7-ficha-mapa-plato.png` });
+  await dishLink.click();
+  await expect(page).toHaveURL(/\/group\//);
+  expect(errors).toEqual([]);
+});

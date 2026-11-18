@@ -9,7 +9,8 @@ import { formatScore, scoreBadgeStyle } from '../../lib/scoreScale';
  */
 export const MapPopupCard: React.FC<{
     title: string;
-    to: string;
+    /** Sin destino, la ficha no enlaza (se elige uno de sus elementos, en `children`). */
+    to?: string | null;
     photoUrl?: string | null;
     score?: number | null;
     subtitle?: string | null;
@@ -18,9 +19,13 @@ export const MapPopupCard: React.FC<{
     children?: React.ReactNode;
 }> = ({ title, to, photoUrl, score, subtitle, sponsored = false, onNavigate, children }) => {
     const hasScore = typeof score === 'number' && Number.isFinite(score) && score > 0;
+    // Con destino, foto y nombre enlazan; sin él, son solo texto.
+    const wrap = (className: string, inner: React.ReactNode) => (to
+        ? <Link to={to} onClick={onNavigate} className={className}>{inner}</Link>
+        : <div className={className}>{inner}</div>);
     return (
         <div className="w-[230px] overflow-hidden rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] font-sans shadow-[0_12px_36px_rgba(0,0,0,0.35)]">
-            <Link to={to} onClick={onNavigate} className="relative block h-[104px] bg-[var(--lt-card)]">
+            {wrap('relative block h-[104px] bg-[var(--lt-card)]', <>
                 {photoUrl ? (
                     <img
                         src={photoUrl}
@@ -42,20 +47,18 @@ export const MapPopupCard: React.FC<{
                         Patrocinado
                     </span>
                 )}
-            </Link>
+            </>)}
             <div className="px-3 pb-3 pt-2.5">
-                <Link to={to} onClick={onNavigate} className="block truncate text-sm font-bold !text-[var(--lt-text)] hover:underline">
-                    {title}
-                </Link>
+                {wrap(`block truncate text-sm font-bold !text-[var(--lt-text)] ${to ? 'hover:underline' : ''}`, title)}
                 {subtitle && <p className="mt-0.5 truncate text-[11px] font-medium text-[var(--lt-text-muted)]">{subtitle}</p>}
                 {children}
-                <Link
+                {to && <Link
                     to={to}
                     onClick={onNavigate}
                     className="lt-on-accent mt-2.5 flex items-center justify-center gap-0.5 rounded-xl bg-[var(--lt-accent)] py-1.5 text-xs font-bold transition-opacity hover:opacity-90"
                 >
                     Ver detalles <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
+                </Link>}
             </div>
         </div>
     );

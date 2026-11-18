@@ -22,10 +22,18 @@ export interface MapItem {
     subtitle?: string;
     /** Listas o categorías del sitio, para el filtro del mapa grande. */
     lists?: string[];
-    items?: {
-        name: string;
-        score: number;
-    }[];
+    /** Elementos del sitio en esta lista: la ficha enlaza a cada uno (no al sitio). */
+    items?: MapSubItem[];
+}
+
+export interface MapSubItem {
+    name: string;
+    score: number;
+    /** Página del elemento (p. ej. /group/{placeId}/{nombre}). */
+    to?: string;
+    photo?: string;
+    /** Aspirante de concurso sin valorar. */
+    pending?: boolean;
 }
 
 export interface MapInputItem extends Partial<MapItem> {
@@ -75,7 +83,7 @@ export const normalizeMapItems = (items: MapInputItem[]): MapItem[] => items.fla
 
 const signature = (items: MapItem[]) => items.map((i) => [
     i.id, i.placeId, i.lat, i.lng, i.name, i.photoUrl, i.rating, i.botRating, i.reviewsCount, i.emoji, i.color, i.pinMark, i.pinPhoto, i.subtitle,
-    i.lists?.join(','), i.items?.map((sub) => `${sub.name}:${sub.score}`).join(','),
+    i.lists?.join(','), i.items?.map((sub) => `${sub.name}:${sub.score}:${sub.to ?? ''}:${sub.photo ?? ''}:${sub.pending ? 1 : 0}`).join(','),
 ].join('~')).join('|');
 
 /**
@@ -92,4 +100,79 @@ export function useStableMapItems(items: MapInputItem[]): MapItem[] {
         return normalized;
     }
     return kept.items;
+}
+
+export interface PopupView {
+    title: string;
+    subtitle?: string | null;
+    photoUrl?: string | null;
+    score?: number | null;
+    /** null: la ficha no lleva a ningún sitio, se elige uno de sus elementos. */
+    to: string | null;
+    dishes: MapSubItem[];
+}
+
+/**
+ * Ficha de un pin en el mapa de una Lista: con un solo elemento, ese elemento
+ * (su foto, su nota y su página); con varios, el sitio con la foto de uno y la
+ * lista de elementos para elegir. Sin elementos enlazables, el sitio.
+ */
+export function listPopupView(item: MapItem): PopupView {
+    const dishes = (item.items ?? []).filter((d) => d.to);
+    if (dishes.length === 1) {
+        const [d] = dishes;
+        return {
+            title: d.name,
+            subtitle: d.pending ? `🏆 Sin probar · ${item.name}` : item.name,
+            photoUrl: d.photo || item.photoUrl,
+            score: d.pending ? null : d.score,
+            to: d.to!,
+            dishes: [],
+        };
+    }
+    if (dishes.length > 1) {
+        return {
+            title: item.name,
+            subtitle: `${dishes.length} elementos`,
+            photoUrl: dishes.find((d) => d.photo)?.photo || item.photoUrl,
+            score: item.rating,
+            to: null,
+            dishes,
+        };
+    }
+    return { title: item.name, subtitle: item.subtitle, photoUrl: item.photoUrl, score: item.rating, to: `/place/${item.placeId || item.id}`, dishes: [] };
+}
+
+/** Página de un elemento (sitio + nombre). */
+export const elementPath = (placeId: string, itemName: string, listId?: string): string =>
+    `/group/${encodeURIComponent(placeId)}/${encodeURIComponent(itemName)}${listId ? `?listId=${encodeURIComponent(listId)}` : ''}`;
+
+/**
+ * Elementos de un sitio para la ficha del mapa: las valoraciones del mismo
+ * elemento se juntan (nota media, primera foto) y los aspirantes sin probar van al final.
+ */
+export function dishesForPlace(
+    placeId: string,
+    reviewed: { name: string; score: number; photo?: string }[],
+    pending: { name: string; photo?: string }[] = [],
+    listId?: string,
+): MapSubItem[] {
+    const byName = new Map<string, { name: string; sum: number; n: number; photo?: string }>();
+    reviewed.forEach((r) => {
+        const name = (r.name || '').trim();
+        if (!name) return;
+        const key = name.toLowerCase();
+        const entry = byName.get(key) ?? { name, sum: 0, n: 0 };
+        entry.sum += r.score;
+        entry.n += 1;
+        if (!entry.photo && r.photo) entry.photo = r.photo;
+        byName.set(key, entry);
+    });
+    const done: MapSubItem[] = [...byName.values()]
+        .map((e) => ({ name: e.name, score: Number((e.sum / e.n).toFixed(2)), to: elementPath(placeId, e.name, listId), ...(e.photo ? { photo: e.photo } : {}) }))
+        .sort((a, b) => b.score - a.score);
+    const untried: MapSubItem[] = pending
+        .filter((p) => p.name?.trim() && !byName.has(p.name.trim().toLowerCase()))
+        .map((p) => ({ name: p.name.trim(), score: 0, pending: true, to: elementPath(placeId, p.name.trim(), listId), ...(p.photo ? { photo: p.photo } : {}) }));
+    return [...done, ...untried];
 }

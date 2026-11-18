@@ -18,6 +18,7 @@ import { FilterModal } from '../components/FilterModal';
 import { ShareListModal } from '../components/ShareListModal';
 import { SublistsModal } from '../components/SublistsModal';
 import { ExpandableText } from '../components/ExpandableText';
+import { dishesForPlace, type MapSubItem } from '../components/map/mapItems';
 import { EditListModal } from '../components/EditListModal';
 import { useAuth } from '../context/AuthContext';
 import { getExpandedRangeValue, useFilters } from '../context/FilterContext';
@@ -856,7 +857,7 @@ export const ListPage: React.FC = () => {
             lng?: number;
             photoUrl?: string;
             maxScore: number;
-            items: { name: string; score: number }[];
+            items: { name: string; score: number; photo?: string }[];
             allTags: string[];
             aptOk: string[];
             accessibilityOptions: string[];
@@ -905,7 +906,7 @@ export const ListPage: React.FC = () => {
 
             const g = placeGroups[review.placeId];
             // Accumulate Items
-            g.items.push({ name: review.itemName, score: reviewScore });
+            g.items.push({ name: review.itemName, score: reviewScore, ...(review.photoUrl ? { photo: review.photoUrl } : {}) });
             g.reviewsCount++;
             if (review.itemUnavailable) g.unavailableCount += 1;
             if (Array.isArray(review.tags)) g.allTags.push(...review.tags);
@@ -952,6 +953,10 @@ export const ListPage: React.FC = () => {
         // Sitio ya en el mapa: su ficha dice también qué aspirantes faltan por probar.
         const untriedAt: Record<string, string[]> = {};
         untried.forEach((c) => { if (placeGroups[c.placeId]) (untriedAt[c.placeId] ??= []).push(c.itemName); });
+        // Ficha del mapa: cada elemento enlaza a su página (en listas por plato).
+        const untriedDishesAt: Record<string, { name: string; photo?: string }[]> = {};
+        untried.forEach((c) => { (untriedDishesAt[c.placeId] ??= []).push({ name: c.itemName, ...(c.photoUrl ? { photo: c.photoUrl } : {}) }); });
+        const byDish = groupingMode === 'dish';
         const pending = untried
             .filter((c) => typeof c.lat === 'number' && typeof c.lng === 'number' && !(c.lat === 0 && c.lng === 0) && !placeGroups[c.placeId])
             .reduce<Record<string, { id: string; placeId: string; name: string; lat: number; lng: number; photoUrl?: string; dishes: string[]; geo: GeoFields }>>((acc, c) => {
@@ -972,7 +977,7 @@ export const ListPage: React.FC = () => {
             color: '#9ca3af',
             pending: true,
             subtitle: `Sin probar · ${dishes.join(', ')}`,
-            items: [] as { name: string; score: number }[],
+            items: byDish ? dishesForPlace(p.placeId, [], untriedDishesAt[p.placeId], list?.id) : [] as MapSubItem[],
             allTags: [] as string[],
             aptOk: [] as string[],
             accessibilityOptions: [] as string[],
@@ -990,9 +995,11 @@ export const ListPage: React.FC = () => {
             itemUnavailable: g.unavailableCount > 0 && g.unavailableCount === g.reviewsCount,
             ...(isContestList && (candidatePhotoAt[g.placeId] || g.dishPhoto) ? { pinPhoto: candidatePhotoAt[g.placeId] || g.dishPhoto } : {}),
             ...(untriedAt[g.placeId] ? { subtitle: `${g.reviewsCount} ${g.reviewsCount === 1 ? 'reseña' : 'reseñas'} · sin probar: ${untriedAt[g.placeId].join(', ')}` } : {}),
-            items: g.items.sort((a, b) => b.score - a.score) // Sort items descending
+            items: byDish
+                ? dishesForPlace(g.placeId, g.items, untriedDishesAt[g.placeId], list?.id)
+                : g.items.sort((a, b) => b.score - a.score) as MapSubItem[],
         })), ...pendingItems];
-    }, [visibleReviews, list, contestCandidates, isContestList]);
+    }, [visibleReviews, list, contestCandidates, isContestList, groupingMode]);
 
     // --- Filtering Logic ---
     // --- Filtering Logic ---
