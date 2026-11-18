@@ -1694,7 +1694,8 @@ export const ProfilePage: React.FC = () => {
         ready={heroProfileReady}
         onImageLoad={() => setHeroProfileReady(true)}
         onImageError={() => setFailedProfilePhotoUrl(usableProfilePhotoUrl)}
-        className="h-[40vh] min-h-[300px] after:absolute after:inset-x-0 after:-bottom-1 after:z-20 after:h-4 after:bg-[var(--lt-bg)]"
+        // Sin foto de perfil, cabecera baja: el avatar sube y no queda un hueco vacío arriba.
+        className={`${usableProfilePhotoUrl ? 'h-[40vh] min-h-[300px]' : 'h-[230px] min-h-0'} after:absolute after:inset-x-0 after:-bottom-1 after:z-20 after:h-4 after:bg-[var(--lt-bg)]`}
         fallback={(
           <div className="absolute inset-0"
             style={{ background: dominantColor ? `linear-gradient(to bottom, ${dominantColor}, var(--lt-bg))` : 'linear-gradient(to bottom, rgba(49,46,129,0.4), var(--lt-bg))' }} />

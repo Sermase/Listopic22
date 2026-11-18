@@ -220,6 +220,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 const next = new Set<string>(Array.isArray(list) ? list : []);
                 const seen = seenBadgesRef.current;
                 if (seen) {
+                    // Después del aviso dorado de la medalla (dura 5,5 s arriba): antes salían a la vez y se pisaban.
+                    const AFTER_ACHIEVEMENT_MS = 5800;
                     // Medalla de tema recién ganada (la de la Abuela ya la avisa su sorpresa).
                     THEMES.filter((t) => t.unlock && !t.secret && next.has(t.unlock.badge) && !seen.has(t.unlock.badge))
                         .forEach((t, i) => window.setTimeout(() => fireSurprise({
@@ -227,7 +229,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                             emoji: t.unlock!.icon,
                             text: `Medalla «${t.unlock!.medal}»: tema ${t.label} desbloqueado. Pruébalo en Preferencias → Tema.`,
                             haptic: 'success',
-                        }), i * 1200));
+                        }), AFTER_ACHIEVEMENT_MS + i * 1200));
                     // Medalla que da la gracia de Medianoche o Mediodía.
                     (Object.values(THEME_PERKS) as ThemePerk[]).filter((p) => next.has(p.badge) && !seen.has(p.badge))
                         .forEach((p, i) => window.setTimeout(() => fireSurprise({
@@ -235,7 +237,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                             emoji: p.icon,
                             text: `Medalla «${p.medal}». ${p.what}`,
                             haptic: 'success',
-                        }), 600 + i * 1200));
+                        }), AFTER_ACHIEVEMENT_MS + 600 + i * 1200));
                 }
                 seenBadgesRef.current = next;
                 setBadges(next);

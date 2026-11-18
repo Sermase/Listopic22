@@ -420,7 +420,7 @@ export const ListItemCard: React.FC<ListItemCardProps> = ({ item, rank, contextR
                                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--lt-text-muted)]">
                                         {groupingMode !== 'list' && item.reviewCount > 0 && <span>{`${item.reviewCount} ${item.reviewCount === 1 ? 'reseña' : 'reseñas'}${item.scoreKind === 'bot' ? ' de bots' : ''}`}</span>}
                                         {contextRankLabel && (
-                                            <span className="rounded-full bg-[var(--lt-accent-soft)] px-1.5 py-0.5 font-bold text-[var(--lt-accent)]">{contextRankLabel}</span>
+                                            <span title={contextRankLabel} className="max-w-full truncate rounded-full bg-[var(--lt-accent-soft)] px-1.5 py-0.5 font-bold text-[var(--lt-accent)]">{contextRankLabel}</span>
                                         )}
                                         {item.listName && (
                                             <span className={`${CHIP_ACCENT} truncate max-w-[120px]`}>

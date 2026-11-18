@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from '../lib/utils';
 import { ProgressiveImage } from './ProgressiveImage';
 
@@ -39,11 +39,18 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
   className,
   contentClassName,
   imageClassName,
-}) => (
+}) => {
+  // Si la foto falla, la cabecera se comporta como sin foto (más baja).
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const hasImage = !!imageUrl && failedUrl !== imageUrl;
+  return (
   // Alto mínimo fijo, pero crece con lo que lleva: el botón de arriba (topSlot) y el
   // título van uno debajo del otro, nunca encima (antes un título largo se montaba).
+  // Sin foto, más baja: no queda un hueco oscuro de media pantalla encima del título.
   <section className={cn(
-    'lt-entity-hero relative flex min-h-[42vh] w-full flex-col overflow-hidden group',
+    'lt-entity-hero relative flex w-full flex-col overflow-hidden group',
+    // El alto mínimo va en index.css (.lt-entity-hero); sin foto, la variante --bare.
+    !hasImage && 'lt-entity-hero--bare',
     ready || !imageUrl ? 'animate-hero-from-right' : '',
     className,
   )}>
@@ -74,7 +81,7 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
               imageClassName,
             )}
             onLoad={onImageLoad}
-            onError={onImageError}
+            onError={() => { setFailedUrl(imageUrl); onImageError?.(); }}
             fallback={fallback || <DefaultHeroBackground />}
           />
         </div>
@@ -105,4 +112,5 @@ export const EntityHero: React.FC<EntityHeroProps> = ({
       </div>
     )}
   </section>
-);
+  );
+};
