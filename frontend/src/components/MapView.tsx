@@ -58,6 +58,24 @@ const UserLocationFeatures = ({ range }: { range: number | null }) => {
     );
 };
 
+// Leaflet solo se vuelve a medir al girar o cambiar la ventana. Si cambia el tamaño de su caja
+// (un panel que se despliega, la lista lateral del mapa grande, un hueco que aparece), se quedaba
+// con el tamaño viejo: teselas y chinchetas descolocadas o «más ancho» que su sitio.
+const SizeWatcher = () => {
+    const map = useMap();
+    useEffect(() => {
+        if (typeof ResizeObserver === 'undefined') return;
+        let frame = 0;
+        const observer = new ResizeObserver(() => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => map.invalidateSize({ pan: false }));
+        });
+        observer.observe(map.getContainer());
+        return () => { cancelAnimationFrame(frame); observer.disconnect(); };
+    }, [map]);
+    return null;
+};
+
 // Component to handle "Center on Me" button - Custom Overlay
 const CustomLocateControl = () => {
     const map = useMap();
@@ -120,6 +138,8 @@ interface MapViewProps {
     focusNonce?: number;
     /** Sin radio: encuadra donde están la mayoría, o a tu alrededor si tienes alguno cerca. */
     smartFocus?: boolean;
+    /** Mapa pequeño (p. ej. en la página del sitio): sin zoom, capas ni «mi ubicación»; eso, en el grande. */
+    compact?: boolean;
 }
 
 // Vuela hasta el sitio elegido y abre su ficha cuando su chincheta ya está suelta.
@@ -237,7 +257,7 @@ const DEFAULT_CENTER: [number, number] = [40.416, -3.703];
 
 // Memorizado: el mapa a pantalla completa se vuelve a pintar al abrir filtros o la lista,
 // y el mapa no tiene que rehacerse por eso.
-export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ items, mode = 'global', center = DEFAULT_CENTER, range = null, showLayerControl = true, scrollWheelZoom = false, focusId = null, focusNonce, smartFocus = false }) {
+export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ items, mode = 'global', center = DEFAULT_CENTER, range = null, showLayerControl = true, scrollWheelZoom = false, focusId = null, focusNonce, smartFocus = false, compact = false }) {
 
     const { location } = useLocation();
     const { user, isJefe } = useAuth();
@@ -319,7 +339,7 @@ export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ ite
 
     return (
         <div className="h-full w-full relative z-0">
-            <MapContainer center={initialCenter} zoom={12} scrollWheelZoom={scrollWheelZoom} className="h-full w-full listopic-map">
+            <MapContainer center={initialCenter} zoom={12} scrollWheelZoom={scrollWheelZoom} zoomControl={!compact} className="h-full w-full listopic-map">
                 <TileLayer
                     key={currentLayer}
                     attribution={activeLayer.attribution}
@@ -329,13 +349,14 @@ export const MapView: React.FC<MapViewProps> = React.memo(function MapView({ ite
                     updateWhenZooming={false}
                 />
                 <TileFilterApplier filter={activeLayer.tileFilter} />
+                <SizeWatcher />
 
                 <MapUpdater center={stableCenter} items={validItems} range={range} location={location} smartFocus={smartFocus} />
 
                 {/* User Location Features */}
                 <UserLocationFeatures range={range} />
-                <CustomLocateControl />
-                {showLayerControl && <LayerSelectorControl currentLayer={currentLayer} onLayerChange={handleLayerChange} />}
+                {!compact && <CustomLocateControl />}
+                {showLayerControl && !compact && <LayerSelectorControl currentLayer={currentLayer} onLayerChange={handleLayerChange} />}
 
                 <FocusOnItem item={focusItem} nonce={focusNonce} markers={markerRefs} />
 

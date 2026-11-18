@@ -993,23 +993,34 @@ export const PlacePage: React.FC = () => {
                 {/* Order-1 on Mobile -> Renders FIRST. lg:order-last -> Renders RIGHT. */}
                 <div className="order-1 lg:col-span-4 lg:order-last flex flex-col gap-4 sm:gap-6">
 
-                    {/* 1. Acciones: lo habitual a la vista, el resto en «⋯» */}
-                    <div className="relative flex items-center gap-2">
-                        <button type="button" onClick={handleOpenSave} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3.5 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
+                    {/* 1. Acciones: lo habitual a la vista, el resto en «⋯». En la columna estrecha de escritorio (lg), Compartir va solo con icono y, si aun así no cabe, la fila salta de línea. */}
+                    <div className="relative flex flex-wrap items-center gap-2">
+                        <button type="button" onClick={handleOpenSave} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3.5 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
                             <Bookmark className="h-4 w-4 text-[var(--lt-accent)]" /> Guardar
                         </button>
-                        <button type="button" onClick={handleShareClick} className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3.5 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)] active:scale-95">
-                            <Share2 className="h-4 w-4 text-[var(--lt-accent)]" /> Compartir
+                        {/* Seguir, a la vista: avisa de reseñas y novedades del sitio. */}
+                        <button
+                            type="button"
+                            onClick={handleFollowToggle}
+                            disabled={followLoading}
+                            aria-pressed={isFollowed}
+                            title="Te avisamos de reseñas y novedades"
+                            className={`inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-xs font-bold transition-colors disabled:opacity-60 ${isFollowed
+                                ? 'border-pink-500/40 bg-pink-500/10 text-pink-500'
+                                : 'border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text)] hover:border-[var(--lt-accent-border)]'}`}
+                        >
+                            <Heart className={`h-4 w-4 text-pink-500 ${isFollowed ? 'fill-current' : ''}`} /> {isFollowed ? 'Siguiendo' : 'Seguir'}
                         </button>
-                        {isFollowed && (
-                            <span className="inline-flex items-center gap-1 text-xs font-bold text-pink-500"><Heart className="h-3.5 w-3.5 fill-current" /> Lo sigues</span>
-                        )}
+                        {/* En pantallas estrechas, solo el icono: así caben todos sin encogerse. */}
+                        <button type="button" onClick={handleShareClick} aria-label="Compartir" className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)] active:scale-95 min-[420px]:px-3.5">
+                            <Share2 className="h-4 w-4 text-[var(--lt-accent)]" /> <span className="hidden min-[420px]:inline lg:hidden xl:inline">Compartir</span>
+                        </button>
                         <button
                             type="button"
                             onClick={() => setIsMoreActionsOpen((v) => !v)}
                             aria-label="Más acciones"
                             aria-expanded={isMoreActionsOpen}
-                            className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] transition-colors hover:text-[var(--lt-text)]"
+                            className="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] transition-colors hover:text-[var(--lt-text)]"
                         >
                             <MoreHorizontal className="h-5 w-5" />
                         </button>
@@ -1017,10 +1028,6 @@ export const PlacePage: React.FC = () => {
                             <>
                                 <button type="button" aria-label="Cerrar" className="fixed inset-0 z-30 cursor-default" onClick={() => setIsMoreActionsOpen(false)} />
                                 <div role="menu" className="absolute right-0 top-12 z-40 w-56 overflow-hidden rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] p-1 shadow-2xl">
-                                    <button type="button" role="menuitem" disabled={followLoading} onClick={() => { setIsMoreActionsOpen(false); handleFollowToggle(); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[var(--lt-text)] hover:bg-[var(--lt-glass)]">
-                                        <Heart className={`h-4 w-4 text-pink-500 ${isFollowed ? 'fill-current' : ''}`} />
-                                        <span>{isFollowed ? 'Dejar de seguir' : 'Seguir'}<span className="block text-xs font-normal text-[var(--lt-text-muted)]">Te avisamos de reseñas y novedades</span></span>
-                                    </button>
                                     <button type="button" role="menuitem" onClick={() => { setIsMoreActionsOpen(false); handleOpenPhotoUpload(); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[var(--lt-text)] hover:bg-[var(--lt-glass)]">
                                         <ImageIcon className="h-4 w-4 text-[var(--lt-accent)]" /> Subir fotos del sitio
                                     </button>
@@ -1080,7 +1087,7 @@ export const PlacePage: React.FC = () => {
                     />
                     {place.coords && (
                         <div className="order-1 lg:order-none glass-card rounded-2xl overflow-hidden shadow-xl relative group">
-                            <div className="absolute top-3 left-14 z-10">
+                            <div className="absolute top-3 left-3 z-10">
                                 <a
                                     href={place.googleMapsUri || `https://www.google.com/maps/search/?api=1&query=${place.coords.lat},${place.coords.lng}`}
                                     target="_blank"
@@ -1092,7 +1099,7 @@ export const PlacePage: React.FC = () => {
                                 </a>
                             </div>
                             <div className="h-40 sm:h-64 relative z-0">
-                                <MapView items={placeMapItems} />
+                                <MapView items={placeMapItems} compact />
                                 <button
                                     type="button"
                                     onClick={() => setIsMapFull(true)}

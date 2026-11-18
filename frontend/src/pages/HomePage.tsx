@@ -1569,7 +1569,7 @@ export const HomePage: React.FC = () => {
 
                                         <button
                                             onClick={() => setIsMapOpen(true)}
-                                            className="flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-white transition-colors whitespace-nowrap shrink-0" aria-label="Ver mapa"
+                                            className="flex h-9 min-w-9 items-center justify-center gap-1 rounded-full px-2 text-xs font-bold text-[var(--lt-text-muted)] hover:text-[var(--lt-text)] hover:bg-[var(--lt-glass)] transition-colors whitespace-nowrap shrink-0" aria-label="Ver mapa"
                                         >
                                             <span className="hidden sm:inline">Ver mapa</span>
                                             <Maximize2 className="w-4 h-4" />

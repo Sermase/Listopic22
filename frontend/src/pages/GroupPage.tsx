@@ -3,7 +3,7 @@ import { useParams, Link, useLocation, useNavigate } from 'react-router-dom';
 import { collection, collectionGroup, query, where, getDocs, doc, getDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, Flag, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronRight, Star, BarChart3 } from 'lucide-react';
+import { MessageSquare, MapPin, List as ListIcon, Plus, X, Camera, Bookmark, Share2, Flag, Image as ImageIcon, ZoomIn, LayoutGrid, Rows3, ChevronUp, ChevronRight, Star, BarChart3, MoreHorizontal } from 'lucide-react';
 import { MarqueeText } from '../components/ui/MarqueeText';
 import { scoreBadgeStyle } from '../lib/scoreScale';
 import { Lightbox } from '../components/Lightbox';
@@ -93,6 +93,8 @@ export const GroupPage: React.FC = () => {
     const [placeCity, setPlaceCity] = useState('');
     const [placeCoords, setPlaceCoords] = useState<{ lat: number; lng: number } | null>(null);
     const [isMapOpen, setIsMapOpen] = useState(false);
+    // Menú «⋯» de la fila de acciones (marcar que ya no lo sirven, reportar).
+    const [isMoreActionsOpen, setIsMoreActionsOpen] = useState(false);
     const [placeClosedStatus, setPlaceClosedStatus] = useState<string | null>(null);
     const [unavailableItems, setUnavailableItems] = useState<string[]>([]);
     const [primaryListCriteria, setPrimaryListCriteria] = useState<any[]>([]); // New: Store definition for ordering
@@ -816,27 +818,45 @@ export const GroupPage: React.FC = () => {
                         />
                     )}
 
-                    {/* Acciones: pequeñas, en una fila */}
-                    <div className="flex items-center gap-2">
-                        <button type="button" onClick={openSaveModal} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
+                    {/* Acciones: lo habitual a la vista y el resto en «⋯», como en la página del sitio */}
+                    <div className="relative flex flex-wrap items-center gap-2">
+                        <button type="button" onClick={openSaveModal} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3.5 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
                             <Bookmark className="h-4 w-4 text-[var(--lt-accent)]" /> Guardar
                         </button>
-                        <button type="button" onClick={() => setIsShareModalOpen(true)} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
-                            <Share2 className="h-4 w-4 text-[var(--lt-accent)]" /> Compartir
+                        {/* En pantallas estrechas, solo el icono: así caben todos sin encogerse. */}
+                        <button type="button" onClick={() => setIsShareModalOpen(true)} aria-label="Compartir" className="inline-flex h-10 min-w-10 shrink-0 items-center justify-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)] min-[390px]:px-3.5">
+                            <Share2 className="h-4 w-4 text-[var(--lt-accent)]" /> <span className="hidden min-[390px]:inline lg:hidden xl:inline">Compartir</span>
                         </button>
                         {placeCoords && (
-                            <button type="button" onClick={() => setIsMapOpen(true)} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
+                            <button type="button" onClick={() => setIsMapOpen(true)} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3.5 text-xs font-bold text-[var(--lt-text)] transition-colors hover:border-[var(--lt-accent-border)]">
                                 <MapPin className="h-4 w-4 text-[var(--lt-accent)]" /> Mapa
                             </button>
                         )}
-                        {isJefe && placeId && (
-                            <button type="button" onClick={() => void toggleAvailability()} disabled={savingAvailability} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] px-3 text-xs font-bold text-[var(--lt-text-muted)] transition-colors hover:border-[var(--lt-accent-border)] disabled:opacity-50">
-                                {itemGone ? '↩️ Vuelve a estar' : '🚫 Ya no lo sirven'}
-                            </button>
-                        )}
-                        <button type="button" onClick={openReportModal} aria-label="Reportar" title="Reportar" className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-full text-[var(--lt-text-muted)] transition-colors hover:bg-[var(--lt-danger-soft)] hover:text-[var(--lt-danger)]">
-                            <Flag className="h-4 w-4" />
+                        <button
+                            type="button"
+                            onClick={() => setIsMoreActionsOpen((v) => !v)}
+                            aria-label="Más acciones"
+                            aria-expanded={isMoreActionsOpen}
+                            className="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--lt-border)] bg-[var(--lt-card)] text-[var(--lt-text-muted)] transition-colors hover:text-[var(--lt-text)]"
+                        >
+                            <MoreHorizontal className="h-5 w-5" />
                         </button>
+                        {isMoreActionsOpen && (
+                            <>
+                                <button type="button" aria-label="Cerrar" className="fixed inset-0 z-30 cursor-default" onClick={() => setIsMoreActionsOpen(false)} />
+                                <div role="menu" className="absolute right-0 top-12 z-40 w-60 overflow-hidden rounded-2xl border border-[var(--lt-border)] bg-[var(--lt-card-strong)] p-1 shadow-2xl">
+                                    {isJefe && placeId && (
+                                        <button type="button" role="menuitem" disabled={savingAvailability} onClick={() => { setIsMoreActionsOpen(false); void toggleAvailability(); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[var(--lt-text)] hover:bg-[var(--lt-glass)] disabled:opacity-50">
+                                            <span aria-hidden className="w-4 text-center">{itemGone ? '↩️' : '🚫'}</span>
+                                            <span>{itemGone ? 'Vuelve a estar' : 'Ya no lo sirven'}<span className="block text-xs font-normal text-[var(--lt-text-muted)]">{itemGone ? 'Se vuelve a ver en listas, mapa y Buscar' : 'Se oculta de listas, mapa y Buscar'}</span></span>
+                                        </button>
+                                    )}
+                                    <button type="button" role="menuitem" onClick={() => { setIsMoreActionsOpen(false); openReportModal(); }} className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-[var(--lt-danger)] hover:bg-[var(--lt-danger-soft)]">
+                                        <Flag className="h-4 w-4" /> Reportar
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* Dónde está: el sitio en el mapa (su ficha se abre desde la chincheta) y «Cómo llegar» */}
