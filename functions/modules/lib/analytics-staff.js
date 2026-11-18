@@ -38,10 +38,29 @@ async function isStaffUid(db, uid, token = null) {
   return value;
 }
 
+// Desgloses -> su gemelo de jefes.
+const STAFF_MAPS = {
+  byDevice: "staffByDevice",
+  bySource: "staffBySource",
+  byShareChannel: "staffByShareChannel",
+  byShareEntityType: "staffByShareEntityType",
+};
+
 // Devuelve una copia con los contadores de jefes restados (nunca negativos).
 function withoutStaff(row) {
   if (!row || typeof row !== "object") return row;
   const out = { ...row };
+  Object.entries(STAFF_MAPS).forEach(([field, staffField]) => {
+    const base = row[field];
+    const staff = row[staffField];
+    if (!base || typeof base !== "object" || !staff || typeof staff !== "object") return;
+    const next = {};
+    Object.entries(base).forEach(([key, value]) => {
+      const left = Math.max(0, (Number(value) || 0) - (Number(staff[key]) || 0));
+      if (left > 0) next[key] = left;
+    });
+    out[field] = next;
+  });
   Object.entries(STAFF_FIELDS).forEach(([field, staffField]) => {
     if (typeof out[field] !== "number") return;
     const staff = Number(row[staffField]) || 0;
@@ -54,4 +73,4 @@ function clearStaffCache() {
   staffCache.clear();
 }
 
-module.exports = { isStaffUid, withoutStaff, clearStaffCache, STAFF_FIELDS };
+module.exports = { isStaffUid, withoutStaff, clearStaffCache, STAFF_FIELDS, STAFF_MAPS };

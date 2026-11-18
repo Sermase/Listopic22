@@ -38,3 +38,15 @@ test('isStaffUid: claim admin, userType jefe (string o array) y resto', async ()
   assert.equal(await isStaffUid(db, ''), false);
   assert.equal(await isStaffUid(db, 'x', { admin: true }), true);
 });
+
+test('withoutStaff resta también los desgloses por dispositivo, origen y canal', () => {
+  const row = withoutStaff({
+    totalViews: 5, staffViews: 2,
+    byDevice: { mobile: 3, desktop: 2 }, staffByDevice: { desktop: 2 },
+    bySource: { direct: 5 }, staffBySource: { direct: 2 },
+    byShareChannel: { whatsapp: 1 },
+  });
+  assert.deepEqual(row.byDevice, { mobile: 3 });
+  assert.deepEqual(row.bySource, { direct: 3 });
+  assert.deepEqual(row.byShareChannel, { whatsapp: 1 });
+});

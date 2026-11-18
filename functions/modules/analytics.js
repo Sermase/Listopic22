@@ -107,6 +107,10 @@ function serializeAnalyticsDoc(data = {}) {
     staffSessions: Number(data.staffSessions) || 0,
     staffShares: Number(data.staffShares) || 0,
     staffShareActions: Number(data.staffShareActions) || 0,
+    staffByDevice: numericMap(data.staffByDevice),
+    staffBySource: numericMap(data.staffBySource),
+    staffByShareChannel: numericMap(data.staffByShareChannel),
+    staffByShareEntityType: numericMap(data.staffByShareEntityType),
   };
 }
 
@@ -131,6 +135,8 @@ function serializePlaceDaily(data = {}, date = "") {
     staffReviews: Number(data.staffReviews) || 0,
     staffShares: Number(data.staffShares) || 0,
     staffShareActions: Number(data.staffShareActions) || 0,
+    staffByShareChannel: numericMap(data.staffByShareChannel),
+    staffByShareEntityType: numericMap(data.staffByShareEntityType),
   };
 }
 
@@ -237,6 +243,8 @@ const recordPageView = onCall({ invoker: "public" }, async (request) => {
     const staffFields = (isNewSession) => (isStaff ? {
       staffViews: FieldValue.increment(1),
       staffSessions: FieldValue.increment(isNewSession ? 1 : 0),
+      staffByDevice: { [device]: FieldValue.increment(1) },
+      staffBySource: { [source]: FieldValue.increment(1) },
     } : {});
     const common = {
       totalViews: FieldValue.increment(1),
@@ -335,6 +343,8 @@ const recordShareEvent = onCall({ invoker: "public" }, async (request) => {
       ...(isStaff ? {
         staffShares: FieldValue.increment(shareCount),
         staffShareActions: FieldValue.increment(1),
+        staffByShareChannel: { [channel]: FieldValue.increment(shareCount) },
+        staffByShareEntityType: { [entityType]: FieldValue.increment(shareCount) },
       } : {}),
     };
     tx.set(pageTotalRef, { ...common, path, title, pageType }, { merge: true });
@@ -513,7 +523,8 @@ const onReviewCreatedAnalytics = onDocumentCreated("lists/{listId}/reviews/{revi
   if (!placeId || !geo) return;
 
   const date = reviewDate(review);
-  const isStaff = await isStaffUid(db, asString(review.userId, 128));
+  // Las reseñas antiguas guardan el autor en authorId.
+  const isStaff = await isStaffUid(db, asString(review.userId || review.authorId, 128));
   const staffReview = isStaff ? { staffReviews: FieldValue.increment(1) } : {};
   const markerRef = db.collection("reviewAnalyticsMarkers").doc(hash(event.data.ref.path));
   const geoRef = db.collection("reviewGeoDaily").doc(`${date}_${hash(placeId)}`);
@@ -635,7 +646,7 @@ const adminBackfillReviewHeatmap = onCall({ invoker: "public", timeoutSeconds: 3
       staffReviews: 0,
     };
     current.reviews += 1;
-    if (staffUids.has(review.userId)) current.staffReviews += 1;
+    if (staffUids.has(review.userId || review.authorId)) current.staffReviews += 1;
     groups.set(key, current);
   });
 

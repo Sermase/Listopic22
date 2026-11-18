@@ -108,7 +108,7 @@ export const PageAnalyticsTab: React.FC = () => {
             </div>
 
             {error && <div className="rounded-xl border border-red-500/25 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>}
-            {excludeStaff && overview && <StaffNotice sinceMs={overview.staffTrackingSinceMs} fromDate={overview.fromDate} />}
+            {excludeStaff && overview && <StaffNotice sinceMs={overview.staffTrackingSinceMs} />}
             {overview?.coverageCapped && <div className="rounded-xl border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-amber-200">El periodo superó 10.000 filas diarias; el ranking de páginas puede ser parcial.</div>}
 
             {loading && !overview ? (
@@ -196,10 +196,9 @@ export const StaffToggle: React.FC<{ checked: boolean; onChange: (value: boolean
 );
 
 // Antes de esta fecha la actividad de los jefes no se apuntaba aparte.
-export const StaffNotice: React.FC<{ sinceMs?: number | null; fromDate?: string }> = ({ sinceMs, fromDate }) => {
+// Se muestra siempre: los totales históricos incluyen datos de antes.
+export const StaffNotice: React.FC<{ sinceMs?: number | null }> = ({ sinceMs }) => {
     const since = sinceMs ? new Date(sinceMs) : null;
-    const sinceKey = since ? since.toISOString().slice(0, 10) : null;
-    if (sinceKey && fromDate && sinceKey <= fromDate) return null;
     return (
         <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-400">
             {since
