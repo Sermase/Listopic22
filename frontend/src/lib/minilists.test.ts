@@ -22,6 +22,7 @@ describe('toMinilistCard', () => {
     it('lee el resultado de Algolia (concurso como fecha de fin)', () => {
         const card = toMinilistCard({ objectID: 'm2', name: 'X', contest: true, contestEndsAtTimestamp: (NOW - DAY) / 1000, updatedAtTimestamp: NOW / 1000 }, NOW);
         expect(card).toMatchObject({ id: 'm2', contest: 'after', createdAtMs: NOW });
+        expect(toMinilistCard({ objectID: 'm3', contest: true, contestStartsAtTimestamp: (NOW + DAY) / 1000 }, NOW).contest).toBe('before');
     });
 });
 

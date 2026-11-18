@@ -64,8 +64,9 @@ export function toMinilistCard(list: Obj & { id?: string; objectID?: string }, n
     let phase: ContestPhase | null = null;
     if (contestOn) {
         if (list.contest === true) {
+            const start = num(list.contestStartsAtTimestamp) * 1000;
             const end = num(list.contestEndsAtTimestamp) * 1000;
-            phase = end && now > end ? 'after' : 'open';
+            phase = start && now < start ? 'before' : end && now > end ? 'after' : 'open';
         } else {
             phase = contestPhase(list.contest as ContestSettings, now);
         }

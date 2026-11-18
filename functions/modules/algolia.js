@@ -709,6 +709,7 @@ async function transformListRecord(data, docId) {
         record.authorPhoto = [data.authorPhotoUrl, data.authorPhoto].find((value) => isNonEmptyString(value)) || null;
         if (data.contest && data.contest.closed === true) {
             record.contest = true;
+            record.contestStartsAtTimestamp = toUnixSeconds(data.contest.startsAt) || null;
             record.contestEndsAtTimestamp = toUnixSeconds(data.contest.endsAt) || null;
         }
         if (Array.isArray(data.podium) && data.podium.length) record.podium = data.podium.slice(0, 3);

@@ -60,6 +60,8 @@ export const SublistsModal: React.FC<SublistsModalProps> = ({ listId, listName, 
             const snaps = await Promise.all([
                 getDocs(query(lists, where('parentListId', '==', listId), where('isPublic', '==', true))),
                 user ? getDocs(query(lists, where('parentListId', '==', listId), where('userId', '==', user.uid))) : null,
+                // Privadas de otra persona en las que edito (para «Las mías»).
+                user ? getDocs(query(lists, where('parentListId', '==', listId), where('editors', 'array-contains', user.uid))).catch(() => null) : null,
             ]);
             const byId = new Map<string, ListEntity>();
             snaps.forEach((snap) => snap?.docs.forEach((d) => byId.set(d.id, { id: d.id, ...d.data() } as ListEntity)));
