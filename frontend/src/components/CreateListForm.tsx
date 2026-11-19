@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { collection, addDoc, serverTimestamp, getDocs, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, getDocs, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { dayToDate } from '../lib/contest';
 import { db } from '../firebase';
 import { useQueryClient } from '@tanstack/react-query';
@@ -249,6 +249,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
             const finalListTags = withCategoryTags(lockedTags, vegetarianByDefault ? customTags.filter((tag) => !tagKey(tag).includes('vegetarian')) : customTags);
 
             // Legacy Structure Match
+            const authorUsername = await getDoc(doc(db, 'users', user.uid)).then((s) => { const u = s.data()?.username; return typeof u === 'string' && u.trim() ? u.trim() : null; }).catch(() => null);
             const newListData = {
                 name,
                 description,
@@ -260,7 +261,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 parentListId: parentListId || null,
 
                 // Fields expected by new UI / legacy UI
-                authorName: user.displayName || 'Anónimo',
+                authorName: authorUsername || user.displayName || 'Anónimo',
                 mainImageUrl: finalPhotoUrl, // Legacy name "mainImageUrl", new might use "photoUrl" - let's save both or align
                 photoUrl: finalPhotoUrl,
 
