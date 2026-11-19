@@ -260,7 +260,7 @@ export const CreateListForm: React.FC<CreateListFormProps> = ({ parentListId, pa
                 parentListId: parentListId || null,
 
                 // Fields expected by new UI / legacy UI
-                authorName: user.displayName || 'Anónimo',
+                authorName: user.username || user.displayName || 'Anónimo',
                 mainImageUrl: finalPhotoUrl, // Legacy name "mainImageUrl", new might use "photoUrl" - let's save both or align
                 photoUrl: finalPhotoUrl,
 
