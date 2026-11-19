@@ -23,6 +23,10 @@ export interface AnalyticsBreakdown {
     firstViewedAtMs: number | null;
     lastViewedAtMs: number | null;
     lastSharedAtMs: number | null;
+    staffViews?: number;
+    staffSessions?: number;
+    staffShares?: number;
+    staffShareActions?: number;
 }
 
 export interface AnalyticsDailyRow extends AnalyticsBreakdown {
@@ -39,6 +43,9 @@ export interface PageAnalyticsResult {
 export interface AnalyticsOverviewResult {
     days: number;
     fromDate: string;
+    excludeStaff?: boolean;
+    /** Desde cuándo se apunta aparte la actividad de los jefes. */
+    staffTrackingSinceMs?: number | null;
     coverageCapped: boolean;
     allTime: AnalyticsBreakdown;
     daily: AnalyticsDailyRow[];
@@ -189,15 +196,15 @@ export const recordConnectionLocation = async (latitude: number, longitude: numb
     await callable({ lat, lng, sessionId: getAnalyticsSessionId() });
 };
 
-export const getPageAnalytics = async (pathname: string, days = 30): Promise<PageAnalyticsResult> => {
-    const callable = httpsCallable<{ path: string; days: number }, PageAnalyticsResult>(functions, 'getPageAnalytics');
-    const result = await callable({ path: normalizeAnalyticsPath(pathname), days });
+export const getPageAnalytics = async (pathname: string, days = 30, excludeStaff = true): Promise<PageAnalyticsResult> => {
+    const callable = httpsCallable<{ path: string; days: number; excludeStaff: boolean }, PageAnalyticsResult>(functions, 'getPageAnalytics');
+    const result = await callable({ path: normalizeAnalyticsPath(pathname), days, excludeStaff });
     return result.data;
 };
 
-export const getAnalyticsOverview = async (days = 30): Promise<AnalyticsOverviewResult> => {
-    const callable = httpsCallable<{ days: number }, AnalyticsOverviewResult>(functions, 'getAnalyticsOverview');
-    const result = await callable({ days });
+export const getAnalyticsOverview = async (days = 30, excludeStaff = true): Promise<AnalyticsOverviewResult> => {
+    const callable = httpsCallable<{ days: number; excludeStaff: boolean }, AnalyticsOverviewResult>(functions, 'getAnalyticsOverview');
+    const result = await callable({ days, excludeStaff });
     return result.data;
 };
 
@@ -207,9 +214,9 @@ export const getBusinessPlaceAnalytics = async (placeId: string, days = 30): Pro
     return result.data;
 };
 
-export const getAnalyticsHeatmaps = async (days = 30): Promise<AnalyticsHeatmapsResult> => {
-    const callable = httpsCallable<{ days: number }, AnalyticsHeatmapsResult>(functions, 'getAnalyticsHeatmaps');
-    const result = await callable({ days });
+export const getAnalyticsHeatmaps = async (days = 30, excludeStaff = true): Promise<AnalyticsHeatmapsResult> => {
+    const callable = httpsCallable<{ days: number; excludeStaff: boolean }, AnalyticsHeatmapsResult>(functions, 'getAnalyticsHeatmaps');
+    const result = await callable({ days, excludeStaff });
     return result.data;
 };
 

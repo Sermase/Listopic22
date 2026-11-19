@@ -10,6 +10,8 @@ const logger = require("firebase-functions/logger");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { assertJefeAccess, rateLimit, rateLimitKey } = require("./lib/auth");
 const { hasActiveBusinessPro } = require("./lib/business-plan");
+const { isStaffUid, withoutStaff } = require("./lib/analytics-staff");
+const { findJefeUids } = require("./lib/notify-jefes");
 
 const db = getFirestore();
 const ANALYTICS_TIME_ZONE = "Europe/Madrid";
@@ -101,7 +103,25 @@ function serializeAnalyticsDoc(data = {}) {
     firstViewedAtMs: typeof data.firstViewedAt?.toMillis === "function" ? data.firstViewedAt.toMillis() : null,
     lastViewedAtMs: typeof data.lastViewedAt?.toMillis === "function" ? data.lastViewedAt.toMillis() : null,
     lastSharedAtMs: typeof data.lastSharedAt?.toMillis === "function" ? data.lastSharedAt.toMillis() : null,
+    staffViews: Number(data.staffViews) || 0,
+    staffSessions: Number(data.staffSessions) || 0,
+    staffShares: Number(data.staffShares) || 0,
+    staffShareActions: Number(data.staffShareActions) || 0,
+    staffByDevice: numericMap(data.staffByDevice),
+    staffBySource: numericMap(data.staffBySource),
+    staffByShareChannel: numericMap(data.staffByShareChannel),
+    staffByShareEntityType: numericMap(data.staffByShareEntityType),
   };
+}
+
+// Serializa y, si se pide, resta la actividad de los jefes.
+function analyticsRow(data, excludeStaff) {
+  const row = serializeAnalyticsDoc(data);
+  return excludeStaff ? withoutStaff(row) : row;
+}
+
+function wantsExcludeStaff(request) {
+  return request.data?.excludeStaff === true;
 }
 
 function serializePlaceDaily(data = {}, date = "") {
@@ -112,6 +132,11 @@ function serializePlaceDaily(data = {}, date = "") {
     shareActions: Number(data.shareActions) || 0,
     byShareChannel: numericMap(data.byShareChannel),
     byShareEntityType: numericMap(data.byShareEntityType),
+    staffReviews: Number(data.staffReviews) || 0,
+    staffShares: Number(data.staffShares) || 0,
+    staffShareActions: Number(data.staffShareActions) || 0,
+    staffByShareChannel: numericMap(data.staffByShareChannel),
+    staffByShareEntityType: numericMap(data.staffByShareEntityType),
   };
 }
 
@@ -190,6 +215,7 @@ const recordPageView = onCall({ invoker: "public" }, async (request) => {
     throw new HttpsError("invalid-argument", "La ruta no pertenece a una pagina publica medible.");
   }
   const isAuthenticated = Boolean(request.auth?.uid);
+  const isStaff = await isStaffUid(db, request.auth?.uid, request.auth?.token);
 
   const rawRateKey = rateLimitKey(request.rawRequest, request.auth);
   const rate = await rateLimit("pageAnalytics", hash(rawRateKey), 120, 60);
@@ -214,6 +240,12 @@ const recordPageView = onCall({ invoker: "public" }, async (request) => {
     ]);
     const isNewPageSession = !pageSessionSnap.exists;
     const isNewGlobalSession = !globalSessionSnap.exists;
+    const staffFields = (isNewSession) => (isStaff ? {
+      staffViews: FieldValue.increment(1),
+      staffSessions: FieldValue.increment(isNewSession ? 1 : 0),
+      staffByDevice: { [device]: FieldValue.increment(1) },
+      staffBySource: { [source]: FieldValue.increment(1) },
+    } : {});
     const common = {
       totalViews: FieldValue.increment(1),
       uniqueSessions: FieldValue.increment(isNewPageSession ? 1 : 0),
@@ -222,6 +254,7 @@ const recordPageView = onCall({ invoker: "public" }, async (request) => {
       byDevice: { [device]: FieldValue.increment(1) },
       bySource: { [source]: FieldValue.increment(1) },
       lastViewedAt: FieldValue.serverTimestamp(),
+      ...staffFields(isNewPageSession),
     };
     tx.set(pageTotalRef, {
       ...common,
@@ -239,7 +272,10 @@ const recordPageView = onCall({ invoker: "public" }, async (request) => {
       byDevice: { [device]: FieldValue.increment(1) },
       bySource: { [source]: FieldValue.increment(1) },
       lastViewedAt: FieldValue.serverTimestamp(),
+      ...staffFields(isNewGlobalSession),
       ...(!globalTotalSnap.exists ? { firstViewedAt: FieldValue.serverTimestamp() } : {}),
+      // Desde cuando se separa la actividad de los jefes.
+      ...(!globalTotalSnap.data()?.staffTrackingSince ? { staffTrackingSince: FieldValue.serverTimestamp() } : {}),
     }, { merge: true });
     tx.set(globalDailyRef, {
       date,
@@ -250,6 +286,7 @@ const recordPageView = onCall({ invoker: "public" }, async (request) => {
       byDevice: { [device]: FieldValue.increment(1) },
       bySource: { [source]: FieldValue.increment(1) },
       lastViewedAt: FieldValue.serverTimestamp(),
+      ...staffFields(isNewGlobalSession),
     }, { merge: true });
 
     const markerData = {
@@ -278,6 +315,7 @@ const recordShareEvent = onCall({ invoker: "public" }, async (request) => {
   const rawRateKey = rateLimitKey(request.rawRequest, request.auth);
   const rate = await rateLimit("shareAnalytics", hash(rawRateKey), 60, 60);
   if (!rate.allowed) throw new HttpsError("resource-exhausted", "Demasiados compartidos registrados.");
+  const isStaff = await isStaffUid(db, request.auth?.uid, request.auth?.token);
 
   const date = analyticsDate();
   const pageId = hash(path);
@@ -302,6 +340,12 @@ const recordShareEvent = onCall({ invoker: "public" }, async (request) => {
       byShareChannel: { [channel]: FieldValue.increment(shareCount) },
       byShareEntityType: { [entityType]: FieldValue.increment(shareCount) },
       lastSharedAt: FieldValue.serverTimestamp(),
+      ...(isStaff ? {
+        staffShares: FieldValue.increment(shareCount),
+        staffShareActions: FieldValue.increment(1),
+        staffByShareChannel: { [channel]: FieldValue.increment(shareCount) },
+        staffByShareEntityType: { [entityType]: FieldValue.increment(shareCount) },
+      } : {}),
     };
     tx.set(pageTotalRef, { ...common, path, title, pageType }, { merge: true });
     tx.set(pageDailyRef, { ...common, pageId, path, title, pageType, date }, { merge: true });
@@ -330,6 +374,7 @@ const recordConnectionLocation = onCall({ invoker: "public" }, async (request) =
   const rawRateKey = rateLimitKey(request.rawRequest, request.auth);
   const rate = await rateLimit("connectionGeoAnalytics", hash(rawRateKey), 10, 24 * 60 * 60);
   if (!rate.allowed) throw new HttpsError("resource-exhausted", "Demasiados registros de ubicacion.");
+  const isStaff = await isStaffUid(db, request.auth?.uid, request.auth?.token);
 
   const lat = quantizeCoordinate(rawLat);
   const lng = quantizeCoordinate(rawLng);
@@ -349,6 +394,7 @@ const recordConnectionLocation = onCall({ invoker: "public" }, async (request) =
       lat,
       lng,
       sessions: FieldValue.increment(1),
+      ...(isStaff ? { staffSessions: FieldValue.increment(1) } : {}),
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
     tx.set(markerRef, {
@@ -362,6 +408,7 @@ const recordConnectionLocation = onCall({ invoker: "public" }, async (request) =
 const getPageAnalytics = onCall({ invoker: "public" }, async (request) => {
   await assertJefeAccess(request.auth?.uid, "Solo un jefe puede consultar las estadisticas.");
   const path = sanitizePath(request.data?.path);
+  const excludeStaff = wantsExcludeStaff(request);
   const days = Math.min(90, Math.max(1, Math.floor(Number(request.data?.days) || 30)));
   const pageId = hash(path);
   const dates = datesForPeriod(days);
@@ -371,14 +418,16 @@ const getPageAnalytics = onCall({ invoker: "public" }, async (request) => {
   return {
     path,
     days,
-    total: serializeAnalyticsDoc(totalSnap.exists ? totalSnap.data() : { path, pageType: pageTypeForPath(path) }),
-    daily: dailySnaps.map((snap, index) => ({ date: dates[index], ...serializeAnalyticsDoc(snap.exists ? snap.data() : {}) })),
+    excludeStaff,
+    total: analyticsRow(totalSnap.exists ? totalSnap.data() : { path, pageType: pageTypeForPath(path) }, excludeStaff),
+    daily: dailySnaps.map((snap, index) => ({ date: dates[index], ...analyticsRow(snap.exists ? snap.data() : {}, excludeStaff) })),
   };
 });
 
 const getAnalyticsOverview = onCall({ invoker: "public" }, async (request) => {
   await assertJefeAccess(request.auth?.uid, "Solo un jefe puede consultar las estadisticas.");
   const days = Math.min(90, Math.max(1, Math.floor(Number(request.data?.days) || 30)));
+  const excludeStaff = wantsExcludeStaff(request);
   const fromDate = dateDaysAgo(days - 1);
   const dates = datesForPeriod(days);
   const globalDailyRefs = dates.map((date) => db.collection("pageAnalyticsGlobalDaily").doc(date));
@@ -391,7 +440,7 @@ const getAnalyticsOverview = onCall({ invoker: "public" }, async (request) => {
 
   const pages = new Map();
   pageDailySnap.docs.forEach((docSnap) => {
-    const row = serializeAnalyticsDoc(docSnap.data());
+    const row = analyticsRow(docSnap.data(), excludeStaff);
     const current = pages.get(row.path) || {
       path: row.path,
       title: row.title,
@@ -421,13 +470,17 @@ const getAnalyticsOverview = onCall({ invoker: "public" }, async (request) => {
     pages.set(row.path, current);
   });
 
+  const globalData = globalTotalSnap.exists ? globalTotalSnap.data() : {};
   return {
     days,
     fromDate,
+    excludeStaff,
+    staffTrackingSinceMs: typeof globalData.staffTrackingSince?.toMillis === "function" ? globalData.staffTrackingSince.toMillis() : null,
     coverageCapped: pageDailySnap.size >= MAX_PERIOD_DAILY_DOCS,
-    allTime: serializeAnalyticsDoc(globalTotalSnap.exists ? globalTotalSnap.data() : {}),
-    daily: globalDailySnaps.map((snap, index) => ({ date: dates[index], ...serializeAnalyticsDoc(snap.exists ? snap.data() : {}) })),
+    allTime: analyticsRow(globalData, excludeStaff),
+    daily: globalDailySnaps.map((snap, index) => ({ date: dates[index], ...analyticsRow(snap.exists ? snap.data() : {}, excludeStaff) })),
     topPages: Array.from(pages.values())
+      .filter((page) => page.totalViews > 0 || page.totalShares > 0)
       .sort((a, b) => b.totalViews - a.totalViews || b.totalShares - a.totalShares)
       .slice(0, 100),
   };
@@ -455,10 +508,11 @@ const getBusinessPlaceAnalytics = onCall({ invoker: "public" }, async (request) 
     page: {
       path,
       days,
-      total: serializeAnalyticsDoc(totalSnap.exists ? totalSnap.data() : { path, pageType: "place" }),
-      daily: pageSnaps.map((snap, index) => ({ date: dates[index], ...serializeAnalyticsDoc(snap.exists ? snap.data() : {}) })),
+      // Un negocio nunca ve las visitas de los jefes (pruebas internas).
+      total: analyticsRow(totalSnap.exists ? totalSnap.data() : { path, pageType: "place" }, true),
+      daily: pageSnaps.map((snap, index) => ({ date: dates[index], ...analyticsRow(snap.exists ? snap.data() : {}, true) })),
     },
-    relatedDaily: placeSnaps.map((snap, index) => serializePlaceDaily(snap.exists ? snap.data() : {}, dates[index])),
+    relatedDaily: placeSnaps.map((snap, index) => withoutStaff(serializePlaceDaily(snap.exists ? snap.data() : {}, dates[index]))),
   };
 });
 
@@ -469,6 +523,9 @@ const onReviewCreatedAnalytics = onDocumentCreated("lists/{listId}/reviews/{revi
   if (!placeId || !geo) return;
 
   const date = reviewDate(review);
+  // Las reseñas antiguas guardan el autor en authorId.
+  const isStaff = await isStaffUid(db, asString(review.userId || review.authorId, 128));
+  const staffReview = isStaff ? { staffReviews: FieldValue.increment(1) } : {};
   const markerRef = db.collection("reviewAnalyticsMarkers").doc(hash(event.data.ref.path));
   const geoRef = db.collection("reviewGeoDaily").doc(`${date}_${hash(placeId)}`);
   const placeDailyRef = db.collection("placeAnalyticsDaily").doc(`${date}_${hash(placeId)}`);
@@ -483,12 +540,14 @@ const onReviewCreatedAnalytics = onDocumentCreated("lists/{listId}/reviews/{revi
       lat: geo.lat,
       lng: geo.lng,
       reviews: FieldValue.increment(1),
+      ...staffReview,
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
     tx.set(placeDailyRef, {
       date,
       placeId,
       reviews: FieldValue.increment(1),
+      ...staffReview,
       updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
     tx.set(markerRef, {
@@ -501,6 +560,7 @@ const onReviewCreatedAnalytics = onDocumentCreated("lists/{listId}/reviews/{revi
 const getAnalyticsHeatmaps = onCall({ invoker: "public" }, async (request) => {
   await assertJefeAccess(request.auth?.uid, "Solo un jefe puede consultar los mapas de analitica.");
   const days = Math.min(365, Math.max(1, Math.floor(Number(request.data?.days) || 30)));
+  const excludeStaff = wantsExcludeStaff(request);
   const fromDate = dateDaysAgo(days - 1);
   const [connectionSnap, reviewSnap] = await Promise.all([
     db.collection("connectionGeoDaily").where("date", ">=", fromDate).limit(MAX_HEATMAP_DOCS).get(),
@@ -509,7 +569,7 @@ const getAnalyticsHeatmaps = onCall({ invoker: "public" }, async (request) => {
 
   const connectionCells = new Map();
   connectionSnap.docs.forEach((docSnap) => {
-    const row = docSnap.data();
+    const row = excludeStaff ? withoutStaff(docSnap.data()) : docSnap.data();
     const cellId = asString(row.cellId, 80);
     const lat = coordinate(row.lat, -90, 90);
     const lng = coordinate(row.lng, -180, 180);
@@ -521,7 +581,7 @@ const getAnalyticsHeatmaps = onCall({ invoker: "public" }, async (request) => {
 
   const reviewPlaces = new Map();
   reviewSnap.docs.forEach((docSnap) => {
-    const row = docSnap.data();
+    const row = excludeStaff ? withoutStaff(docSnap.data()) : docSnap.data();
     const placeId = asString(row.placeId, 300);
     const lat = coordinate(row.lat, -90, 90);
     const lng = coordinate(row.lng, -180, 180);
@@ -547,6 +607,7 @@ const getAnalyticsHeatmaps = onCall({ invoker: "public" }, async (request) => {
   return {
     days,
     fromDate,
+    excludeStaff,
     privacyThreshold: GEO_PRIVACY_THRESHOLD,
     coverageCapped: connectionSnap.size >= MAX_HEATMAP_DOCS || reviewSnap.size >= MAX_HEATMAP_DOCS,
     suppressedConnections,
@@ -557,7 +618,11 @@ const getAnalyticsHeatmaps = onCall({ invoker: "public" }, async (request) => {
 
 const adminBackfillReviewHeatmap = onCall({ invoker: "public", timeoutSeconds: 300, memory: "1GiB" }, async (request) => {
   await assertJefeAccess(request.auth?.uid, "Solo un jefe puede reconstruir el mapa de resenas.");
-  const snapshot = await db.collectionGroup("reviews").limit(MAX_REVIEW_BACKFILL).get();
+  const [snapshot, jefeUids] = await Promise.all([
+    db.collectionGroup("reviews").limit(MAX_REVIEW_BACKFILL).get(),
+    findJefeUids(db),
+  ]);
+  const staffUids = new Set(jefeUids);
   const groups = new Map();
   let skipped = 0;
 
@@ -578,8 +643,10 @@ const adminBackfillReviewHeatmap = onCall({ invoker: "public", timeoutSeconds: 3
       lat: geo.lat,
       lng: geo.lng,
       reviews: 0,
+      staffReviews: 0,
     };
     current.reviews += 1;
+    if (staffUids.has(review.userId || review.authorId)) current.staffReviews += 1;
     groups.set(key, current);
   });
 
@@ -596,6 +663,7 @@ const adminBackfillReviewHeatmap = onCall({ invoker: "public", timeoutSeconds: 3
         date: row.date,
         placeId: row.placeId,
         reviews: row.reviews,
+        staffReviews: row.staffReviews,
         backfilledAt: FieldValue.serverTimestamp(),
       }, { merge: true });
     });
