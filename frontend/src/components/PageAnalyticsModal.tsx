@@ -27,6 +27,7 @@ export const PageAnalyticsModal: React.FC<{ pathname: string; onClose: () => voi
     const [data, setData] = useState<PageAnalyticsResult | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [excludeStaff, setExcludeStaff] = useState(true);
     const panelRef = useSheetDismiss(onClose);
     const path = normalizeAnalyticsPath(pathname);
 
@@ -34,7 +35,7 @@ export const PageAnalyticsModal: React.FC<{ pathname: string; onClose: () => voi
         setLoading(true);
         setError('');
         try {
-            setData(await getPageAnalytics(path, 30));
+            setData(await getPageAnalytics(path, 30, excludeStaff));
         } catch (loadError) {
             console.error('PageAnalyticsModal: load failed', loadError);
             setError('No se pudieron cargar las estadísticas de esta página. Comprueba que tu cuenta Jefe tiene el claim admin activo.');
@@ -46,7 +47,7 @@ export const PageAnalyticsModal: React.FC<{ pathname: string; onClose: () => voi
     useEffect(() => {
         void load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [path]);
+    }, [path, excludeStaff]);
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -83,7 +84,11 @@ export const PageAnalyticsModal: React.FC<{ pathname: string; onClose: () => voi
                         </h2>
                         <p className="mt-1 break-all font-mono text-xs text-[var(--lt-text-muted)]">{path}</p>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex items-center gap-1">
+                        <label className="mr-1 flex cursor-pointer items-center gap-1.5 text-xs text-[var(--lt-text-muted)]" title="Resta las visitas y compartidos de las cuentas Jefe">
+                            <input type="checkbox" checked={excludeStaff} onChange={(event) => setExcludeStaff(event.target.checked)} className="accent-[var(--lt-accent)]" />
+                            Quitar jefes
+                        </label>
                         <button type="button" onClick={load} disabled={loading} className="rounded-full p-2 text-[var(--lt-text-muted)] hover:bg-white/10 hover:text-[var(--lt-text)]" aria-label="Actualizar">
                             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                         </button>

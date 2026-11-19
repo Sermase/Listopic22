@@ -11,6 +11,7 @@ import {
     type AnalyticsHeatmapsResult,
     type ReviewHeatmapBackfillResult,
 } from '../../services/AnalyticsService';
+import { StaffToggle } from './PageAnalyticsTab';
 
 type PeriodDays = 7 | 30 | 90 | 365;
 
@@ -88,6 +89,7 @@ const HeatMapPanel: React.FC<{
 
 export const GeoAnalyticsTab: React.FC = () => {
     const [days, setDays] = useState<PeriodDays>(30);
+    const [excludeStaff, setExcludeStaff] = useState(true);
     const [data, setData] = useState<AnalyticsHeatmapsResult | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -98,7 +100,7 @@ export const GeoAnalyticsTab: React.FC = () => {
         setLoading(true);
         setError('');
         try {
-            setData(await getAnalyticsHeatmaps(days));
+            setData(await getAnalyticsHeatmaps(days, excludeStaff));
         } catch (loadError) {
             console.error('GeoAnalyticsTab: load failed', loadError);
             setError('No se pudieron cargar los mapas. Comprueba que las Functions nuevas están desplegadas.');
@@ -107,7 +109,7 @@ export const GeoAnalyticsTab: React.FC = () => {
         }
     };
 
-    useEffect(() => { void load(); }, [days]); // eslint-disable-line react-hooks/exhaustive-deps
+    useEffect(() => { void load(); }, [days, excludeStaff]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const rebuildReviews = async () => {
         if (!window.confirm('¿Reconstruir el histórico geográfico de reseñas? Esta operación lee las reseñas existentes una sola vez.')) return;
@@ -139,6 +141,7 @@ export const GeoAnalyticsTab: React.FC = () => {
                     <p className="mt-1 max-w-3xl text-sm text-gray-400">Conexiones por zona aproximada y lugares donde se publican reseñas. Acceso exclusivo para cuentas Jefe.</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <StaffToggle checked={excludeStaff} onChange={setExcludeStaff} />
                     <select value={days} onChange={(event) => setDays(Number(event.target.value) as PeriodDays)} className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white">
                         <option value={7}>7 días</option><option value={30}>30 días</option><option value={90}>90 días</option><option value={365}>1 año</option>
                     </select>
