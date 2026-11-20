@@ -1963,116 +1963,107 @@ export const HomePage: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Profile gate — overlay modal, solo aparece si el username es realmente inválido */}
+                {/* Profile gate — overlay modal, solo aparece si el username es realmente inválido.
+                    Se puede desplazar: en el iPhone el formulario no cabía y el botón quedaba fuera de pantalla. */}
                 {user && showProfileGate && profileGateVisible && gateChecked && gateResolvedForUserId === user.uid && (
-                    <div className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm flex items-center justify-center px-4 py-12">
-                        <div className="w-full max-w-2xl bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl">
-                            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">Completa tu perfil</h2>
-                            <p className="text-gray-400 text-sm mb-6">
-                                Antes de continuar necesitas un username válido.
+                    <div
+                        className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-sm overflow-y-auto overscroll-contain"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="profile-gate-title"
+                    >
+                        <div
+                            className="min-h-full flex items-start sm:items-center justify-center px-4"
+                            style={{
+                                paddingTop: 'calc(env(safe-area-inset-top) + 1.5rem)',
+                                paddingBottom: 'calc(env(safe-area-inset-bottom) + 1.5rem)',
+                            }}
+                        >
+                        <div className="w-full max-w-md bg-[var(--lt-card-strong)] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl">
+                            <h2 id="profile-gate-title" className="text-2xl font-bold text-[var(--lt-text)] mb-2">Elige tu nombre de usuario</h2>
+                            <p className="text-[var(--lt-text-muted)] text-sm mb-5">
+                                Es único, sin espacios y no se podrá cambiar después.
                             </p>
 
-                            <form onSubmit={handleCompleteProfileSubmit} className="space-y-4">
+                            <form onSubmit={handleCompleteProfileSubmit} className="space-y-4" noValidate>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                        Username (obligatorio)
+                                    <label htmlFor="profile-gate-username" className="block text-xs font-bold text-[var(--lt-text-muted)] uppercase mb-2">
+                                        Nombre de usuario
                                     </label>
                                     <input
+                                        id="profile-gate-username"
                                         type="text"
                                         value={gateForm.username}
-                                        onChange={(e) => handleGateFieldChange('username', e.target.value)}
+                                        onChange={(e) => handleGateFieldChange('username', e.target.value.replace(/\s+/g, ''))}
                                         maxLength={USERNAME_MAX_LENGTH}
-                                        required
-                                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
+                                        autoCapitalize="none"
+                                        autoCorrect="off"
+                                        autoComplete="off"
+                                        spellCheck={false}
+                                        enterKeyHint="done"
+                                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-base text-[var(--lt-text)] placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
                                         placeholder="sin espacios, máximo 18"
                                     />
-                                    <p className="text-[11px] text-amber-300 mt-2">
-                                        El username es único, no puede tener espacios y no se podrá cambiar después.
-                                    </p>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                            Display Name
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={gateForm.displayName}
-                                            onChange={(e) => handleGateFieldChange('displayName', e.target.value)}
-                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
-                                            placeholder="por defecto será el username"
-                                        />
+                                <details className="group rounded-xl border border-white/10 px-4 py-3">
+                                    <summary className="cursor-pointer list-none text-sm font-semibold text-[var(--lt-text-muted)] flex items-center justify-between">
+                                        Más datos (opcional)
+                                        <span className="transition-transform group-open:rotate-180">▾</span>
+                                    </summary>
+                                    <div className="mt-4 space-y-3">
+                                        {([
+                                            ['displayName', 'Nombre visible', 'por defecto, tu usuario'],
+                                            ['name', 'Nombre', ''],
+                                            ['surnames', 'Apellidos', ''],
+                                            ['location', 'Lugar', ''],
+                                        ] as const).map(([field, label, placeholder]) => (
+                                            <div key={field}>
+                                                <label htmlFor={`profile-gate-${field}`} className="block text-xs font-bold text-[var(--lt-text-muted)] uppercase mb-1.5">
+                                                    {label}
+                                                </label>
+                                                <input
+                                                    id={`profile-gate-${field}`}
+                                                    type="text"
+                                                    value={gateForm[field]}
+                                                    onChange={(e) => handleGateFieldChange(field, e.target.value)}
+                                                    className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-2.5 text-base text-[var(--lt-text)] placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
+                                                    placeholder={placeholder}
+                                                />
+                                            </div>
+                                        ))}
+                                        <div>
+                                            <label htmlFor="profile-gate-bio" className="block text-xs font-bold text-[var(--lt-text-muted)] uppercase mb-1.5">
+                                                Biografía
+                                            </label>
+                                            <textarea
+                                                id="profile-gate-bio"
+                                                value={gateForm.bio}
+                                                onChange={(e) => handleGateFieldChange('bio', e.target.value)}
+                                                rows={3}
+                                                className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-2.5 text-base text-[var(--lt-text)] placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
+                                            />
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                            Nombre
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={gateForm.name}
-                                            onChange={(e) => handleGateFieldChange('name', e.target.value)}
-                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
-                                            placeholder="opcional"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                            Apellidos
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={gateForm.surnames}
-                                            onChange={(e) => handleGateFieldChange('surnames', e.target.value)}
-                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
-                                            placeholder="opcional"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                            Lugar
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={gateForm.location}
-                                            onChange={(e) => handleGateFieldChange('location', e.target.value)}
-                                            className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
-                                            placeholder="opcional"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-300 uppercase mb-2">
-                                        Biografía
-                                    </label>
-                                    <textarea
-                                        value={gateForm.bio}
-                                        onChange={(e) => handleGateFieldChange('bio', e.target.value)}
-                                        rows={4}
-                                        className="w-full bg-[var(--lt-bg)] border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[var(--lt-accent-border)]"
-                                        placeholder="opcional"
-                                    />
-                                </div>
+                                </details>
 
                                 {gateError && (
-                                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-200">
+                                    <div role="alert" className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-sm text-red-200">
                                         {gateError}
                                     </div>
                                 )}
 
                                 <button
                                     type="submit"
-                                    disabled={gateSubmitting}
+                                    disabled={gateSubmitting || !gateForm.username.trim()}
                                     className="w-full py-3 rounded-xl text-white font-bold transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2" style={{ backgroundColor: 'var(--lt-accent)' }}
+                                    data-testid="profile-gate-submit"
                                 >
                                     {gateSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                                     Guardar y continuar
                                 </button>
                             </form>
+                        </div>
                         </div>
                     </div>
                 )}
