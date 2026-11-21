@@ -10,7 +10,7 @@ App social de comida y sitios, parte de IstariCore. Web (Firebase Hosting) y And
 - `functions/` — Cloud Functions.
 - `e2e/` — Playwright contra los emuladores de Firebase y un Algolia simulado (`run.mjs` lo arranca todo y siembra datos).
 - `firestore-tests/` — tests de las reglas de Firestore en el emulador.
-- `firestore.rules`, `storage.rules`, `firestore.indexes.json` — producción. No tocar sin aprobación.
+- `firestore.rules`, `storage.rules`, `firestore.indexes.json` — producción. Cualquier cambio va con tests de reglas en `firestore-tests/`.
 
 ## Comandos
 - Frontend: `cd frontend && npx tsc -b && npm test && npm run build`
@@ -18,8 +18,13 @@ App social de comida y sitios, parte de IstariCore. Web (Firebase Hosting) y And
 - Reglas: `cd firestore-tests && npm test`
 
 ## Despliegue (cuidado)
-- Un push o merge a `main` despliega en Firebase Hosting (`.github/workflows/firebase-hosting-merge.yml`).
-- Trabaja siempre en una rama y abre PR. Nunca hagas push a `main`, merge, ni `firebase deploy`, sin permiso explícito en esa conversación.
+En Listopic, Claude puede fusionar PRs y desplegar (Hosting, Functions y reglas) sin pedir permiso cada vez, con estas condiciones:
+- Nunca push directo a `main`: siempre rama → PR → merge, para que quede rastro y se pueda revertir. Un merge a `main` despliega Hosting (`.github/workflows/firebase-hosting-merge.yml`).
+- Antes de fusionar o desplegar, todo en verde: `tsc -b`, `npm test` y `npm run build` del frontend.
+- Reglas (`firestore.rules`, `storage.rules`): además, `cd firestore-tests && npm test` en verde, con un test nuevo para cada regla cambiada.
+- Functions: `npm run lint` y su build en verde.
+- Al terminar, informa de qué se ha desplegado y cómo revertirlo.
+- Siempre se pregunta antes de: borrar o migrar datos de producción, abrir reglas (permitir más lectura o escritura de la que había) o cambiar facturación o APIs de pago.
 
 ## Sistema visual (ya existe: extiéndelo, no lo dupliques)
 - Tokens en `frontend/src/index.css`: `@theme` (fuentes `--font-sans` Manrope, `--font-display` Space Grotesk, colores `--color-brand-*`) y variables `--lt-*` (texto, acento, peligro…), con temas en `lib/themeAmbience.ts`.

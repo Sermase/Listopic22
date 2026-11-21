@@ -14,8 +14,8 @@
 No digas "terminado" solo porque compila.
 
 ## Seguridad (innegociable)
-- Nunca desplegar sin permiso explícito.
-- Nunca tocar reglas de Firebase/Firestore de producción, ni borrar datos, sin aprobación.
+- Nunca desplegar ni tocar reglas de Firebase de producción sin permiso explícito, salvo que el `CLAUDE.md` del proyecto lo autorice (Listopic lo hace, con condiciones).
+- Nunca borrar datos de producción sin aprobación.
 - Las pruebas usan el emulador de Firebase o una cuenta de test, nunca usuarios reales.
 - Nunca subir secretos (`.env`, claves de API) al repo.
 - Preguntar antes de cualquier operación destructiva o de actualizar dependencias mayores.
