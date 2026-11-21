@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Download, Loader2, Share2, X } from 'lucide-react';
+import { Check, Download, Image as ImageIcon, Loader2, Share2, X } from 'lucide-react';
 import '@fontsource-variable/caveat';
 import {
     cardDimensions,
@@ -18,7 +18,9 @@ import { useBackToClose } from '../../hooks/useSheetDismiss';
 import { haptic } from '../../utils/haptics';
 
 type Frame = NonNullable<CardDecor['frame']> | 'none';
-type Tab = 'format' | 'theme' | 'photo' | 'frame' | 'signature';
+type Tab = 'design' | 'format' | 'theme' | 'photo' | 'frame' | 'signature';
+/** Listas: el ranking (top 5) o la portada en grande (foto, nota y criterios). */
+type ListLayout = 'ranking' | 'cover';
 
 const FORMATS: Array<{ id: ModernCardVariant; label: string; hint: string }> = [
     { id: 'story', label: 'Story', hint: 'Historias' },
@@ -37,6 +39,8 @@ interface ShareCardStudioProps {
     entity: CardEntity;
     /** Fotos para elegir (la primera, la de la tarjeta). */
     images: string[];
+    /** Listas: su portada, si tiene. Con portada, la tarjeta empieza en «Portada». */
+    coverUrl?: string;
     palette: CardPaletteId;
     onPaletteChange: (palette: CardPaletteId) => void;
     /** Premio «Archivo Visual»: marcos. */
@@ -131,6 +135,7 @@ const chipClass = (on: boolean) => `shrink-0 whitespace-nowrap rounded-full bord
 export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
     entity,
     images,
+    coverUrl,
     palette,
     onPaletteChange,
     canFrame,
@@ -139,17 +144,21 @@ export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
     onDone,
 }) => {
     useBackToClose(true, onClose);
-    // Listas con ranking: no llevan foto, salvo que se elija una de fondo.
-    const isRankedList = (entity.type === 'list' || entity.type === 'sublist') && Boolean(entity.rankItems?.length);
+    // Listas con ranking: se elige el diseño. «Ranking» no lleva foto salvo que se elija una de
+    // fondo; «Portada» es la tarjeta de siempre, con la foto en grande.
+    const hasRanking = (entity.type === 'list' || entity.type === 'sublist') && Boolean(entity.rankItems?.length);
+    const [layout, setLayout] = useState<ListLayout>(hasRanking && coverUrl ? 'cover' : 'ranking');
+    const isRankedList = hasRanking && layout === 'ranking';
+    const coverPhoto = coverUrl || images[0];
     const [variant, setVariant] = useState<ModernCardVariant>('story');
-    const [image, setImage] = useState<string | undefined>(isRankedList ? undefined : images[0]);
+    const [image, setImage] = useState<string | undefined>(isRankedList ? undefined : (hasRanking ? coverPhoto : images[0]));
     const [frame, setFrame] = useState<Frame>('none');
     // Firma: la de siempre, que aquí se puede cambiar solo para esta tarjeta.
     const defaultBadge = signing?.badges.some((b) => b.id === signing.badgeId) ? signing.badgeId : undefined;
     const [phrase, setPhrase] = useState(signing?.text || '');
     const [badgeId, setBadgeId] = useState<string | undefined>(defaultBadge);
     const [useSignature, setUseSignature] = useState(Boolean(signing?.text || defaultBadge));
-    const [tab, setTab] = useState<Tab>('theme');
+    const [tab, setTab] = useState<Tab>(hasRanking ? 'design' : 'theme');
     const [rendering, setRendering] = useState(true);
     const [busy, setBusy] = useState<'share' | 'save' | null>(null);
     const [feedback, setFeedback] = useState<string | null>(null);
@@ -165,8 +174,20 @@ export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
     if (signing && useSignature && variant !== 'landscape' && (signText || badgeLabel)) {
         decor.signature = { ...(signText ? { text: signText } : {}), ...(badgeLabel ? { badge: badgeLabel } : {}) };
     }
-    const card: CardEntity = { ...entity, imageUrl: image || entity.imageUrl, decor: Object.keys(decor).length ? decor : undefined };
-    const key = JSON.stringify([variant, palette, image, decor]);
+    const card: CardEntity = {
+        ...entity,
+        // «Portada»: sin ranking, la lista se dibuja como un sitio (foto, nota y criterios).
+        ...(hasRanking && !isRankedList ? { rankItems: undefined } : {}),
+        imageUrl: image || entity.imageUrl,
+        decor: Object.keys(decor).length ? decor : undefined,
+    };
+    const key = JSON.stringify([variant, palette, image, decor, layout]);
+    const pickLayout = (next: ListLayout) => {
+        if (next === layout) return;
+        haptic('light');
+        setLayout(next);
+        setImage(next === 'ranking' ? undefined : coverPhoto);
+    };
 
     useEffect(() => {
         let cancelled = false;
@@ -217,6 +238,7 @@ export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
     // En listas, «Sin foto» también cuenta: con una sola foto ya hay para elegir.
     const showPhotos = images.length > (isRankedList ? 0 : 1);
     const tabs: Array<{ id: Tab; label: string }> = [
+        ...(hasRanking ? [{ id: 'design' as const, label: 'Diseño' }] : []),
         { id: 'theme', label: 'Tema' },
         { id: 'format', label: 'Formato' },
         ...(showPhotos ? [{ id: 'photo' as const, label: isRankedList ? 'Fondo' : 'Foto' }] : []),
@@ -262,6 +284,50 @@ export const ShareCardStudio: React.FC<ShareCardStudioProps> = ({
                     {/* Ajustes */}
                     <div className="shrink-0 border-t border-[var(--lt-border)] bg-[var(--lt-bg-deep)] md:flex md:min-h-0 md:w-[380px] md:flex-col md:border-l md:border-t-0">
                         <div className="min-h-[148px] space-y-5 px-4 pb-1 pt-3 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-4">
+                            {hasRanking && (
+                                <section className={section('design')}>
+                                    <p className={heading}>Diseño</p>
+                                    <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Diseño de la tarjeta">
+                                        {([
+                                            { id: 'cover', label: 'Portada', hint: coverUrl ? 'La foto de la lista en grande' : 'Una foto en grande' },
+                                            { id: 'ranking', label: 'Ranking', hint: 'El top 5, con foto de cada uno' },
+                                        ] as const).map((option) => {
+                                            const active = layout === option.id;
+                                            return (
+                                                <button
+                                                    key={option.id}
+                                                    type="button"
+                                                    role="radio"
+                                                    aria-checked={active}
+                                                    aria-label={option.label}
+                                                    onClick={() => pickLayout(option.id)}
+                                                    className={`flex items-center gap-2.5 rounded-2xl border p-2 text-left transition-colors ${active ? 'border-[var(--lt-accent)] bg-[var(--lt-accent-soft)]' : 'border-[var(--lt-border)] bg-white/[0.03]'}`}
+                                                >
+                                                    <span className="grid h-12 w-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-[var(--lt-bg)]">
+                                                        {option.id === 'cover'
+                                                            ? (coverPhoto ? <img src={coverPhoto} alt="" className="h-full w-full object-cover" /> : <ImageIcon className="h-4 w-4 text-[var(--lt-text-muted)]" />)
+                                                            : (
+                                                                <span className="flex w-full flex-col gap-1 px-1.5" aria-hidden="true">
+                                                                    {[1, 2, 3].map((n) => (
+                                                                        <span key={n} className="flex items-center gap-1">
+                                                                            <span className="text-[7px] font-black leading-none text-[var(--lt-accent)]">{n}</span>
+                                                                            <span className="h-1 flex-1 rounded-full bg-white/40" />
+                                                                        </span>
+                                                                    ))}
+                                                                </span>
+                                                            )}
+                                                    </span>
+                                                    <span className="min-w-0">
+                                                        <span className="block text-xs font-bold text-[var(--lt-text)]">{option.label}</span>
+                                                        <span className="block text-[10px] leading-tight text-[var(--lt-text-muted)]">{option.hint}</span>
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            )}
+
                             <section className={section('theme')}>
                                 <p className={heading}>Tema</p>
                                 <div className="-mx-4 flex gap-3 overflow-x-auto px-5 pb-2 pt-2 md:mx-0 md:flex-wrap md:px-1" role="radiogroup" aria-label="Tema de la tarjeta">

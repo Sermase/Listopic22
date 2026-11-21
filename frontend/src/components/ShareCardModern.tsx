@@ -1220,7 +1220,8 @@ const drawVerticalContent = (
     // Sitio y ciudad: en la reseña, bien grandes.
     const placeSize = isReview ? (isStory ? 54 : isSquare ? 38 : 44) : (isStory ? 40 : 32);
     const placeName = isReview ? entity.subtitle : undefined;
-    const city = entity.city || (!isReview ? entity.subtitle : undefined);
+    // Listas: la zona del ranking (no «Lista», que ya dice la etiqueta de arriba, junto a una chincheta).
+    const city = entity.city || (isList(entity) ? entity.scopeLabel : (!isReview ? entity.subtitle : undefined));
     if (placeName || city) {
         cursorY -= placeLineHeight(ctx, placeName, city, contentWidth, placeSize);
         drawPlaceLine(ctx, placeName, city, margin, cursorY, contentWidth, placeSize);
@@ -1390,7 +1391,7 @@ const drawLandscape = (
         return;
     }
 
-    const city = entity.city || entity.subtitle;
+    const city = entity.city || (isList(entity) ? entity.scopeLabel : entity.subtitle);
     if (city) {
         drawPlaceLine(ctx, undefined, city, x, y, maxWidth, 32);
         y += 50;

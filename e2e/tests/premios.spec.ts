@@ -12,6 +12,7 @@ const shot = async (page: Page, name: string) => {
   mkdirSync(SHOTS, { recursive: true });
   await page.screenshot({ path: `${SHOTS}/${name}.png` });
 };
+const FIRESTORE = `http://${process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'}/v1/projects/demo-listopic/databases/(default)/documents`;
 const ICON = process.env.PREMIOS_PHOTO || fileURLToPath(new URL('../../frontend/public/images/listopic-app-icon.png', import.meta.url));
 // Fotos de la lista «Tarjetas E2E» (seed): PREMIOS_PHOTOS=a.jpg,b.jpg,c.jpg para capturas bonitas.
 const PLATES = (process.env.PREMIOS_PHOTOS || '').split(',').filter(Boolean);
@@ -186,5 +187,49 @@ test('tarjetas con fotos: la reseña con las suyas, sello y lista con top 5 y fo
   await expect(studio.getByRole('radio', { name: 'Sello' })).toHaveAttribute('aria-checked', 'true');
   await page.waitForTimeout(700);
   await shot(page, '10-sello');
+  expect(errors).toEqual([]);
+});
+
+test('tarjeta de lista: con portada empieza en «Portada» y se cambia a «Ranking»', async ({ page, errors }) => {
+  await servePlates(page);
+  const cover = process.env.PREMIOS_COVER;
+  await page.route('**/images/e2e-portada.jpg', (route) => route.fulfill({ path: cover || PLATES[0] || ICON }));
+  // Portada solo durante este test: la de arriba comprueba la lista sin portada.
+  const setCover = (url: string | null) => fetch(`${FIRESTORE}/lists/tarjetas?updateMask.fieldPaths=mainImageUrl`, {
+    method: 'PATCH',
+    headers: { authorization: 'Bearer owner', 'content-type': 'application/json' },
+    body: JSON.stringify({ fields: url ? { mainImageUrl: { stringValue: url } } : {} }),
+  });
+  await setCover('/images/e2e-portada.jpg');
+  try {
+    await login(page, 'jefe');
+    await page.goto('/list/tarjetas');
+    await page.getByLabel('Distancia o zona').selectOption('r:all');
+    await expect(page.getByText('Burger de foto').first()).toBeVisible();
+    await page.getByRole('button', { name: 'Más acciones' }).click();
+    await page.getByRole('button', { name: 'Compartir', exact: true }).click();
+    await page.getByRole('button', { name: /Crear tarjeta/ }).click();
+    const studio = page.getByRole('dialog', { name: 'Crear tarjeta' });
+    const design = studio.getByRole('radiogroup', { name: 'Diseño de la tarjeta' });
+    await expect(design.getByRole('radio', { name: 'Portada' })).toHaveAttribute('aria-checked', 'true');
+    // Portada: la foto se elige (la portada, la primera) y lleva marco.
+    await studio.getByRole('button', { name: 'Foto' }).click();
+    await expect(studio.getByRole('radiogroup', { name: 'Foto de la tarjeta' }).getByRole('radio', { name: 'Usar foto 1' })).toHaveAttribute('aria-checked', 'true');
+    await expect(studio.getByRole('button', { name: 'Marco' })).toBeVisible();
+    await page.waitForTimeout(700);
+    await shot(page, '11-lista-portada');
+    // Ranking: sin foto de fondo hasta que se elige, y sin marco.
+    await studio.getByRole('button', { name: 'Diseño' }).click();
+    await shot(page, '12-diseno');
+    await design.getByRole('radio', { name: 'Ranking' }).click();
+    await expect(design.getByRole('radio', { name: 'Ranking' })).toHaveAttribute('aria-checked', 'true');
+    await expect(studio.getByRole('button', { name: 'Marco' })).toHaveCount(0);
+    await studio.getByRole('button', { name: 'Fondo' }).click();
+    await expect(studio.getByRole('radiogroup', { name: 'Fondo de la tarjeta' }).getByRole('radio', { name: 'Sin foto' })).toHaveAttribute('aria-checked', 'true');
+    await page.waitForTimeout(700);
+    await shot(page, '12-lista-ranking');
+  } finally {
+    await setCover(null);
+  }
   expect(errors).toEqual([]);
 });
